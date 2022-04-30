@@ -154,14 +154,27 @@ contract NFTBondController is ERC1155 {
   function lendToVault(bytes32 bondVault, uint256 amount) external {
     require(WETH.transferFrom(msg.sender, address(this), amount), "lendToVault: transfer failed");
     require(bondVaults[bondVault].appraiser != address(0), "lendToVault: vault doesn't exist");
+    require(bondVaults[bondVault].expiration != block.timestamp, "lendToVault: expiration exceeded");
     bondVaults[bondVault].totalSupply += amount;
     bondVaults[bondVault].balance += amount;
     _mint(msg.sender, uint256(bondVault), amount, "");
   }
 
   function repayLoan(bytes32 bondVault, uint256 index, uint256 amount) external {
+    // calculates interest here and apply it to the loan
+    bondVaults[bondVault].loans[msg.sender][index].amount += getInterest(bondVault, index, msg.sender);
+    amount = (bondVaults[bondVault].loans[msg.sender][index].amount >= amount)? amount : bondVaults[bondVault].loans[msg.sender][index].amount;
     require(WETH.transferFrom(msg.sender, address(this), amount), "lendToVault: transfer failed");
-    bondVaults[bondVault].loans[msg.sender][0].amount -= amount;
+    bondVaults[bondVault].loans[msg.sender][index].amount -= amount;
+    bondVaults[bondVault].loans[msg.sender][index].start = block.timestamp;
+    if(bondVaults[bondVault].loans[msg.sender][index].amount == 0){
+      COLLATERAL_VAULT.safeTransferFrom(address(this), msg.sender, bondVaults[bondVault].loans[msg.sender][0].collateralVault, "");
+    }
+  }
+
+  function getInterest(bytes32 bondVault, uint256 index, address borrower) public view returns(uint256){
+    uint256 delta_t = block.timestamp - bondVaults[bondVault].loans[borrower][index].start; 
+    return (delta_t * bondVaults[bondVault].loans[borrower][index].interestRate * bondVaults[bondVault].loans[borrower][index].amount);
   }
 
   function canLiquidate(bytes32 bondVault, uint256 index, address borrower) public view returns(bool){
