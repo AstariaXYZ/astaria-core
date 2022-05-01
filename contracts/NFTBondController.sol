@@ -1,16 +1,19 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+interface IERC721Wrapper is IERC721 {
+  function auctionVault(bytes32 bondVault, uint256 tokenId) external;
+}
 contract NFTBondController is ERC1155 {
   bytes32 public immutable DOMAIN_SEPARATOR;
   mapping(address => uint256) public tokenNonces;
 
   string public name = "Astaria NFT Bond Vault";
   IERC20 immutable WETH;
-  IERC721 immutable COLLATERAL_VAULT;
+  IERC721Wrapper immutable COLLATERAL_VAULT;
 
   mapping(bytes32 => BondVault) bondVaults;
   mapping(address => uint256) public appraiserNonces;
@@ -45,7 +48,7 @@ contract NFTBondController is ERC1155 {
   )
   {
     WETH = IERC20(_WETH);
-    COLLATERAL_VAULT = IERC721(_COLLATERAL_VAULT);
+    COLLATERAL_VAULT = IERC721Wrapper(_COLLATERAL_VAULT);
     uint256 chainId;
     assembly {
         chainId := chainid()
@@ -187,7 +190,6 @@ contract NFTBondController is ERC1155 {
   // person calling liquidate should get some incentive from the auction
   function liquidate(bytes32 bondVault, uint256 index, address borrower) external {
     require(canLiquidate(bondVault, index, borrower), "liquidate: borrow is healthy");
-    // sets up auction
-    // transfers nft to auction
+    COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
   }
 }
