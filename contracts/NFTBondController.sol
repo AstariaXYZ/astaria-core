@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 interface IERC721Wrapper is IERC721 {
   function auctionVault(bytes32 bondVault, uint256 tokenId) external;
@@ -27,7 +28,9 @@ contract NFTBondController is ERC1155 {
       uint256 totalSupply;
       uint256 balance; // WETH balance of vault=
       mapping(address => Loan[]) loans; // all open borrows in vault
+      uint256 loanCount;
       uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
+      uint256 maturity; // epoch when the loan becomes due
   }
 
   // could be replaced with a single byte32 value, pass in merkle proof to liquidate
@@ -59,7 +62,7 @@ contract NFTBondController is ERC1155 {
   string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA = "\x19\x01";
   // keccak256("Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)");
   bytes32 private constant PERMIT_SIGNATURE_HASH = keccak256("Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)");
-  bytes32 private constant NEW_VAULT_SIGNATURE_HASH = keccak256("NewBondVault(address appraiser,bytes32 root,uint256 expiration,uint256 nonce,uint256 deadline)");
+  bytes32 private constant NEW_VAULT_SIGNATURE_HASH = keccak256("NewBondVault(address appraiser,bytes32 root,uint256 expiration,uint256 nonce,uint256 deadline,uint256 maturity)");
       
 
   function permit(
@@ -96,6 +99,7 @@ contract NFTBondController is ERC1155 {
     bytes32 root,
     uint256 expiration,
     uint256 deadline,
+    uint256 maturity,
     uint8 v,
     bytes32 r,
     bytes32 s
@@ -108,7 +112,7 @@ contract NFTBondController is ERC1155 {
           abi.encodePacked(
               EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
               DOMAIN_SEPARATOR,
-              keccak256(abi.encode(NEW_VAULT_SIGNATURE_HASH, appraiser, root, expiration, appraiserNonces[appraiser]++, deadline))
+              keccak256(abi.encode(NEW_VAULT_SIGNATURE_HASH, appraiser, root, expiration, appraiserNonces[appraiser]++, deadline, maturity))
           )
       );
     address recoveredAddress = ecrecover(digest, v, r, s);
@@ -146,12 +150,27 @@ contract NFTBondController is ERC1155 {
     COLLATERAL_VAULT.transferFrom(msg.sender, address(this), collateralVault);
     // encumber vault with the proper lienPosition (needs a custom method on ERC721)
     WETH.transfer(msg.sender, amount);
+    bondVaults[bondVault].loanCount ++;
     emit NewLoan(bondVault, collateralVault, msg.sender, amount);
   }
 
   // stubbed for now
   function verifyMerkleBranch(bytes32[] calldata proof, bytes32 leaf, bytes32 root) public view returns(bool){
+    
     return true;
+  }
+
+  function claim(bytes32[] calldata merkleProof, ) external override {
+
+    // Verify the merkle proof.
+    bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
+    require(MerkleProof.verify(merkleProof, merkleRoot, node), 'MerkleDistributor: Invalid proof.');
+
+    // Mark it claimed and send the token.
+    _setClaimed(index);
+    require(IERC20(token).transfer(account, amount), 'MerkleDistributor: Transfer failed.');
+
+    emit Claimed(index, account, amount);
   }
 
   function lendToVault(bytes32 bondVault, uint256 amount) external {
@@ -184,12 +203,34 @@ contract NFTBondController is ERC1155 {
     uint256 delta_t = block.timestamp - bondVaults[bondVault].loans[borrower][index].start; 
     uint256 interest = delta_t * bondVaults[bondVault].loans[borrower][index].interestRate * bondVaults[bondVault].loans[borrower][index].amount;
     uint256 maxInterest = bondVaults[bondVault].loans[borrower][index].amount * bondVaults[bondVault].loans[borrower][index].schedule;
-    return maxInterest > interest;
+    return maxInterest > interest
+    || (bondVaults[bondVault].loans[borrower][index].end >= block.timestamp && bondVaults[bondVault].loans[borrower][index].amount > 0)
+    || (bondVaults[bondVault].maturity >= block.timestamp && bondVaults[bondVault].loans[borrower][index].amount > 0);
   }
 
   // person calling liquidate should get some incentive from the auction
   function liquidate(bytes32 bondVault, uint256 index, address borrower) external {
     require(canLiquidate(bondVault, index, borrower), "liquidate: borrow is healthy");
     COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
+    // need event
+  }
+
+  // called by the collateral wrapper when the auction is complete
+  function completeLiquidation(bytes32 bondVault, uint256 index, address borrower, uint256 amountRecovered) external {
+    require(WETH.transferFrom(msg.sender, address(this), amountRecovered), "completeLiquidation: transfer failed");
+    bondVaults[bondVault].balance += amountRecovered;
+    bondVaults[bondVault].loanCount --;
+    delete bondVaults[bondVault].loans[borrower][index];
+    // need event
+  }
+
+  function redeemBond(bytes32 bondVault, uint256 amount) external {
+    require(bondVaults[bondVault].maturity <= block.timestamp, "redeemBond: maturity not reached");
+    require(bondVaults[bondVault].loanCount == 0, "redeemBond: loans not returned");
+    require(balanceOf(msg.sender, uint256(bondVault)) >= amount);
+    _burn(msg.sender, uint256(bondVault), amount);
+    uint256 yield = amount / bondVaults[bondVault].totalSupply * bondVaults[bondVault].balance;
+    WETH.transfer(msg.sender, yield);
+    // need event
   }
 }
