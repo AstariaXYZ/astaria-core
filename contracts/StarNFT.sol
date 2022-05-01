@@ -19,7 +19,9 @@ contract SafeNFT is ERC721, IERC721Receiver {
 
     mapping(uint => mapping(ERC721 => uint)) starToUnderlying;
 
-    address public NFTBondController;
+    address immutable NFTBondController;
+
+    uint public tokenCount;
 
     event Deposit(address from, address underlyingNFT, uint256 tokenId);
 
@@ -39,20 +41,44 @@ contract SafeNFT is ERC721, IERC721Receiver {
         _;
     }
 
-    function releaseToAddress(address underlyingNFT, uint assetId, address releaseTo) public noLeins(underlyingNFT, assetId) onlyDepositor(underlyingNFT, assetId) { //call back from the fractional contract when you release the nft back in
+    function releaseToAddress(
+        address underlyingNFT,
+        uint assetId,
+        address releaseTo
+    )
+    noLeins(underlyingNFT, assetId)
+    onlyDepositor(underlyingNFT, assetId)
+    public
+    { //call back from the fractional contract when you release the nft back in
         //check leins
         ERC721(underlyingNFT).safeTransferFrom(address(this), releaseTo, assetId);
         emit ReleaseTo(releaseTo);
     }
 
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+    function tokenURI(
+        uint256 tokenId
+    )
+    view
+    virtual
+    override
+    public
+    returns (string memory) {
         (ERC721 asset, uint assetId) = starToUnderlying[tokenId]; // I think i can do this
         return asset.tokenURI(assetId);
     }
 
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) override external returns (bytes4) {
+    function onERC721Received(
+        address operator_,
+        address from_,
+        uint256 tokenId_,
+        bytes calldata data_
+    ) override external returns (bytes4) {
         require(ERC721(msg.sender).ownerOf(tokenId) == address(this));
-        emit Deposit(from, address(msg.sender), tokenId);
+        uint starId = ++tokenCount;
+        _mint(from, starId);
+        starToUnderlying[starId][ERC721(msg.sender)] = tokenId_;
+        assetToDepositor[ERC721(msg.sender)][tokenId_] = from_;
+        emit Deposit(from_, address(msg.sender), tokenId_);
         return IERC721Receiver.onERC721Received.selector;
     }
 
@@ -63,7 +89,13 @@ contract SafeNFT is ERC721, IERC721Receiver {
     //utility hooks are custom contracts that let you interact with different parts of the underlying ecosystem
     //claim airdrops etc/
     //potentially chainable?
-    function utilityHook(address underlyingNFT, uint tokenId, bytes calldata hookData) onlyDepositor(underlyingNFT, tokenId) public {
+    function utilityHook(
+        address underlyingNFT,
+        uint tokenId,
+        bytes calldata hookData
+    )
+    onlyDepositor(underlyingNFT, tokenId)
+    external {
         //scrub data here or in the hook? if here the hook cannot ever be done in a malicious way since we can prevent actions that would destroy custody
         address(utilityHooks[underlyingNFT]).delegatecall(hookData);
     }
