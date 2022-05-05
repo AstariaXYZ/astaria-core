@@ -10,13 +10,6 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract SafeNFT is ERC721, IERC721Receiver {
 
-
-    enum AssetType {
-        ERC20,
-        ERC721,
-        ERC1155
-    }
-
     bytes32 public supportedAssetsRoot;
 
     mapping(address => address) utilityHooks;
@@ -31,12 +24,9 @@ contract SafeNFT is ERC721, IERC721Receiver {
 
     uint public tokenCount;
 
-    event DepositERC20(address indexed from, address indexed tokenContract, uint256 amount);
     event DepositERC721(address indexed from, address indexed tokenContract, uint256 tokenId);
-    event DepositERC1155(address indexed from, address indexed tokenContract, uint256 amount);
     event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
 
-    error AssetNotSupported();
 
     constructor(
         address bondController_
@@ -118,24 +108,6 @@ contract SafeNFT is ERC721, IERC721Receiver {
         starToUnderlying[starId] = starMap;
         starIdDepositor[starId] = depositFor_;
         emit DepositERC721(depositFor_, tokenContract_, tokenId_);
-    }
-
-    function depositERC20(
-        address depositFor_,
-        address tokenContract_,
-        address tokenAmount_,
-        bytes32[] calldata proof_
-    ) onlySupportedAssets(tokenContract_, proof_) external {
-        emit DepositERC20(depositFor_, tokenContract_, tokenAmount_);
-    }
-
-    function depositERC1155(
-        address depositFor_,
-        address tokenContract_,
-        address tokenAmount_,
-        bytes32[] calldata proof_
-    ) onlySupportedAssets(tokenContract_, proof_) external {
-        emit DepositERC1155(depositFor_, tokenContract_, tokenAmount_);
     }
 
     function auctionUnderlyingAsset() public {
