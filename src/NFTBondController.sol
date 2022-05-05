@@ -1,8 +1,8 @@
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin/token/ERC1155/ERC1155.sol";
+import "openzeppelin/token/ERC721/IERC721.sol";
+import "openzeppelin/token/ERC20/IERC20.sol";
 
 contract NFTBondController is ERC1155 {
   bytes32 public immutable DOMAIN_SEPARATOR;

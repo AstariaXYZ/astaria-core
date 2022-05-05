@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "openzeppelin/access/Ownable.sol";
+import "openzeppelin/token/ERC721/ERC721.sol";
+import "openzeppelin/token/ERC721/IERC721Receiver.sol";
+import "openzeppelin/utils/cryptography/MerkleProof.sol";
 
 
 contract SafeNFT is ERC721, IERC721Receiver {
@@ -27,6 +27,7 @@ contract SafeNFT is ERC721, IERC721Receiver {
     event DepositERC721(address indexed from, address indexed tokenContract, uint256 tokenId);
     event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
 
+    error AssetNotSupported();
 
     constructor(
         address bondController_
@@ -98,7 +99,7 @@ contract SafeNFT is ERC721, IERC721Receiver {
     function depositERC721(
         address depositFor_,
         address tokenContract_,
-        address tokenId_,
+        uint256 tokenId_,
         bytes32[] calldata proof_
     ) onlySupportedAssets(tokenContract_, proof_) external {
         require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
