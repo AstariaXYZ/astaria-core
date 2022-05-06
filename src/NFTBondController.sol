@@ -1,4 +1,4 @@
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.13;
 
 
 import "openzeppelin/token/ERC1155/ERC1155.sol";
@@ -7,6 +7,12 @@ import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
 
 interface IERC721Wrapper is IERC721 {
+
+    enum BondControllerAction {
+        ENCUMBER,
+        UN_ENCUMBER
+    }
+    function manageEncumberance(uint tokenId_, bytes32 leinHash, BondControllerAction action) external;
     function auctionVault(bytes32 bondVault, uint256 tokenId) external;
 }
 
@@ -181,6 +187,7 @@ contract NFTBondController is ERC1155 {
         bondVaults[bondVault].loans[msg.sender].push(Loan(collateralVault, amount, interestRate, start, end, schedule));
         COLLATERAL_VAULT.transferFrom(msg.sender, address(this), collateralVault);
         // encumber vault with the proper lienPosition (needs a custom method on ERC721)
+        COLLATERAL_VAULT.manageEncumberance(collateralVault, bondVault, IERC721Wrapper.BondControllerAction.ENCUMBER);
         WETH.transfer(msg.sender, amount);
         bondVaults[bondVault].loanCount ++;
         emit NewLoan(bondVault, collateralVault, msg.sender, amount);
@@ -221,6 +228,7 @@ contract NFTBondController is ERC1155 {
         require(WETH.transferFrom(msg.sender, address(this), amount), "lendToVault: transfer failed");
         bondVaults[bondVault].loans[msg.sender][index].amount -= amount;
         bondVaults[bondVault].loans[msg.sender][index].start = block.timestamp;
+        COLLATERAL_VAULT.manageEncumberance(bondVaults[bondVault].loans[msg.sender][index].collateralVault, bondVault, IERC721Wrapper.BondControllerAction.UN_ENCUMBER);
         if (bondVaults[bondVault].loans[msg.sender][index].amount == 0) {
             COLLATERAL_VAULT.safeTransferFrom(address(this), msg.sender, bondVaults[bondVault].loans[msg.sender][0].collateralVault, "");
         }
