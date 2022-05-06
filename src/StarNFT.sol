@@ -8,6 +8,7 @@ import "openzeppelin/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
 import { NFTBondController} from "./NFTBondController.sol";
 
+
 contract StarNFT is ERC721, IERC721Receiver {
 
     bytes32 public supportedAssetsRoot;
@@ -16,10 +17,13 @@ contract StarNFT is ERC721, IERC721Receiver {
 
     mapping(uint256 => address) starIdDepositor;
 
+    mapping(uint256 => bytes32[]) liens; // tokenId to bondvaults hash
+
+    mapping(bytes32 => uint256) lienPositions; //hash the tokenId wih the vault hash and save position in array
 
     mapping(uint => bytes) public starToUnderlying;
 
-    NFTBondController public NFTBondController;
+    NFTBondController public bondController;
 
     uint public tokenCount;
 
@@ -53,6 +57,18 @@ contract StarNFT is ERC721, IERC721Receiver {
         bool isValidLeaf = MerkleProof.verify(proof_, supportedAssetsRoot, leaf);
         if (!isValidLeaf) revert AssetNotSupported();
         _;
+    }
+
+    function encumberAsset(uint tokenId_, bytes32 leinHash) external {
+        require(msg.sender == address (bondController), "Can only be sent from BondController");
+        bytes32 positionHash = keccak256(abi.encodePacked(tokenId_, leinHash));
+        liens[tokenId_].push(leinHash);
+        lienPositions[positionHash] = liens[tokenId_].length - 1;
+    }
+    function unEncumberAsset(uint tokenId_, bytes32 leinHash) external {
+        require(msg.sender == address (bondController), "Can only be sent from BondController");
+        bytes32 positionHash = keccak256(abi.encodePacked(tokenId_, leinHash));
+        delete liens[tokenId_][lienPositions[positionHash]];
     }
 
     function releaseToAddress(
