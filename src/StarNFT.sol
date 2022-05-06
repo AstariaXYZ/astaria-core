@@ -11,6 +11,11 @@ import { NFTBondController} from "./NFTBondController.sol";
 
 contract StarNFT is ERC721, IERC721Receiver {
 
+    enum BondControllerAction {
+        ENCUMBER,
+        UN_ENCUMBER
+    }
+
     bytes32 public supportedAssetsRoot;
 
     mapping(address => address) utilityHooks;
@@ -59,16 +64,25 @@ contract StarNFT is ERC721, IERC721Receiver {
         _;
     }
 
-    function encumberAsset(uint tokenId_, bytes32 leinHash) external {
+
+    function manageEncumberance(uint tokenId_, bytes32 leinHash, BondControllerAction action) external {
         require(msg.sender == address (bondController), "Can only be sent from BondController");
         bytes32 positionHash = keccak256(abi.encodePacked(tokenId_, leinHash));
-        liens[tokenId_].push(leinHash);
-        lienPositions[positionHash] = liens[tokenId_].length - 1;
+        if (action == BondControllerAction.ENCUMBER) {
+            liens[tokenId_].push(leinHash);
+            lienPositions[positionHash] = liens[tokenId_].length - 1;
+        } else if (action == BondControllerAction.UN_ENCUMBER) {
+            delete liens[tokenId_][lienPositions[positionHash]];
+        } else {
+            revert("Invalid Action");
+        }
+
     }
+
     function unEncumberAsset(uint tokenId_, bytes32 leinHash) external {
         require(msg.sender == address (bondController), "Can only be sent from BondController");
         bytes32 positionHash = keccak256(abi.encodePacked(tokenId_, leinHash));
-        delete liens[tokenId_][lienPositions[positionHash]];
+
     }
 
     function releaseToAddress(
