@@ -5,7 +5,10 @@
   "license": "MIT",
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0",
+    "@rari-capital/solmate": "^6.2.0",
     "hardhat": "^2.9.3",
+    "keccak256": "^1.0.6",
+    "merkletreejs": "^0.2.31",
     "ts-node": "^10.1.0"
   },
   "engines": {

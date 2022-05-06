@@ -6,9 +6,9 @@ import "openzeppelin/access/Ownable.sol";
 import "openzeppelin/token/ERC721/ERC721.sol";
 import "openzeppelin/token/ERC721/IERC721Receiver.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
+import { NFTBondController} from "./NFTBondController.sol";
 
-
-contract SafeNFT is ERC721, IERC721Receiver {
+contract StarNFT is ERC721, IERC721Receiver {
 
     bytes32 public supportedAssetsRoot;
 
@@ -16,11 +16,10 @@ contract SafeNFT is ERC721, IERC721Receiver {
 
     mapping(uint256 => address) starIdDepositor;
 
-    mapping(uint256 => bytes32[]) liens;
 
     mapping(uint => bytes) public starToUnderlying;
 
-    address immutable NFTBondController;
+    NFTBondController public NFTBondController;
 
     uint public tokenCount;
 
@@ -30,9 +29,9 @@ contract SafeNFT is ERC721, IERC721Receiver {
     error AssetNotSupported();
 
     constructor(
-        address bondController_
+        bytes32 supportedAssetsRoot_
     ) ERC721("Astaria NFT Wrapper", "Star NFT") {
-        NFTBondController = bondController_;
+        supportedAssetsRoot = supportedAssetsRoot_;
     }
 
     modifier onlyDepositor(uint256 assetId) {
@@ -46,7 +45,10 @@ contract SafeNFT is ERC721, IERC721Receiver {
         _;
     }
 
-    modifier onlySupportedAssets(address tokenContract_, bytes32[] calldata proof_) {
+    modifier onlySupportedAssets(
+        address tokenContract_,
+        bytes32[] calldata proof_
+    ) {
         bytes32 leaf = keccak256(abi.encodePacked(tokenContract_));
         bool isValidLeaf = MerkleProof.verify(proof_, supportedAssetsRoot, leaf);
         if (!isValidLeaf) revert AssetNotSupported();
@@ -87,11 +89,11 @@ contract SafeNFT is ERC721, IERC721Receiver {
         uint256 tokenId_,
         bytes calldata data_
     ) override external returns (bytes4) {
-        require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
-        uint starId = uint256(keccak256(abi.encodePacked(address(msg.sender), tokenId_)));
-        _mint(from_, starId);
-        starToUnderlying[starId] = abi.encodePacked(address(msg.sender), tokenId_);
-        starIdDepositor[starId] = from_;
+//        require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
+//        uint starId = uint256(keccak256(abi.encodePacked(address(msg.sender), tokenId_)));
+//        _mint(from_, starId);
+//        starToUnderlying[starId] = abi.encodePacked(address(msg.sender), tokenId_);
+//        starIdDepositor[starId] = from_;
         return IERC721Receiver.onERC721Received.selector;
     }
 
@@ -102,7 +104,7 @@ contract SafeNFT is ERC721, IERC721Receiver {
         uint256 tokenId_,
         bytes32[] calldata proof_
     ) onlySupportedAssets(tokenContract_, proof_) external {
-        require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
+        ERC721(tokenContract_).transferFrom(depositFor_, address(this), tokenId_);
         bytes memory starMap = abi.encodePacked(tokenContract_, tokenId_);
         uint starId = uint256(keccak256(starMap));
         _mint(depositFor_, starId);
