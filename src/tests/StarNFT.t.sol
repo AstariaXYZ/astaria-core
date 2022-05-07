@@ -23,10 +23,10 @@ contract StarNFTTest is DSTestPlus {
 
 
     function setUp() public {
-
+        address liquidator = hevm.addr(0x1337);
         testNFT = new Dummy721();
         _createWhitelist(address(testNFT));
-        wrapper = new StarNFT(whiteListRoot);
+        wrapper = new StarNFT(whiteListRoot, liquidator);
         testNFT.setApprovalForAll(address(wrapper), true);
     }
 

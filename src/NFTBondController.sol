@@ -5,13 +5,14 @@ import "openzeppelin/token/ERC1155/ERC1155.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
-
+import "./interfaces/IAuctionHouse.sol";
 interface IERC721Wrapper is IERC721 {
 
     enum BondControllerAction {
         ENCUMBER,
         UN_ENCUMBER
     }
+
     function manageEncumberance(uint tokenId_, bytes32 leinHash, BondControllerAction action) external;
     function auctionVault(bytes32 bondVault, uint256 tokenId) external;
 }
@@ -23,8 +24,10 @@ contract NFTBondController is ERC1155 {
     string public name = "Astaria NFT Bond Vault";
     IERC20 immutable WETH;
     IERC721Wrapper immutable COLLATERAL_VAULT;
+    IAuctionHouse immutable AUCTION_HOUSE;
 
     mapping(bytes32 => BondVault) bondVaults;
+    mapping(bytes32 => uint256) collateralAuctions;
     mapping(address => uint256) public appraiserNonces;
 
     event NewLoan(bytes32 bondVault, uint256 collateralVault, address borrower, uint256 amount);
@@ -53,7 +56,7 @@ contract NFTBondController is ERC1155 {
         uint256 schedule; // percentage margin before the borrower needs to repay
     }
 
-    constructor(string memory _uri, address _WETH, address _COLLATERAL_VAULT)
+    constructor(string memory _uri, address _WETH, address _COLLATERAL_VAULT, address _AUCTION_HOUSE)
     ERC1155(
         _uri
     )
@@ -251,13 +254,17 @@ contract NFTBondController is ERC1155 {
     // person calling liquidate should get some incentive from the auction
     function liquidate(bytes32 bondVault, uint256 index, address borrower) external {
         require(canLiquidate(bondVault, index, borrower), "liquidate: borrow is healthy");
-        COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
-        // need event
+//        COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
+        uint auctionId = AUCTION_HOUSE.createAuction();
+        collateralAuctions[bondVault] = auctionId;
     }
 
     // called by the collateral wrapper when the auction is complete
-    function completeLiquidation(bytes32 bondVault, uint256 index, address borrower, uint256 amountRecovered) external {
-        require(WETH.transferFrom(msg.sender, address(this), amountRecovered), "completeLiquidation: transfer failed");
+    function completeLiquidation(bytes32 bondVault, uint256 index, address borrower) external {
+//        require(WETH.transferFrom(msg.sender, address(this), amountRecovered), "completeLiquidation: transfer failed");
+        uint256 auctionId = collateralAuctions[bondVault];
+        uint256 amountRecovered = AUCTION_HOUSE.endAuction(auctionId);
+        //loop all active loans and repay them from 0 -> N, make it so that it can be resumed
         bondVaults[bondVault].balance += amountRecovered;
         bondVaults[bondVault].loanCount --;
         delete bondVaults[bondVault].loans[borrower][index];

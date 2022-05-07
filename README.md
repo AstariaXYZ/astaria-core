@@ -1,5 +1,11 @@
 # NFT v2 Concept
 
+## Installation
+
+Install Foundry (https://getfoundry.sh)
+- run forge install
+
+
 ## Overview
 1. Appraiser assembles a merkle tree of their offers for all NFTs on the network
 2. Appraiser signs the root, and creates a `BondVault` with an expiration
