@@ -1,5 +1,5 @@
 pragma solidity ^0.8.13;
-pragma experimenta AbiEncoderV2;
+pragma experimental ABIEncoderV2;
 
 
 interface IAuctionHouse {
@@ -15,5 +15,5 @@ interface IAuctionHouse {
 
     function createBid(uint256 auctionId, uint256 amount) external payable;
 
-    function endAuction(uint256 auctionId) external;
+    function endAuction(uint256 auctionId) external returns (uint256);
 }

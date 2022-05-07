@@ -6,6 +6,7 @@ import "openzeppelin/token/ERC721/IERC721.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
 import "./interfaces/IAuctionHouse.sol";
+
 interface IERC721Wrapper is IERC721 {
 
     enum BondControllerAction {
@@ -14,7 +15,12 @@ interface IERC721Wrapper is IERC721 {
     }
 
     function manageEncumberance(uint tokenId_, bytes32 leinHash, BondControllerAction action) external;
-    function auctionVault(bytes32 bondVault, uint256 tokenId) external;
+
+//    function auctionVault(bytes32 bondVault, uint256 tokenId) external;
+
+    function getUnderlyingFromStar(
+        uint256 starId_
+    ) external view returns (address, uint);
 }
 
 contract NFTBondController is ERC1155 {
@@ -26,11 +32,16 @@ contract NFTBondController is ERC1155 {
     IERC721Wrapper immutable COLLATERAL_VAULT;
     IAuctionHouse immutable AUCTION_HOUSE;
 
+    uint256 AUCTION_DURATION;
+    uint256 LIQUIDATION_FEE; // a percent(13) then mul by 100
+
     mapping(bytes32 => BondVault) bondVaults;
     mapping(bytes32 => uint256) collateralAuctions;
     mapping(address => uint256) public appraiserNonces;
 
     event NewLoan(bytes32 bondVault, uint256 collateralVault, address borrower, uint256 amount);
+    event Repayment(bytes32 bondVault, uint256 collateralVault, address borrower, uint256 amount);
+    event Liquidation(bytes32 bondVault, uint256 collateralVault, address borrower, uint256 amountRecovered);
     event NewBondVault(bytes32 bondVault, address appraiser, uint256 expiration);
 
     struct BondVault {
@@ -68,6 +79,8 @@ contract NFTBondController is ERC1155 {
             chainId := chainid()
         }
         DOMAIN_SEPARATOR = keccak256(abi.encode(keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"), keccak256("NFTBondController"), keccak256("1"), chainId, address(this)));
+        AUCTION_DURATION = 7 days;
+        AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
     }
     // See https://eips.ethereum.org/EIPS/eip-191
     string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA = "\x19\x01";
@@ -254,21 +267,52 @@ contract NFTBondController is ERC1155 {
     // person calling liquidate should get some incentive from the auction
     function liquidate(bytes32 bondVault, uint256 index, address borrower) external {
         require(canLiquidate(bondVault, index, borrower), "liquidate: borrow is healthy");
-//        COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
-        uint auctionId = AUCTION_HOUSE.createAuction();
+        //        COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
+        Loan[] storage loans = bondVaults[bondVault].loans[borrower];
+        uint reserve;
+
+        for (uint i = 0; i < loans.length; i++) {
+            reserve += loans[i].amount;
+        }
+
+        reserve += (reserve * LIQUIDATION_FEE / 100);
+
+        (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT.getUnderlyingFromStar(loans[0].collateralVault);
+        uint256 auctionId = AUCTION_HOUSE.createAuction(tokenId, tokenContract, AUCTION_DURATION, reserve, bondVault);
         collateralAuctions[bondVault] = auctionId;
     }
 
     // called by the collateral wrapper when the auction is complete
+    //do we need index? since we have to liquidation everything from ground up
     function completeLiquidation(bytes32 bondVault, uint256 index, address borrower) external {
-//        require(WETH.transferFrom(msg.sender, address(this), amountRecovered), "completeLiquidation: transfer failed");
         uint256 auctionId = collateralAuctions[bondVault];
         uint256 amountRecovered = AUCTION_HOUSE.endAuction(auctionId);
+        uint256 liquidationFee = amountRecovered * LIQUIDATION_FEE / 100;
+        amountRecovered -= liquidationFee;
         //loop all active loans and repay them from 0 -> N, make it so that it can be resumed
-        bondVaults[bondVault].balance += amountRecovered;
-        bondVaults[bondVault].loanCount --;
-        delete bondVaults[bondVault].loans[borrower][index];
-        // need event
+        Loan[] storage loans = bondVaults[bondVault].loans[borrower];
+        uint256 collateralVault = loans[0].collateralVault;
+        for (uint i = 0; (i < loans.length && amountRecovered > 0); i++) {
+            uint loanRepaymentAmount = loans[i].amount;
+
+            bondVaults[bondVault].balance += loanRepaymentAmount;
+            if(amountRecovered >= loanRepaymentAmount) {
+                amountRecovered -= loanRepaymentAmount;
+            } else {
+                loanRepaymentAmount = amountRecovered;
+                amountRecovered = 0;
+            }
+
+            bondVaults[bondVault].loanCount--;
+
+            delete bondVaults[bondVault].loans[borrower][i];
+
+            emit Repayment(bondVault, collateralVault, borrower, loanRepaymentAmount);
+        }
+//        uint callerPayout = liquidationFee / 2;
+//        WETH.transfer(msg.sender, callerPayout);
+//        WETH.transfer(PROTOCOL_TREASURY, liquidationFee - callerPayout);
+        emit Liquidation(bondVault, collateralVault, borrower, amountRecovered);
     }
 
     function redeemBond(bytes32 bondVault, uint256 amount) external {
