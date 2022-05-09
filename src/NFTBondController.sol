@@ -1,6 +1,5 @@
 pragma solidity ^0.8.13;
 
-
 import "openzeppelin/token/ERC1155/ERC1155.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
@@ -8,19 +7,28 @@ import "openzeppelin/utils/cryptography/MerkleProof.sol";
 import "./interfaces/IAuctionHouse.sol";
 
 interface IERC721Wrapper is IERC721 {
-
-    enum BondControllerAction {
+    enum LienAction {
         ENCUMBER,
         UN_ENCUMBER
     }
 
-    function manageEncumberance(uint tokenId_, bytes32 leinHash, BondControllerAction action) external;
+    function manageLien(
+        uint256 tokenId_,
+        bytes32 lienHash,
+        LienAction action
+    ) external;
 
-//    function auctionVault(bytes32 bondVault, uint256 tokenId) external;
+    function auctionVault(
+        bytes32 bondVault,
+        uint256 tokenId,
+        uint256 reservePrice
+    ) external;
 
-    function getUnderlyingFromStar(
-        uint256 starId_
-    ) external view returns (address, uint);
+    //
+    //    function getUnderlyingFromStar(uint256 starId_)
+    //        external
+    //        view
+    //        returns (address, uint256);
 }
 
 contract NFTBondController is ERC1155 {
@@ -39,10 +47,28 @@ contract NFTBondController is ERC1155 {
     mapping(bytes32 => uint256) collateralAuctions;
     mapping(address => uint256) public appraiserNonces;
 
-    event NewLoan(bytes32 bondVault, uint256 collateralVault, address borrower, uint256 amount);
-    event Repayment(bytes32 bondVault, uint256 collateralVault, address borrower, uint256 amount);
-    event Liquidation(bytes32 bondVault, uint256 collateralVault, address borrower, uint256 amountRecovered);
-    event NewBondVault(bytes32 bondVault, address appraiser, uint256 expiration);
+    event NewLoan(
+        bytes32 bondVault,
+        uint256 collateralVault,
+        address borrower,
+        uint256 amount
+    );
+    event Repayment(
+        bytes32 bondVault,
+        uint256 collateralVault,
+        address borrower,
+        uint256 amount
+    );
+    event Liquidation(
+        bytes32 bondVault,
+        uint256 collateralVault,
+        address borrower
+    );
+    event NewBondVault(
+        bytes32 bondVault,
+        address appraiser,
+        uint256 expiration
+    );
 
     struct BondVault {
         // bytes32 root; // root for the appraisal merkle tree provided by the appraiser
@@ -67,27 +93,46 @@ contract NFTBondController is ERC1155 {
         uint256 schedule; // percentage margin before the borrower needs to repay
     }
 
-    constructor(string memory _uri, address _WETH, address _COLLATERAL_VAULT, address _AUCTION_HOUSE)
-    ERC1155(
-        _uri
-    )
-    {
+    constructor(
+        string memory _uri,
+        address _AUTHORITY,
+        address _WETH,
+        address _COLLATERAL_VAULT,
+        address _AUCTION_HOUSE
+    ) ERC1155(_uri) {
         WETH = IERC20(_WETH);
         COLLATERAL_VAULT = IERC721Wrapper(_COLLATERAL_VAULT);
         uint256 chainId;
         assembly {
             chainId := chainid()
         }
-        DOMAIN_SEPARATOR = keccak256(abi.encode(keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"), keccak256("NFTBondController"), keccak256("1"), chainId, address(this)));
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256("NFTBondController"),
+                keccak256("1"),
+                chainId,
+                address(this)
+            )
+        );
         AUCTION_DURATION = 7 days;
         AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
     }
-    // See https://eips.ethereum.org/EIPS/eip-191
-    string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA = "\x19\x01";
-    // keccak256("Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)");
-    bytes32 private constant PERMIT_SIGNATURE_HASH = keccak256("Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)");
-    bytes32 private constant NEW_VAULT_SIGNATURE_HASH = keccak256("NewBondVault(address appraiser,bytes32 root,uint256 expiration,uint256 nonce,uint256 deadline,uint256 maturity)");
 
+    // See https://eips.ethereum.org/EIPS/eip-191
+    string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA =
+        "\x19\x01";
+    // keccak256("Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)");
+    bytes32 private constant PERMIT_SIGNATURE_HASH =
+        keccak256(
+            "Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)"
+        );
+    bytes32 private constant NEW_VAULT_SIGNATURE_HASH =
+        keccak256(
+            "NewBondVault(address appraiser,bytes32 root,uint256 expiration,uint256 nonce,uint256 deadline,uint256 maturity)"
+        );
 
     function permit(
         address owner_,
@@ -100,12 +145,20 @@ contract NFTBondController is ERC1155 {
     ) external {
         require(owner_ != address(0), "ERC1155: Owner cannot be 0");
         require(block.timestamp < deadline, "ERC1155: Expired");
-        bytes32 digest =
-        keccak256(
+        bytes32 digest = keccak256(
             abi.encodePacked(
                 EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
                 DOMAIN_SEPARATOR,
-                keccak256(abi.encode(PERMIT_SIGNATURE_HASH, owner_, spender, approved, tokenNonces[owner_]++, deadline))
+                keccak256(
+                    abi.encode(
+                        PERMIT_SIGNATURE_HASH,
+                        owner_,
+                        spender,
+                        approved,
+                        tokenNonces[owner_]++,
+                        deadline
+                    )
+                )
             )
         );
         address recoveredAddress = ecrecover(digest, v, r, s);
@@ -128,46 +181,60 @@ contract NFTBondController is ERC1155 {
         bytes32 r,
         bytes32 s
     ) external {
-        require(appraiser != address(0), "NFTBondController.newBondVault(): Appraiser address cannot be zero");
-        require(bondVaults[root].appraiser != address(0), "NFTBondController.newBondVault(): Root of BondVault already instantiated");
-        require(block.timestamp < deadline, "NFTBondController.newBondVault(): Expired");
+        require(
+            appraiser != address(0),
+            "NFTBondController.newBondVault(): Appraiser address cannot be zero"
+        );
+        require(
+            bondVaults[root].appraiser != address(0),
+            "NFTBondController.newBondVault(): Root of BondVault already instantiated"
+        );
+        require(
+            block.timestamp < deadline,
+            "NFTBondController.newBondVault(): Expired"
+        );
         bytes32 digest = keccak256(
             encodeBondVaultHash(appraiser, root, expiration, deadline, maturity)
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
-        require(recoveredAddress == appraiser, "newBondVault: Invalid Signature");
+        require(
+            recoveredAddress == appraiser,
+            "newBondVault: Invalid Signature"
+        );
         _newBondVault(appraiser, root, expiration);
     }
 
     function encodeBondVaultHash(
         address appraiser,
         bytes32 root,
-        uint expiration,
-        uint deadline,
-        uint maturity
+        uint256 expiration,
+        uint256 deadline,
+        uint256 maturity
     ) internal returns (bytes memory) {
-        return abi.encodePacked(
-            EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-            DOMAIN_SEPARATOR,
-            keccak256(
-                abi.encode(
-                    NEW_VAULT_SIGNATURE_HASH,
-                    appraiser,
-                    root,
-                    expiration,
-                    appraiserNonces[appraiser]++,
-                    deadline,
-                    maturity
+        return
+            abi.encodePacked(
+                EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
+                DOMAIN_SEPARATOR,
+                keccak256(
+                    abi.encode(
+                        NEW_VAULT_SIGNATURE_HASH,
+                        appraiser,
+                        root,
+                        expiration,
+                        appraiserNonces[appraiser]++,
+                        deadline,
+                        maturity
+                    )
                 )
-            )
-        );
+            );
     }
 
     function _newBondVault(
         address appraiser,
         bytes32 root,
-        uint256 expiration) internal {
+        uint256 expiration
+    ) internal {
         BondVault storage bondVault = bondVaults[root];
         bondVault.appraiser = appraiser;
         bondVault.expiration = expiration;
@@ -176,14 +243,36 @@ contract NFTBondController is ERC1155 {
 
     // maxAmount so the borrower has the option to borrow less
     // collateralVault is a tokenId that is precomputed off chain using the elements from the request
-    function commitToLoan(bytes32[] calldata proof, bytes32 bondVault, uint256 collateralVault, uint256 maxAmount, uint256 interestRate, uint256 start, uint256 end, uint256 amount, uint256 lienPosition, uint256 schedule) external {
-        require(msg.sender != COLLATERAL_VAULT.ownerOf(collateralVault), "NFTBondController.commitToLoan(): Owner of the collateral vault must be msg.sender");
-        require(bondVaults[bondVault].appraiser != address(0), "NFTBondController.commitToLoan(): Attempting to instantiate an unitialized vault");
-        require(maxAmount >= amount, "NFTBondController.commitToLoan(): Attempting to borrow more than maxAmount");
-        require(amount <= bondVaults[bondVault].balance, "NFTBondController.commitToLoan():  Attempting to borrow more than available in the specified vault");
+    function commitToLoan(
+        bytes32[] calldata proof,
+        bytes32 bondVault,
+        uint256 collateralVault,
+        uint256 maxAmount,
+        uint256 interestRate,
+        uint256 start,
+        uint256 end,
+        uint256 amount,
+        uint256 lienPosition,
+        uint256 schedule
+    ) external {
+        require(
+            msg.sender != COLLATERAL_VAULT.ownerOf(collateralVault),
+            "NFTBondController.commitToLoan(): Owner of the collateral vault must be msg.sender"
+        );
+        require(
+            bondVaults[bondVault].appraiser != address(0),
+            "NFTBondController.commitToLoan(): Attempting to instantiate an unitialized vault"
+        );
+        require(
+            maxAmount >= amount,
+            "NFTBondController.commitToLoan(): Attempting to borrow more than maxAmount"
+        );
+        require(
+            amount <= bondVaults[bondVault].balance,
+            "NFTBondController.commitToLoan():  Attempting to borrow more than available in the specified vault"
+        );
         // filler hashing schema for merkle tree
-        bytes32 leaf =
-        keccak256(
+        bytes32 leaf = keccak256(
             abi.encodePacked(
                 keccak256(
                     abi.encode(
@@ -198,129 +287,193 @@ contract NFTBondController is ERC1155 {
                 )
             )
         );
-        require(verifyMerkleBranch(proof, leaf, bondVault), "NFTBondController.commitToLoan(): Verification of provided merkle branch failed for the bondVault and parameters");
+        require(
+            verifyMerkleBranch(proof, leaf, bondVault),
+            "NFTBondController.commitToLoan(): Verification of provided merkle branch failed for the bondVault and parameters"
+        );
 
-        bondVaults[bondVault].loans[msg.sender].push(Loan(collateralVault, amount, interestRate, start, end, schedule));
-        COLLATERAL_VAULT.transferFrom(msg.sender, address(this), collateralVault);
+        bondVaults[bondVault].loans[msg.sender].push(
+            Loan(collateralVault, amount, interestRate, start, end, schedule)
+        );
+        COLLATERAL_VAULT.transferFrom(
+            msg.sender,
+            address(this),
+            collateralVault
+        );
         // encumber vault with the proper lienPosition (needs a custom method on ERC721)
-        COLLATERAL_VAULT.manageEncumberance(collateralVault, bondVault, IERC721Wrapper.BondControllerAction.ENCUMBER);
+        COLLATERAL_VAULT.manageLien(
+            collateralVault,
+            bondVault,
+            IERC721Wrapper.LienAction.ENCUMBER
+        );
         WETH.transfer(msg.sender, amount);
-        bondVaults[bondVault].loanCount ++;
+        bondVaults[bondVault].loanCount++;
         emit NewLoan(bondVault, collateralVault, msg.sender, amount);
     }
 
     // stubbed for now
-    function verifyMerkleBranch(bytes32[] calldata proof, bytes32 leaf, bytes32 root) public view returns (bool){
-
+    function verifyMerkleBranch(
+        bytes32[] calldata proof,
+        bytes32 leaf,
+        bytes32 root
+    ) public view returns (bool) {
         return true;
     }
 
-    //  function claim(bytes32[] calldata merkleProof ) external override {
-    //
-    //    // Verify the merkle proof.
-    //    bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
-    //    require(MerkleProof.verify(merkleProof, merkleRoot, node), 'MerkleDistributor: Invalid proof.');
-    //
-    //    // Mark it claimed and send the token.
-    //    _setClaimed(index);
-    //    require(IERC20(token).transfer(account, amount), 'MerkleDistributor: Transfer failed.');
-    //
-    //    emit Claimed(index, account, amount);
-    //  }
-
     function lendToVault(bytes32 bondVault, uint256 amount) external {
-        require(WETH.transferFrom(msg.sender, address(this), amount), "lendToVault: transfer failed");
-        require(bondVaults[bondVault].appraiser != address(0), "lendToVault: vault doesn't exist");
-        require(bondVaults[bondVault].expiration != block.timestamp, "lendToVault: expiration exceeded");
+        require(
+            WETH.transferFrom(msg.sender, address(this), amount),
+            "lendToVault: transfer failed"
+        );
+        require(
+            bondVaults[bondVault].appraiser != address(0),
+            "lendToVault: vault doesn't exist"
+        );
+        require(
+            bondVaults[bondVault].expiration != block.timestamp,
+            "lendToVault: expiration exceeded"
+        );
         bondVaults[bondVault].totalSupply += amount;
         bondVaults[bondVault].balance += amount;
         _mint(msg.sender, uint256(bondVault), amount, "");
     }
 
-    function repayLoan(bytes32 bondVault, uint256 index, uint256 amount) external {
+    function repayLoan(
+        bytes32 bondVault,
+        uint256 index,
+        uint256 amount
+    ) external {
         // calculates interest here and apply it to the loan
-        bondVaults[bondVault].loans[msg.sender][index].amount += getInterest(bondVault, index, msg.sender);
-        amount = (bondVaults[bondVault].loans[msg.sender][index].amount >= amount) ? amount : bondVaults[bondVault].loans[msg.sender][index].amount;
-        require(WETH.transferFrom(msg.sender, address(this), amount), "lendToVault: transfer failed");
+        bondVaults[bondVault].loans[msg.sender][index].amount += getInterest(
+            bondVault,
+            index,
+            msg.sender
+        );
+        amount = (bondVaults[bondVault].loans[msg.sender][index].amount >=
+            amount)
+            ? amount
+            : bondVaults[bondVault].loans[msg.sender][index].amount;
+        require(
+            WETH.transferFrom(msg.sender, address(this), amount),
+            "repayLoan: transfer failed"
+        );
         bondVaults[bondVault].loans[msg.sender][index].amount -= amount;
         bondVaults[bondVault].loans[msg.sender][index].start = block.timestamp;
-        COLLATERAL_VAULT.manageEncumberance(bondVaults[bondVault].loans[msg.sender][index].collateralVault, bondVault, IERC721Wrapper.BondControllerAction.UN_ENCUMBER);
+        COLLATERAL_VAULT.manageLien(
+            bondVaults[bondVault].loans[msg.sender][index].collateralVault,
+            bondVault,
+            IERC721Wrapper.LienAction.UN_ENCUMBER
+        );
         if (bondVaults[bondVault].loans[msg.sender][index].amount == 0) {
-            COLLATERAL_VAULT.safeTransferFrom(address(this), msg.sender, bondVaults[bondVault].loans[msg.sender][0].collateralVault, "");
+            COLLATERAL_VAULT.safeTransferFrom(
+                address(this),
+                msg.sender,
+                bondVaults[bondVault].loans[msg.sender][0].collateralVault,
+                ""
+            );
         }
     }
 
-    function getInterest(bytes32 bondVault, uint256 index, address borrower) public view returns (uint256){
-        uint256 delta_t = block.timestamp - bondVaults[bondVault].loans[borrower][index].start;
-        return (delta_t * bondVaults[bondVault].loans[borrower][index].interestRate * bondVaults[bondVault].loans[borrower][index].amount);
+    function getInterest(
+        bytes32 bondVault,
+        uint256 index,
+        address borrower
+    ) public view returns (uint256) {
+        uint256 delta_t = block.timestamp -
+            bondVaults[bondVault].loans[borrower][index].start;
+        return (delta_t *
+            bondVaults[bondVault].loans[borrower][index].interestRate *
+            bondVaults[bondVault].loans[borrower][index].amount);
     }
 
-    function canLiquidate(bytes32 bondVault, uint256 index, address borrower) public view returns (bool){
-        uint256 delta_t = block.timestamp - bondVaults[bondVault].loans[borrower][index].start;
-        uint256 interest = delta_t * bondVaults[bondVault].loans[borrower][index].interestRate * bondVaults[bondVault].loans[borrower][index].amount;
-        uint256 maxInterest = bondVaults[bondVault].loans[borrower][index].amount * bondVaults[bondVault].loans[borrower][index].schedule;
-        return maxInterest > interest
-        || (bondVaults[bondVault].loans[borrower][index].end >= block.timestamp && bondVaults[bondVault].loans[borrower][index].amount > 0)
-        || (bondVaults[bondVault].maturity >= block.timestamp && bondVaults[bondVault].loans[borrower][index].amount > 0);
+    function canLiquidate(
+        bytes32 bondVault,
+        uint256 index,
+        address borrower
+    ) public view returns (bool) {
+        uint256 delta_t = block.timestamp -
+            bondVaults[bondVault].loans[borrower][index].start;
+        uint256 interest = delta_t *
+            bondVaults[bondVault].loans[borrower][index].interestRate *
+            bondVaults[bondVault].loans[borrower][index].amount;
+        uint256 maxInterest = bondVaults[bondVault]
+        .loans[borrower][index].amount *
+            bondVaults[bondVault].loans[borrower][index].schedule;
+        return
+            maxInterest > interest ||
+            (bondVaults[bondVault].loans[borrower][index].end >=
+                block.timestamp &&
+                bondVaults[bondVault].loans[borrower][index].amount > 0) ||
+            (bondVaults[bondVault].maturity >= block.timestamp &&
+                bondVaults[bondVault].loans[borrower][index].amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(bytes32 bondVault, uint256 index, address borrower) external {
-        require(canLiquidate(bondVault, index, borrower), "liquidate: borrow is healthy");
+    function liquidate(
+        bytes32 bondVault,
+        uint256 index,
+        address borrower
+    ) external {
+        require(
+            canLiquidate(bondVault, index, borrower),
+            "liquidate: borrow is healthy"
+        );
         //        COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
         Loan[] storage loans = bondVaults[bondVault].loans[borrower];
-        uint reserve;
+        uint256 reserve;
 
-        for (uint i = 0; i < loans.length; i++) {
+        for (uint256 i = 0; i < loans.length; i++) {
             reserve += loans[i].amount;
+            //            delete bondVaults[bondVault].loans[borrower][i];
         }
+        delete bondVaults[bondVault].loans[borrower];
 
-        reserve += (reserve * LIQUIDATION_FEE / 100);
+        reserve += ((reserve * LIQUIDATION_FEE) / 100);
 
-        (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT.getUnderlyingFromStar(loans[0].collateralVault);
-        uint256 auctionId = AUCTION_HOUSE.createAuction(tokenId, tokenContract, AUCTION_DURATION, reserve, bondVault);
-        collateralAuctions[bondVault] = auctionId;
+        COLLATERAL_VAULT.auctionVault(
+            bondVault,
+            loans[0].collateralVault,
+            reserve
+        );
+
+        //        (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
+        //        .getUnderlyingFromStar(loans[0].collateralVault);
+        //        uint256 auctionId = AUCTION_HOUSE.createAuction(
+        //            tokenId,
+        //            tokenContract,
+        //            AUCTION_DURATION,
+        //            reserve,
+        //            bondVault
+        //        );
+        //        collateralAuctions[bondVault] = auctionId;
     }
 
     // called by the collateral wrapper when the auction is complete
     //do we need index? since we have to liquidation everything from ground up
-    function completeLiquidation(bytes32 bondVault, uint256 index, address borrower) external {
-        uint256 auctionId = collateralAuctions[bondVault];
-        uint256 amountRecovered = AUCTION_HOUSE.endAuction(auctionId);
-        uint256 liquidationFee = amountRecovered * LIQUIDATION_FEE / 100;
-        amountRecovered -= liquidationFee;
-        //loop all active loans and repay them from 0 -> N, make it so that it can be resumed
-        Loan[] storage loans = bondVaults[bondVault].loans[borrower];
-        uint256 collateralVault = loans[0].collateralVault;
-        for (uint i = 0; (i < loans.length && amountRecovered > 0); i++) {
-            uint loanRepaymentAmount = loans[i].amount;
-
-            bondVaults[bondVault].balance += loanRepaymentAmount;
-            if(amountRecovered >= loanRepaymentAmount) {
-                amountRecovered -= loanRepaymentAmount;
-            } else {
-                loanRepaymentAmount = amountRecovered;
-                amountRecovered = 0;
-            }
-
-            bondVaults[bondVault].loanCount--;
-
-            delete bondVaults[bondVault].loans[borrower][i];
-
-            emit Repayment(bondVault, collateralVault, borrower, loanRepaymentAmount);
-        }
-//        uint callerPayout = liquidationFee / 2;
-//        WETH.transfer(msg.sender, callerPayout);
-//        WETH.transfer(PROTOCOL_TREASURY, liquidationFee - callerPayout);
-        emit Liquidation(bondVault, collateralVault, borrower, amountRecovered);
+    function completeLiquidation(
+        bytes32 bondVault,
+        uint256 collateralVault,
+        address borrower
+    ) external {
+        emit Liquidation(bondVault, collateralVault, borrower);
     }
 
     function redeemBond(bytes32 bondVault, uint256 amount) external {
-        require(bondVaults[bondVault].maturity <= block.timestamp, "redeemBond: maturity not reached");
-        require(bondVaults[bondVault].loanCount == 0, "redeemBond: loans not returned");
+        require(
+            bondVaults[bondVault].maturity <= block.timestamp,
+            "redeemBond: maturity not reached"
+        );
+        require(
+            bondVaults[bondVault].loanCount == 0,
+            "redeemBond: loans not returned"
+        );
         require(balanceOf(msg.sender, uint256(bondVault)) >= amount);
+
         _burn(msg.sender, uint256(bondVault), amount);
-        uint256 yield = amount / bondVaults[bondVault].totalSupply * bondVaults[bondVault].balance;
+
+        uint256 yield = (amount / bondVaults[bondVault].totalSupply) *
+            bondVaults[bondVault].balance;
+
         WETH.transfer(msg.sender, yield);
         // need event
     }
