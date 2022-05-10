@@ -5,6 +5,7 @@ pragma experimental ABIEncoderV2;
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 
 import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
+import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
@@ -105,6 +106,25 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         );
         if (!isValidLeaf) revert AssetNotSupported();
         _;
+    }
+
+    modifier onlyOwner(uint256 starId) {
+        require(ownerOf(starId) == msg.sender, "onlyOwner: only the owner");
+        _;
+    }
+
+    // needs reentrancyGuard
+    function flashAction(uint256 starId, address destination, bytes calldata data) external onlyOwner(starId) {
+        address addr;
+        uint256 tokenId;
+        (addr, tokenId) = getUnderlyingFromStar(starId);
+        IERC721 nft = IERC721(addr);
+        // transfer the NFT to the desitnation optimistically
+        nft.safeTransferFrom(address(this), destination, tokenId);
+        // invoke the call passed by the msg.sender
+        destination.call(data);
+        // validate that the NFT returned after the call
+        require(nft.ownerOf(tokenId) == address(this), "flashAction: NFT not returned");
     }
 
     function setBondController(address _bondController) external requiresAuth {
