@@ -23,8 +23,7 @@ interface ISecurityHook {
 /*
  TODO: registry proxies for selling across the different networks(opensea)
     - setup the wrapper contract to verify erc1271 signatures so that it can work with looks rare
-    - lien support against the asset, so that it can be removed only when its been purchased successfully, the auction is for the star NFT
-    - on successful auction, unwrap and deliver the underlying.
+    - setup cancel auction flow(owner must repay reserve of auction)
  */
 contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     enum LienAction {
@@ -40,8 +39,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     bytes32 supportedAssetsRoot;
 
     mapping(address => address) securityHooks;
-
-    mapping(uint256 => address) starIdDepositor;
 
     mapping(uint256 => bytes) starToUnderlying;
 
@@ -84,15 +81,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
         supportedAssetsRoot = supportedAssetsRoot_;
         liquidationOperator = liquidationOperator_;
-    }
-
-    modifier onlyDepositor(uint256 assetId) {
-        //decode the asset based on its type
-        require(
-            msg.sender == starIdDepositor[assetId],
-            "only depositor can call this"
-        );
-        _;
     }
 
     modifier noActiveLiens(uint256 assetId) {
@@ -179,8 +167,11 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     //this is prob so dirty
     function listUnderlyingForBuyNow(bytes32 listHash_, uint256 assetId_)
         public
-        onlyDepositor(assetId_)
     {
+        require(
+            msg.sender == ownerOf(assetId_),
+            "Only the holder of the token can do this"
+        );
         (address underlyingAsset, uint256 underlyingId) = getUnderlyingFromStar(
             assetId_
         );
@@ -191,10 +182,12 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     }
 
     //this is prob so dirty
-    function deListUnderlyingForBuyNow(uint256 assetId_)
-        public
-        onlyDepositor(assetId_)
-    {
+    function deListUnderlyingForBuyNow(uint256 assetId_) public {
+        require(
+            msg.sender == ownerOf(assetId_),
+            "Only the holder of the token can do this"
+        );
+
         bytes32 digest = bytes32(listHashes[bytes32(assetId_)]);
         listHashes[digest] = uint256(0);
         listHashes[bytes32(assetId_)] = uint256(0);
@@ -211,7 +204,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         address recovered = ECDSA.recover(hash_, signature_);
         //needs a check to ensure the asset isn't in liquidation(if the order coming through is a buy now order)
         if (
-            recovered == starIdDepositor[listHashes[hash_]] ||
+            recovered == ownerOf(listHashes[hash_]) ||
             recovered == liquidationOperator
         ) {
             return 0x1626ba7e;
@@ -250,14 +243,17 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     {
         //check liens
         require(
-            msg.sender == starIdDepositor[starTokenId] ||
-                msg.sender == address(this),
+            msg.sender == ownerOf(starTokenId) || msg.sender == address(this),
             "You don't have permission to call this"
         );
         (address underlyingAsset, uint256 assetId) = getUnderlyingFromStar(
             starTokenId
         );
-        ERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
+        IERC721(underlyingAsset).transferFrom(
+            address(this),
+            releaseTo,
+            assetId
+        );
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
 
@@ -314,7 +310,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         );
         _mint(depositFor_, starId);
         starToUnderlying[starId] = starMap;
-        starIdDepositor[starId] = depositFor_;
         emit DepositERC721(depositFor_, tokenContract_, tokenId_);
     }
 
@@ -336,7 +331,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         starIdToAuctionId[_tokenId] = auctionId;
     }
 
-    function handleEndAuction(uint256 _tokenId) external {
+    function endAuction(uint256 _tokenId) external {
         require(
             starIdToAuctionId[_tokenId] > uint256(0),
             "Auction doesn't exist"
@@ -348,7 +343,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         //clean up all storage around the underlying asset, listings, liens, deposit information
         delete liens[_tokenId];
         //        delete lienCount[_tokenId];
-        delete starIdDepositor[_tokenId];
         delete starToUnderlying[_tokenId];
         bytes32 listHashMap = bytes32(_tokenId);
         bytes32 listHashMapInverse = bytes32(listHashes[listHashMap]);
