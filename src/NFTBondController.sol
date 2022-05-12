@@ -47,26 +47,13 @@ contract NFTBondController is ERC1155 {
     mapping(bytes32 => uint256) collateralAuctions;
     mapping(address => uint256) public appraiserNonces;
 
-    event NewLoan(
-        bytes32 bondVault,
-        uint256 collateralVault,
-        address borrower,
-        uint256 amount
-    );
-    event Repayment(
-        bytes32 bondVault,
-        uint256 collateralVault,
-        address borrower,
-        uint256 amount
-    );
-    event Liquidation(
-        bytes32 bondVault,
-        uint256 collateralVault,
-        address borrower
-    );
+    event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
+    event Repayment(bytes32 bondVault, uint256 collateralVault, uint256 amount);
+    event Liquidation(bytes32 bondVault, uint256 collateralVault);
     event NewBondVault(
-        bytes32 bondVault,
         address appraiser,
+        bytes32 bondVault,
+        bytes32 contentHash,
         uint256 expiration
     );
 
@@ -75,7 +62,7 @@ contract NFTBondController is ERC1155 {
         address appraiser; // address of the appraiser for the BondVault
         uint256 totalSupply;
         uint256 balance; // WETH balance of vault=
-        mapping(address => Loan[]) loans; // all open borrows in vault
+        mapping(uint256 => Loan[]) loans; // all open borrows in vault
         uint256 loanCount;
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
         uint256 maturity; // epoch when the loan becomes due
@@ -83,7 +70,7 @@ contract NFTBondController is ERC1155 {
 
     // could be replaced with a single byte32 value, pass in merkle proof to liquidate
     struct Loan {
-        uint256 collateralVault; // ERC721, 1155 will be wrapped to create a singular tokenId
+        //        uint256 collateralVault; // ERC721, 1155 will be wrapped to create a singular tokenId
         uint256 amount; // loans are only in wETH
         uint256 interestRate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
         uint256 start; // epoch time of last interest accrual
@@ -177,6 +164,7 @@ contract NFTBondController is ERC1155 {
         uint256 expiration,
         uint256 deadline,
         uint256 maturity,
+        bytes32 contentHash,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -202,7 +190,7 @@ contract NFTBondController is ERC1155 {
             recoveredAddress == appraiser,
             "newBondVault: Invalid Signature"
         );
-        _newBondVault(appraiser, root, expiration);
+        _newBondVault(appraiser, root, contentHash, expiration);
     }
 
     function encodeBondVaultHash(
@@ -233,12 +221,13 @@ contract NFTBondController is ERC1155 {
     function _newBondVault(
         address appraiser,
         bytes32 root,
+        bytes32 contentHash,
         uint256 expiration
     ) internal {
         BondVault storage bondVault = bondVaults[root];
         bondVault.appraiser = appraiser;
         bondVault.expiration = expiration;
-        emit NewBondVault(root, appraiser, expiration);
+        emit NewBondVault(appraiser, root, contentHash, expiration);
     }
 
     // maxAmount so the borrower has the option to borrow less
@@ -292,23 +281,23 @@ contract NFTBondController is ERC1155 {
             "NFTBondController.commitToLoan(): Verification of provided merkle branch failed for the bondVault and parameters"
         );
 
-        bondVaults[bondVault].loans[msg.sender].push(
-            Loan(collateralVault, amount, interestRate, start, end, schedule)
+        bondVaults[bondVault].loans[collateralVault].push(
+            Loan(amount, interestRate, start, end, schedule)
         );
-        COLLATERAL_VAULT.transferFrom(
-            msg.sender,
-            address(this),
-            collateralVault
-        );
+        //        COLLATERAL_VAULT.transferFrom( //dont need to transfer in the vault token, it holds the debt position
+        //            msg.sender,
+        //            address(this),
+        //            collateralVault
+        //        );
         // encumber vault with the proper lienPosition (needs a custom method on ERC721)
         COLLATERAL_VAULT.manageLien(
             collateralVault,
             bondVault,
             IERC721Wrapper.LienAction.ENCUMBER
         );
-        WETH.transfer(msg.sender, amount);
+        WETH.transfer(msg.sender, amount); //TODO: transfer from the beacon proxy of the bond vault
         bondVaults[bondVault].loanCount++;
-        emit NewLoan(bondVault, collateralVault, msg.sender, amount);
+        emit NewLoan(bondVault, collateralVault, amount);
     }
 
     // stubbed for now
@@ -340,35 +329,38 @@ contract NFTBondController is ERC1155 {
 
     function repayLoan(
         bytes32 bondVault,
+        uint256 collateralVault,
         uint256 index,
         uint256 amount
     ) external {
         // calculates interest here and apply it to the loan
-        bondVaults[bondVault].loans[msg.sender][index].amount += getInterest(
+        bondVaults[bondVault]
+        .loans[collateralVault][index].amount += getInterest(
             bondVault,
             index,
-            msg.sender
+            collateralVault
         );
-        amount = (bondVaults[bondVault].loans[msg.sender][index].amount >=
+        amount = (bondVaults[bondVault].loans[collateralVault][index].amount >=
             amount)
             ? amount
-            : bondVaults[bondVault].loans[msg.sender][index].amount;
+            : bondVaults[bondVault].loans[collateralVault][index].amount;
         require(
             WETH.transferFrom(msg.sender, address(this), amount),
             "repayLoan: transfer failed"
         );
-        bondVaults[bondVault].loans[msg.sender][index].amount -= amount;
-        bondVaults[bondVault].loans[msg.sender][index].start = block.timestamp;
+        bondVaults[bondVault].loans[collateralVault][index].amount -= amount;
+        bondVaults[bondVault].loans[collateralVault][index].start = block
+            .timestamp;
         COLLATERAL_VAULT.manageLien(
-            bondVaults[bondVault].loans[msg.sender][index].collateralVault,
+            collateralVault,
             bondVault,
             IERC721Wrapper.LienAction.UN_ENCUMBER
         );
-        if (bondVaults[bondVault].loans[msg.sender][index].amount == 0) {
+        if (bondVaults[bondVault].loans[collateralVault][index].amount == 0) {
             COLLATERAL_VAULT.safeTransferFrom(
                 address(this),
                 msg.sender,
-                bondVaults[bondVault].loans[msg.sender][0].collateralVault,
+                collateralVault,
                 ""
             );
         }
@@ -377,64 +369,61 @@ contract NFTBondController is ERC1155 {
     function getInterest(
         bytes32 bondVault,
         uint256 index,
-        address borrower
+        uint256 collateralVault
     ) public view returns (uint256) {
         uint256 delta_t = block.timestamp -
-            bondVaults[bondVault].loans[borrower][index].start;
+            bondVaults[bondVault].loans[collateralVault][index].start;
         return (delta_t *
-            bondVaults[bondVault].loans[borrower][index].interestRate *
-            bondVaults[bondVault].loans[borrower][index].amount);
+            bondVaults[bondVault].loans[collateralVault][index].interestRate *
+            bondVaults[bondVault].loans[collateralVault][index].amount);
     }
 
     function canLiquidate(
         bytes32 bondVault,
         uint256 index,
-        address borrower
+        uint256 collateralVault
     ) public view returns (bool) {
         uint256 delta_t = block.timestamp -
-            bondVaults[bondVault].loans[borrower][index].start;
+            bondVaults[bondVault].loans[collateralVault][index].start;
         uint256 interest = delta_t *
-            bondVaults[bondVault].loans[borrower][index].interestRate *
-            bondVaults[bondVault].loans[borrower][index].amount;
+            bondVaults[bondVault].loans[collateralVault][index].interestRate *
+            bondVaults[bondVault].loans[collateralVault][index].amount;
         uint256 maxInterest = bondVaults[bondVault]
-        .loans[borrower][index].amount *
-            bondVaults[bondVault].loans[borrower][index].schedule;
+        .loans[collateralVault][index].amount *
+            bondVaults[bondVault].loans[collateralVault][index].schedule;
         return
             maxInterest > interest ||
-            (bondVaults[bondVault].loans[borrower][index].end >=
+            (bondVaults[bondVault].loans[collateralVault][index].end >=
                 block.timestamp &&
-                bondVaults[bondVault].loans[borrower][index].amount > 0) ||
+                bondVaults[bondVault].loans[collateralVault][index].amount >
+                0) ||
             (bondVaults[bondVault].maturity >= block.timestamp &&
-                bondVaults[bondVault].loans[borrower][index].amount > 0);
+                bondVaults[bondVault].loans[collateralVault][index].amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
     function liquidate(
         bytes32 bondVault,
         uint256 index,
-        address borrower
+        uint256 collateralVault
     ) external {
         require(
-            canLiquidate(bondVault, index, borrower),
+            canLiquidate(bondVault, index, collateralVault),
             "liquidate: borrow is healthy"
         );
         //        COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
-        Loan[] storage loans = bondVaults[bondVault].loans[borrower];
+        Loan[] storage loans = bondVaults[bondVault].loans[collateralVault];
         uint256 reserve;
 
         for (uint256 i = 0; i < loans.length; i++) {
             reserve += loans[i].amount;
             //            delete bondVaults[bondVault].loans[borrower][i];
         }
-        delete bondVaults[bondVault].loans[borrower];
+        delete bondVaults[bondVault].loans[collateralVault];
 
         reserve += ((reserve * LIQUIDATION_FEE) / 100);
 
-        COLLATERAL_VAULT.auctionVault(
-            bondVault,
-            loans[0].collateralVault,
-            reserve
-        );
+        COLLATERAL_VAULT.auctionVault(bondVault, collateralVault, reserve);
 
         //        (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
         //        .getUnderlyingFromStar(loans[0].collateralVault);
@@ -450,12 +439,10 @@ contract NFTBondController is ERC1155 {
 
     // called by the collateral wrapper when the auction is complete
     //do we need index? since we have to liquidation everything from ground up
-    function completeLiquidation(
-        bytes32 bondVault,
-        uint256 collateralVault,
-        address borrower
-    ) external {
-        emit Liquidation(bondVault, collateralVault, borrower);
+    function completeLiquidation(bytes32 bondVault, uint256 collateralVault)
+        external
+    {
+        emit Liquidation(bondVault, collateralVault);
     }
 
     function redeemBond(bytes32 bondVault, uint256 amount) external {

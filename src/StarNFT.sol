@@ -25,6 +25,11 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         UN_ENCUMBER
     }
 
+    //    struct Asset {
+    //        address tokenContract;
+    //        uint256 tokenId;
+    //    }
+    //    mapping(uint256 => Asset) starToUnderlying;
     bytes32 supportedAssetsRoot;
 
     mapping(address => address) utilityHooks;
@@ -249,7 +254,9 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
             tokenId_
         );
         bytes memory starMap = abi.encodePacked(tokenContract_, tokenId_);
-        uint256 starId = uint256(keccak256(starMap));
+        uint256 starId = uint256(
+            keccak256(abi.encodePacked(tokenContract_, tokenId_))
+        );
         _mint(depositFor_, starId);
         starToUnderlying[starId] = starMap;
         starIdDepositor[starId] = depositFor_;
@@ -316,7 +323,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
             hookData_
         );
         //hook takes asset, id, and uder defined call data
-
+        //TODO: push it into a proxy for flashing.
         address(utilityHooks[underlyingAsset]).delegatecall(hookData);
         //check to ensure that the assets have come back to this contracts context after the delegate call
         require(
