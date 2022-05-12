@@ -12,7 +12,9 @@ import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "./interfaces/IAuctionHouse.sol";
 
-//import {NFTBondController} from "./NFTBondController.sol";
+interface IFlashAction {
+    function onFlashAction(bytes calldata data) external returns (bytes32);
+}
 
 /*
  TODO: registry proxies for selling across the different networks(opensea)
@@ -119,17 +121,29 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     }
 
     // needs reentrancyGuard
-    function flashAction(uint256 starId, address destination, bytes calldata data) external onlyOwner(starId) {
+    function flashAction(
+        IFlashAction receiver,
+        uint256 starId,
+        bytes calldata data
+    ) external onlyOwner(starId) {
         address addr;
         uint256 tokenId;
         (addr, tokenId) = getUnderlyingFromStar(starId);
         IERC721 nft = IERC721(addr);
         // transfer the NFT to the desitnation optimistically
-        nft.safeTransferFrom(address(this), destination, tokenId);
+        nft.transferFrom(address(this), address(receiver), tokenId);
         // invoke the call passed by the msg.sender
-        destination.call(data);
+        require(
+            receiver.onFlashAction(data) ==
+                keccak256("FlashAction.onFlashAction"),
+            "flashAction: callback failed"
+        );
+
         // validate that the NFT returned after the call
-        require(nft.ownerOf(tokenId) == address(this), "flashAction: NFT not returned");
+        require(
+            nft.ownerOf(tokenId) == address(this),
+            "flashAction: NFT not returned"
+        );
     }
 
     function setBondController(address _bondController) external requiresAuth {
