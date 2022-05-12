@@ -45,11 +45,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
 
     mapping(uint256 => bytes) starToUnderlying;
 
-    mapping(uint256 => bytes32[]) liens; // tokenId to bondvaults hash
-
-    mapping(bytes32 => uint256) lienPositions;
-
-    mapping(uint256 => uint256) lienCount;
+    mapping(uint256 => uint256) liens; // tokenId to bondvaults hash only can move up and down.
 
     mapping(uint256 => uint256) starIdToAuctionId;
 
@@ -71,6 +67,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         uint256 assetId,
         address indexed to
     );
+
+    event LienUpdated(bytes32 bondVault, uint256 starId, LienAction action);
 
     error AssetNotSupported();
 
@@ -98,10 +96,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     }
 
     modifier noActiveLiens(uint256 assetId) {
-        require(
-            uint256(0) == lienCount[assetId],
-            "must be no liens to call this"
-        );
+        require(uint256(0) == liens[assetId], "must be no liens to call this");
         _;
     }
 
@@ -227,7 +222,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
 
     function manageLien(
         uint256 tokenId_,
-        bytes32 lienHash,
+        bytes32 bondVault,
         LienAction action
     ) public {
         require(
@@ -235,23 +230,18 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
             "Can only be sent from the BondController and there "
         );
 
-        bytes32 positionHash = keccak256(abi.encodePacked(tokenId_, lienHash));
-
         if (action == LienAction.ENCUMBER) {
-            liens[tokenId_].push(lienHash);
-            lienPositions[positionHash] = liens[tokenId_].length - 1;
             unchecked {
-                lienCount[tokenId_]++;
+                liens[tokenId_]++;
             }
         } else if (action == LienAction.UN_ENCUMBER) {
-            lienPositions[positionHash] = 0;
             unchecked {
-                lienCount[tokenId_]--;
+                liens[tokenId_]--;
             }
-            delete liens[tokenId_][lienPositions[positionHash]];
         } else {
             revert("Invalid Action");
         }
+        emit LienUpdated(bondVault, tokenId_, action);
     }
 
     function releaseToAddress(uint256 starTokenId, address releaseTo)
@@ -357,7 +347,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         );
         //clean up all storage around the underlying asset, listings, liens, deposit information
         delete liens[_tokenId];
-        delete lienCount[_tokenId];
+        //        delete lienCount[_tokenId];
         delete starIdDepositor[_tokenId];
         delete starToUnderlying[_tokenId];
         bytes32 listHashMap = bytes32(_tokenId);

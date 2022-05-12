@@ -14,7 +14,7 @@ interface IERC721Wrapper is IERC721 {
 
     function manageLien(
         uint256 tokenId_,
-        bytes32 lienHash,
+        bytes32 bondVault,
         LienAction action
     ) external;
 
@@ -295,7 +295,8 @@ contract NFTBondController is ERC1155 {
             bondVault,
             IERC721Wrapper.LienAction.ENCUMBER
         );
-        WETH.transfer(msg.sender, amount); //TODO: transfer from the beacon proxy of the bond vault
+        WETH.transfer(msg.sender, amount);
+        //TODO: transfer from the beacon proxy of the bond vault
         bondVaults[bondVault].loanCount++;
         emit NewLoan(bondVault, collateralVault, amount);
     }
