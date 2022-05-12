@@ -16,6 +16,10 @@ interface IFlashAction {
     function onFlashAction(bytes calldata data) external returns (bytes32);
 }
 
+interface ISecurityHook {
+    function getState(address, uint256) external returns (bytes memory);
+}
+
 /*
  TODO: registry proxies for selling across the different networks(opensea)
     - setup the wrapper contract to verify erc1271 signatures so that it can work with looks rare
@@ -35,7 +39,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     //    mapping(uint256 => Asset) starToUnderlying;
     bytes32 supportedAssetsRoot;
 
-    mapping(address => address) utilityHooks;
+    mapping(address => address) securityHooks;
 
     mapping(uint256 => address) starIdDepositor;
 
@@ -131,6 +135,17 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         (addr, tokenId) = getUnderlyingFromStar(starId);
         IERC721 nft = IERC721(addr);
         // transfer the NFT to the desitnation optimistically
+
+        //look to see if we have a security handler for this asset
+
+        bytes memory preTransferState;
+
+        if (securityHooks[addr] != address(0))
+            preTransferState = ISecurityHook(securityHooks[addr]).getState(
+                addr,
+                tokenId
+            );
+
         nft.transferFrom(address(this), address(receiver), tokenId);
         // invoke the call passed by the msg.sender
         require(
@@ -138,6 +153,15 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
                 keccak256("FlashAction.onFlashAction"),
             "flashAction: callback failed"
         );
+
+        if (securityHooks[addr] != address(0)) {
+            bytes memory postTransferState = ISecurityHook(securityHooks[addr])
+                .getState(addr, tokenId);
+            require(
+                keccak256(preTransferState) == keccak256(postTransferState),
+                "Data must be the same"
+            );
+        }
 
         // validate that the NFT returned after the call
         require(
@@ -148,6 +172,13 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
 
     function setBondController(address _bondController) external requiresAuth {
         bondController = _bondController;
+    }
+
+    function setSecurityHook(address _hookTarget, address _securityHook)
+        external
+        requiresAuth
+    {
+        securityHooks[_hookTarget] = _securityHook;
     }
 
     //this is prob so dirty
@@ -337,32 +368,5 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         //release
 
         releaseToAddress(_tokenId, winner);
-    }
-
-    //utility hooks are custom contracts that let you interact with different parts of the underlying ecosystem
-    //claim airdrops etc/
-    //potentially chainable?
-    function utilityHook(uint256 starTokenId, bytes calldata hookData_)
-        external
-        onlyDepositor(starTokenId) //move to anyone who holds a flash pass.
-    {
-        //scrub data here or in the hook? if here the hook cannot ever be done in a malicious way since we can prevent actions that would destroy custody
-        (address underlyingAsset, uint256 assetId) = getUnderlyingFromStar(
-            starTokenId
-        );
-
-        bytes memory hookData = abi.encodePacked(
-            underlyingAsset,
-            assetId,
-            hookData_
-        );
-        //hook takes asset, id, and uder defined call data
-        //TODO: push it into a proxy for flashing.
-        address(utilityHooks[underlyingAsset]).delegatecall(hookData);
-        //check to ensure that the assets have come back to this contracts context after the delegate call
-        require(
-            ERC721(underlyingAsset).ownerOf(assetId) == address(this),
-            "Wrapper must retain control of the asset after the utility operation"
-        );
     }
 }
