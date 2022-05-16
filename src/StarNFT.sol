@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-
 import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
@@ -70,14 +69,12 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
 
     constructor(
         Authority AUTHORITY_,
-        address _AUCTION_HOUSE,
         bytes32 supportedAssetsRoot_,
         address liquidationOperator_
     )
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria NFT Wrapper", "Star NFT")
     {
-        AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
         supportedAssetsRoot = supportedAssetsRoot_;
         liquidationOperator = liquidationOperator_;
     }
@@ -154,6 +151,10 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
 
     function setBondController(address _bondController) external requiresAuth {
         bondController = _bondController;
+    }
+
+    function setAuctionHouse(address _AUCTION_HOUSE) external requiresAuth {
+        AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
     }
 
     function setSecurityHook(address _hookTarget, address _securityHook)

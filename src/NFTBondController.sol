@@ -38,7 +38,6 @@ contract NFTBondController is ERC1155 {
     string public name = "Astaria NFT Bond Vault";
     IERC20 immutable WETH;
     IERC721Wrapper immutable COLLATERAL_VAULT;
-    IAuctionHouse immutable AUCTION_HOUSE;
 
     uint256 AUCTION_DURATION;
     uint256 LIQUIDATION_FEE; // a percent(13) then mul by 100
@@ -56,6 +55,8 @@ contract NFTBondController is ERC1155 {
         bytes32 contentHash,
         uint256 expiration
     );
+
+    error InvalidAddress(address);
 
     struct BondVault {
         // bytes32 root; // root for the appraisal merkle tree provided by the appraiser
@@ -82,10 +83,8 @@ contract NFTBondController is ERC1155 {
 
     constructor(
         string memory _uri,
-        address _AUTHORITY,
         address _WETH,
-        address _COLLATERAL_VAULT,
-        address _AUCTION_HOUSE
+        address _COLLATERAL_VAULT
     ) ERC1155(_uri) {
         WETH = IERC20(_WETH);
         COLLATERAL_VAULT = IERC721Wrapper(_COLLATERAL_VAULT);
@@ -105,7 +104,6 @@ contract NFTBondController is ERC1155 {
             )
         );
         AUCTION_DURATION = 7 days;
-        AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
     }
 
     // See https://eips.ethereum.org/EIPS/eip-191
@@ -174,7 +172,7 @@ contract NFTBondController is ERC1155 {
             "NFTBondController.newBondVault(): Appraiser address cannot be zero"
         );
         require(
-            bondVaults[root].appraiser != address(0),
+            bondVaults[root].appraiser == address(0),
             "NFTBondController.newBondVault(): Root of BondVault already instantiated"
         );
         require(
@@ -182,7 +180,14 @@ contract NFTBondController is ERC1155 {
             "NFTBondController.newBondVault(): Expired"
         );
         bytes32 digest = keccak256(
-            encodeBondVaultHash(appraiser, root, expiration, deadline, maturity)
+            encodeBondVaultHash(
+                appraiser,
+                root,
+                expiration,
+                deadline,
+                maturity,
+                appraiserNonces[msg.sender]++
+            )
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
@@ -190,6 +195,7 @@ contract NFTBondController is ERC1155 {
             recoveredAddress == appraiser,
             "newBondVault: Invalid Signature"
         );
+
         _newBondVault(appraiser, root, contentHash, expiration);
     }
 
@@ -198,8 +204,9 @@ contract NFTBondController is ERC1155 {
         bytes32 root,
         uint256 expiration,
         uint256 deadline,
-        uint256 maturity
-    ) internal returns (bytes memory) {
+        uint256 maturity,
+        uint256 appraiserNonce
+    ) public returns (bytes memory) {
         return
             abi.encodePacked(
                 EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
@@ -210,7 +217,7 @@ contract NFTBondController is ERC1155 {
                         appraiser,
                         root,
                         expiration,
-                        appraiserNonces[appraiser]++,
+                        appraiserNonce,
                         deadline,
                         maturity
                     )
