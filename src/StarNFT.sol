@@ -216,12 +216,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         uint256 tokenId_,
         bytes32 bondVault,
         LienAction action
-    ) public {
-        require(
-            msg.sender == address(bondController),
-            "Can only be sent from the BondController and there "
-        );
-
+    ) public requiresAuth {
         if (action == LienAction.ENCUMBER) {
             unchecked {
                 liens[tokenId_]++;
@@ -303,12 +298,15 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
             address(this),
             tokenId_
         );
-        bytes memory starMap = abi.encodePacked(tokenContract_, tokenId_);
         uint256 starId = uint256(
             keccak256(abi.encodePacked(tokenContract_, tokenId_))
         );
         _mint(depositFor_, starId);
-        starToUnderlying[starId] = starMap;
+        starToUnderlying[starId] = Asset({
+            tokenContract: tokenContract_,
+            tokenId: tokenId_
+        });
+
         emit DepositERC721(depositFor_, tokenContract_, tokenId_);
     }
 
