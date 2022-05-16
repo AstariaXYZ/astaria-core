@@ -11,5 +11,5 @@
 	path = lib/v3-periphery
 	url = https://github.com/Uniswap/v3-periphery
 [submodule "lib/auction-house"]
-	path = lib/auction-house.git
-	url = https://github.com/AstariaXYZ/auction-house.git
+	path = lib/auction-house
+	url = https://github.com/AstariaXYZ/auction-house
