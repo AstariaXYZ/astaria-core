@@ -31,16 +31,15 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         UN_ENCUMBER
     }
 
-    //    struct Asset {
-    //        address tokenContract;
-    //        uint256 tokenId;
-    //    }
-    //    mapping(uint256 => Asset) starToUnderlying;
+    struct Asset {
+        address tokenContract;
+        uint256 tokenId;
+    }
+    mapping(uint256 => Asset) starToUnderlying;
+
     bytes32 supportedAssetsRoot;
 
     mapping(address => address) securityHooks;
-
-    mapping(uint256 => bytes) starToUnderlying;
 
     mapping(uint256 => uint256) liens; // tokenId to bondvaults hash only can move up and down.
 
@@ -262,8 +261,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         view
         returns (address, uint256)
     {
-        bytes memory assetData = starToUnderlying[starId_];
-        return abi.decode(assetData, (address, uint256));
+        Asset memory underlying = starToUnderlying[starId_];
+        return (underlying.tokenContract, underlying.tokenId);
     }
 
     function tokenURI(uint256 starTokenId)
