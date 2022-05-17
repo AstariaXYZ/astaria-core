@@ -206,7 +206,7 @@ contract NFTBondController is ERC1155 {
         uint256 deadline,
         uint256 maturity,
         uint256 appraiserNonce
-    ) public returns (bytes memory) {
+    ) public view returns (bytes memory) {
         return
             abi.encodePacked(
                 EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,

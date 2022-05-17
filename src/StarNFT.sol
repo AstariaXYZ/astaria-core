@@ -65,7 +65,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
 
     event LienUpdated(bytes32 bondVault, uint256 starId, LienAction action);
 
-    error AssetNotSupported();
+    error AssetNotSupported(address);
+    error AuctionStartedForCollateral(uint256);
 
     constructor(
         Authority AUTHORITY_,
@@ -94,7 +95,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
             supportedAssetsRoot,
             leaf
         );
-        if (!isValidLeaf) revert AssetNotSupported();
+        if (!isValidLeaf) revert AssetNotSupported(tokenContract_);
         _;
     }
 
@@ -213,6 +214,15 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         }
     }
 
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) internal virtual override {
+        if (starIdToAuctionId[tokenId] > 0)
+            revert AuctionStartedForCollateral(tokenId);
+    }
+
     function manageLien(
         uint256 tokenId_,
         bytes32 bondVault,
@@ -238,7 +248,9 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     {
         //check liens
         require(
-            msg.sender == ownerOf(starTokenId) || msg.sender == address(this),
+            msg.sender == ownerOf(starTokenId) ||
+                (msg.sender == address(this) &&
+                    starIdToAuctionId[starTokenId] != uint256(0)),
             "You don't have permission to call this"
         );
         (address underlyingAsset, uint256 assetId) = getUnderlyingFromStar(
