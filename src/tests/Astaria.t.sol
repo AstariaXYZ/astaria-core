@@ -3,13 +3,15 @@ pragma solidity ^0.8.13;
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {StarNFT} from "../StarNFT.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {Strings2} from "./utils/Strings2.sol";
 import {NFTBondController} from "../NFTBondController.sol";
 import {AuctionHouse} from "auction/AuctionHouse.sol";
+import {Strings2} from "./utils/Strings2.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -19,8 +21,6 @@ contract Dummy721 is MockERC721 {
         _mint(msg.sender, 2);
     }
 }
-
-import "openzeppelin/token/ERC20/IERC20.sol";
 
 interface IWETH9 is IERC20 {
     function deposit() external payable;
@@ -56,7 +56,10 @@ contract AstariaTest is Test {
     bytes32 public whiteListRoot;
     bytes32[] public nftProof;
 
-    bytes32 testBondVaultHash = bytes32(uint256(0x123));
+    bytes32 testBondVaultHash =
+        bytes32(
+            0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798
+        );
 
     address appraiser = hevm.addr(0x1339);
 
@@ -68,7 +71,7 @@ contract AstariaTest is Test {
         address liquidator = hevm.addr(0x1337); //remove
 
         testNFT = new Dummy721();
-        _createWhitelist(address(testNFT));
+        _createWhitelist(address(0x938e5ed128458139A9c3306aCE87C60BCBA9c067));
         STAR_NFT = new StarNFT(MRA, whiteListRoot, liquidator);
 
         BOND_CONTROLLER = new NFTBondController(
@@ -88,7 +91,38 @@ contract AstariaTest is Test {
         STAR_NFT.setAuctionHouse(address(AUCTION_HOUSE));
         testNFT.setApprovalForAll(address(STAR_NFT), true);
         _setupRolesAndCapabilities();
-        _depositNFTs();
+        _createTestBondVault();
+        //        _depositNFTs();
+    }
+
+    function onERC1155BatchReceived(
+        address operator,
+        address from,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata data
+    ) external returns (bytes4) {
+        return
+            bytes4(
+                keccak256(
+                    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"
+                )
+            );
+    }
+
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) external returns (bytes4) {
+        return
+            bytes4(
+                keccak256(
+                    "onERC1155Received(address,address,uint256,uint256,bytes)"
+                )
+            );
     }
 
     function _setupRolesAndCapabilities() internal {
@@ -149,17 +183,32 @@ contract AstariaTest is Test {
         Ensure our deposit function emits the correct events
         Ensure that the token Id's are correct
      */
-    function _depositNFTs() internal {
+    //    function _depositNFTs() internal {
+    //        STAR_NFT.depositERC721(
+    //            address(this),
+    //            address(testNFT),
+    //            uint256(1),
+    //            nftProof
+    //        );
+    //        STAR_NFT.depositERC721(
+    //            address(this),
+    //            address(testNFT),
+    //            uint256(2),
+    //            nftProof
+    //        );
+    //    }
+    /**
+        Ensure our deposit function emits the correct events
+        Ensure that the token Id's are correct
+     */
+
+    function _depositNFTs(address tokenContract, uint256 tokenId) internal {
+        ERC721(tokenContract).setApprovalForAll(address(STAR_NFT), true);
+
         STAR_NFT.depositERC721(
             address(this),
-            address(testNFT),
-            uint256(1),
-            nftProof
-        );
-        STAR_NFT.depositERC721(
-            address(this),
-            address(testNFT),
-            uint256(2),
+            address(tokenContract),
+            uint256(tokenId),
             nftProof
         );
     }
@@ -168,7 +217,7 @@ contract AstariaTest is Test {
     /**
         Ensure that we can create a new bond vault and we emit the correct events
      */
-    function testBondVaultCreation() public {
+    function _createTestBondVault() internal {
         bytes32 hash = keccak256(
             BOND_CONTROLLER.encodeBondVaultHash(
                 appraiser,
@@ -215,31 +264,51 @@ contract AstariaTest is Test {
         return proof;
     }
 
+    function _hijackNFT(address tokenContract, uint256 tokenId) internal {
+        ERC721 hijack = ERC721(tokenContract);
+
+        address currentOwner = hijack.ownerOf(tokenId);
+        hevm.startPrank(currentOwner);
+        hijack.transferFrom(currentOwner, address(this), tokenId);
+        hevm.stopPrank();
+    }
+
     /**
        Ensure that we can borrow capital from the bond controller
        ensure that we're emitting the correct events
        ensure that we're repaying the proper collateral
-
    */
     function testCommitToLoan() public {
-        //bytes32[] calldata proof,
-        //        bytes32 bondVault,
-        //        uint256 collateralVault,
-        //        uint256 maxAmount,
-        //        uint256 interestRate,
-        //        uint256 start,
-        //        uint256 end,
-        //        uint256 amount,
-        //        uint256 lienPosition,
-        //        uint256 schedule
-        uint256 collateralVault = uint256(1);
-        uint256 maxAmount = uint256(15 ether);
-        uint256 interestRate = uint256(20 gwei);
-        uint256 start = block.timestamp + 15 days;
-        uint256 end = block.timestamp + 15 days;
-        uint256 amount = uint256(5 ether);
-        uint256 lienPosition = uint256(0);
-        uint256 schedule = uint256(1 gwei);
+        hevm.deal(address(this), 1000 ether);
+        WETH9.deposit{value: 50 ether}();
+        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
+
+        _hijackNFT(
+            address(0x938e5ed128458139A9c3306aCE87C60BCBA9c067), //based ghoul
+            uint256(10)
+        );
+
+        _depositNFTs(
+            address(0x938e5ed128458139A9c3306aCE87C60BCBA9c067), //based ghoul
+            uint256(10)
+        );
+        uint256 collateralVault = uint256(
+            keccak256(
+                abi.encodePacked(
+                    address(0x938e5ed128458139A9c3306aCE87C60BCBA9c067), //based ghoul
+                    uint256(10)
+                )
+            )
+        );
+
+        uint256 maxAmount = uint256(100000000000000000000);
+        uint256 interestRate = uint256(50000000000000000000);
+        uint256 start = uint256(1651810553);
+        uint256 end = uint256(1665029753);
+        uint256 amount = uint256(1 ether);
+        uint8 lienPosition = uint8(0);
+        uint256 schedule = uint256(0);
         bytes32[] memory proof = _generateLoanProof(collateralVault);
         BOND_CONTROLLER.commitToLoan(
             proof,
