@@ -1,9 +1,6 @@
 pragma solidity ^0.8.13;
 
 library Strings2 {
-    ///@dev converts bytes array to its ASCII hex string representation
-    /// TODO: Definitely more efficient way to do this by processing multiple (16?) bytes at once
-    /// but really a helper function for the tests, efficiency not key.
     function toHexString(bytes memory input)
         public
         pure

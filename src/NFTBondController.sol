@@ -24,11 +24,10 @@ interface IERC721Wrapper is IERC721 {
         uint256 reservePrice
     ) external;
 
-    //
-    //    function getUnderlyingFromStar(uint256 starId_)
-    //        external
-    //        view
-    //        returns (address, uint256);
+    function getUnderlyingFromStar(uint256 starId_)
+        external
+        view
+        returns (address, uint256);
 }
 
 contract NFTBondController is ERC1155 {
@@ -248,11 +247,11 @@ contract NFTBondController is ERC1155 {
         uint256 start,
         uint256 end,
         uint256 amount,
-        uint256 lienPosition,
+        uint8 lienPosition,
         uint256 schedule
     ) external {
         require(
-            msg.sender != COLLATERAL_VAULT.ownerOf(collateralVault),
+            msg.sender == COLLATERAL_VAULT.ownerOf(collateralVault),
             "NFTBondController.commitToLoan(): Owner of the collateral vault must be msg.sender"
         );
         require(
@@ -291,12 +290,6 @@ contract NFTBondController is ERC1155 {
         bondVaults[bondVault].loans[collateralVault].push(
             Loan(amount, interestRate, start, end, schedule)
         );
-        //        COLLATERAL_VAULT.transferFrom( //dont need to transfer in the vault token, it holds the debt position
-        //            msg.sender,
-        //            address(this),
-        //            collateralVault
-        //        );
-        // encumber vault with the proper lienPosition (needs a custom method on ERC721)
         COLLATERAL_VAULT.manageLien(
             collateralVault,
             bondVault,
