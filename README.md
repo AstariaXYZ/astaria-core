@@ -3,7 +3,7 @@
 ## Installation
 
 Install Foundry (https://getfoundry.sh)
-- run forge install
+- run install.sh
 
 
 ## Overview

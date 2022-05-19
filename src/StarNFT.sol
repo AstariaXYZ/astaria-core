@@ -16,7 +16,7 @@ interface IFlashAction {
 }
 
 interface ISecurityHook {
-    function getState(address, uint256) external returns (bytes memory);
+    function getState(address, uint256) external view returns (bytes memory);
 }
 
 /*
