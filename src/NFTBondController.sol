@@ -81,7 +81,7 @@ contract NFTBondController is ERC1155 {
         uint256 start; // epoch time of last interest accrual
         uint256 end; // epoch time at which the loan must be repaid
         // lienPosition should be managed on the CollateralVault
-        // uint8 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
+        uint8 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
         uint256 schedule; // percentage margin before the borrower needs to repay
     }
 
@@ -292,8 +292,15 @@ contract NFTBondController is ERC1155 {
             "NFTBondController.commitToLoan(): Verification of provided merkle branch failed for the bondVault and parameters"
         );
 
+        //ensure that we have space left in our appraisal value to take on more debt or refactor so each collateral
+        //can only have one loan per bondvault associated to it
+        require(
+            lienPosition ==
+                uint8(bondVaults[bondVault].loans[collateralVault].length),
+            "can only take a lien from the position available to you from this vault"
+        );
         bondVaults[bondVault].loans[collateralVault].push(
-            Loan(amount, interestRate, start, end, schedule)
+            Loan(amount, interestRate, start, end, lienPosition, schedule)
         );
         COLLATERAL_VAULT.manageLien(
             collateralVault,

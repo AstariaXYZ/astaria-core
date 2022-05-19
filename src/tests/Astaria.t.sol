@@ -37,6 +37,13 @@ contract Test is DSTestPlus {
     }
 }
 
+//TODO:
+// - setup helpers that let us put a loan into default
+// - setup helpers to repay loans
+// - setup helpers to pay loans at their schedule
+// - test for interest
+// - test auction flow
+// - create/cancel/end
 contract AstariaTest is Test {
     enum UserRoles {
         ADMIN,
@@ -66,6 +73,21 @@ contract AstariaTest is Test {
     address appraiser = hevm.addr(appraiserPK);
     address lender = hevm.addr(lenderPK);
 
+    event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
+    event Repayment(bytes32 bondVault, uint256 collateralVault, uint256 amount);
+    event Liquidation(bytes32 bondVault, uint256 collateralVault);
+    event NewBondVault(
+        address appraiser,
+        bytes32 bondVault,
+        bytes32 contentHash,
+        uint256 expiration
+    );
+    event RedeemBond(
+        bytes32 bondVault,
+        uint256 amount,
+        address indexed redeemer
+    );
+
     function setUp() public {
         WETH9 = IWETH9(deployCode(weth9Artifact));
 
@@ -73,9 +95,7 @@ contract AstariaTest is Test {
 
         address liquidator = hevm.addr(0x1337); //remove
 
-        testNFT = new Dummy721();
-        _createWhitelist(address(0x938e5ed128458139A9c3306aCE87C60BCBA9c067));
-        STAR_NFT = new StarNFT(MRA, whiteListRoot, liquidator);
+        STAR_NFT = new StarNFT(MRA, liquidator);
 
         BOND_CONTROLLER = new NFTBondController(
             "TEST URI",
@@ -92,10 +112,7 @@ contract AstariaTest is Test {
 
         STAR_NFT.setBondController(address(BOND_CONTROLLER));
         STAR_NFT.setAuctionHouse(address(AUCTION_HOUSE));
-        testNFT.setApprovalForAll(address(STAR_NFT), true);
         _setupRolesAndCapabilities();
-        //        _createBondVault();
-        //        _depositNFTs();
     }
 
     function onERC1155BatchReceived(
@@ -167,19 +184,17 @@ contract AstariaTest is Test {
         );
     }
 
-    function _createWhitelist(address newNFT) internal {
+    function _createWhitelist(address newNFT)
+        internal
+        returns (bytes32 root, bytes32[] memory proof)
+    {
         string[] memory inputs = new string[](3);
         inputs[0] = "node";
         inputs[1] = "scripts/whitelistGenerator.js";
         inputs[2] = abi.encodePacked(newNFT).toHexString();
 
         bytes memory res = hevm.ffi(inputs);
-        (bytes32 root, bytes32[] memory proof) = abi.decode(
-            res,
-            (bytes32, bytes32[])
-        );
-        whiteListRoot = root;
-        nftProof = proof;
+        (root, proof) = abi.decode(res, (bytes32, bytes32[]));
     }
 
     /**
@@ -207,12 +222,15 @@ contract AstariaTest is Test {
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
         ERC721(tokenContract).setApprovalForAll(address(STAR_NFT), true);
-
+        (bytes32 root, bytes32[] memory proof) = _createWhitelist(
+            tokenContract
+        );
+        STAR_NFT.setSupportedRoot(root);
         STAR_NFT.depositERC721(
             address(this),
             address(tokenContract),
             uint256(tokenId),
-            nftProof
+            proof
         );
     }
 
@@ -300,7 +318,10 @@ contract AstariaTest is Test {
         uint256 tokenId = uint256(10);
 
         _hijackNFT(tokenContract, tokenId);
+        _commitToLoan(tokenContract, tokenId);
+    }
 
+    function _commitToLoan(address tokenContract, uint256 tokenId) internal {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
@@ -339,6 +360,9 @@ contract AstariaTest is Test {
         BOND_CONTROLLER.lendToVault(vaultHash, 50 ether);
         hevm.stopPrank();
 
+        //event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
+        hevm.expectEmit(true, true, false, false);
+        emit NewLoan(vaultHash, collateralVault, amount);
         BOND_CONTROLLER.commitToLoan(
             proof,
             vaultHash,
@@ -354,15 +378,12 @@ contract AstariaTest is Test {
     }
 
     function testReleaseToAddress() public {
-        STAR_NFT.getUnderlyingFromStar(
-            uint256(
-                36620565764810032184374596725622674351691659512533154122603505468833195267743
-            )
-        );
+        Dummy721 releaseTest = new Dummy721();
+        address tokenContract = address(releaseTest);
+        uint256 tokenid = uint256(1);
+        _depositNFTs(tokenContract, tokenid);
         STAR_NFT.releaseToAddress(
-            uint256(
-                36620565764810032184374596725622674351691659512533154122603505468833195267743
-            ),
+            uint256(keccak256(abi.encodePacked(tokenContract, tokenid))),
             address(this)
         );
     }
@@ -374,10 +395,14 @@ contract AstariaTest is Test {
         //trigger loan commit
         //try to release asset
 
+        Dummy721 lienTest = new Dummy721();
+        address tokenContract = address(address(lienTest));
+        uint256 tokenId = uint256(1);
+
+        _commitToLoan(tokenContract, tokenId);
+        hevm.expectRevert(bytes("must be no liens to call this"));
         STAR_NFT.releaseToAddress(
-            uint256(
-                88029459242596929258145495964769489431382501476249398212111764498044871342998
-            ),
+            uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
             address(this)
         );
     }
@@ -388,19 +413,19 @@ contract AstariaTest is Test {
         ensure that we're repaying the proper collateral
 
     */
-    function testAuctionVault() public {
-        //setup bondvault,
-        BOND_CONTROLLER.liquidate(testBondVaultHash, uint256(0), uint256(1));
-    }
+    //    function testAuctionVault() public {
+    //        //setup bondvault,
+    //        //        BOND_CONTROLLER.liquidate(testBondVaultHash, uint256(0), uint256(1));
+    //    }
 
     /**
         Ensure that owner of the token can cancel the auction by repaying the reserve(sum of debt + fee)
         ensure that we're emitting the correct events
 
     */
-    function testCancelAuction() public {
-        //needs helper that moves collateral into default
-        //trigger liquidate
-        //cancel auction as holder
-    }
+    //    function testCancelAuction() public {
+    //        //needs helper that moves collateral into default
+    //        //trigger liquidate
+    //        //cancel auction as holder
+    //    }
 }

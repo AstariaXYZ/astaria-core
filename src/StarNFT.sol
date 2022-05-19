@@ -68,15 +68,10 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     error AssetNotSupported(address);
     error AuctionStartedForCollateral(uint256);
 
-    constructor(
-        Authority AUTHORITY_,
-        bytes32 supportedAssetsRoot_,
-        address liquidationOperator_
-    )
+    constructor(Authority AUTHORITY_, address liquidationOperator_)
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria NFT Wrapper", "Star NFT")
     {
-        supportedAssetsRoot = supportedAssetsRoot_;
         liquidationOperator = liquidationOperator_;
     }
 
@@ -152,6 +147,13 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
 
     function setBondController(address _bondController) external requiresAuth {
         bondController = _bondController;
+    }
+
+    function setSupportedRoot(bytes32 _supportedAssetsRoot)
+        external
+        requiresAuth
+    {
+        supportedAssetsRoot = _supportedAssetsRoot;
     }
 
     function setAuctionHouse(address _AUCTION_HOUSE) external requiresAuth {
