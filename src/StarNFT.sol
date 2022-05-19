@@ -228,17 +228,16 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         bytes32 bondVault,
         LienAction action
     ) public requiresAuth {
-        if (action == LienAction.ENCUMBER) {
-            unchecked {
+        unchecked {
+            if (action == LienAction.ENCUMBER) {
                 liens[tokenId_]++;
-            }
-        } else if (action == LienAction.UN_ENCUMBER) {
-            unchecked {
+            } else if (action == LienAction.UN_ENCUMBER) {
                 liens[tokenId_]--;
+            } else {
+                revert("Invalid Action");
             }
-        } else {
-            revert("Invalid Action");
         }
+
         emit LienUpdated(bondVault, tokenId_, action);
     }
 

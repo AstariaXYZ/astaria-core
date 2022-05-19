@@ -61,7 +61,10 @@ contract AstariaTest is Test {
             0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798
         );
 
-    address appraiser = hevm.addr(0x1339);
+    uint256 appraiserPK = 0x1339;
+    uint256 lenderPK = 0x1340;
+    address appraiser = hevm.addr(appraiserPK);
+    address lender = hevm.addr(lenderPK);
 
     function setUp() public {
         WETH9 = IWETH9(deployCode(weth9Artifact));
@@ -91,7 +94,7 @@ contract AstariaTest is Test {
         STAR_NFT.setAuctionHouse(address(AUCTION_HOUSE));
         testNFT.setApprovalForAll(address(STAR_NFT), true);
         _setupRolesAndCapabilities();
-        _createTestBondVault();
+        //        _createBondVault();
         //        _depositNFTs();
     }
 
@@ -217,11 +220,11 @@ contract AstariaTest is Test {
     /**
         Ensure that we can create a new bond vault and we emit the correct events
      */
-    function _createTestBondVault() internal {
+    function _createBondVault(bytes32 _rootHash) internal {
         bytes32 hash = keccak256(
             BOND_CONTROLLER.encodeBondVaultHash(
                 appraiser,
-                testBondVaultHash,
+                _rootHash,
                 block.timestamp + 30 days,
                 block.timestamp + 35 days,
                 block.timestamp + 60 days,
@@ -236,7 +239,7 @@ contract AstariaTest is Test {
 
         BOND_CONTROLLER.newBondVault(
             appraiser,
-            testBondVaultHash,
+            _rootHash,
             block.timestamp + 30 days,
             block.timestamp + 35 days,
             block.timestamp + 60 days,
@@ -247,21 +250,33 @@ contract AstariaTest is Test {
         );
     }
 
-    function _generateLoanProof(uint256 _collateralVault)
-        internal
-        returns (bytes32[] memory)
-    {
+    function _generateLoanProof(
+        uint256 _collateralVault,
+        uint256 valuation,
+        uint256 interest,
+        uint256 start,
+        uint256 end,
+        uint8 lienPosition,
+        uint256 schedule
+    ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
         (address tokenContract, uint256 tokenId) = STAR_NFT
             .getUnderlyingFromStar(_collateralVault);
-        string[] memory inputs = new string[](4);
+        string[] memory inputs = new string[](10);
+        //address, tokenId, valuation, interest, start, stop, lienPosition, schedule
+
         inputs[0] = "node";
         inputs[1] = "scripts/loanProofGenerator.js";
-        inputs[2] = abi.encodePacked(tokenContract).toHexString();
-        inputs[3] = abi.encodePacked(tokenId).toHexString();
+        inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
+        inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
+        inputs[4] = abi.encodePacked(valuation).toHexString(); //valuation
+        inputs[5] = abi.encodePacked(interest).toHexString(); //interest
+        inputs[6] = abi.encodePacked(start).toHexString(); //start
+        inputs[7] = abi.encodePacked(end).toHexString(); //stop
+        inputs[8] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
+        inputs[9] = abi.encodePacked(schedule).toHexString(); //schedule
 
         bytes memory res = hevm.ffi(inputs);
-        bytes32[] memory proof = abi.decode(res, (bytes32[]));
-        return proof;
+        (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
     }
 
     function _hijackNFT(address tokenContract, uint256 tokenId) internal {
@@ -279,25 +294,22 @@ contract AstariaTest is Test {
        ensure that we're repaying the proper collateral
    */
     function testCommitToLoan() public {
-        hevm.deal(address(this), 1000 ether);
-        WETH9.deposit{value: 50 ether}();
-        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
-        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
-
-        _hijackNFT(
-            address(0x938e5ed128458139A9c3306aCE87C60BCBA9c067), //based ghoul
-            uint256(10)
+        address tokenContract = address(
+            0x938e5ed128458139A9c3306aCE87C60BCBA9c067
         );
+        uint256 tokenId = uint256(10);
+
+        _hijackNFT(tokenContract, tokenId);
 
         _depositNFTs(
-            address(0x938e5ed128458139A9c3306aCE87C60BCBA9c067), //based ghoul
-            uint256(10)
+            tokenContract, //based ghoul
+            tokenId
         );
         uint256 collateralVault = uint256(
             keccak256(
                 abi.encodePacked(
-                    address(0x938e5ed128458139A9c3306aCE87C60BCBA9c067), //based ghoul
-                    uint256(10)
+                    tokenContract, //based ghoul
+                    tokenId
                 )
             )
         );
@@ -309,10 +321,27 @@ contract AstariaTest is Test {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(0);
-        bytes32[] memory proof = _generateLoanProof(collateralVault);
+        (bytes32 vaultHash, bytes32[] memory proof) = _generateLoanProof(
+            collateralVault,
+            maxAmount,
+            interestRate,
+            start,
+            end,
+            lienPosition,
+            schedule
+        );
+
+        _createBondVault(vaultHash);
+        hevm.deal(lender, 1000 ether);
+        hevm.startPrank(lender);
+        WETH9.deposit{value: 50 ether}();
+        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+        BOND_CONTROLLER.lendToVault(vaultHash, 50 ether);
+        hevm.stopPrank();
+
         BOND_CONTROLLER.commitToLoan(
             proof,
-            testBondVaultHash,
+            vaultHash,
             collateralVault,
             maxAmount,
             interestRate,
@@ -360,6 +389,7 @@ contract AstariaTest is Test {
 
     */
     function testAuctionVault() public {
+        //setup bondvault,
         BOND_CONTROLLER.liquidate(testBondVaultHash, uint256(0), uint256(1));
     }
 

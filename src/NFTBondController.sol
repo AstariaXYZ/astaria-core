@@ -54,6 +54,11 @@ contract NFTBondController is ERC1155 {
         bytes32 contentHash,
         uint256 expiration
     );
+    event RedeemBond(
+        bytes32 bondVault,
+        uint256 amount,
+        address indexed redeemer
+    );
 
     error InvalidAddress(address);
 
@@ -443,18 +448,23 @@ contract NFTBondController is ERC1155 {
     function completeLiquidation(bytes32 bondVault, uint256 collateralVault)
         external
     {
+        unchecked {
+            bondVaults[bondVault].loanCount--;
+        }
         emit Liquidation(bondVault, collateralVault);
     }
 
     function redeemBond(bytes32 bondVault, uint256 amount) external {
         require(
-            bondVaults[bondVault].maturity <= block.timestamp,
+            block.timestamp >= bondVaults[bondVault].maturity,
             "redeemBond: maturity not reached"
         );
+
         require(
             bondVaults[bondVault].loanCount == 0,
-            "redeemBond: loans not returned"
+            "redeemBond: loans outstanding"
         );
+
         require(balanceOf(msg.sender, uint256(bondVault)) >= amount);
 
         _burn(msg.sender, uint256(bondVault), amount);
@@ -463,6 +473,7 @@ contract NFTBondController is ERC1155 {
             bondVaults[bondVault].balance;
 
         WETH.transfer(msg.sender, yield);
-        // need event
+
+        emit RedeemBond(bondVault, amount, address(msg.sender));
     }
 }
