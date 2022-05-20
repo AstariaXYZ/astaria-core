@@ -162,6 +162,11 @@ contract AstariaTest is Test {
             true
         );
         MRA.setRoleCapability(
+            uint8(UserRoles.WRAPPER),
+            NFTBondController.completeLiquidation.selector,
+            true
+        );
+        MRA.setRoleCapability(
             uint8(UserRoles.BOND_CONTROLLER),
             StarNFT.manageLien.selector,
             true
