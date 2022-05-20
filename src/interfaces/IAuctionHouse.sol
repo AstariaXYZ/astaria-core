@@ -9,10 +9,21 @@ interface IAuctionHouse {
         bytes32 bondVault
     ) external returns (uint256);
 
-    function setAuctionReservePrice(uint256 auctionId, uint256 reservePrice)
-        external;
-
     function createBid(uint256 auctionId, uint256 amount) external payable;
 
     function endAuction(uint256 auctionId) external returns (uint256, address);
+
+    function cancelAuction(uint256 auctionId) external;
+
+    function getAuctionData(uint256 _auctionId)
+        external
+        returns (
+            uint256 tokenId,
+            uint256 amount,
+            uint256 duration,
+            uint256 firstBidTime,
+            uint256 reservePrice,
+            address payable bidder,
+            bytes32 bondVault
+        );
 }
