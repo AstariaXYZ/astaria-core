@@ -10,6 +10,7 @@ import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "./interfaces/IAuctionHouse.sol";
+import "./NFTBondController.sol";
 
 interface IFlashAction {
     function onFlashAction(bytes calldata data) external returns (bytes32);
@@ -19,38 +20,56 @@ interface ISecurityHook {
     function getState(address, uint256) external view returns (bytes memory);
 }
 
+//return the state this corresponses to
+//interface IResolver {
+//    function resolve() external returns (bytes32);
+//}
+//
+//contract Resolver is IResolver {}
+
 /*
  TODO: registry proxies for selling across the different networks(opensea)
     - setup the wrapper contract to verify erc1271 signatures so that it can work with looks rare
     - setup cancel auction flow(owner must repay reserve of auction)
  */
-contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
+contract StarNFT is Auth, ERC721, IERC721Receiver {
     enum LienAction {
         ENCUMBER,
         UN_ENCUMBER
     }
 
+    //what about a notion of a resolver address that settles lien(external contract)?
+    struct Lien {
+        uint256 amount;
+        //        address tokenContract;
+        //        uint256 resolution; //if 0, unresolved lien, set to resolved 1
+        //        address resolver; //IResolver contract, interface for sending to beacon proxy
+        //        interfaceID: bytes4; support for many token types, 777 1155 etc, imagine fractional art being a currency for loans ??
+        //interfaceId: btyes4; could just be emitted when lien is created, what the interface needed to call this this vs storage
+        bytes32 bondVault;
+    }
+
     struct Asset {
         address tokenContract;
         uint256 tokenId;
+        //        Lien[] liens;
     }
+
     mapping(uint256 => Asset) starToUnderlying;
 
-    bytes32 supportedAssetsRoot;
-
     mapping(address => address) securityHooks;
-
-    mapping(uint256 => uint256) liens; // tokenId to bondvaults hash only can move up and down.
-
+    mapping(uint256 => Lien[]) liens; // tokenId to bondvaults hash only can move up and down.
+    //    mapping(uint256 => mapping(uint8 => bool)) lienPosition;
     mapping(uint256 => uint256) starIdToAuctionId;
 
     mapping(bytes32 => uint256) listHashes;
 
+    bytes32 SUPPORTED_ASSETS_ROOT;
+
     IAuctionHouse AUCTION_HOUSE;
-    address bondController;
+    NFTBondController BOND_CONTROLLER;
     address LOOKS_TRANSFER_MGR = address(0x123456);
     uint256 tokenCount;
-    address liquidationOperator;
 
     event DepositERC721(
         address indexed from,
@@ -63,20 +82,26 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         address indexed to
     );
 
-    event LienUpdated(bytes32 bondVault, uint256 starId, LienAction action);
+    event LienUpdated(
+        bytes32 bondVault,
+        uint256 starId,
+        LienAction action,
+        bytes lienData
+    );
 
     error AssetNotSupported(address);
     error AuctionStartedForCollateral(uint256);
 
-    constructor(Authority AUTHORITY_, address liquidationOperator_)
+    constructor(Authority AUTHORITY_)
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria NFT Wrapper", "Star NFT")
-    {
-        liquidationOperator = liquidationOperator_;
-    }
+    {}
 
     modifier noActiveLiens(uint256 assetId) {
-        require(uint256(0) == liens[assetId], "must be no liens to call this");
+        require(
+            uint256(0) == liens[assetId].length,
+            "must be no liens to call this"
+        );
         _;
     }
 
@@ -87,7 +112,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         bytes32 leaf = keccak256(abi.encodePacked(tokenContract_));
         bool isValidLeaf = MerkleProof.verify(
             proof_,
-            supportedAssetsRoot,
+            SUPPORTED_ASSETS_ROOT,
             leaf
         );
         if (!isValidLeaf) revert AssetNotSupported(tokenContract_);
@@ -134,7 +159,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
                 .getState(addr, tokenId);
             require(
                 keccak256(preTransferState) == keccak256(postTransferState),
-                "Data must be the same"
+                "flashAction: Data must be the same"
             );
         }
 
@@ -146,14 +171,14 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     }
 
     function setBondController(address _bondController) external requiresAuth {
-        bondController = _bondController;
+        BOND_CONTROLLER = NFTBondController(_bondController);
     }
 
     function setSupportedRoot(bytes32 _supportedAssetsRoot)
         external
         requiresAuth
     {
-        supportedAssetsRoot = _supportedAssetsRoot;
+        SUPPORTED_ASSETS_ROOT = _supportedAssetsRoot;
     }
 
     function setAuctionHouse(address _AUCTION_HOUSE) external requiresAuth {
@@ -167,54 +192,25 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
         securityHooks[_hookTarget] = _securityHook;
     }
 
-    //this is prob so dirty
-    function listUnderlyingForBuyNow(bytes32 listHash_, uint256 assetId_)
-        public
-    {
-        require(
-            msg.sender == ownerOf(assetId_),
-            "Only the holder of the token can do this"
-        );
-        (address underlyingAsset, uint256 underlyingId) = getUnderlyingFromStar(
-            assetId_
-        );
-        listHashes[listHash_] = assetId_;
-        listHashes[bytes32(assetId_)] = uint256(listHash_);
-        //so we can reverse quickly
-        ERC721(underlyingAsset).approve(LOOKS_TRANSFER_MGR, underlyingId);
-    }
-
-    //this is prob so dirty
-    function deListUnderlyingForBuyNow(uint256 assetId_) public {
-        require(
-            msg.sender == ownerOf(assetId_),
-            "Only the holder of the token can do this"
-        );
-
-        bytes32 digest = bytes32(listHashes[bytes32(assetId_)]);
-        listHashes[digest] = uint256(0);
-        listHashes[bytes32(assetId_)] = uint256(0);
-    }
-
     //LIQUIDATION Operator is a server that runs an EOA to sign messages for auction
-    function isValidSignature(bytes32 hash_, bytes calldata signature_)
-        external
-        view
-        override
-        returns (bytes4)
-    {
-        // Validate signatures
-        address recovered = ECDSA.recover(hash_, signature_);
-        //needs a check to ensure the asset isn't in liquidation(if the order coming through is a buy now order)
-        if (
-            recovered == ownerOf(listHashes[hash_]) ||
-            recovered == liquidationOperator
-        ) {
-            return 0x1626ba7e;
-        } else {
-            return 0xffffffff;
-        }
-    }
+    //    function isValidSignature(bytes32 hash_, bytes calldata signature_)
+    //        external
+    //        view
+    //        override
+    //        returns (bytes4)
+    //    {
+    //        // Validate signatures
+    //        address recovered = ECDSA.recover(hash_, signature_);
+    //        //needs a check to ensure the asset isn't in liquidation(if the order coming through is a buy now order)
+    //        if (
+    //            recovered == ownerOf(listHashes[hash_]) ||
+    //            recovered == liquidationOperator
+    //        ) {
+    //            return 0x1626ba7e;
+    //        } else {
+    //            return 0xffffffff;
+    //        }
+    //    }
 
     function _beforeTokenTransfer(
         address from,
@@ -226,21 +222,39 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
     }
 
     function manageLien(
-        uint256 tokenId_,
-        bytes32 bondVault,
-        LienAction action
-    ) public requiresAuth {
+        uint256 _tokenId,
+        LienAction _action,
+        bytes calldata _lienData
+    ) external requiresAuth {
+        uint8 position;
+        bytes32 bondVault;
         unchecked {
-            if (action == LienAction.ENCUMBER) {
-                liens[tokenId_]++;
-            } else if (action == LienAction.UN_ENCUMBER) {
-                liens[tokenId_]--;
+            if (_action == LienAction.ENCUMBER) {
+                uint256 amount;
+                (position, bondVault, amount) = abi.decode(
+                    _lienData,
+                    (uint8, bytes32, uint256)
+                );
+                require(
+                    liens[_tokenId].length == position - 1,
+                    "Invalid Lien Position"
+                );
+                liens[_tokenId].push(
+                    Lien({bondVault: bondVault, amount: amount})
+                );
+            } else if (_action == LienAction.UN_ENCUMBER) {
+                (position, bondVault) = abi.decode(_lienData, (uint8, bytes32));
+                require(
+                    liens[_tokenId][position].amount > uint256(0),
+                    "this lien position is not set"
+                );
+                delete liens[_tokenId][position];
             } else {
                 revert("Invalid Action");
             }
         }
 
-        emit LienUpdated(bondVault, tokenId_, action);
+        emit LienUpdated(bondVault, _tokenId, _action, _lienData);
     }
 
     function releaseToAddress(uint256 starTokenId, address releaseTo)
@@ -348,19 +362,29 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IERC1271 {
             "Auction doesn't exist"
         );
 
-        (uint256 amountRecovered, address winner) = AUCTION_HOUSE.endAuction(
+        (uint256 payout, address winner) = AUCTION_HOUSE.endAuction(
             starIdToAuctionId[_tokenId]
         );
         //clean up all storage around the underlying asset, listings, liens, deposit information
+        uint256 lienLength = liens[_tokenId].length;
+        bytes32[] memory vaults = new bytes32[](lienLength);
+        uint256[] memory recovered = new uint256[](lienLength);
+        for (uint256 i = 0; i < lienLength; ++i) {
+            Lien memory lienLiquidated = liens[_tokenId][i];
+            vaults[i] = lienLiquidated.bondVault;
+            if (payout > lienLiquidated.amount) {
+                uint256 repayAmount = payout - lienLiquidated.amount;
+                payout -= repayAmount;
+            } else {
+                payout = 0;
+            }
+            recovered[i] = payout;
+        }
+        BOND_CONTROLLER.completeLiquidation(_tokenId, vaults, recovered);
         delete liens[_tokenId];
-        //        delete lienCount[_tokenId];
         delete starToUnderlying[_tokenId];
-        bytes32 listHashMap = bytes32(_tokenId);
-        bytes32 listHashMapInverse = bytes32(listHashes[listHashMap]);
-        delete listHashes[listHashMap];
-        delete listHashes[listHashMapInverse];
+
         _burn(_tokenId);
-        //release
 
         releaseToAddress(_tokenId, winner);
     }

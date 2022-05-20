@@ -95,7 +95,7 @@ contract AstariaTest is Test {
 
         address liquidator = hevm.addr(0x1337); //remove
 
-        STAR_NFT = new StarNFT(MRA, liquidator);
+        STAR_NFT = new StarNFT(MRA);
 
         BOND_CONTROLLER = new NFTBondController(
             "TEST URI",
