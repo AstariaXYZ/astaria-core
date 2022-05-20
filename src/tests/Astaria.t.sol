@@ -312,12 +312,16 @@ contract AstariaTest is Test {
        ensure that we're repaying the proper collateral
    */
     function testCommitToLoan() public {
-        address tokenContract = address(
-            0x938e5ed128458139A9c3306aCE87C60BCBA9c067
-        );
-        uint256 tokenId = uint256(10);
+        //        address tokenContract = address(
+        //            0x938e5ed128458139A9c3306aCE87C60BCBA9c067
+        //        );
+        //        uint256 tokenId = uint256(10);
+        //
+        //        _hijackNFT(tokenContract, tokenId);
 
-        _hijackNFT(tokenContract, tokenId);
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(address(loanTest));
+        uint256 tokenId = uint256(1);
         _commitToLoan(tokenContract, tokenId);
     }
 
