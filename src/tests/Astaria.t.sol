@@ -239,13 +239,16 @@ contract AstariaTest is Test {
         Ensure that we can create a new bond vault and we emit the correct events
      */
     function _createBondVault(bytes32 _rootHash) internal {
+        uint256 expiration = block.timestamp + 30 days;
+        uint256 schedule = block.timestamp + 35 days;
+        uint256 maturity = block.timestamp + 60 days;
         bytes32 hash = keccak256(
             BOND_CONTROLLER.encodeBondVaultHash(
                 appraiser,
                 _rootHash,
-                block.timestamp + 30 days,
-                block.timestamp + 35 days,
-                block.timestamp + 60 days,
+                expiration,
+                schedule,
+                maturity,
                 BOND_CONTROLLER.appraiserNonces(appraiser)
             )
         );
@@ -258,9 +261,9 @@ contract AstariaTest is Test {
         BOND_CONTROLLER.newBondVault(
             appraiser,
             _rootHash,
-            block.timestamp + 30 days,
-            block.timestamp + 35 days,
-            block.timestamp + 60 days,
+            expiration,
+            schedule,
+            maturity,
             bytes32("0x12345"),
             v,
             r,
@@ -322,10 +325,13 @@ contract AstariaTest is Test {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(address(loanTest));
         uint256 tokenId = uint256(1);
-        _commitToLoan(tokenContract, tokenId);
+        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
     }
 
-    function _commitToLoan(address tokenContract, uint256 tokenId) internal {
+    function _commitToLoan(address tokenContract, uint256 tokenId)
+        internal
+        returns (bytes32 vaultHash)
+    {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
@@ -341,12 +347,13 @@ contract AstariaTest is Test {
 
         uint256 maxAmount = uint256(100000000000000000000);
         uint256 interestRate = uint256(50000000000000000000);
-        uint256 start = uint256(1651810553);
-        uint256 end = uint256(1665029753);
+        uint256 start = uint256(block.timestamp + 1 minutes);
+        uint256 end = uint256(block.timestamp + 10 minutes);
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(0);
-        (bytes32 vaultHash, bytes32[] memory proof) = _generateLoanProof(
+        bytes32[] memory proof;
+        (vaultHash, proof) = _generateLoanProof(
             collateralVault,
             maxAmount,
             interestRate,
@@ -367,6 +374,7 @@ contract AstariaTest is Test {
         //event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
         hevm.expectEmit(true, true, false, false);
         emit NewLoan(vaultHash, collateralVault, amount);
+        startMeasuringGas("Commit To Loan");
         BOND_CONTROLLER.commitToLoan(
             proof,
             vaultHash,
@@ -379,17 +387,21 @@ contract AstariaTest is Test {
             lienPosition,
             schedule
         );
+        stopMeasuringGas();
     }
 
     function testReleaseToAddress() public {
         Dummy721 releaseTest = new Dummy721();
         address tokenContract = address(releaseTest);
-        uint256 tokenid = uint256(1);
-        _depositNFTs(tokenContract, tokenid);
+        uint256 tokenId = uint256(1);
+        _depositNFTs(tokenContract, tokenId);
+        startMeasuringGas("ReleaseTo Address");
+
         STAR_NFT.releaseToAddress(
-            uint256(keccak256(abi.encodePacked(tokenContract, tokenid))),
+            uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
             address(this)
         );
+        stopMeasuringGas();
     }
 
     /**
@@ -403,12 +415,23 @@ contract AstariaTest is Test {
         address tokenContract = address(address(lienTest));
         uint256 tokenId = uint256(1);
 
-        _commitToLoan(tokenContract, tokenId);
+        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
         hevm.expectRevert(bytes("must be no liens to call this"));
         STAR_NFT.releaseToAddress(
             uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
             address(this)
         );
+    }
+
+    function _warpToMaturity(bytes32 bondVault, uint256 collateralVault)
+        internal
+    {
+        (, , , , , , uint256 maturity) = BOND_CONTROLLER.getBondData(
+            bondVault,
+            collateralVault
+        );
+
+        hevm.warp(maturity + 10 minutes);
     }
 
     /**
@@ -417,10 +440,18 @@ contract AstariaTest is Test {
         ensure that we're repaying the proper collateral
 
     */
-    //    function testAuctionVault() public {
-    //        //setup bondvault,
-    //        //        BOND_CONTROLLER.liquidate(testBondVaultHash, uint256(0), uint256(1));
-    //    }
+    function testAuctionVault() public {
+        Dummy721 lienTest = new Dummy721();
+        address tokenContract = address(address(lienTest));
+        uint256 tokenId = uint256(1);
+
+        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
+        uint256 starId = uint256(
+            keccak256(abi.encodePacked(tokenContract, tokenId))
+        );
+        _warpToMaturity(vaultHash, starId);
+        BOND_CONTROLLER.liquidate(vaultHash, uint256(0), starId);
+    }
 
     /**
         Ensure that owner of the token can cancel the auction by repaying the reserve(sum of debt + fee)

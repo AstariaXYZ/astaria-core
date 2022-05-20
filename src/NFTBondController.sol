@@ -90,7 +90,7 @@ contract NFTBondController is ERC1155 {
         uint256 end; // epoch time at which the loan must be repaid
         // lienPosition should be managed on the CollateralVault
         bytes32 bondVault;
-        uint8 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
+        //        uint8 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
         uint256 schedule; // percentage margin before the borrower needs to repay
     }
 
@@ -117,6 +117,32 @@ contract NFTBondController is ERC1155 {
             )
         );
         AUCTION_DURATION = 7 days;
+    }
+
+    function getBondData(bytes32 bondVault, uint256 collateralVault)
+        public
+        view
+        returns (
+            address,
+            uint256,
+            uint256,
+            Loan[] memory,
+            uint256,
+            uint256, // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
+            uint256
+        )
+    {
+        BondVault storage vault = bondVaults[bondVault];
+        Loan[] memory loans = vault.loans[collateralVault];
+        return (
+            vault.appraiser,
+            vault.totalSupply,
+            vault.balance,
+            loans,
+            vault.loanCount,
+            vault.expiration,
+            vault.maturity
+        );
     }
 
     // See https://eips.ethereum.org/EIPS/eip-191
@@ -309,15 +335,7 @@ contract NFTBondController is ERC1155 {
             "can only take a lien from the position available to you from this vault"
         );
         bondVaults[bondVault].loans[collateralVault].push(
-            Loan(
-                amount,
-                interestRate,
-                start,
-                end,
-                bondVault,
-                lienPosition,
-                schedule
-            )
+            Loan(amount, interestRate, start, end, bondVault, schedule)
         );
         COLLATERAL_VAULT.manageLien(
             collateralVault,
@@ -409,11 +427,12 @@ contract NFTBondController is ERC1155 {
         uint256 index,
         uint256 collateralVault
     ) public view returns (bool) {
-        uint256 delta_t = block.timestamp -
-            bondVaults[bondVault].loans[collateralVault][index].start;
-        uint256 interest = delta_t *
-            bondVaults[bondVault].loans[collateralVault][index].interestRate *
-            bondVaults[bondVault].loans[collateralVault][index].amount;
+        //        uint256 delta_t = block.timestamp -
+        //            bondVaults[bondVault].loans[collateralVault][index].start;
+        //        uint256 interest = delta_t *
+        //            bondVaults[bondVault].loans[collateralVault][index].interestRate *
+        //            bondVaults[bondVault].loans[collateralVault][index].amount;
+        uint256 interest = getInterest(bondVault, index, collateralVault);
         uint256 maxInterest = bondVaults[bondVault]
         .loans[collateralVault][index].amount *
             bondVaults[bondVault].loans[collateralVault][index].schedule;
@@ -437,30 +456,17 @@ contract NFTBondController is ERC1155 {
             canLiquidate(bondVault, index, collateralVault),
             "liquidate: borrow is healthy"
         );
-        //        COLLATERAL_VAULT.auctionVault(bondVault, bondVaults[bondVault].loans[borrower][index].collateralVault);
         Loan[] storage loans = bondVaults[bondVault].loans[collateralVault];
         uint256 reserve;
 
         for (uint256 i = 0; i < loans.length; i++) {
             reserve += loans[i].amount;
-            //            delete bondVaults[bondVault].loans[borrower][i];
         }
         delete bondVaults[bondVault].loans[collateralVault];
 
         reserve += ((reserve * LIQUIDATION_FEE) / 100);
 
         COLLATERAL_VAULT.auctionVault(bondVault, collateralVault, reserve);
-
-        //        (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
-        //        .getUnderlyingFromStar(loans[0].collateralVault);
-        //        uint256 auctionId = AUCTION_HOUSE.createAuction(
-        //            tokenId,
-        //            tokenContract,
-        //            AUCTION_DURATION,
-        //            reserve,
-        //            bondVault
-        //        );
-        //        collateralAuctions[bondVault] = auctionId;
     }
 
     // called by the collateral wrapper when the auction is complete

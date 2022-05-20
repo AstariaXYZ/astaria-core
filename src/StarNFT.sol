@@ -265,7 +265,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         require(
             msg.sender == ownerOf(starTokenId) ||
                 (msg.sender == address(this) &&
-                    starIdToAuctionId[starTokenId] != uint256(0)),
+                    starIdToAuctionId[starTokenId] == uint256(0)),
             "You don't have permission to call this"
         );
         (address underlyingAsset, uint256 assetId) = getUnderlyingFromStar(
@@ -342,10 +342,10 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         bytes32 _bondVault,
         uint256 _tokenId,
         uint256 _reservePrice
-    ) external {
+    ) external requiresAuth {
         require(
             starIdToAuctionId[_tokenId] == uint256(0),
-            "auction already exists"
+            "auctionVault: auction already exists"
         );
         uint256 auctionId = AUCTION_HOUSE.createAuction(
             _tokenId,
@@ -385,7 +385,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         delete starToUnderlying[_tokenId];
 
         _burn(_tokenId);
-
+        delete starIdToAuctionId[_tokenId];
         releaseToAddress(_tokenId, winner);
     }
 }
