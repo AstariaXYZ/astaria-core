@@ -40,13 +40,13 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
 
     //what about a notion of a resolver address that settles lien(external contract)?
     struct Lien {
+        bytes32 bondVault;
         uint256 amount;
         //        address tokenContract;
         //        uint256 resolution; //if 0, unresolved lien, set to resolved 1
         //        address resolver; //IResolver contract, interface for sending to beacon proxy
         //        interfaceID: bytes4; support for many token types, 777 1155 etc, imagine fractional art being a currency for loans ??
         //interfaceId: btyes4; could just be emitted when lien is created, what the interface needed to call this this vs storage
-        bytes32 bondVault;
     }
 
     struct Asset {
@@ -221,37 +221,37 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
             revert AuctionStartedForCollateral(tokenId);
     }
 
+    function getTotalLiens(uint256 _starId) external returns (uint256) {
+        return liens[_starId].length;
+    }
+
     function manageLien(
         uint256 _tokenId,
         LienAction _action,
         bytes calldata _lienData
     ) external requiresAuth {
-        uint8 position;
+        uint256 position;
         bytes32 bondVault;
-        unchecked {
-            if (_action == LienAction.ENCUMBER) {
-                uint256 amount;
-                (position, bondVault, amount) = abi.decode(
-                    _lienData,
-                    (uint8, bytes32, uint256)
-                );
-                require(
-                    liens[_tokenId].length == position - 1,
-                    "Invalid Lien Position"
-                );
-                liens[_tokenId].push(
-                    Lien({bondVault: bondVault, amount: amount})
-                );
-            } else if (_action == LienAction.UN_ENCUMBER) {
-                (position, bondVault) = abi.decode(_lienData, (uint8, bytes32));
-                require(
-                    liens[_tokenId][position].amount > uint256(0),
-                    "this lien position is not set"
-                );
-                delete liens[_tokenId][position];
-            } else {
-                revert("Invalid Action");
-            }
+        if (_action == LienAction.ENCUMBER) {
+            uint256 amount;
+            (bondVault, position, amount) = abi.decode(
+                _lienData,
+                (bytes32, uint256, uint256)
+            );
+            require(
+                liens[_tokenId].length == position,
+                "Invalid Lien Position"
+            );
+            liens[_tokenId].push(Lien(bondVault, amount));
+        } else if (_action == LienAction.UN_ENCUMBER) {
+            (bondVault, position) = abi.decode(_lienData, (bytes32, uint8));
+            require(
+                liens[_tokenId][position].amount > uint256(0),
+                "this lien position is not set"
+            );
+            delete liens[_tokenId][position];
+        } else {
+            revert("Invalid Action");
         }
 
         emit LienUpdated(bondVault, _tokenId, _action, _lienData);

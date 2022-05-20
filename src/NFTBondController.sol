@@ -14,6 +14,8 @@ interface IERC721Wrapper is IERC721 {
 
     function liens(uint256) external returns (uint8);
 
+    function getTotalLiens(uint256) external returns (uint256);
+
     function manageLien(
         uint256 _tokenId,
         LienAction _action,
@@ -302,7 +304,8 @@ contract NFTBondController is ERC1155 {
         //ensure that we have space left in our appraisal value to take on more debt or refactor so each collateral
         //can only have one loan per bondvault associated to it
         require(
-            lienPosition == uint8(COLLATERAL_VAULT.liens(collateralVault)),
+            lienPosition ==
+                uint8(COLLATERAL_VAULT.getTotalLiens(collateralVault)),
             "can only take a lien from the position available to you from this vault"
         );
         bondVaults[bondVault].loans[collateralVault].push(
@@ -319,7 +322,7 @@ contract NFTBondController is ERC1155 {
         COLLATERAL_VAULT.manageLien(
             collateralVault,
             IERC721Wrapper.LienAction.ENCUMBER,
-            abi.encodePacked(bondVault, lienPosition, amount)
+            abi.encodePacked(bondVault, uint256(lienPosition), amount)
         );
         WETH.transfer(msg.sender, amount);
         //TODO: transfer from the beacon proxy of the bond vault
