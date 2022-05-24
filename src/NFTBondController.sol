@@ -472,7 +472,7 @@ contract NFTBondController is ERC1155 {
             "lendToVault: vault doesn't exist"
         );
         require(
-            bondVaults[bondVault].expiration != block.timestamp,
+            block.timestamp < bondVaults[bondVault].expiration,
             "lendToVault: expiration exceeded"
         );
         bondVaults[bondVault].totalSupply += amount;
