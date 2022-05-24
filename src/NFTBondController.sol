@@ -659,9 +659,13 @@ contract NFTBondController is ERC1155 {
 
         _burn(msg.sender, uint256(bondVault), amount);
 
+        //TODO: do we need to normalize?
         uint256 yield = (amount / bondVaults[bondVault].totalSupply) *
             bondVaults[bondVault].balance;
 
+        unchecked {
+            bondVaults[bondVault].totalSupply -= amount;
+        }
         //        WETH.transfer(msg.sender, yield);
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
