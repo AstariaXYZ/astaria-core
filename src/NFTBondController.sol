@@ -585,11 +585,12 @@ contract NFTBondController is ERC1155 {
 
     // called by the collateral wrapper when the auction is complete
     //do we need index? since we have to liquidation everything from ground up
-    function completeLiquidation(
+    function complete(
         uint256 collateralVault,
         bytes32[] memory vaults,
         uint256[] memory indexes,
-        uint256 recovered
+        uint256 recovered,
+        bool liquidation
     ) external {
         require(
             msg.sender == address(COLLATERAL_VAULT),
@@ -597,20 +598,9 @@ contract NFTBondController is ERC1155 {
         );
         _bulkRepay(collateralVault, vaults, indexes, recovered);
 
-        emit Liquidation(collateralVault, vaults, indexes, recovered);
-    }
-
-    function repayFromCancel(
-        uint256 collateralVault,
-        bytes32[] memory vaults,
-        uint256[] memory indexes,
-        uint256 payout
-    ) external {
-        require(
-            msg.sender == address(COLLATERAL_VAULT),
-            "completeLiquidation: must be collateral wrapper to call this"
-        );
-        _bulkRepay(collateralVault, vaults, indexes, payout);
+        if (liquidation) {
+            emit Liquidation(collateralVault, vaults, indexes, recovered);
+        }
     }
 
     function _bulkRepay(

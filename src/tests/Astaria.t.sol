@@ -186,7 +186,7 @@ contract AstariaTest is Test {
         );
         MRA.setRoleCapability(
             uint8(UserRoles.WRAPPER),
-            NFTBondController.completeLiquidation.selector,
+            NFTBondController.complete.selector,
             true
         );
         MRA.setRoleCapability(
@@ -509,20 +509,7 @@ contract AstariaTest is Test {
 
     */
     function testCancelAuction() public {
-        Dummy721 lienTest = new Dummy721();
-        address tokenContract = address(address(lienTest));
-        uint256 tokenId = uint256(1);
-
-        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
-        uint256 starId = uint256(
-            keccak256(abi.encodePacked(tokenContract, tokenId))
-        );
-        _warpToMaturity(vaultHash, starId);
-        uint256 reserve = BOND_CONTROLLER.liquidate(
-            vaultHash,
-            uint256(0),
-            starId
-        );
+        (bytes32 hash, uint256 starId, uint256 reserve) = testAuctionVault();
         hevm.deal(address(this), reserve);
         WETH9.deposit{value: reserve}();
         WETH9.approve(address(TRANSFER_PROXY), reserve);

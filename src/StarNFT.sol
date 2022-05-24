@@ -407,11 +407,12 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         (bytes32[] memory vaults, uint256[] memory indexes) = _processPayout(
             _starTokenId
         );
-        BOND_CONTROLLER.repayFromCancel(
+        BOND_CONTROLLER.complete(
             _starTokenId,
             vaults,
             indexes,
-            reservePrice
+            reservePrice,
+            false
         );
 
         delete starIdToAuctionId[_starTokenId];
@@ -429,7 +430,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         (bytes32[] memory vaults, uint256[] memory indexes) = _processPayout(
             _tokenId
         );
-        BOND_CONTROLLER.completeLiquidation(_tokenId, vaults, indexes, payout);
+        BOND_CONTROLLER.complete(_tokenId, vaults, indexes, payout, true);
 
         _burn(_tokenId);
         releaseToAddress(_tokenId, winner);
