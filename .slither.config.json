@@ -1,0 +1,8 @@
+{
+  "solc_remaps": [
+    "solmate/=./lib/solmate/src/",
+    "ds-test/=./lib/ds-test/src/",
+    "openzeppelin/=./lib/openzeppelin-contracts/contracts/",
+    "auction/=./lib/auction-house/src/"
+  ]
+}
