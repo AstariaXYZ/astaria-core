@@ -5,43 +5,10 @@ import "openzeppelin/token/ERC721/IERC721.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
 import "./interfaces/IAuctionHouse.sol";
-
-interface IERC721Wrapper is IERC721 {
-    enum LienAction {
-        ENCUMBER,
-        UN_ENCUMBER
-    }
-
-    function liens(uint256) external returns (uint8);
-
-    function getTotalLiens(uint256) external returns (uint256);
-
-    function getLiens(uint256 _starId)
-        external
-        view
-        returns (
-            bytes32[] memory,
-            //            uint256[],
-            uint256[] memory
-        );
-
-    function manageLien(
-        uint256 _tokenId,
-        LienAction _action,
-        bytes calldata _lienData
-    ) external;
-
-    function auctionVault(
-        bytes32 bondVault,
-        uint256 tokenId,
-        uint256 reservePrice
-    ) external;
-
-    function getUnderlyingFromStar(uint256 starId_)
-        external
-        view
-        returns (address, uint256);
-}
+import "openzeppelin/proxy/Clones.sol";
+import "./interfaces/IStarNFT.sol";
+import "./TransferProxy.sol";
+import "./BrokerImplementation.sol";
 
 contract NFTBondController is ERC1155 {
     bytes32 public immutable DOMAIN_SEPARATOR;
@@ -49,9 +16,10 @@ contract NFTBondController is ERC1155 {
 
     string public name = "Astaria NFT Bond Vault";
     IERC20 immutable WETH;
-    IERC721Wrapper immutable COLLATERAL_VAULT;
+    IStarNFT immutable COLLATERAL_VAULT;
+    TransferProxy immutable TRANSFER_PROXY;
+    address BEACON_CLONE;
 
-    uint256 AUCTION_DURATION;
     uint256 LIQUIDATION_FEE; // a percent(13) then mul by 100
 
     mapping(bytes32 => BondVault) bondVaults;
@@ -73,6 +41,7 @@ contract NFTBondController is ERC1155 {
     );
     event NewBondVault(
         address appraiser,
+        address broker,
         bytes32 bondVault,
         bytes32 contentHash,
         uint256 expiration
@@ -94,6 +63,7 @@ contract NFTBondController is ERC1155 {
         uint256 loanCount;
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
         uint256 maturity; // epoch when the loan becomes due
+        address broker; //cloned proxy
     }
 
     // could be replaced with a single byte32 value, pass in merkle proof to liquidate
@@ -112,10 +82,14 @@ contract NFTBondController is ERC1155 {
     constructor(
         string memory _uri,
         address _WETH,
-        address _COLLATERAL_VAULT
+        address _COLLATERAL_VAULT,
+        address _TRANSFER_PROXY,
+        address _BEACON_CLONE
     ) ERC1155(_uri) {
         WETH = IERC20(_WETH);
-        COLLATERAL_VAULT = IERC721Wrapper(_COLLATERAL_VAULT);
+        COLLATERAL_VAULT = IStarNFT(_COLLATERAL_VAULT);
+        TRANSFER_PROXY = TransferProxy(_TRANSFER_PROXY);
+        BEACON_CLONE = _BEACON_CLONE;
         uint256 chainId;
         assembly {
             chainId := chainid()
@@ -131,7 +105,7 @@ contract NFTBondController is ERC1155 {
                 address(this)
             )
         );
-        AUCTION_DURATION = 7 days;
+        WETH.approve(address(TRANSFER_PROXY), type(uint256).max);
     }
 
     function getBondData(bytes32 bondVault, uint256 collateralVault)
@@ -279,16 +253,79 @@ contract NFTBondController is ERC1155 {
             );
     }
 
+    function refinanceLoan(
+        bytes32 bondVaultOutgoing,
+        bytes32 bondVaultIncoming,
+        uint256 collateralVault,
+        uint256 index,
+        uint256 interestRate,
+        uint256 end
+    ) external {
+        Loan memory loan = bondVaults[bondVaultOutgoing].loans[collateralVault][
+            index
+        ];
+        uint256 interestOwed = getInterest(
+            bondVaultOutgoing,
+            index,
+            collateralVault
+        );
+        uint256 amountOwed = interestOwed + loan.amount;
+        require(interestRate <= (loan.interestRate * 500) / 1000); //TODO: min "beat price"
+
+        //transfer proxy in the weth from sender to the bondvault
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            address(this),
+            amountOwed
+        );
+        bondVaults[bondVaultOutgoing].balance += amountOwed;
+        bondVaults[bondVaultOutgoing].loanCount--;
+        //if we dont create here perhaps we require that a bondvault is created before you can refinance,
+        _newBondVault(
+            address(msg.sender),
+            bondVaultIncoming,
+            bytes32(0),
+            uint256(block.timestamp + 30 days)
+        );
+
+        bondVaults[bondVaultIncoming].loans[collateralVault].push(
+            Loan(
+                loan.amount,
+                interestRate,
+                block.timestamp,
+                loan.end,
+                bondVaultIncoming,
+                loan.schedule
+            )
+        );
+
+        _swapLien(bondVaultOutgoing, bondVaultIncoming, collateralVault, index);
+        delete bondVaults[bondVaultOutgoing].loans[collateralVault][index];
+    }
+
     function _newBondVault(
         address appraiser,
         bytes32 root,
         bytes32 contentHash,
         uint256 expiration
     ) internal {
+        //        address proxy = Clones.cloneDeterministic(BEACON_CLONE, root);
+        //        address[] memory tokens = new address[](1);
+        //        tokens[0] = address(WETH);
+        //        BrokerImplementation(proxy).initialize(tokens, address(TRANSFER_PROXY));
+
+        address proxy = Clones.predictDeterministicAddress(
+            BEACON_CLONE,
+            root,
+            address(this)
+        );
         BondVault storage bondVault = bondVaults[root];
         bondVault.appraiser = appraiser;
         bondVault.expiration = expiration;
-        emit NewBondVault(appraiser, root, contentHash, expiration);
+        bondVault.broker = proxy;
+
+        emit NewBondVault(appraiser, proxy, root, contentHash, expiration);
     }
 
     // maxAmount so the borrower has the option to borrow less
@@ -350,8 +387,19 @@ contract NFTBondController is ERC1155 {
         );
         _addLien(bondVault, lienPosition, collateralVault);
 
-        WETH.transfer(msg.sender, amount);
-        //TODO: transfer from the beacon proxy of the bond vault
+        //        WETH.transfer(msg.sender, amount);
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(this),
+            address(msg.sender),
+            amount
+        );
+        //        TRANSFER_PROXY.tokenTransferFrom(
+        //            address(WETH),
+        //            bondVaults[bondVault].broker,
+        //            address(msg.sender),
+        //            amount
+        //        );
         bondVaults[bondVault].loanCount++;
         bondVaults[bondVault].balance -= amount;
         emit NewLoan(bondVault, collateralVault, amount);
@@ -364,7 +412,7 @@ contract NFTBondController is ERC1155 {
     ) internal {
         COLLATERAL_VAULT.manageLien(
             collateralVault,
-            IERC721Wrapper.LienAction.ENCUMBER,
+            IStarNFT.LienAction.ENCUMBER,
             abi.encodePacked(
                 bondVault,
                 position,
@@ -380,8 +428,21 @@ contract NFTBondController is ERC1155 {
     ) internal {
         COLLATERAL_VAULT.manageLien(
             collateralVault,
-            IERC721Wrapper.LienAction.UN_ENCUMBER,
+            IStarNFT.LienAction.UN_ENCUMBER,
             abi.encodePacked(bondVault, index)
+        );
+    }
+
+    function _swapLien(
+        bytes32 bondVaultOld,
+        bytes32 bondVaultNew,
+        uint256 collateralVault,
+        uint256 index
+    ) internal {
+        COLLATERAL_VAULT.manageLien(
+            collateralVault,
+            IStarNFT.LienAction.SWAP_VAULT,
+            abi.encodePacked(bondVaultOld, bondVaultNew, index)
         );
     }
 
@@ -395,9 +456,16 @@ contract NFTBondController is ERC1155 {
     }
 
     function lendToVault(bytes32 bondVault, uint256 amount) external {
-        require(
-            WETH.transferFrom(msg.sender, address(this), amount),
-            "lendToVault: transfer failed"
+        //        require(
+        //            WETH.transferFrom(msg.sender, address(this), amount),
+        //            "lendToVault: transfer failed"
+        //        );
+
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            address(this),
+            amount
         );
         require(
             bondVaults[bondVault].appraiser != address(0),
@@ -429,9 +497,15 @@ contract NFTBondController is ERC1155 {
             amount)
             ? amount
             : bondVaults[bondVault].loans[collateralVault][index].amount;
-        require(
-            WETH.transferFrom(msg.sender, address(this), amount),
-            "repayLoan: transfer failed"
+        //        require(
+        //            WETH.transferFrom(msg.sender, address(this), amount),
+        //            "repayLoan: transfer failed"
+        //        );
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            address(this),
+            amount
         );
         bondVaults[bondVault].loans[collateralVault][index].amount -= amount;
         bondVaults[bondVault].loans[collateralVault][index].start = block
@@ -598,7 +672,20 @@ contract NFTBondController is ERC1155 {
         uint256 yield = (amount / bondVaults[bondVault].totalSupply) *
             bondVaults[bondVault].balance;
 
-        WETH.transfer(msg.sender, yield);
+        //        WETH.transfer(msg.sender, yield);
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(this),
+            address(msg.sender),
+            yield
+        );
+
+        //        TRANSFER_PROXY.tokenTransferFrom(
+        //            address(WETH),
+        //            bondVaults[bondVault].broker,
+        //            address(msg.sender),
+        //            yield
+        //        );
 
         emit RedeemBond(bondVault, amount, address(msg.sender));
     }

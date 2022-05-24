@@ -35,7 +35,8 @@ interface ISecurityHook {
 contract StarNFT is Auth, ERC721, IERC721Receiver {
     enum LienAction {
         ENCUMBER,
-        UN_ENCUMBER
+        UN_ENCUMBER,
+        SWAP_VAULT
     }
 
     //what about a notion of a resolver address that settles lien(external contract)?
@@ -273,6 +274,17 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
                 "this lien position is not set"
             );
             delete liens[_tokenId][position];
+        } else if (_action == LienAction.SWAP_VAULT) {
+            bytes32 bondVaultNew;
+            (bondVault, bondVaultNew, position) = abi.decode(
+                _lienData,
+                (bytes32, bytes32, uint8)
+            );
+            require(
+                liens[_tokenId][position].bondVault == bondVault,
+                "this lien position is not set"
+            );
+            liens[_tokenId][position].bondVault = bondVaultNew;
         } else {
             revert("Invalid Action");
         }
