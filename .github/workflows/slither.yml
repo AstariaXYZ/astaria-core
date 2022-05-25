@@ -27,7 +27,9 @@ jobs:
           target: './src'
           node-version: 16
           slither-config: '.slither.config.json'
-          slither-args: '--checklist --markdown-root https://github.com/ORG/REPO/blob/COMMIT/ > output.md'
+          slither-args: '--checklist --markdown-root https://github.com/ORG/REPO/blob/COMMIT/'
+          outputs:
+            markdown: ${{ steps.slither.outputs.test }}
 
       - name: "Post to PR"
         uses: EliLillyCo/github-actions-post-to-pr@main
@@ -36,7 +38,7 @@ jobs:
           post_to_pr_definition: |
             [
               {
-                "message_file": "./output.md",
+                "message_file": "${{needs.job1.outputs.markdown}}",
                 "title": "Slither Analysis"
               }
             ]
