@@ -26,16 +26,10 @@ jobs:
         with:
           target: './src'
           node-version: 16
+          sarif: results.sarif
           slither-config: '.slither.config.json'
 
-      - name: "Post to PR"
-        uses: EliLillyCo/github-actions-post-to-pr@main
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
         with:
-          github_token: ${{ secrets.MY_REPO_PAT }}
-          post_to_pr_definition: |
-            [
-              {
-                "message_file": "./output.md",
-                "title": "Slither Analysis"
-              }
-            ]
+          sarif_file: ${{ steps.slither.outputs.sarif }}
