@@ -9,6 +9,8 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    outputs:
+      markdown: '${{ steps.slither.outputs.markdown }}'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -27,9 +29,8 @@ jobs:
           target: './src'
           node-version: 16
           slither-config: '.slither.config.json'
-          slither-args: '--checklist --markdown-root https://github.com/ORG/REPO/blob/COMMIT/'
-          outputs:
-            markdown: ${{ steps.slither.outputs.test }}
+          slither-args: '--checklist'
+          markdown: results.md
 
       - name: "Post to PR"
         uses: EliLillyCo/github-actions-post-to-pr@main
@@ -38,7 +39,7 @@ jobs:
           post_to_pr_definition: |
             [
               {
-                "message_file": "${{needs.job1.outputs.markdown}}",
+                "message_file": "./${{needs.slither.outputs.markdown}}",
                 "title": "Slither Analysis"
               }
             ]
