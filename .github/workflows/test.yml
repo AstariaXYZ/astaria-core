@@ -8,10 +8,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-          uses: actions/checkout@v3
-          with:
-            submodules: recursive
-            token: ${{ secrets.MY_REPO_PAT }}
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          token: ${{ secrets.MY_REPO_PAT }}
 
       - uses: actions/setup-node@v2
       - run: yarn
