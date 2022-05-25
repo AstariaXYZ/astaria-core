@@ -41,7 +41,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     //what about a notion of a resolver address that settles lien(external contract)?
     struct Lien {
         bytes32 bondVault;
-        uint256 amount;
+        //        uint256 amount;
+        uint256 index;
         //        address tokenContract;
         //        uint256 resolution; //if 0, unresolved lien, set to resolved 1
         //        address resolver; //IResolver contract, interface for sending to beacon proxy
@@ -221,8 +222,30 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
             revert AuctionStartedForCollateral(tokenId);
     }
 
-    function getTotalLiens(uint256 _starId) external returns (uint256) {
+    function getTotalLiens(uint256 _starId) public returns (uint256) {
         return liens[_starId].length;
+    }
+
+    function getLiens(uint256 _starId)
+        external
+        returns (
+            bytes32[] memory,
+            //            uint256[],
+            uint256[] memory
+        )
+    {
+        uint256 lienLength = getTotalLiens(_starId);
+        bytes32[] memory vaults = new bytes32[](lienLength);
+        //        uint256[] amounts = new uint256[](lienLength);
+        uint256[] memory indexes = new uint256[](lienLength);
+        for (uint256 i = 0; i < lienLength; ++i) {
+            Lien memory lien = liens[_starId][i];
+            vaults[i] = lien.bondVault;
+            //            amounts[i] = lien.amount;
+            indexes[i] = lien.index;
+        }
+        //        return (vaults, amounts, indexes);
+        return (vaults, indexes);
     }
 
     function manageLien(
@@ -233,8 +256,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         uint256 position;
         bytes32 bondVault;
         if (_action == LienAction.ENCUMBER) {
-            uint256 amount;
-            (bondVault, position, amount) = abi.decode(
+            uint256 index;
+            (bondVault, position, index) = abi.decode(
                 _lienData,
                 (bytes32, uint256, uint256)
             );
@@ -242,11 +265,11 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
                 liens[_tokenId].length == position,
                 "Invalid Lien Position"
             );
-            liens[_tokenId].push(Lien(bondVault, amount));
+            liens[_tokenId].push(Lien(bondVault, index));
         } else if (_action == LienAction.UN_ENCUMBER) {
             (bondVault, position) = abi.decode(_lienData, (bytes32, uint8));
             require(
-                liens[_tokenId][position].amount > uint256(0),
+                liens[_tokenId][position].bondVault != bytes32(0),
                 "this lien position is not set"
             );
             delete liens[_tokenId][position];
@@ -356,6 +379,32 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         starIdToAuctionId[_tokenId] = auctionId;
     }
 
+    function cancelAuction(uint256 _starTokenId)
+        external
+        onlyOwner(_starTokenId)
+    {
+        require(
+            starIdToAuctionId[_starTokenId] > uint256(0),
+            "Auction doesn't exist"
+        );
+        uint256 auctionId = starIdToAuctionId[_starTokenId];
+        (, , , , uint256 reservePrice, , bytes32 bondVault) = AUCTION_HOUSE
+            .getAuctionData(auctionId);
+
+        AUCTION_HOUSE.cancelAuction(auctionId);
+        (bytes32[] memory vaults, uint256[] memory indexes) = _processPayout(
+            _starTokenId
+        );
+        BOND_CONTROLLER.repayFromCancel(
+            _starTokenId,
+            vaults,
+            indexes,
+            reservePrice
+        );
+
+        delete starIdToAuctionId[_starTokenId];
+    }
+
     function endAuction(uint256 _tokenId) external {
         require(
             starIdToAuctionId[_tokenId] > uint256(0),
@@ -365,27 +414,48 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         (uint256 payout, address winner) = AUCTION_HOUSE.endAuction(
             starIdToAuctionId[_tokenId]
         );
-        //clean up all storage around the underlying asset, listings, liens, deposit information
-        uint256 lienLength = liens[_tokenId].length;
-        bytes32[] memory vaults = new bytes32[](lienLength);
-        uint256[] memory recovered = new uint256[](lienLength);
-        for (uint256 i = 0; i < lienLength; ++i) {
-            Lien memory lienLiquidated = liens[_tokenId][i];
-            vaults[i] = lienLiquidated.bondVault;
-            if (payout > lienLiquidated.amount) {
-                uint256 repayAmount = payout - lienLiquidated.amount;
-                payout -= repayAmount;
-            } else {
-                payout = 0;
-            }
-            recovered[i] = payout;
-        }
-        BOND_CONTROLLER.completeLiquidation(_tokenId, vaults, recovered);
-        delete liens[_tokenId];
-        delete starToUnderlying[_tokenId];
+        (bytes32[] memory vaults, uint256[] memory indexes) = _processPayout(
+            _tokenId
+        );
+        BOND_CONTROLLER.completeLiquidation(_tokenId, vaults, indexes, payout);
 
         _burn(_tokenId);
-        delete starIdToAuctionId[_tokenId];
         releaseToAddress(_tokenId, winner);
+    }
+
+    function _processPayout(uint256 _tokenId)
+        internal
+        returns (bytes32[] memory, uint256[] memory)
+    {
+        delete starIdToAuctionId[_tokenId];
+
+        //clean up all storage around the underlying asset, listings, liens, deposit information
+
+        uint256 lienLength = liens[_tokenId].length;
+        bytes32[] memory vaults = new bytes32[](lienLength);
+        uint256[] memory indexes = new uint256[](lienLength);
+        for (uint256 i = 0; i < lienLength; ++i) {
+            Lien memory lien = liens[_tokenId][i];
+            vaults[i] = lien.bondVault;
+            indexes[i] = lien.index;
+        }
+
+        delete liens[_tokenId];
+
+        //        for (uint256 i = 0; i < lienLength; ++i) {
+        //            Lien memory lienLiquidated = liens[_tokenId][i];
+        //            vaults[i] = lienLiquidated.bondVault;
+        //            if (payout > lienLiquidated.amount) {
+        //                uint256 repayAmount = payout - lienLiquidated.amount;
+        //                payout -= repayAmount;
+        //            } else {
+        //                payout = 0;
+        //            }
+        //            recovered[i] = payout;
+        //        }
+
+        delete starToUnderlying[_tokenId];
+
+        return (vaults, indexes);
     }
 }

@@ -70,8 +70,10 @@ contract AstariaTest is Test {
 
     uint256 appraiserPK = 0x1339;
     uint256 lenderPK = 0x1340;
+    uint256 borrowerPK = 0x1341;
     address appraiser = hevm.addr(appraiserPK);
     address lender = hevm.addr(lenderPK);
+    address borrower = hevm.addr(borrowerPK);
 
     event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
     event Repayment(bytes32 bondVault, uint256 collateralVault, uint256 amount);
@@ -445,7 +447,14 @@ contract AstariaTest is Test {
         ensure that we're repaying the proper collateral
 
     */
-    function testAuctionVault() public {
+    function testAuctionVault()
+        public
+        returns (
+            bytes32,
+            uint256,
+            uint256
+        )
+    {
         Dummy721 lienTest = new Dummy721();
         address tokenContract = address(address(lienTest));
         uint256 tokenId = uint256(1);
@@ -455,7 +464,12 @@ contract AstariaTest is Test {
             keccak256(abi.encodePacked(tokenContract, tokenId))
         );
         _warpToMaturity(vaultHash, starId);
-        BOND_CONTROLLER.liquidate(vaultHash, uint256(0), starId);
+        uint256 reserve = BOND_CONTROLLER.liquidate(
+            vaultHash,
+            uint256(0),
+            starId
+        );
+        return (vaultHash, starId, reserve);
     }
 
     /**
@@ -463,9 +477,16 @@ contract AstariaTest is Test {
         ensure that we're emitting the correct events
 
     */
-    //    function testCancelAuction() public {
-    //        //needs helper that moves collateral into default
-    //        //trigger liquidate
-    //        //cancel auction as holder
-    //    }
+    function testCancelAuction() public {
+        (
+            bytes32 vaultHash,
+            uint256 starId,
+            uint256 reserve
+        ) = testAuctionVault();
+
+        hevm.deal(address(this), reserve);
+        WETH9.deposit{value: reserve}();
+        WETH9.approve(address(this), reserve);
+        STAR_NFT.cancelAuction(starId);
+    }
 }
