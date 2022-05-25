@@ -12,6 +12,10 @@ import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {NFTBondController} from "../NFTBondController.sol";
 import {AuctionHouse} from "auction/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
+import {BrokerImplementation} from "../BrokerImplementation.sol";
+import {TransferProxy} from "../TransferProxy.sol";
+import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
+import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -49,14 +53,15 @@ contract AstariaTest is Test {
         ADMIN,
         BOND_CONTROLLER,
         WRAPPER,
-        AUCTION_HOUSE
+        AUCTION_HOUSE,
+        TRANSFER_PROXY
     }
 
     using Strings2 for bytes;
     StarNFT STAR_NFT;
     NFTBondController BOND_CONTROLLER;
     Dummy721 testNFT;
-
+    TransferProxy TRANSFER_PROXY;
     IWETH9 WETH9;
     MultiRolesAuthority MRA;
     AuctionHouse AUCTION_HOUSE;
@@ -98,18 +103,34 @@ contract AstariaTest is Test {
         address liquidator = hevm.addr(0x1337); //remove
 
         STAR_NFT = new StarNFT(MRA);
-
+        TRANSFER_PROXY = new TransferProxy(MRA);
+        BrokerImplementation implementation = new BrokerImplementation();
+        UpgradeableBeacon beacon = new UpgradeableBeacon(
+            address(implementation)
+        ); //change to actual implmentation
+        address[] memory approve = new address[](1);
+        approve[0] = address(WETH9);
+        BeaconProxy bp = new BeaconProxy(
+            address(beacon),
+            abi.encodeWithSignature(
+                "initialize(address[],address)",
+                approve,
+                address(TRANSFER_PROXY)
+            )
+        );
         BOND_CONTROLLER = new NFTBondController(
             "TEST URI",
             address(WETH9),
-            address(STAR_NFT)
+            address(STAR_NFT),
+            address(TRANSFER_PROXY),
+            address(implementation)
         );
 
         AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
             address(MRA),
-            address(BOND_CONTROLLER),
-            address(STAR_NFT)
+            address(STAR_NFT),
+            address(TRANSFER_PROXY)
         );
 
         STAR_NFT.setBondController(address(BOND_CONTROLLER));
@@ -165,7 +186,7 @@ contract AstariaTest is Test {
         );
         MRA.setRoleCapability(
             uint8(UserRoles.WRAPPER),
-            NFTBondController.completeLiquidation.selector,
+            NFTBondController.complete.selector,
             true
         );
         MRA.setRoleCapability(
@@ -176,6 +197,16 @@ contract AstariaTest is Test {
         MRA.setRoleCapability(
             uint8(UserRoles.BOND_CONTROLLER),
             StarNFT.auctionVault.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.BOND_CONTROLLER),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
             true
         );
         MRA.setUserRole(
@@ -374,7 +405,7 @@ contract AstariaTest is Test {
         hevm.deal(lender, 1000 ether);
         hevm.startPrank(lender);
         WETH9.deposit{value: 50 ether}();
-        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+        WETH9.approve(address(TRANSFER_PROXY), type(uint256).max);
         BOND_CONTROLLER.lendToVault(vaultHash, 50 ether);
         hevm.stopPrank();
 
@@ -478,15 +509,10 @@ contract AstariaTest is Test {
 
     */
     function testCancelAuction() public {
-        (
-            bytes32 vaultHash,
-            uint256 starId,
-            uint256 reserve
-        ) = testAuctionVault();
-
+        (bytes32 hash, uint256 starId, uint256 reserve) = testAuctionVault();
         hevm.deal(address(this), reserve);
         WETH9.deposit{value: reserve}();
-        WETH9.approve(address(this), reserve);
+        WETH9.approve(address(TRANSFER_PROXY), reserve);
         STAR_NFT.cancelAuction(starId);
     }
 }
