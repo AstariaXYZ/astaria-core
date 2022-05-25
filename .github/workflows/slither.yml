@@ -38,7 +38,7 @@ jobs:
           post_to_pr_definition: |
             [
               {
-                "message_file": "${{needs.analyze.outputs.markdown}}",
+                "message_file": "${{ steps.slither.outputs.markdown }}",
                 "title": "Slither Analysis"
               }
             ]
