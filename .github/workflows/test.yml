@@ -1,0 +1,21 @@
+on: [push, pull_request]
+
+name: test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v2
+      - run: yarn
+
+      - uses: onbjerg/foundry-toolchain@v1
+        with:
+          version: nightly
+  
+      - run: forge test --ffi
