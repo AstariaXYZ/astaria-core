@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-node@v2
 
       - name: Run Slither
-        uses: crytic/slither-action@main
+        uses: astariaxyz/slither-action@main
         id: slither
         continue-on-error: true
         with:
@@ -39,7 +39,7 @@ jobs:
           post_to_pr_definition: |
             [
               {
-                "message_file": "./${{needs.slither.outputs.markdown}}",
+                "message_file": "${{needs.slither.outputs.markdown}}",
                 "title": "Slither Analysis"
               }
             ]
