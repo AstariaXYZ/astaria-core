@@ -9,6 +9,8 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    outputs:
+      markdown: results.md
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -20,13 +22,13 @@ jobs:
         uses: actions/setup-node@v2
 
       - name: Run Slither
-        uses: crytic/slither-action@main
+        uses: astariaxyz/slither-action@main
         id: slither
         continue-on-error: true
         with:
           target: './src'
           node-version: 16
-          sarif: results.sarif
+          markdown: results.markdown
           slither-config: '.slither.config.json'
 
       - name: Upload SARIF file
