@@ -3,9 +3,8 @@ name: slither-analysis
 # Controls when the workflow will run
 on:
   push:
-    branches: [ '*' ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, develop, release/* ]
 
 jobs:
   analyze:
@@ -28,3 +27,15 @@ jobs:
           target: './src'
           node-version: 16
           slither-config: '.slither.config.json'
+
+      - name: "Post to PR"
+        uses: EliLillyCo/github-actions-post-to-pr@main
+        with:
+          github_token: ${{ secrets.MY_REPO_PAT }}
+          post_to_pr_definition: |
+            [
+              {
+                "message_file": "./output.md",
+                "title": "Slither Analysis"
+              }
+            ]
