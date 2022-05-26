@@ -61,17 +61,12 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
 
     mapping(address => address) securityHooks;
     mapping(uint256 => Lien[]) liens; // tokenId to bondvaults hash only can move up and down.
-    //    mapping(uint256 => mapping(uint8 => bool)) lienPosition;
     mapping(uint256 => uint256) starIdToAuctionId;
-
-    mapping(bytes32 => uint256) listHashes;
 
     bytes32 SUPPORTED_ASSETS_ROOT;
 
     IAuctionHouse AUCTION_HOUSE;
     NFTBondController BOND_CONTROLLER;
-    address LOOKS_TRANSFER_MGR = address(0x123456);
-    uint256 tokenCount;
 
     event DepositERC721(
         address indexed from,

@@ -2,8 +2,9 @@ pragma solidity ^0.8.13;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
+import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 
-contract TransferProxy is Auth {
+contract TransferProxy is Auth, ITransferProxy {
     using SafeTransferLib for ERC20;
 
     constructor(Authority _AUTHORITY) Auth(address(msg.sender), _AUTHORITY) {}

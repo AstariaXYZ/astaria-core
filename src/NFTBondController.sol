@@ -9,12 +9,16 @@ import "openzeppelin/proxy/Clones.sol";
 import "./interfaces/IStarNFT.sol";
 import "./TransferProxy.sol";
 import "./BrokerImplementation.sol";
+import "../lib/solmate/src/utils/FixedPointMathLib.sol";
+
+//import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 contract NFTBondController is ERC1155 {
     bytes32 public immutable DOMAIN_SEPARATOR;
     mapping(address => uint256) public tokenNonces;
+    using FixedPointMathLib for uint256;
 
-    string public name = "Astaria NFT Bond Vault";
+    string public constant name = "Astaria NFT Bond Vault";
     IERC20 immutable WETH;
     IStarNFT immutable COLLATERAL_VAULT;
     TransferProxy immutable TRANSFER_PROXY;
@@ -23,7 +27,6 @@ contract NFTBondController is ERC1155 {
     uint256 LIQUIDATION_FEE; // a percent(13) then mul by 100
 
     mapping(bytes32 => BondVault) bondVaults;
-    mapping(bytes32 => uint256) collateralAuctions;
     mapping(address => uint256) public appraiserNonces;
 
     event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
@@ -90,6 +93,7 @@ contract NFTBondController is ERC1155 {
         COLLATERAL_VAULT = IStarNFT(_COLLATERAL_VAULT);
         TRANSFER_PROXY = TransferProxy(_TRANSFER_PROXY);
         BEACON_CLONE = _BEACON_CLONE;
+        LIQUIDATION_FEE = 3;
         uint256 chainId;
         assembly {
             chainId := chainid()
@@ -659,28 +663,19 @@ contract NFTBondController is ERC1155 {
 
         _burn(msg.sender, uint256(bondVault), amount);
 
-        //TODO: do we need to normalize?
-        uint256 yield = (amount / bondVaults[bondVault].totalSupply) *
-            bondVaults[bondVault].balance;
+        uint256 yield = amount
+            .divWadDown(bondVaults[bondVault].totalSupply)
+            .mulWadDown(bondVaults[bondVault].balance);
 
         unchecked {
             bondVaults[bondVault].totalSupply -= amount;
         }
-        //        WETH.transfer(msg.sender, yield);
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
             address(this),
             address(msg.sender),
             yield
         );
-
-        //        TRANSFER_PROXY.tokenTransferFrom(
-        //            address(WETH),
-        //            bondVaults[bondVault].broker,
-        //            address(msg.sender),
-        //            yield
-        //        );
-
         emit RedeemBond(bondVault, amount, address(msg.sender));
     }
 }
