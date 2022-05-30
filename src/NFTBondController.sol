@@ -600,9 +600,23 @@ contract NFTBondController is ERC1155 {
             msg.sender == address(COLLATERAL_VAULT),
             "completeLiquidation: must be collateral wrapper to call this"
         );
-        _bulkRepay(collateralVault, vaults, indexes, recovered);
+        uint256 remaining = _bulkRepay(
+            collateralVault,
+            vaults,
+            indexes,
+            recovered
+        );
 
         if (liquidation) {
+            if (remaining > uint256(0)) {
+                //pay remaining to the token holder
+                TRANSFER_PROXY.tokenTransferFrom(
+                    address(WETH),
+                    address(this),
+                    address(COLLATERAL_VAULT.ownerOf(collateralVault)),
+                    remaining
+                );
+            }
             emit Liquidation(collateralVault, vaults, indexes, recovered);
         }
     }
@@ -612,19 +626,8 @@ contract NFTBondController is ERC1155 {
         bytes32[] memory vaults,
         uint256[] memory indexes,
         uint256 payout
-    ) internal {
+    ) internal returns (uint256) {
         unchecked {
-            //        for (uint256 i = 0; i < lienLength; ++i) {
-            //            Lien memory lienLiquidated = liens[_tokenId][i];
-            //            vaults[i] = lienLiquidated.bondVault;
-            //            if (payout > lienLiquidated.amount) {
-            //                uint256 repayAmount = payout - lienLiquidated.amount;
-            //                payout -= repayAmount;
-            //            } else {
-            //                payout = 0;
-            //            }
-            //            recovered[i] = payout;
-            //        }
             for (uint256 i = 0; i < vaults.length; ++i) {
                 bytes32 vaultHash = vaults[i];
                 uint256 index = indexes[i];
@@ -639,13 +642,13 @@ contract NFTBondController is ERC1155 {
                     emit Repayment(vaultHash, collateralVault, index, payment);
                 } else {
                     payment = payout;
+                    payout = uint256(0);
                 }
                 bondVaults[vaultHash].loanCount--;
                 delete bondVaults[vaultHash].loans[collateralVault][indexes[i]];
             }
         }
-
-        emit Liquidation(collateralVault, vaults, indexes, payout);
+        return payout;
     }
 
     function redeemBond(bytes32 bondVault, uint256 amount) external {
