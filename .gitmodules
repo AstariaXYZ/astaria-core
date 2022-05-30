@@ -13,3 +13,6 @@
 [submodule "lib/auction-house"]
 	path = lib/auction-house
 	url = https://github.com/AstariaXYZ/auction-house
+[submodule "lib/foundry_eip-4626"]
+	path = lib/foundry_eip-4626
+	url = https://github.com/jaglinux/foundry_eip-4626/
