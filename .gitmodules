@@ -16,3 +16,6 @@
 [submodule "lib/foundry_eip-4626"]
 	path = lib/foundry_eip-4626
 	url = https://github.com/jaglinux/foundry_eip-4626/
+[submodule "lib/clones-with-immutable-args"]
+	path = lib/clones-with-immutable-args
+	url = https://github.com/wighawag/clones-with-immutable-args

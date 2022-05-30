@@ -42,7 +42,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     //what about a notion of a resolver address that settles lien(external contract)?
     struct Lien {
         bytes32 bondVault;
-        //        uint256 amount;
+        uint256 amount;
         uint256 index;
         //        address tokenContract;
         //        uint256 resolution; //if 0, unresolved lien, set to resolved 1
@@ -226,22 +226,22 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         external
         returns (
             bytes32[] memory,
-            //            uint256[],
+            uint256[],
             uint256[] memory
         )
     {
         uint256 lienLength = getTotalLiens(_starId);
         bytes32[] memory vaults = new bytes32[](lienLength);
-        //        uint256[] amounts = new uint256[](lienLength);
+        uint256[] amounts = new uint256[](lienLength);
         uint256[] memory indexes = new uint256[](lienLength);
         for (uint256 i = 0; i < lienLength; ++i) {
             Lien memory lien = liens[_starId][i];
             vaults[i] = lien.bondVault;
-            //            amounts[i] = lien.amount;
+            amounts[i] = lien.amount;
             indexes[i] = lien.index;
         }
-        //        return (vaults, amounts, indexes);
-        return (vaults, indexes);
+        return (vaults, amounts, indexes);
+        //        return (vaults, indexes);
     }
 
     function manageLien(
@@ -253,15 +253,16 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         bytes32 bondVault;
         if (_action == LienAction.ENCUMBER) {
             uint256 index;
-            (bondVault, position, index) = abi.decode(
+            uint256 amount;
+            (bondVault, position, index, amount) = abi.decode(
                 _lienData,
-                (bytes32, uint256, uint256)
+                (bytes32, uint256, uint256, uint256)
             );
             require(
                 liens[_tokenId].length == position,
                 "Invalid Lien Position"
             );
-            liens[_tokenId].push(Lien(bondVault, index));
+            liens[_tokenId].push(Lien(bondVault, index, amount));
         } else if (_action == LienAction.UN_ENCUMBER) {
             (bondVault, position) = abi.decode(_lienData, (bytes32, uint8));
             require(
@@ -435,8 +436,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         internal
         returns (bytes32[] memory, uint256[] memory)
     {
-        delete starIdToAuctionId[_tokenId];
-
         //clean up all storage around the underlying asset, listings, liens, deposit information
 
         uint256 lienLength = liens[_tokenId].length;
@@ -449,19 +448,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         }
 
         delete liens[_tokenId];
-
-        //        for (uint256 i = 0; i < lienLength; ++i) {
-        //            Lien memory lienLiquidated = liens[_tokenId][i];
-        //            vaults[i] = lienLiquidated.bondVault;
-        //            if (payout > lienLiquidated.amount) {
-        //                uint256 repayAmount = payout - lienLiquidated.amount;
-        //                payout -= repayAmount;
-        //            } else {
-        //                payout = 0;
-        //            }
-        //            recovered[i] = payout;
-        //        }
-
+        delete starIdToAuctionId[_tokenId];
         delete starToUnderlying[_tokenId];
 
         return (vaults, indexes);

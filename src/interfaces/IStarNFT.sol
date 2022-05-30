@@ -17,7 +17,7 @@ interface IStarNFT is IERC721 {
         view
         returns (
             bytes32[] memory,
-            //            uint256[],
+            uint256[] memory,
             uint256[] memory
         );
 
