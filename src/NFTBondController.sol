@@ -10,14 +10,9 @@ import "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import "./interfaces/IStarNFT.sol";
 import "./TransferProxy.sol";
 import "./BrokerImplementation.sol";
-import "../lib/solmate/src/utils/FixedPointMathLib.sol";
-
-//import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 contract NFTBondController {
     bytes32 public immutable DOMAIN_SEPARATOR;
-    mapping(address => uint256) public tokenNonces;
-    using FixedPointMathLib for uint256;
 
     string public constant name = "Astaria NFT Bond Vault";
     IERC20 public immutable WETH;
@@ -167,6 +162,7 @@ contract NFTBondController {
     ) public view returns (bool) {
         bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
         return isValidLeaf;
+        //        return true;
     }
 
     // verifies the signature on the root of the merkle tree to be the appraiser
@@ -176,7 +172,6 @@ contract NFTBondController {
         bytes32 root,
         uint256 expiration,
         uint256 deadline,
-        uint256 maturity,
         bytes32 contentHash,
         uint8 v,
         bytes32 r,
@@ -199,9 +194,8 @@ contract NFTBondController {
                 appraiser,
                 root,
                 expiration,
-                deadline,
-                maturity,
-                appraiserNonces[msg.sender]++
+                appraiserNonces[msg.sender]++,
+                deadline
             )
         );
 
@@ -218,9 +212,8 @@ contract NFTBondController {
         address appraiser,
         bytes32 root,
         uint256 expiration,
-        uint256 deadline,
-        uint256 maturity,
-        uint256 appraiserNonce
+        uint256 appraiserNonce,
+        uint256 deadline
     ) public view returns (bytes memory) {
         return
             abi.encodePacked(
@@ -233,8 +226,7 @@ contract NFTBondController {
                         root,
                         expiration,
                         appraiserNonce,
-                        deadline,
-                        maturity
+                        deadline
                     )
                 )
             );
@@ -330,7 +322,7 @@ contract NFTBondController {
         );
         BondVault storage bondVault = bondVaults[root];
         bondVault.appraiser = appraiser;
-        //        bondVault.expiration = expiration;
+        bondVault.expiration = expiration;
         bondVault.broker = vault;
 
         brokers[vault] = root;
@@ -371,12 +363,11 @@ contract NFTBondController {
         // filler hashing schema for merkle tree
         bytes32 leaf = keccak256(
             abi.encodePacked(
+                bytes32(collateralVault),
                 keccak256(
-                    abi.encode(
-                        collateralVault,
+                    abi.encodePacked(
                         maxAmount,
                         interestRate,
-                        //                        start,
                         duration,
                         lienPosition,
                         schedule

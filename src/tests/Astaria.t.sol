@@ -105,19 +105,7 @@ contract AstariaTest is Test {
         STAR_NFT = new StarNFT(MRA);
         TRANSFER_PROXY = new TransferProxy(MRA);
         BrokerImplementation implementation = new BrokerImplementation();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(
-            address(implementation)
-        ); //change to actual implmentation
-        address[] memory approve = new address[](1);
-        approve[0] = address(WETH9);
-        BeaconProxy bp = new BeaconProxy(
-            address(beacon),
-            abi.encodeWithSignature(
-                "initialize(address[],address)",
-                approve,
-                address(TRANSFER_PROXY)
-            )
-        );
+
         BOND_CONTROLLER = new NFTBondController(
             address(WETH9),
             address(STAR_NFT),
@@ -272,16 +260,14 @@ contract AstariaTest is Test {
      */
     function _createBondVault(bytes32 _rootHash) internal {
         uint256 expiration = block.timestamp + 30 days;
-        uint256 schedule = block.timestamp + 35 days;
-        uint256 maturity = block.timestamp + 60 days;
+        uint256 deadline = block.timestamp + 1 days;
         bytes32 hash = keccak256(
             BOND_CONTROLLER.encodeBondVaultHash(
                 appraiser,
                 _rootHash,
                 expiration,
-                schedule,
-                maturity,
-                BOND_CONTROLLER.appraiserNonces(appraiser)
+                BOND_CONTROLLER.appraiserNonces(appraiser),
+                deadline
             )
         );
         uint8 v;
@@ -294,8 +280,7 @@ contract AstariaTest is Test {
             appraiser,
             _rootHash,
             expiration,
-            schedule,
-            maturity,
+            deadline,
             bytes32("0x12345"),
             v,
             r,
@@ -305,7 +290,7 @@ contract AstariaTest is Test {
 
     function _generateLoanProof(
         uint256 _collateralVault,
-        uint256 valuation,
+        uint256 maxAmount,
         uint256 interest,
         uint256 duration,
         uint8 lienPosition,
@@ -313,18 +298,18 @@ contract AstariaTest is Test {
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
         (address tokenContract, uint256 tokenId) = STAR_NFT
             .getUnderlyingFromStar(_collateralVault);
-        string[] memory inputs = new string[](10);
-        //address, tokenId, valuation, interest, duration, lienPosition, schedule
+        string[] memory inputs = new string[](9);
+        //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
 
         inputs[0] = "node";
         inputs[1] = "scripts/loanProofGenerator.js";
         inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
         inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
-        inputs[4] = abi.encodePacked(valuation).toHexString(); //valuation
+        inputs[4] = abi.encodePacked(maxAmount).toHexString(); //valuation
         inputs[5] = abi.encodePacked(interest).toHexString(); //interest
-        inputs[7] = abi.encodePacked(duration).toHexString(); //stop
-        inputs[8] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
-        inputs[9] = abi.encodePacked(schedule).toHexString(); //schedule
+        inputs[6] = abi.encodePacked(duration).toHexString(); //stop
+        inputs[7] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
+        inputs[8] = abi.encodePacked(schedule).toHexString(); //schedule
 
         bytes memory res = hevm.ffi(inputs);
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));

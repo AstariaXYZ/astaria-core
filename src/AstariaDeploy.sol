@@ -9,8 +9,6 @@ import {NFTBondController} from "./NFTBondController.sol";
 import {AuctionHouse} from "auction/AuctionHouse.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
 import {TransferProxy} from "./TransferProxy.sol";
-import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
-import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 import "../lib/foundry_eip-4626/src/WEth.sol";
 
 interface IWETH9 is IERC20 {
@@ -52,19 +50,6 @@ contract AstariaDeploy {
         emit Deployed(address(TRANSFER_PROXY));
 
         BrokerImplementation implementation = new BrokerImplementation();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(
-            address(implementation)
-        ); //change to actual implmentation
-        address[] memory approve = new address[](1);
-        approve[0] = address(WETH9);
-        BeaconProxy bp = new BeaconProxy(
-            address(beacon),
-            abi.encodeWithSignature(
-                "initialize(address[],address)",
-                approve,
-                address(TRANSFER_PROXY)
-            )
-        );
         NFTBondController BOND_CONTROLLER = new NFTBondController(
             address(WETH9),
             address(STAR_NFT),
