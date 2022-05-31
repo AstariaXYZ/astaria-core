@@ -362,17 +362,13 @@ contract NFTBondController {
         );
         // filler hashing schema for merkle tree
         bytes32 leaf = keccak256(
-            abi.encodePacked(
+            abi.encode(
                 bytes32(collateralVault),
-                keccak256(
-                    abi.encodePacked(
-                        maxAmount,
-                        interestRate,
-                        duration,
-                        lienPosition,
-                        schedule
-                    )
-                )
+                maxAmount,
+                interestRate,
+                duration,
+                lienPosition,
+                schedule
             )
         );
         require(
