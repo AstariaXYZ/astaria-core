@@ -119,7 +119,6 @@ contract AstariaTest is Test {
             )
         );
         BOND_CONTROLLER = new NFTBondController(
-            "TEST URI",
             address(WETH9),
             address(STAR_NFT),
             address(TRANSFER_PROXY),
@@ -182,11 +181,6 @@ contract AstariaTest is Test {
         MRA.setRoleCapability(
             uint8(UserRoles.WRAPPER),
             AuctionHouse.cancelAuction.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER),
-            NFTBondController.complete.selector,
             true
         );
         MRA.setRoleCapability(
@@ -313,15 +307,14 @@ contract AstariaTest is Test {
         uint256 _collateralVault,
         uint256 valuation,
         uint256 interest,
-        uint256 start,
-        uint256 end,
+        uint256 duration,
         uint8 lienPosition,
         uint256 schedule
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
         (address tokenContract, uint256 tokenId) = STAR_NFT
             .getUnderlyingFromStar(_collateralVault);
         string[] memory inputs = new string[](10);
-        //address, tokenId, valuation, interest, start, stop, lienPosition, schedule
+        //address, tokenId, valuation, interest, duration, lienPosition, schedule
 
         inputs[0] = "node";
         inputs[1] = "scripts/loanProofGenerator.js";
@@ -329,8 +322,7 @@ contract AstariaTest is Test {
         inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
         inputs[4] = abi.encodePacked(valuation).toHexString(); //valuation
         inputs[5] = abi.encodePacked(interest).toHexString(); //interest
-        inputs[6] = abi.encodePacked(start).toHexString(); //start
-        inputs[7] = abi.encodePacked(end).toHexString(); //stop
+        inputs[7] = abi.encodePacked(duration).toHexString(); //stop
         inputs[8] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
         inputs[9] = abi.encodePacked(schedule).toHexString(); //schedule
 
@@ -385,8 +377,7 @@ contract AstariaTest is Test {
 
         uint256 maxAmount = uint256(100000000000000000000);
         uint256 interestRate = uint256(50000000000000000000);
-        uint256 start = uint256(block.timestamp + 1 minutes);
-        uint256 end = uint256(block.timestamp + 10 minutes);
+        uint256 duration = uint256(block.timestamp + 10 minutes);
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(0);
@@ -395,8 +386,7 @@ contract AstariaTest is Test {
             collateralVault,
             maxAmount,
             interestRate,
-            start,
-            end,
+            duration,
             lienPosition,
             schedule
         );
@@ -419,8 +409,7 @@ contract AstariaTest is Test {
             collateralVault,
             maxAmount,
             interestRate,
-            start,
-            end,
+            duration,
             amount,
             lienPosition,
             schedule
@@ -464,12 +453,12 @@ contract AstariaTest is Test {
     function _warpToMaturity(bytes32 bondVault, uint256 collateralVault)
         internal
     {
-        (, , , , , , uint256 maturity) = BOND_CONTROLLER.getBondData(
-            bondVault,
-            collateralVault
-        );
+        //        (, , , , , , uint256 maturity) = BOND_CONTROLLER.getBondData(
+        //            bondVault,
+        //            collateralVault
+        //        );
 
-        hevm.warp(maturity + 10 minutes);
+        hevm.warp(block.timestamp + 10 minutes);
     }
 
     /**

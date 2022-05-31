@@ -14,15 +14,15 @@ import "../lib/solmate/src/utils/FixedPointMathLib.sol";
 
 //import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-contract NFTBondController is ERC1155 {
+contract NFTBondController {
     bytes32 public immutable DOMAIN_SEPARATOR;
     mapping(address => uint256) public tokenNonces;
     using FixedPointMathLib for uint256;
 
     string public constant name = "Astaria NFT Bond Vault";
-    IERC20 immutable WETH;
-    IStarNFT immutable COLLATERAL_VAULT;
-    TransferProxy immutable TRANSFER_PROXY;
+    IERC20 public immutable WETH;
+    IStarNFT public immutable COLLATERAL_VAULT;
+    TransferProxy public immutable TRANSFER_PROXY;
     address BROKER_IMPLEMENTATION;
 
     uint256 LIQUIDATION_FEE; // a percent(13) then mul by 100
@@ -68,7 +68,7 @@ contract NFTBondController is ERC1155 {
         //        uint256 loanCount;
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
         //        uint256 maturity; // epoch when the loan becomes due
-        //        address broker; //cloned proxy
+        address broker; //cloned proxy
     }
 
     // could be replaced with a single byte32 value, pass in merkle proof to liquidate
@@ -85,12 +85,11 @@ contract NFTBondController is ERC1155 {
     //    }
 
     constructor(
-        string memory _uri,
         address _WETH,
         address _COLLATERAL_VAULT,
         address _TRANSFER_PROXY,
         address _BEACON_CLONE
-    ) ERC1155(_uri) {
+    ) {
         WETH = IERC20(_WETH);
         COLLATERAL_VAULT = IStarNFT(_COLLATERAL_VAULT);
         TRANSFER_PROXY = TransferProxy(_TRANSFER_PROXY);
@@ -118,49 +117,57 @@ contract NFTBondController is ERC1155 {
     string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA =
         "\x19\x01";
     // keccak256("Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)");
-    bytes32 private constant PERMIT_SIGNATURE_HASH =
-        keccak256(
-            "Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)"
-        );
+    //    bytes32 private constant PERMIT_SIGNATURE_HASH =
+    //        keccak256(
+    //            "Permit(address owner,address spender,bool approved,uint256 nonce,uint256 deadline)"
+    //        );
     bytes32 private constant NEW_VAULT_SIGNATURE_HASH =
         keccak256(
             "NewBondVault(address appraiser,bytes32 root,uint256 expiration,uint256 nonce,uint256 deadline,uint256 maturity)"
         );
 
-    function permit(
-        address owner_,
-        address spender,
-        bool approved,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
-        require(owner_ != address(0), "ERC1155: Owner cannot be 0");
-        require(block.timestamp < deadline, "ERC1155: Expired");
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-                DOMAIN_SEPARATOR,
-                keccak256(
-                    abi.encode(
-                        PERMIT_SIGNATURE_HASH,
-                        owner_,
-                        spender,
-                        approved,
-                        tokenNonces[owner_]++,
-                        deadline
-                    )
-                )
-            )
-        );
-        address recoveredAddress = ecrecover(digest, v, r, s);
-        require(recoveredAddress == owner_, "ERC1155: Invalid Signature");
-        _setApprovalForAll(owner_, spender, approved);
-    }
+    //    function permit(
+    //        address owner_,
+    //        address spender,
+    //        bool approved,
+    //        uint256 deadline,
+    //        uint8 v,
+    //        bytes32 r,
+    //        bytes32 s
+    //    ) external {
+    //        require(owner_ != address(0), "ERC1155: Owner cannot be 0");
+    //        require(block.timestamp < deadline, "ERC1155: Expired");
+    //        bytes32 digest = keccak256(
+    //            abi.encodePacked(
+    //                EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
+    //                DOMAIN_SEPARATOR,
+    //                keccak256(
+    //                    abi.encode(
+    //                        PERMIT_SIGNATURE_HASH,
+    //                        owner_,
+    //                        spender,
+    //                        approved,
+    //                        tokenNonces[owner_]++,
+    //                        deadline
+    //                    )
+    //                )
+    //            )
+    //        );
+    //        address recoveredAddress = ecrecover(digest, v, r, s);
+    //        require(recoveredAddress == owner_, "ERC1155: Invalid Signature");
+    //        _setApprovalForAll(owner_, spender, approved);
+    //    }
 
     // _verify() internal
     // merkle tree verifier
+    function verifyMerkleBranch(
+        bytes32[] calldata proof,
+        bytes32 leaf,
+        bytes32 root
+    ) public view returns (bool) {
+        bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
+        return isValidLeaf;
+    }
 
     // verifies the signature on the root of the merkle tree to be the appraiser
     // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
@@ -237,51 +244,61 @@ contract NFTBondController is ERC1155 {
         bytes32 bondVaultOutgoing,
         bytes32 bondVaultIncoming,
         uint256 collateralVault,
-        uint256 index,
-        uint256 interestRate,
-        uint256 end
+        uint256 outgoingIndex,
+        uint256 newInterestRate,
+        uint256 newDuration
     ) external {
-        Loan memory loan = bondVaults[bondVaultOutgoing].loans[collateralVault][
-            index
-        ];
-        uint256 interestOwed = getInterest(
-            bondVaultOutgoing,
-            index,
+        require(
+            bondVaults[bondVaultIncoming].expiration < block.timestamp,
+            "bond vault has expired"
+        );
+        BrokerImplementation broker = BrokerImplementation(
+            bondVaults[bondVaultOutgoing].broker
+        );
+
+        (
+            uint256 amount,
+            uint256 interestRate,
+            uint256 start,
+            uint256 duration,
+            uint256 schedule
+        ) = getLoan(broker, collateralVault, outgoingIndex);
+
+        require(newInterestRate <= (interestRate * 500) / 1000); //TODO: min "beat price"
+
+        uint256 interestOwed = broker.getInterest(
+            outgoingIndex,
             collateralVault
         );
-        uint256 amountOwed = interestOwed + loan.amount;
-        require(interestRate <= (loan.interestRate * 500) / 1000); //TODO: min "beat price"
-
-        //transfer proxy in the weth from sender to the bondvault
+        uint256 amountOwed = interestOwed + amount;
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
             address(msg.sender),
             address(this),
             amountOwed
         );
-        bondVaults[bondVaultOutgoing].balance += amountOwed;
-        bondVaults[bondVaultOutgoing].loanCount--;
+
+        broker.repayLoan(collateralVault, outgoingIndex, amountOwed);
+        broker = BrokerImplementation(bondVaults[bondVaultIncoming].broker);
+        uint256 newIndex = broker.issueLoan(
+            collateralVault,
+            amountOwed,
+            newInterestRate,
+            duration,
+            schedule
+        );
+        //transfer proxy in the weth from sender to the bondvault
+
         //if we dont create here perhaps we require that a bondvault is created before you can refinance,
-        _newBondVault(
-            address(msg.sender),
+
+        _swapLien(
+            bondVaultOutgoing,
             bondVaultIncoming,
-            bytes32(0),
-            uint256(block.timestamp + 30 days)
+            collateralVault,
+            outgoingIndex,
+            newIndex,
+            amountOwed
         );
-
-        bondVaults[bondVaultIncoming].loans[collateralVault].push(
-            Loan(
-                loan.amount,
-                interestRate,
-                block.timestamp,
-                loan.end,
-                bondVaultIncoming,
-                loan.schedule
-            )
-        );
-
-        _swapLien(bondVaultOutgoing, bondVaultIncoming, collateralVault, index);
-        delete bondVaults[bondVaultOutgoing].loans[collateralVault][index];
     }
 
     function _newBondVault(
@@ -303,7 +320,13 @@ contract NFTBondController is ERC1155 {
 
         address vault = ClonesWithImmutableArgs.clone(
             BROKER_IMPLEMENTATION,
-            abi.encodePacked(address(WETH), address(this), root, expiration)
+            abi.encodePacked(
+                address(this),
+                address(WETH),
+                address(this),
+                root,
+                expiration
+            )
         );
         BondVault storage bondVault = bondVaults[root];
         bondVault.appraiser = appraiser;
@@ -324,7 +347,7 @@ contract NFTBondController is ERC1155 {
         uint256 maxAmount,
         uint256 interestRate,
         //        uint256 start,
-        uint256 end,
+        uint256 duration,
         uint256 amount,
         uint8 lienPosition,
         uint256 schedule
@@ -354,7 +377,7 @@ contract NFTBondController is ERC1155 {
                         maxAmount,
                         interestRate,
                         //                        start,
-                        end,
+                        duration,
                         lienPosition,
                         schedule
                     )
@@ -370,15 +393,17 @@ contract NFTBondController is ERC1155 {
         //can only have one loan per bondvault associated to it
 
         //reach out to the bond vault and send loan to user
-        _addLien(bondVault, lienPosition, collateralVault, amount);
 
-        BrokerImplementation(bondVaults[bondVault].broker).issueLoan(
-            collateralVault,
-            amount,
-            interestRate,
-            end,
-            schedule
-        );
+        uint256 newIndex = BrokerImplementation(bondVaults[bondVault].broker)
+            .issueLoan(
+                collateralVault,
+                amount,
+                interestRate,
+                duration,
+                schedule
+            );
+
+        _addLien(bondVault, lienPosition, collateralVault, newIndex, amount);
 
         //        TRANSFER_PROXY.tokenTransferFrom(
         //            address(WETH),
@@ -391,26 +416,6 @@ contract NFTBondController is ERC1155 {
         emit NewLoan(bondVault, collateralVault, amount);
     }
 
-    function _addLien(
-        bytes32 bondVault,
-        uint256 position,
-        uint256 collateralVault,
-        uint256 amount
-    ) internal {
-        COLLATERAL_VAULT.manageLien(
-            collateralVault,
-            IStarNFT.LienAction.ENCUMBER,
-            abi.encodePacked(
-                bondVault,
-                position,
-                BrokerImplementation(bondvaults[bondVault].broker)
-                    .loans[collateralVault]
-                    .length - 1, //loan index
-                amount
-            )
-        );
-    }
-
     modifier onlyVaults() {
         require(
             brokers[msg.sender] != bytes32(0),
@@ -419,7 +424,24 @@ contract NFTBondController is ERC1155 {
         _;
     }
 
-    function removeLien(uint256 collateralVault, uint256 index) onlyVaults {
+    function _addLien(
+        bytes32 bondVault,
+        uint256 position,
+        uint256 collateralVault,
+        uint256 newIndex,
+        uint256 amount
+    ) internal {
+        COLLATERAL_VAULT.manageLien(
+            collateralVault,
+            IStarNFT.LienAction.ENCUMBER,
+            abi.encodePacked(bondVault, position, newIndex, amount)
+        );
+    }
+
+    function removeLien(uint256 collateralVault, uint256 index)
+        external
+        onlyVaults
+    {
         _removeLien(brokers[msg.sender], collateralVault, index);
     }
 
@@ -439,12 +461,20 @@ contract NFTBondController is ERC1155 {
         bytes32 bondVaultOld,
         bytes32 bondVaultNew,
         uint256 collateralVault,
-        uint256 index
+        uint256 lienPosition,
+        uint256 newIndex,
+        uint256 amountOwed
     ) internal {
         COLLATERAL_VAULT.manageLien(
             collateralVault,
             IStarNFT.LienAction.SWAP_VAULT,
-            abi.encodePacked(bondVaultOld, bondVaultNew, index)
+            abi.encodePacked(
+                bondVaultOld,
+                bondVaultNew,
+                lienPosition,
+                newIndex,
+                amountOwed
+            )
         );
     }
 
@@ -467,8 +497,26 @@ contract NFTBondController is ERC1155 {
 
         BrokerImplementation(bondVaults[bondVault].broker).deposit(
             amount,
-            msg.sender
+            address(msg.sender)
         );
+    }
+
+    function getLoan(
+        BrokerImplementation broker,
+        uint256 collateralVault,
+        uint256 index
+    )
+        public
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return broker.loans(collateralVault, index);
     }
 
     function canLiquidate(
@@ -482,20 +530,22 @@ contract NFTBondController is ERC1155 {
         //            bondVaults[bondVault].loans[collateralVault][index].interestRate *
         //            bondVaults[bondVault].loans[collateralVault][index].amount;
 
-        BrokerImplementation memory broker = BrokerImplementation(
+        BrokerImplementation broker = BrokerImplementation(
             bondVaults[bondVault].broker
         );
-        uint256 interest = broker.getInterest(index, collateralVault);
-        BrokerImplementation.Loan memory loan = broker.loans(
-            collateralVault,
-            index
-        );
-
-        uint256 maxInterest = loan.amount * loan.schedule; //TODO: if schedule is 0, then this is a bug
+        uint256 interestAccrued = broker.getInterest(index, collateralVault);
+        (
+            uint256 amount,
+            uint256 interest,
+            uint256 start,
+            uint256 duration,
+            uint256 schedule
+        ) = getLoan(broker, collateralVault, index);
+        uint256 maxInterest = amount * schedule; //TODO: if schedule is 0, then this is a bug
 
         return
-            maxInterest > interest ||
-            (loan.end >= block.timestamp && loan.amount > 0);
+            maxInterest > interestAccrued ||
+            (duration >= block.timestamp && amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction

@@ -11,7 +11,7 @@ interface IAuctionHouse {
 
     function createBid(uint256 auctionId, uint256 amount) external payable;
 
-    function endAuction(uint256 auctionId) external returns (uint256, address);
+    function endAuction(uint256 auctionId) external returns (address);
 
     function cancelAuction(uint256 auctionId) external;
 

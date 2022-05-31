@@ -66,7 +66,6 @@ contract AstariaDeploy {
             )
         );
         NFTBondController BOND_CONTROLLER = new NFTBondController(
-            "TEST URI",
             address(WETH9),
             address(STAR_NFT),
             address(TRANSFER_PROXY),
@@ -96,11 +95,7 @@ contract AstariaDeploy {
             AuctionHouse.cancelAuction.selector,
             true
         );
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER),
-            NFTBondController.complete.selector,
-            true
-        );
+
         MRA.setRoleCapability(
             uint8(UserRoles.BOND_CONTROLLER),
             StarNFT.manageLien.selector,

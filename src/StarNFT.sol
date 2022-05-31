@@ -226,13 +226,13 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         external
         returns (
             bytes32[] memory,
-            uint256[],
+            uint256[] memory,
             uint256[] memory
         )
     {
         uint256 lienLength = getTotalLiens(_starId);
         bytes32[] memory vaults = new bytes32[](lienLength);
-        uint256[] amounts = new uint256[](lienLength);
+        uint256[] memory amounts = new uint256[](lienLength);
         uint256[] memory indexes = new uint256[](lienLength);
         for (uint256 i = 0; i < lienLength; ++i) {
             Lien memory lien = liens[_starId][i];
@@ -272,15 +272,17 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
             delete liens[_tokenId][position];
         } else if (_action == LienAction.SWAP_VAULT) {
             bytes32 bondVaultNew;
-            (bondVault, bondVaultNew, position) = abi.decode(
+            uint256 newIndex;
+            (bondVault, bondVaultNew, position, newIndex) = abi.decode(
                 _lienData,
-                (bytes32, bytes32, uint8)
+                (bytes32, bytes32, uint256, uint256)
             );
             require(
                 liens[_tokenId][position].bondVault == bondVault,
                 "this lien position is not set"
             );
             liens[_tokenId][position].bondVault = bondVaultNew;
+            liens[_tokenId][position].index = newIndex;
         } else {
             revert("Invalid Action");
         }
@@ -400,17 +402,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
             .getAuctionData(auctionId);
 
         AUCTION_HOUSE.cancelAuction(auctionId);
-        (bytes32[] memory vaults, uint256[] memory indexes) = _processPayout(
-            _starTokenId
-        );
-        BOND_CONTROLLER.complete(
-            _starTokenId,
-            vaults,
-            indexes,
-            reservePrice,
-            false
-        );
-
+        delete liens[_starTokenId];
         delete starIdToAuctionId[_starTokenId];
     }
 
@@ -420,37 +412,9 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
             "Auction doesn't exist"
         );
 
-        (uint256 payout, address winner) = AUCTION_HOUSE.endAuction(
-            starIdToAuctionId[_tokenId]
-        );
-        (bytes32[] memory vaults, uint256[] memory indexes) = _processPayout(
-            _tokenId
-        );
-        BOND_CONTROLLER.complete(_tokenId, vaults, indexes, payout, true);
-
-        _burn(_tokenId);
-        releaseToAddress(_tokenId, winner);
-    }
-
-    function _processPayout(uint256 _tokenId)
-        internal
-        returns (bytes32[] memory, uint256[] memory)
-    {
-        //clean up all storage around the underlying asset, listings, liens, deposit information
-
-        uint256 lienLength = liens[_tokenId].length;
-        bytes32[] memory vaults = new bytes32[](lienLength);
-        uint256[] memory indexes = new uint256[](lienLength);
-        for (uint256 i = 0; i < lienLength; ++i) {
-            Lien memory lien = liens[_tokenId][i];
-            vaults[i] = lien.bondVault;
-            indexes[i] = lien.index;
-        }
-
+        address winner = AUCTION_HOUSE.endAuction(starIdToAuctionId[_tokenId]);
         delete liens[_tokenId];
         delete starIdToAuctionId[_tokenId];
-        delete starToUnderlying[_tokenId];
-
-        return (vaults, indexes);
+        _transfer(ownerOf(_tokenId), winner, _tokenId);
     }
 }

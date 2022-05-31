@@ -2,6 +2,8 @@ pragma solidity ^0.8.13;
 import "../lib/solmate/src/mixins/ERC4626.sol";
 import "../lib/clones-with-immutable-args/src/Clone.sol";
 import "../lib/solmate/src/mixins/ERC4626-Cloned.sol";
+import "openzeppelin/token/ERC721/IERC721.sol";
+import "./NFTBondController.sol";
 
 abstract contract Impl {
     function version() public pure virtual returns (string memory);
@@ -37,7 +39,6 @@ abstract contract Impl {
 //        return "V1";
 //    }
 //}
-import {IStarNft} from "./StarNft.sol";
 
 contract BrokerImplementation is ERC4626Cloned {
     struct Loan {
@@ -45,14 +46,14 @@ contract BrokerImplementation is ERC4626Cloned {
         uint256 amount; // loans are only in wETH
         uint256 interestRate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
         uint256 start; // epoch time of last interest accrual
-        uint256 end; // epoch time at which the loan must be repaid
+        uint256 duration; // epoch time at which the loan must be repaid
         // lienPosition should be managed on the CollateralVault
         //        bytes32 bondVault;
         //        uint8 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
         uint256 schedule; // percentage margin before the borrower needs to repay
     }
 
-    mapping(uint256 => Loan[]) loans;
+    mapping(uint256 => Loan[]) public loans;
 
     function liquidateLoan(uint256 collateralVault, uint256 index)
         external
@@ -70,23 +71,19 @@ contract BrokerImplementation is ERC4626Cloned {
         uint256 interestRate,
         uint256 end,
         uint256 schedule
-    ) external {
+    ) external returns (uint256 newIndex) {
         require(
             address(msg.sender) == factory(),
             "issueLoan, can only be called by the factory"
         );
 
         loans[collateralVault].push(
-            Loan(
-                amount,
-                interestRate,
-                block.timestamp,
-                end,
-                bondVault,
-                schedule
-            )
+            Loan(amount, interestRate, block.timestamp, end, schedule)
         );
-        address borrower = IStarNFT.ownerOf(collateralVault);
+        uint256 newIndex = loans[collateralVault].length - 1;
+        address borrower = IERC721(
+            NFTBondController(factory()).COLLATERAL_VAULT()
+        ).ownerOf(collateralVault);
         ERC20(asset()).transfer(borrower, amount);
     }
 
@@ -108,7 +105,6 @@ contract BrokerImplementation is ERC4626Cloned {
     ) external {
         // calculates interest here and apply it to the loan
         loans[collateralVault][index].amount += getInterest(
-            bondVault,
             index,
             collateralVault
         );
@@ -119,21 +115,20 @@ contract BrokerImplementation is ERC4626Cloned {
         //            WETH.transferFrom(msg.sender, address(this), amount),
         //            "repayLoan: transfer failed"
         //        );
-        TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(msg.sender),
-            address(this),
-            amount
-        );
-        loans[collateralVault][index].amount -= amount;
+        address weth = address(NFTBondController(factory()).WETH());
+        ERC20(weth).transferFrom(address(msg.sender), address(this), amount);
+        unchecked {
+            loans[collateralVault][index].amount -= amount;
+        }
         loans[collateralVault][index].start = block.timestamp;
 
         if (loans[collateralVault][index].amount == 0) {
+            delete loans[collateralVault][index];
             NFTBondController(factory()).removeLien(collateralVault, index);
         }
     }
 
-    function totalAssets() public view virtual returns (uint256) {
+    function totalAssets() public view virtual override returns (uint256) {
         return ERC20(asset()).balanceOf(address(this));
     }
 }
