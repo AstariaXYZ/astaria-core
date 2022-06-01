@@ -1,44 +1,8 @@
 pragma solidity ^0.8.13;
-import "../lib/solmate/src/mixins/ERC4626.sol";
-import "../lib/clones-with-immutable-args/src/Clone.sol";
-import "../lib/solmate/src/mixins/ERC4626-Cloned.sol";
+
+import "gpl/ERC4626-Cloned.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
 import "./NFTBondController.sol";
-
-abstract contract Impl {
-    function version() public pure virtual returns (string memory);
-}
-
-//contract BrokerImplementation is Initializable, Impl {
-//    ITransferProxy TRANSFER_PROXY;
-//    using SafeERC20 for IERC20;
-//
-//    function initialize(address[] memory tokens, address _transferProxy)
-//        public
-//        initializer
-//        onlyInitializing
-//    {
-//        TRANSFER_PROXY = ITransferProxy(_transferProxy);
-//        _transferProxyApprove(tokens);
-//    }
-//
-//    function _transferProxyApprove(address[] memory tokens) internal {
-//        for (uint256 i = 0; i < tokens.length; ++i) {
-//            IERC20(tokens[i]).safeApprove(
-//                address(TRANSFER_PROXY),
-//                type(uint256).max
-//            );
-//        }
-//    }
-//
-//    function setupApprovals(address[] memory tokens) external reinitializer(0) {
-//        _transferProxyApprove(tokens);
-//    }
-//
-//    function version() public pure virtual override returns (string memory) {
-//        return "V1";
-//    }
-//}
 
 contract BrokerImplementation is ERC4626Cloned {
     struct Loan {
@@ -49,7 +13,7 @@ contract BrokerImplementation is ERC4626Cloned {
         uint256 duration; // epoch time at which the loan must be repaid
         // lienPosition should be managed on the CollateralVault
         //        bytes32 bondVault;
-        //        uint8 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
+        uint256 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
         uint256 schedule; // percentage margin before the borrower needs to repay
     }
 
@@ -62,7 +26,19 @@ contract BrokerImplementation is ERC4626Cloned {
         require(msg.sender == factory(), "factory only call");
         amountOwed = (loans[collateralVault][index].amount +
             getInterest(index, collateralVault));
-        //        delete loans[collateralVault][index];
+        delete loans[collateralVault][index];
+    }
+
+    function getBuyout(uint256 collateralVault, uint256 index)
+        public
+        view
+        returns (uint256)
+    {
+        uint256 owed = getInterest(index, collateralVault);
+
+        uint256 premium = buyout();
+
+        return owed += (owed * premium) / 1000;
     }
 
     function issueLoan(
@@ -70,7 +46,8 @@ contract BrokerImplementation is ERC4626Cloned {
         uint256 amount,
         uint256 interestRate,
         uint256 end,
-        uint256 schedule
+        uint256 schedule,
+        uint256 lienPosition
     ) external returns (uint256 newIndex) {
         require(
             address(msg.sender) == factory(),
@@ -78,7 +55,14 @@ contract BrokerImplementation is ERC4626Cloned {
         );
 
         loans[collateralVault].push(
-            Loan(amount, interestRate, block.timestamp, end, schedule)
+            Loan({
+                amount: amount,
+                interestRate: interestRate,
+                start: block.timestamp,
+                duration: end,
+                schedule: schedule,
+                lienPosition: lienPosition
+            })
         );
         address borrower = IERC721(
             NFTBondController(factory()).COLLATERAL_VAULT()
@@ -123,8 +107,8 @@ contract BrokerImplementation is ERC4626Cloned {
         loans[collateralVault][index].start = block.timestamp;
 
         if (loans[collateralVault][index].amount == 0) {
-            delete loans[collateralVault][index];
             NFTBondController(factory()).removeLien(collateralVault, index);
+            delete loans[collateralVault][index];
         }
     }
 

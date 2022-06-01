@@ -5,8 +5,7 @@ interface IAuctionHouse {
     function createAuction(
         uint256 tokenId,
         uint256 duration,
-        uint256 reservePrice,
-        bytes32 bondVault
+        uint256 reservePrice
     ) external returns (uint256);
 
     function createBid(uint256 auctionId, uint256 amount) external payable;

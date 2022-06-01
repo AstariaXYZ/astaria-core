@@ -10,9 +10,9 @@
 [submodule "lib/v3-periphery"]
 	path = lib/v3-periphery
 	url = https://github.com/Uniswap/v3-periphery
-[submodule "lib/auction-house"]
-	path = lib/auction-house
-	url = https://github.com/AstariaXYZ/auction-house
+[submodule "lib/gpl"]
+	path = lib/gpl
+	url = https://github.com/AstariaXYZ/auction-gpl
 [submodule "lib/foundry_eip-4626"]
 	path = lib/foundry_eip-4626
 	url = https://github.com/jaglinux/foundry_eip-4626/

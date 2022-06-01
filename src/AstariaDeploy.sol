@@ -6,7 +6,7 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {StarNFT} from "./StarNFT.sol";
 import {NFTBondController} from "./NFTBondController.sol";
-import {AuctionHouse} from "auction/AuctionHouse.sol";
+import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
 import {TransferProxy} from "./TransferProxy.sol";
 import "../lib/foundry_eip-4626/src/WEth.sol";

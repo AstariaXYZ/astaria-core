@@ -4,7 +4,7 @@ import "openzeppelin/token/ERC1155/ERC1155.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
-import "./interfaces/IAuctionHouse.sol";
+import "gpl/interfaces/IAuctionHouse.sol";
 //import "openzeppelin/proxy/Clones.sol";
 import "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import "./interfaces/IStarNFT.sol";
@@ -22,8 +22,8 @@ contract NFTBondController {
 
     uint256 LIQUIDATION_FEE; // a percent(13) then mul by 100
 
-    mapping(bytes32 => BondVault) bondVaults;
-    mapping(address => bytes32) brokers;
+    mapping(bytes32 => BondVault) public bondVaults;
+    mapping(address => bytes32) public brokers;
     mapping(address => uint256) public appraiserNonces;
 
     event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
@@ -172,6 +172,7 @@ contract NFTBondController {
         bytes32 root,
         uint256 expiration,
         uint256 deadline,
+        uint256 buyout,
         bytes32 contentHash,
         uint8 v,
         bytes32 r,
@@ -195,7 +196,8 @@ contract NFTBondController {
                 root,
                 expiration,
                 appraiserNonces[msg.sender]++,
-                deadline
+                deadline,
+                buyout
             )
         );
 
@@ -205,7 +207,7 @@ contract NFTBondController {
             "newBondVault: Invalid Signature"
         );
 
-        _newBondVault(appraiser, root, contentHash, expiration);
+        _newBondVault(appraiser, root, contentHash, expiration, buyout);
     }
 
     function encodeBondVaultHash(
@@ -213,7 +215,8 @@ contract NFTBondController {
         bytes32 root,
         uint256 expiration,
         uint256 appraiserNonce,
-        uint256 deadline
+        uint256 deadline,
+        uint256 buyout
     ) public view returns (bytes memory) {
         return
             abi.encodePacked(
@@ -247,57 +250,63 @@ contract NFTBondController {
         BrokerImplementation broker = BrokerImplementation(
             bondVaults[bondVaultOutgoing].broker
         );
-
+        uint256 buyout = broker.getBuyout(collateralVault, outgoingIndex);
         (
             uint256 amount,
             uint256 interestRate,
             uint256 start,
             uint256 duration,
-            uint256 schedule
+            uint256 schedule,
+            uint256 lienPosition
         ) = getLoan(broker, collateralVault, outgoingIndex);
+        //move this into the get
+        {
+            require(
+                newInterestRate <= interestRate + (interestRate * 500) / 1000
+            ); //TODO: min "beat price"
+            uint256 minDuration = start + duration + (duration * 500) / 1000;
 
-        require(newInterestRate <= (interestRate * 500) / 1000); //TODO: min "beat price"
+            require(newDuration >= minDuration); //TODO: min "beat duration"
 
-        uint256 interestOwed = broker.getInterest(
-            outgoingIndex,
-            collateralVault
-        );
-        uint256 amountOwed = interestOwed + amount;
+            broker.repayLoan(collateralVault, outgoingIndex, buyout);
+        }
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
             address(msg.sender),
             address(this),
-            amountOwed
+            buyout
         );
-
-        broker.repayLoan(collateralVault, outgoingIndex, amountOwed);
         broker = BrokerImplementation(bondVaults[bondVaultIncoming].broker);
-        uint256 newIndex = broker.issueLoan(
-            collateralVault,
-            amountOwed,
-            newInterestRate,
-            duration,
-            schedule
-        );
-        //transfer proxy in the weth from sender to the bondvault
+        {
+            uint256 newIndex = broker.issueLoan(
+                collateralVault,
+                buyout,
+                newInterestRate,
+                newDuration,
+                schedule,
+                lienPosition
+            );
+            //transfer proxy in the weth from sender to the bondvault
 
-        //if we dont create here perhaps we require that a bondvault is created before you can refinance,
+            //if we dont create here perhaps we require that a bondvault is created before you can refinance,
 
-        _swapLien(
-            bondVaultOutgoing,
-            bondVaultIncoming,
-            collateralVault,
-            outgoingIndex,
-            newIndex,
-            amountOwed
-        );
+            _swapLien(
+                bondVaultOutgoing,
+                bondVaultIncoming,
+                collateralVault,
+                outgoingIndex,
+                newIndex,
+                buyout
+            );
+        }
     }
 
     function _newBondVault(
         address appraiser,
         bytes32 root,
         bytes32 contentHash,
-        uint256 expiration
+        uint256 expiration,
+        uint256 buyout
     ) internal {
         //        address proxy = Clones.cloneDeterministic(BEACON_CLONE, root);
         //        address[] memory tokens = new address[](1);
@@ -317,7 +326,8 @@ contract NFTBondController {
                 address(WETH),
                 address(this),
                 root,
-                expiration
+                expiration,
+                buyout
             )
         );
         BondVault storage bondVault = bondVaults[root];
@@ -338,7 +348,6 @@ contract NFTBondController {
         uint256 collateralVault,
         uint256 maxAmount,
         uint256 interestRate,
-        //        uint256 start,
         uint256 duration,
         uint256 amount,
         uint8 lienPosition,
@@ -387,10 +396,11 @@ contract NFTBondController {
                 amount,
                 interestRate,
                 duration,
-                schedule
+                schedule,
+                lienPosition
             );
 
-        _addLien(bondVault, lienPosition, collateralVault, newIndex, amount);
+        _addLien(collateralVault, bondVault, lienPosition, newIndex, amount);
 
         //        TRANSFER_PROXY.tokenTransferFrom(
         //            address(WETH),
@@ -412,35 +422,36 @@ contract NFTBondController {
     }
 
     function _addLien(
+        uint256 collateralVault,
         bytes32 bondVault,
         uint256 position,
-        uint256 collateralVault,
         uint256 newIndex,
         uint256 amount
     ) internal {
+        address broker = address(bondVaults[bondVault].broker);
         COLLATERAL_VAULT.manageLien(
             collateralVault,
             IStarNFT.LienAction.ENCUMBER,
-            abi.encodePacked(bondVault, position, newIndex, amount)
+            abi.encode(broker, position, newIndex, amount)
         );
     }
 
-    function removeLien(uint256 collateralVault, uint256 index)
+    function removeLien(uint256 collateralVault, uint256 position)
         external
         onlyVaults
     {
-        _removeLien(brokers[msg.sender], collateralVault, index);
+        _removeLien(msg.sender, collateralVault, position);
     }
 
     function _removeLien(
-        bytes32 bondVault,
+        address bondVault,
         uint256 collateralVault,
         uint256 index
     ) internal {
         COLLATERAL_VAULT.manageLien(
             collateralVault,
             IStarNFT.LienAction.UN_ENCUMBER,
-            abi.encodePacked(bondVault, index)
+            abi.encode(bondVault, index)
         );
     }
 
@@ -455,9 +466,9 @@ contract NFTBondController {
         COLLATERAL_VAULT.manageLien(
             collateralVault,
             IStarNFT.LienAction.SWAP_VAULT,
-            abi.encodePacked(
-                bondVaultOld,
-                bondVaultNew,
+            abi.encode(
+                bondVaults[bondVaultOld].broker,
+                bondVaults[bondVaultNew].broker,
                 lienPosition,
                 newIndex,
                 amountOwed
@@ -488,6 +499,18 @@ contract NFTBondController {
         );
     }
 
+    function getLiens(uint256 collateralVault)
+        public
+        view
+        returns (
+            address[] memory,
+            uint256[] memory,
+            uint256[] memory
+        )
+    {
+        return COLLATERAL_VAULT.getLiens(collateralVault);
+    }
+
     function getLoan(
         BrokerImplementation broker,
         uint256 collateralVault,
@@ -496,6 +519,7 @@ contract NFTBondController {
         public
         view
         returns (
+            uint256,
             uint256,
             uint256,
             uint256,
@@ -511,12 +535,6 @@ contract NFTBondController {
         uint256 index,
         uint256 collateralVault
     ) public view returns (bool) {
-        //        uint256 delta_t = block.timestamp -
-        //            bondVaults[bondVault].loans[collateralVault][index].start;
-        //        uint256 interest = delta_t *
-        //            bondVaults[bondVault].loans[collateralVault][index].interestRate *
-        //            bondVaults[bondVault].loans[collateralVault][index].amount;
-
         BrokerImplementation broker = BrokerImplementation(
             bondVaults[bondVault].broker
         );
@@ -526,13 +544,14 @@ contract NFTBondController {
             uint256 interest,
             uint256 start,
             uint256 duration,
-            uint256 schedule
+            uint256 schedule,
+            uint256 lienPosition
         ) = getLoan(broker, collateralVault, index);
         uint256 maxInterest = amount * schedule; //TODO: if schedule is 0, then this is a bug
 
         return
             maxInterest > interestAccrued ||
-            (duration >= block.timestamp && amount > 0);
+            (start + duration >= block.timestamp && amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
@@ -547,114 +566,20 @@ contract NFTBondController {
         );
         //grab all lien positions compute all outstanding
         (
-            bytes32[] memory vaults,
-            //            uint256[] memory amounts,
+            address[] memory brokers,
+            ,
             uint256[] memory indexes
         ) = COLLATERAL_VAULT.getLiens(collateralVault);
-        //        Loan[] storage loans = bondVaults[bondVault].loans[collateralVault];
 
-        for (uint256 i = 0; i < vaults.length; i++) {
-            reserve += BrokerImplementation(bondVaults[vaults[i]].broker)
-                .liquidateLoan(collateralVault, indexes[i]);
+        for (uint256 i = 0; i < brokers.length; i++) {
+            reserve += BrokerImplementation(brokers[i]).liquidateLoan(
+                collateralVault,
+                indexes[i]
+            );
         }
 
         reserve += ((reserve * LIQUIDATION_FEE) / 100);
 
-        COLLATERAL_VAULT.auctionVault(bondVault, collateralVault, reserve);
+        COLLATERAL_VAULT.auctionVault(collateralVault, reserve, msg.sender);
     }
-
-    // called by the collateral wrapper when the auction is complete
-    //do we need index? since we have to liquidation everything from ground up
-    //    function complete(
-    //        uint256 collateralVault,
-    //        bytes32[] memory vaults,
-    //        uint256[] memory indexes,
-    //        uint256 recovered,
-    //        bool liquidation
-    //    ) external {
-    //        require(
-    //            msg.sender == address(COLLATERAL_VAULT),
-    //            "completeLiquidation: must be collateral wrapper to call this"
-    //        );
-    //        uint256 remaining = _bulkRepay(
-    //            collateralVault,
-    //            vaults,
-    //            indexes,
-    //            recovered
-    //        );
-    //
-    //        if (liquidation) {
-    //            if (remaining > uint256(0)) {
-    //                //pay remaining to the token holder
-    //                TRANSFER_PROXY.tokenTransferFrom(
-    //                    address(WETH),
-    //                    address(this),
-    //                    address(COLLATERAL_VAULT.ownerOf(collateralVault)),
-    //                    remaining
-    //                );
-    //            }
-    //            emit Liquidation(collateralVault, vaults, indexes, recovered);
-    //        }
-    //    }
-
-    //    function _bulkRepay(
-    //        uint256 collateralVault,
-    //        bytes32[] memory vaults,
-    //        uint256[] memory indexes,
-    //        uint256 payout
-    //    ) internal returns (uint256) {
-    //        unchecked {
-    //            for (uint256 i = 0; i < vaults.length; ++i) {
-    //                bytes32 vaultHash = vaults[i];
-    //                uint256 index = indexes[i];
-    //                Loan storage loan = bondVaults[vaultHash].loans[
-    //                    collateralVault
-    //                ][indexes[i]];
-    //                uint256 payment = loan.amount +
-    //                    getInterest(vaultHash, index, collateralVault);
-    //                if (payout >= payment) {
-    //                    payout -= payment;
-    //                    bondVaults[vaults[i]].balance += payment;
-    //                    emit Repayment(vaultHash, collateralVault, index, payment);
-    //                } else {
-    //                    payment = payout;
-    //                    payout = uint256(0);
-    //                }
-    //                bondVaults[vaultHash].loanCount--;
-    //                delete bondVaults[vaultHash].loans[collateralVault][indexes[i]];
-    //            }
-    //        }
-    //        return payout;
-    //    }
-
-    //    function redeemBond(bytes32 bondVault, uint256 amount) external {
-    //        require(
-    //            block.timestamp >= bondVaults[bondVault].maturity,
-    //            "redeemBond: maturity not reached"
-    //        );
-    //
-    //        require(
-    //            bondVaults[bondVault].loanCount == 0,
-    //            "redeemBond: loans outstanding"
-    //        );
-    //
-    //        require(balanceOf(msg.sender, uint256(bondVault)) >= amount);
-    //
-    //        _burn(msg.sender, uint256(bondVault), amount);
-    //
-    //        uint256 yield = amount
-    //            .divWadDown(bondVaults[bondVault].totalSupply)
-    //            .mulWadDown(bondVaults[bondVault].balance);
-    //
-    //        unchecked {
-    //            bondVaults[bondVault].totalSupply -= amount;
-    //        }
-    //        TRANSFER_PROXY.tokenTransferFrom(
-    //            address(WETH),
-    //            address(this),
-    //            address(msg.sender),
-    //            yield
-    //        );
-    //        emit RedeemBond(bondVault, amount, address(msg.sender));
-    //    }
 }
