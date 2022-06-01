@@ -62,7 +62,7 @@ contract BrokerImplementation is ERC4626Cloned {
         require(msg.sender == factory(), "factory only call");
         amountOwed = (loans[collateralVault][index].amount +
             getInterest(index, collateralVault));
-        delete loans[collateralVault][index];
+        //        delete loans[collateralVault][index];
     }
 
     function issueLoan(
@@ -80,11 +80,11 @@ contract BrokerImplementation is ERC4626Cloned {
         loans[collateralVault].push(
             Loan(amount, interestRate, block.timestamp, end, schedule)
         );
-        uint256 newIndex = loans[collateralVault].length - 1;
         address borrower = IERC721(
             NFTBondController(factory()).COLLATERAL_VAULT()
         ).ownerOf(collateralVault);
         ERC20(asset()).transfer(borrower, amount);
+        newIndex = loans[collateralVault].length - 1;
     }
 
     function getInterest(uint256 index, uint256 collateralVault)

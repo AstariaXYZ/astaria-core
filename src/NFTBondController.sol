@@ -548,7 +548,7 @@ contract NFTBondController {
         //grab all lien positions compute all outstanding
         (
             bytes32[] memory vaults,
-            uint256[] memory amounts,
+            //            uint256[] memory amounts,
             uint256[] memory indexes
         ) = COLLATERAL_VAULT.getLiens(collateralVault);
         //        Loan[] storage loans = bondVaults[bondVault].loans[collateralVault];

@@ -42,8 +42,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     //what about a notion of a resolver address that settles lien(external contract)?
     struct Lien {
         bytes32 bondVault;
-        uint256 amount;
         uint256 index;
+        uint256 amount;
         //        address tokenContract;
         //        uint256 resolution; //if 0, unresolved lien, set to resolved 1
         //        address resolver; //IResolver contract, interface for sending to beacon proxy
@@ -226,22 +226,22 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         external
         returns (
             bytes32[] memory,
-            uint256[] memory,
+            //            uint256[] memory,
             uint256[] memory
         )
     {
         uint256 lienLength = getTotalLiens(_starId);
         bytes32[] memory vaults = new bytes32[](lienLength);
-        uint256[] memory amounts = new uint256[](lienLength);
+        //        uint256[] memory amounts = new uint256[](lienLength);
         uint256[] memory indexes = new uint256[](lienLength);
         for (uint256 i = 0; i < lienLength; ++i) {
             Lien memory lien = liens[_starId][i];
             vaults[i] = lien.bondVault;
-            amounts[i] = lien.amount;
+            //            amounts[i] = lien.amount;
             indexes[i] = lien.index;
         }
-        return (vaults, amounts, indexes);
-        //        return (vaults, indexes);
+        //        return (vaults, amounts, indexes);
+        return (vaults, indexes);
     }
 
     function manageLien(
@@ -262,7 +262,9 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
                 liens[_tokenId].length == position,
                 "Invalid Lien Position"
             );
-            liens[_tokenId].push(Lien(bondVault, index, amount));
+            liens[_tokenId].push(
+                Lien({bondVault: bondVault, index: index, amount: amount})
+            );
         } else if (_action == LienAction.UN_ENCUMBER) {
             (bondVault, position) = abi.decode(_lienData, (bytes32, uint8));
             require(
