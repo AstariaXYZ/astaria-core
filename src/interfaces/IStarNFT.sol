@@ -16,8 +16,8 @@ interface IStarNFT is IERC721 {
         external
         view
         returns (
-            bytes32[] memory,
-            //            uint256[],
+            address[] memory,
+            uint256[] memory,
             uint256[] memory
         );
 
@@ -28,9 +28,9 @@ interface IStarNFT is IERC721 {
     ) external;
 
     function auctionVault(
-        bytes32 bondVault,
         uint256 tokenId,
-        uint256 reservePrice
+        uint256 reservePrice,
+        address liquidator
     ) external;
 
     function getUnderlyingFromStar(uint256 starId_)

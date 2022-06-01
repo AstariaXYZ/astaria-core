@@ -6,11 +6,9 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {StarNFT} from "./StarNFT.sol";
 import {NFTBondController} from "./NFTBondController.sol";
-import {AuctionHouse} from "auction/AuctionHouse.sol";
+import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
 import {TransferProxy} from "./TransferProxy.sol";
-import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
-import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 import "../lib/foundry_eip-4626/src/WEth.sol";
 
 interface IWETH9 is IERC20 {
@@ -52,21 +50,7 @@ contract AstariaDeploy {
         emit Deployed(address(TRANSFER_PROXY));
 
         BrokerImplementation implementation = new BrokerImplementation();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(
-            address(implementation)
-        ); //change to actual implmentation
-        address[] memory approve = new address[](1);
-        approve[0] = address(WETH9);
-        BeaconProxy bp = new BeaconProxy(
-            address(beacon),
-            abi.encodeWithSignature(
-                "initialize(address[],address)",
-                approve,
-                address(TRANSFER_PROXY)
-            )
-        );
         NFTBondController BOND_CONTROLLER = new NFTBondController(
-            "TEST URI",
             address(WETH9),
             address(STAR_NFT),
             address(TRANSFER_PROXY),
@@ -96,11 +80,7 @@ contract AstariaDeploy {
             AuctionHouse.cancelAuction.selector,
             true
         );
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER),
-            NFTBondController.complete.selector,
-            true
-        );
+
         MRA.setRoleCapability(
             uint8(UserRoles.BOND_CONTROLLER),
             StarNFT.manageLien.selector,

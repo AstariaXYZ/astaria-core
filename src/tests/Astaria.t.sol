@@ -10,7 +10,7 @@ import {Strings} from "openzeppelin/utils/Strings.sol";
 import {StarNFT} from "../StarNFT.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {NFTBondController} from "../NFTBondController.sol";
-import {AuctionHouse} from "auction/AuctionHouse.sol";
+import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {BrokerImplementation} from "../BrokerImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
@@ -73,12 +73,11 @@ contract AstariaTest is Test {
             0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798
         );
 
-    uint256 appraiserPK = 0x1339;
-    uint256 lenderPK = 0x1340;
-    uint256 borrowerPK = 0x1341;
-    address appraiser = hevm.addr(appraiserPK);
-    address lender = hevm.addr(lenderPK);
-    address borrower = hevm.addr(borrowerPK);
+    address appraiser = hevm.addr(0x1339);
+    address lender = hevm.addr(0x1340);
+    address borrower = hevm.addr(0x1341);
+    address bidderOne = hevm.addr(0x1342);
+    address bidderTwo = hevm.addr(0x1343);
 
     event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
     event Repayment(bytes32 bondVault, uint256 collateralVault, uint256 amount);
@@ -105,21 +104,8 @@ contract AstariaTest is Test {
         STAR_NFT = new StarNFT(MRA);
         TRANSFER_PROXY = new TransferProxy(MRA);
         BrokerImplementation implementation = new BrokerImplementation();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(
-            address(implementation)
-        ); //change to actual implmentation
-        address[] memory approve = new address[](1);
-        approve[0] = address(WETH9);
-        BeaconProxy bp = new BeaconProxy(
-            address(beacon),
-            abi.encodeWithSignature(
-                "initialize(address[],address)",
-                approve,
-                address(TRANSFER_PROXY)
-            )
-        );
+
         BOND_CONTROLLER = new NFTBondController(
-            "TEST URI",
             address(WETH9),
             address(STAR_NFT),
             address(TRANSFER_PROXY),
@@ -182,11 +168,6 @@ contract AstariaTest is Test {
         MRA.setRoleCapability(
             uint8(UserRoles.WRAPPER),
             AuctionHouse.cancelAuction.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER),
-            NFTBondController.complete.selector,
             true
         );
         MRA.setRoleCapability(
@@ -278,16 +259,16 @@ contract AstariaTest is Test {
      */
     function _createBondVault(bytes32 _rootHash) internal {
         uint256 expiration = block.timestamp + 30 days;
-        uint256 schedule = block.timestamp + 35 days;
-        uint256 maturity = block.timestamp + 60 days;
+        uint256 deadline = block.timestamp + 1 days;
+        uint256 buyout = uint256(10);
         bytes32 hash = keccak256(
             BOND_CONTROLLER.encodeBondVaultHash(
                 appraiser,
                 _rootHash,
                 expiration,
-                schedule,
-                maturity,
-                BOND_CONTROLLER.appraiserNonces(appraiser)
+                BOND_CONTROLLER.appraiserNonces(appraiser),
+                deadline,
+                buyout
             )
         );
         uint8 v;
@@ -300,8 +281,8 @@ contract AstariaTest is Test {
             appraiser,
             _rootHash,
             expiration,
-            schedule,
-            maturity,
+            deadline,
+            buyout,
             bytes32("0x12345"),
             v,
             r,
@@ -311,28 +292,26 @@ contract AstariaTest is Test {
 
     function _generateLoanProof(
         uint256 _collateralVault,
-        uint256 valuation,
+        uint256 maxAmount,
         uint256 interest,
-        uint256 start,
-        uint256 end,
+        uint256 duration,
         uint8 lienPosition,
         uint256 schedule
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
         (address tokenContract, uint256 tokenId) = STAR_NFT
             .getUnderlyingFromStar(_collateralVault);
-        string[] memory inputs = new string[](10);
-        //address, tokenId, valuation, interest, start, stop, lienPosition, schedule
+        string[] memory inputs = new string[](9);
+        //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
 
         inputs[0] = "node";
         inputs[1] = "scripts/loanProofGenerator.js";
         inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
         inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
-        inputs[4] = abi.encodePacked(valuation).toHexString(); //valuation
+        inputs[4] = abi.encodePacked(maxAmount).toHexString(); //valuation
         inputs[5] = abi.encodePacked(interest).toHexString(); //interest
-        inputs[6] = abi.encodePacked(start).toHexString(); //start
-        inputs[7] = abi.encodePacked(end).toHexString(); //stop
-        inputs[8] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
-        inputs[9] = abi.encodePacked(schedule).toHexString(); //schedule
+        inputs[6] = abi.encodePacked(duration).toHexString(); //stop
+        inputs[7] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
+        inputs[8] = abi.encodePacked(schedule).toHexString(); //schedule
 
         bytes memory res = hevm.ffi(inputs);
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
@@ -385,18 +364,16 @@ contract AstariaTest is Test {
 
         uint256 maxAmount = uint256(100000000000000000000);
         uint256 interestRate = uint256(50000000000000000000);
-        uint256 start = uint256(block.timestamp + 1 minutes);
-        uint256 end = uint256(block.timestamp + 10 minutes);
+        uint256 duration = uint256(block.timestamp + 10 minutes);
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
-        uint256 schedule = uint256(0);
+        uint256 schedule = uint256(50);
         bytes32[] memory proof;
         (vaultHash, proof) = _generateLoanProof(
             collateralVault,
             maxAmount,
             interestRate,
-            start,
-            end,
+            duration,
             lienPosition,
             schedule
         );
@@ -419,8 +396,7 @@ contract AstariaTest is Test {
             collateralVault,
             maxAmount,
             interestRate,
-            start,
-            end,
+            duration,
             amount,
             lienPosition,
             schedule
@@ -461,16 +437,22 @@ contract AstariaTest is Test {
         );
     }
 
-    function _warpToMaturity(bytes32 bondVault, uint256 collateralVault)
-        internal
-    {
-        (, , , , , , uint256 maturity) = BOND_CONTROLLER.getBondData(
-            bondVault,
-            collateralVault
-        );
+    function _warpToMaturity(
+        bytes32 bondVault,
+        uint256 collateralVault,
+        uint256 index
+    ) internal {
+        address brokerAddr;
+        (, , brokerAddr) = BOND_CONTROLLER.bondVaults(bondVault);
+        BrokerImplementation broker = BrokerImplementation(brokerAddr);
 
-        hevm.warp(maturity + 10 minutes);
+        (, , , uint256 duration, , ) = broker.loans(collateralVault, index);
+        hevm.warp(block.timestamp + duration);
     }
+
+    //    function _warpToAuctionEnd() internal {
+    //        //        hevm.warp(block.timestamp + duration);
+    //    }
 
     /**
         Ensure that we can auction underlying vaults
@@ -494,7 +476,7 @@ contract AstariaTest is Test {
         uint256 starId = uint256(
             keccak256(abi.encodePacked(tokenContract, tokenId))
         );
-        _warpToMaturity(vaultHash, starId);
+        _warpToMaturity(vaultHash, starId, uint256(0));
         uint256 reserve = BOND_CONTROLLER.liquidate(
             vaultHash,
             uint256(0),
@@ -514,5 +496,26 @@ contract AstariaTest is Test {
         WETH9.deposit{value: reserve}();
         WETH9.approve(address(TRANSFER_PROXY), reserve);
         STAR_NFT.cancelAuction(starId);
+    }
+
+    function _createBid(
+        address bidder,
+        uint256 tokenId,
+        uint256 amount
+    ) internal {
+        hevm.deal(bidder, (amount * 15) / 10);
+        hevm.startPrank(bidder);
+        WETH9.deposit{value: amount}();
+        WETH9.approve(address(TRANSFER_PROXY), amount);
+        uint256 auctionId = STAR_NFT.starIdToAuctionId(tokenId);
+        AUCTION_HOUSE.createBid(auctionId, amount);
+        hevm.stopPrank();
+    }
+
+    function testEndAuctionWithBids() public {
+        (bytes32 hash, uint256 starId, uint256 reserve) = testAuctionVault();
+        _createBid(bidderOne, starId, reserve);
+        _createBid(bidderTwo, starId, reserve += ((reserve * 5) / 100));
+        _createBid(bidderOne, starId, reserve += ((reserve * 30) / 100));
     }
 }

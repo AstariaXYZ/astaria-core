@@ -6,6 +6,7 @@ remappings = [
     'solmate/=lib/solmate/src/',
     'ds-test/=lib/ds-test/src/',
     'openzeppelin/=lib/openzeppelin-contracts/contracts/',
-    'auction/=lib/auction-house/src/'
+    'auction/=lib/auction-house/src/',
+    'clones-with-immutable-args/=lib/clones-with-immutable-args/src/'
 ]
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
