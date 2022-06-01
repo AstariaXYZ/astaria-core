@@ -12,7 +12,7 @@
 	url = https://github.com/Uniswap/v3-periphery
 [submodule "lib/gpl"]
 	path = lib/gpl
-	url = https://github.com/AstariaXYZ/auction-gpl
+	url = https://github.com/AstariaXYZ/astaria-gpl
 [submodule "lib/foundry_eip-4626"]
 	path = lib/foundry_eip-4626
 	url = https://github.com/jaglinux/foundry_eip-4626/
