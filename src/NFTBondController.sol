@@ -20,7 +20,9 @@ contract NFTBondController {
     TransferProxy public immutable TRANSFER_PROXY;
     address BROKER_IMPLEMENTATION;
 
-    uint256 LIQUIDATION_FEE; // a percent(13) then mul by 100
+    uint256 public LIQUIDATION_FEE_PERCENT; // a percent(13) then mul by 100
+    uint64 public MIN_INTEREST_BPS; // a percent(13) then mul by 100
+    uint64 public MIN_DURATION_INCREASE; // a percent(13) then mul by 100
 
     mapping(bytes32 => BondVault) public bondVaults;
     mapping(address => bytes32) public brokers;
@@ -89,7 +91,9 @@ contract NFTBondController {
         COLLATERAL_VAULT = IStarNFT(_COLLATERAL_VAULT);
         TRANSFER_PROXY = TransferProxy(_TRANSFER_PROXY);
         BROKER_IMPLEMENTATION = _BEACON_CLONE;
-        LIQUIDATION_FEE = 3;
+        LIQUIDATION_FEE_PERCENT = 13;
+        MIN_INTEREST_BPS = 5;
+        MIN_DURATION_INCREASE = 14 days;
         uint256 chainId;
         assembly {
             chainId := chainid()
@@ -195,7 +199,7 @@ contract NFTBondController {
                 appraiser,
                 root,
                 expiration,
-                appraiserNonces[msg.sender]++,
+                appraiserNonces[appraiser]++,
                 deadline,
                 buyout
             )
@@ -235,6 +239,49 @@ contract NFTBondController {
             );
     }
 
+    function borrowAndBuy(
+        bytes32[] calldata proof,
+        bytes32 bondVault,
+        uint256[7] calldata loanTerms,
+        uint256 purchasePrice,
+        bytes calldata purchaseData,
+        bytes calldata purchaseTarget
+    ) external {
+        commitToLoan(
+            proof,
+            bondVault,
+            loanTerms[0],
+            loanTerms[1],
+            loanTerms[2],
+            loanTerms[3],
+            loanTerms[4],
+            loanTerms[5],
+            loanTerms[6]
+        );
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            address(this),
+            purchasePrice
+        );
+
+        //execute gem aggregation
+    }
+
+    //    (
+    //    uint256 collateralVault,
+    //    uint256 maxAmount,
+    //    uint256 interestRate,
+    //    uint256 duration,
+    //    uint256 amount,
+    //    uint256 lienPosition,
+    //    uint256 schedule)
+    //        ) = loanterms;
+
+    event Log(uint256);
+
+    //    event Log(uint256, uint256, uint256);
+
     function refinanceLoan(
         bytes32 bondVaultOutgoing,
         bytes32 bondVaultIncoming,
@@ -244,7 +291,12 @@ contract NFTBondController {
         uint256 newDuration
     ) external {
         require(
-            bondVaults[bondVaultIncoming].expiration < block.timestamp,
+            msg.sender == bondVaults[bondVaultIncoming].appraiser,
+            "only the appraiser can call this method"
+        );
+        emit Log(bondVaults[bondVaultIncoming].expiration);
+        require(
+            bondVaults[bondVaultIncoming].expiration > block.timestamp,
             "bond vault has expired"
         );
         BrokerImplementation broker = BrokerImplementation(
@@ -252,52 +304,43 @@ contract NFTBondController {
         );
         uint256 buyout = broker.getBuyout(collateralVault, outgoingIndex);
         (
-            uint256 amount,
+            ,
             uint256 interestRate,
             uint256 start,
-            uint256 duration,
+            uint256 end,
             uint256 schedule,
             uint256 lienPosition
         ) = getLoan(broker, collateralVault, outgoingIndex);
-        //move this into the get
+        //        //move this into the get
+        //        {
+        //            //            emit Log(newInterestRate, interestRate);
+        //            //            require(
+        //            //                newInterestRate < ((interestRate * MIN_INTEREST_BPS) / 100),
+        //            //                "Failed to provide a better rate"
+        //            //            );
+        //            uint256 minDurationIncrease = (end - start) + MIN_DURATION_INCREASE;
+        //
+        //            require(
+        //                block.timestamp + newDuration >= minDurationIncrease,
+        //                "duration not increased"
+        //            );
+        //            WETH.approve(address(broker), buyout);
+        //            broker.repayLoan(collateralVault, outgoingIndex, buyout);
+        //        }
+
         {
-            require(
-                newInterestRate <= interestRate + (interestRate * 500) / 1000
-            ); //TODO: min "beat price"
-            uint256 minDuration = start + duration + (duration * 500) / 1000;
-
-            require(newDuration >= minDuration); //TODO: min "beat duration"
-
-            broker.repayLoan(collateralVault, outgoingIndex, buyout);
-        }
-        TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(msg.sender),
-            address(this),
-            buyout
-        );
-        broker = BrokerImplementation(bondVaults[bondVaultIncoming].broker);
-        {
-            uint256 newIndex = broker.issueLoan(
-                collateralVault,
-                buyout,
-                newInterestRate,
-                newDuration,
-                schedule,
-                lienPosition
-            );
-            //transfer proxy in the weth from sender to the bondvault
-
-            //if we dont create here perhaps we require that a bondvault is created before you can refinance,
-
-            _swapLien(
-                bondVaultOutgoing,
-                bondVaultIncoming,
-                collateralVault,
-                outgoingIndex,
-                newIndex,
-                buyout
-            );
+            uint256 newIndex = BrokerImplementation(
+                bondVaults[bondVaultIncoming].broker
+            ).buyoutLoan(
+                    address(broker),
+                    collateralVault,
+                    outgoingIndex,
+                    buyout,
+                    newInterestRate,
+                    newDuration,
+                    schedule, // keep old or can be changed?
+                    lienPosition
+                );
         }
     }
 
@@ -308,18 +351,7 @@ contract NFTBondController {
         uint256 expiration,
         uint256 buyout
     ) internal {
-        //        address proxy = Clones.cloneDeterministic(BEACON_CLONE, root);
-        //        address[] memory tokens = new address[](1);
-        //        tokens[0] = address(WETH);
-        //        BrokerImplementation(proxy).initialize(tokens, address(TRANSFER_PROXY));
-
-        //        address proxy = Clones.predictDeterministicAddress(
-        //            BEACON_CLONE,
-        //            root,
-        //            address(this)
-        //        );
-
-        address vault = ClonesWithImmutableArgs.clone(
+        address broker = ClonesWithImmutableArgs.clone(
             BROKER_IMPLEMENTATION,
             abi.encodePacked(
                 address(this),
@@ -333,11 +365,11 @@ contract NFTBondController {
         BondVault storage bondVault = bondVaults[root];
         bondVault.appraiser = appraiser;
         bondVault.expiration = expiration;
-        bondVault.broker = vault;
+        bondVault.broker = broker;
 
-        brokers[vault] = root;
+        brokers[broker] = root;
 
-        emit NewBondVault(appraiser, vault, root, contentHash, expiration);
+        emit NewBondVault(appraiser, broker, root, contentHash, expiration);
     }
 
     // maxAmount so the borrower has the option to borrow less
@@ -350,11 +382,12 @@ contract NFTBondController {
         uint256 interestRate,
         uint256 duration,
         uint256 amount,
-        uint8 lienPosition,
+        uint256 lienPosition,
         uint256 schedule
-    ) external {
+    ) public {
         require(
-            msg.sender == COLLATERAL_VAULT.ownerOf(collateralVault),
+            msg.sender == COLLATERAL_VAULT.ownerOf(collateralVault) ||
+                msg.sender == address(this),
             "NFTBondController.commitToLoan(): Owner of the collateral vault must be msg.sender"
         );
         require(
@@ -392,6 +425,7 @@ contract NFTBondController {
 
         uint256 newIndex = BrokerImplementation(bondVaults[bondVault].broker)
             .issueLoan(
+                address(this),
                 collateralVault,
                 amount,
                 interestRate,
@@ -436,11 +470,35 @@ contract NFTBondController {
         );
     }
 
-    function removeLien(uint256 collateralVault, uint256 position)
-        external
-        onlyVaults
-    {
-        _removeLien(msg.sender, collateralVault, position);
+    function updateLien(
+        uint256 collateralVault,
+        uint256 position,
+        address payee
+    ) external onlyVaults {
+        if (brokers[payee] != bytes32(0)) {
+            uint256 newIndex = BrokerImplementation(payee).getLoanCount(
+                collateralVault
+            );
+
+            if (newIndex != uint256(0)) newIndex -= 1;
+
+            (uint256 amount, , , , , ) = getLoan(
+                BrokerImplementation(payee),
+                collateralVault,
+                newIndex
+            );
+
+            _swapLien(
+                brokers[msg.sender],
+                brokers[payee],
+                collateralVault,
+                position,
+                newIndex,
+                amount
+            );
+        } else {
+            _removeLien(msg.sender, collateralVault, position);
+        }
     }
 
     function _removeLien(
@@ -578,8 +636,13 @@ contract NFTBondController {
             );
         }
 
-        reserve += ((reserve * LIQUIDATION_FEE) / 100);
+        reserve += ((reserve * LIQUIDATION_FEE_PERCENT) / 100);
 
-        COLLATERAL_VAULT.auctionVault(collateralVault, reserve, msg.sender);
+        COLLATERAL_VAULT.auctionVault(
+            collateralVault,
+            reserve,
+            address(msg.sender),
+            LIQUIDATION_FEE_PERCENT
+        );
     }
 }

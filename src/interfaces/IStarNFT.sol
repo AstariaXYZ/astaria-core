@@ -30,7 +30,8 @@ interface IStarNFT is IERC721 {
     function auctionVault(
         uint256 tokenId,
         uint256 reservePrice,
-        address liquidator
+        address initiator,
+        uint256 initiatorFee
     ) external;
 
     function getUnderlyingFromStar(uint256 starId_)

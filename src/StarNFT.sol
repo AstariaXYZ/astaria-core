@@ -236,12 +236,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
             indexes[i] = lien.index;
         }
         return (vaults, amounts, indexes);
-        //        return (vaults, indexes);
     }
-
-    event Log(address, uint256, uint256, uint256);
-    event LogBytes(bytes);
-    event LienEvent(LienAction);
 
     function manageLien(
         uint256 _tokenId,
@@ -258,7 +253,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
                 _lienData,
                 (address, uint256, uint256, uint256)
             );
-            emit Log(broker, position, index, amount);
             require(
                 liens[_tokenId].length == position,
                 "Invalid Lien Position"
@@ -346,11 +340,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         uint256 tokenId_,
         bytes calldata data_
     ) external pure override returns (bytes4) {
-        //        require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
-        //        uint starId = uint256(keccak256(abi.encodePacked(address(msg.sender), tokenId_)));
-        //        _mint(from_, starId);
-        //        starToUnderlying[starId] = abi.encodePacked(address(msg.sender), tokenId_);
-        //        starIdDepositor[starId] = from_;
         return IERC721Receiver.onERC721Received.selector;
     }
 
@@ -380,7 +369,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     function auctionVault(
         uint256 _tokenId,
         uint256 _reservePrice,
-        address liquidator
+        address liquidator,
+        uint256 liquidationFee
     ) external requiresAuth {
         require(
             starIdToAuctionId[_tokenId] == uint256(0),
@@ -397,7 +387,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
             _reservePrice,
             vaults,
             amounts,
-            liquidator
+            liquidator,
+            liquidationFee
         );
         starIdToAuctionId[_tokenId] = auctionId;
     }
