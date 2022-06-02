@@ -351,6 +351,14 @@ contract AstariaTest is Test {
         internal
         returns (bytes32 vaultHash)
     {
+        return _commitToLoan(tokenContract, tokenId, uint256(100000000000000000000), uint256(50000000000000000000), uint256(block.timestamp + 10 minutes), uint256(1 ether));
+
+    }
+
+    function _commitToLoan(address tokenContract, uint256 tokenId, uint256 maxAmount, uint256 interestRate, uint256 duration, uint256 amount)
+        internal
+        returns (bytes32 vaultHash)
+    {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
@@ -364,12 +372,8 @@ contract AstariaTest is Test {
             )
         );
 
-        uint256 maxAmount = uint256(100000000000000000000);
-        uint256 interestRate = uint256(50000000000000000000);
-        uint256 duration = uint256(block.timestamp + 10 minutes);
-        uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
-        uint256 schedule = uint256(50);
+        uint256 schedule = uint256(50); // TODO fuzz?
         bytes32[] memory proof;
         (vaultHash, proof) = _generateLoanProof(
             collateralVault,
@@ -520,4 +524,108 @@ contract AstariaTest is Test {
         _createBid(bidderTwo, starId, reserve += ((reserve * 5) / 100));
         _createBid(bidderOne, starId, reserve += ((reserve * 30) / 100));
     }
+
+
+
+    // failure testing
+    function testFailLendWithoutTransfer() public {
+        WETH9.transfer(address(BOND_CONTROLLER), uint256(1));
+        BOND_CONTROLLER.lendToVault(testBondVaultHash, uint256(1));
+    }
+
+    function testFailLendWithNonexistentVault() public {
+        NFTBondController emptyController;
+        emptyController.lendToVault(testBondVaultHash, uint256(1));
+    }
+
+    function testFailLendPastExpiration() public {
+        _createBondVault(testBondVaultHash);
+        vm.deal(lender, 1000 ether);
+        vm.startPrank(lender);
+        WETH9.deposit{value: 50 ether}();
+        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+
+        vm.warp(block.timestamp + 10000 days); // forward past expiration date
+
+        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
+        vm.stopPrank();
+    }
+
+    function testFailCommitToLoanNotOwner() public {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+        vm.prank(address(1));
+        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
+    }
+
+
+
+    // fuzzers
+
+    function testFuzzPermit(uint256 deadline) public {
+        vm.assume(deadline > block.timestamp);
+
+        // BOND_CONTROLLER.permit()
+
+        // assertGt(deadline, block.timestamp); // delete
+    }
+
+    function testFuzzCommitToLoan(uint256 interestRate, uint256 duration, uint256 amount) public {
+        interestRate = bound(interestRate, 1e10, 1e30); // is this reasonable? (original tests were 1e20)
+        duration = bound(duration, uint256(block.timestamp + 1 minutes), uint256(block.timestamp + 10 minutes));
+
+
+        uint256 maxAmount = uint256(100000000000000000000);
+
+        // reverts with "Attempting to borrow more than available in the specified vault" starting at an upper bound of ~100 ether
+        amount = bound(amount, 1 ether, 10 ether);
+
+
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+
+        bytes32 vaultHash = _commitToLoan(
+            tokenContract,
+            tokenId,
+            maxAmount,
+            interestRate,
+            duration,
+            amount
+        );
+    }
+
+    function testFuzzLendToVault(uint256 amount) public {
+        amount = bound(amount, 1 ether, 20 ether); // starts failing at ~200 ether
+
+        Dummy721 lienTest = new Dummy721();
+        address tokenContract = address(lienTest);
+        uint256 tokenId = uint256(1);
+
+        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
+
+        // _createBondVault(vaultHash);
+        vm.deal(lender, 1000 ether);
+        vm.startPrank(lender);
+        WETH9.deposit{value: 50 ether}();
+        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+
+        BOND_CONTROLLER.lendToVault(vaultHash, amount);
+        vm.stopPrank();
+    }
+
+
+    function testFuzzManageLiens(uint256 amount) public {}
+
+    function testFuzzCreateAuction(uint256 reservePrice) public {}
+
+    function testFuzzCreateBid(uint256 amount) public {}
+
+    // TODO repayLoan() test(s)
+
+    function testFuzzRefinanceLoan(uint256 newInterestRate, uint256 newDuration) public {}
+
+    
+
 }
