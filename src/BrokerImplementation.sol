@@ -6,15 +6,13 @@ import "./NFTBondController.sol";
 
 contract BrokerImplementation is ERC4626Cloned {
     struct Loan {
-        //        uint256 collateralVault; // ERC721, 1155 will be wrapped to create a singular tokenId
         uint256 amount; // loans are only in wETH
-        uint256 interestRate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
-        uint256 start; // epoch time of last interest accrual
-        uint256 duration; // epoch time at which the loan must be repaid
-        // lienPosition should be managed on the CollateralVault
-        //        bytes32 bondVault;
-        uint256 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
-        uint256 schedule; // percentage margin before the borrower needs to repay
+        uint32 interestRate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
+        uint64 start; // epoch time of last interest accrual
+        uint64 end; // epoch time at which the loan must be repaid
+        //        uint64 duration; // epoch time at which the loan must be repaid
+        uint8 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
+        uint32 schedule; // percentage margin before the borrower needs to repay
     }
 
     mapping(uint256 => Loan[]) public loans;
@@ -29,23 +27,83 @@ contract BrokerImplementation is ERC4626Cloned {
         delete loans[collateralVault][index];
     }
 
+    function getLoanCount(uint256 collateralVault) public returns (uint256) {
+        return loans[collateralVault].length;
+    }
+
     function getBuyout(uint256 collateralVault, uint256 index)
         public
         view
         returns (uint256)
     {
-        uint256 owed = getInterest(index, collateralVault);
+        uint256 owed = loans[collateralVault][index].amount +
+            getInterest(index, collateralVault);
 
         uint256 premium = buyout();
 
-        return owed += (owed * premium) / 1000;
+        //        return owed += (owed * premium) / 100;
+        return owed;
     }
 
-    function issueLoan(
+    function buyoutLoan(
+        address broker,
+        uint256 collateralVault,
+        uint256 outgoingIndex,
+        uint256 buyout,
+        uint256 newInterestRate,
+        uint256 newDuration,
+        uint256 schedule, // keep old or can be changed?
+        uint256 lienPosition
+    ) external returns (uint256 newIndex) {
+        require(
+            address(msg.sender) == factory(),
+            "issueLoan, can only be called by the factory"
+        );
+        ERC20(asset()).approve(broker, buyout);
+
+        newIndex = _addLoan(
+            collateralVault,
+            buyout,
+            newInterestRate,
+            newDuration,
+            schedule,
+            lienPosition
+        );
+        BrokerImplementation(broker).repayLoan(
+            collateralVault,
+            outgoingIndex,
+            buyout
+        );
+    }
+
+    function _addLoan(
         uint256 collateralVault,
         uint256 amount,
         uint256 interestRate,
-        uint256 end,
+        uint256 duration,
+        uint256 schedule,
+        uint256 lienPosition
+    ) internal returns (uint256 newIndex) {
+        loans[collateralVault].push(
+            Loan({
+                amount: amount,
+                interestRate: uint32(interestRate),
+                start: uint64(block.timestamp),
+                end: uint64(block.timestamp + duration),
+                schedule: uint32(schedule),
+                lienPosition: uint8(lienPosition)
+            })
+        );
+
+        newIndex = loans[collateralVault].length - 1;
+    }
+
+    function issueLoan(
+        address recipient,
+        uint256 collateralVault,
+        uint256 amount,
+        uint256 interestRate,
+        uint256 duration,
         uint256 schedule,
         uint256 lienPosition
     ) external returns (uint256 newIndex) {
@@ -54,16 +112,24 @@ contract BrokerImplementation is ERC4626Cloned {
             "issueLoan, can only be called by the factory"
         );
 
-        loans[collateralVault].push(
-            Loan({
-                amount: amount,
-                interestRate: interestRate,
-                start: block.timestamp,
-                duration: end,
-                schedule: schedule,
-                lienPosition: lienPosition
-            })
+        _addLoan(
+            collateralVault,
+            amount,
+            interestRate,
+            duration,
+            schedule,
+            lienPosition
         );
+        //        loans[collateralVault].push(
+        //            Loan({
+        //                amount: amount,
+        //                interestRate: uint32(interestRate),
+        //                start: uint64(block.timestamp),
+        //                end: uint64(block.timestamp + duration),
+        //                schedule: uint32(schedule),
+        //                lienPosition: uint8(lienPosition)
+        //            })
+        //        );
         address borrower = IERC721(
             NFTBondController(factory()).COLLATERAL_VAULT()
         ).ownerOf(collateralVault);
@@ -104,10 +170,14 @@ contract BrokerImplementation is ERC4626Cloned {
         unchecked {
             loans[collateralVault][index].amount -= amount;
         }
-        loans[collateralVault][index].start = block.timestamp;
+        loans[collateralVault][index].start = uint64(block.timestamp);
 
         if (loans[collateralVault][index].amount == 0) {
-            NFTBondController(factory()).removeLien(collateralVault, index);
+            NFTBondController(factory()).updateLien(
+                collateralVault,
+                index,
+                msg.sender
+            );
             delete loans[collateralVault][index];
         }
     }
