@@ -1,8 +1,9 @@
 pragma solidity ^0.8.13;
 
+import "forge-std/Test.sol";
+
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
@@ -32,14 +33,14 @@ interface IWETH9 is IERC20 {
     function withdraw(uint256) external;
 }
 
-contract Test is DSTestPlus {
-    function deployCode(string memory what) public returns (address addr) {
-        bytes memory bytecode = hevm.getCode(what);
-        assembly {
-            addr := create(0, add(bytecode, 0x20), mload(bytecode))
-        }
-    }
-}
+// contract Test is DSTestPlus {
+//     function deployCode(string memory what) public returns (address addr) {
+//         bytes memory bytecode = vm.getCode(what);
+//         assembly {
+//             addr := create(0, add(bytecode, 0x20), mload(bytecode))
+//         }
+//     }
+// }
 
 //TODO:
 // - setup helpers that let us put a loan into default
@@ -74,13 +75,13 @@ contract AstariaTest is Test {
         );
     uint256 appraiserOnePK = uint256(0x1339);
     uint256 appraiserTwoPK = uint256(0x1344);
-    address appraiserOne = hevm.addr(appraiserOnePK);
-    address lender = hevm.addr(0x1340);
-    address borrower = hevm.addr(0x1341);
-    address bidderOne = hevm.addr(0x1342);
-    address bidderTwo = hevm.addr(0x1343);
-    address appraiserTwo = hevm.addr(appraiserTwoPK);
-    address appraisterThree = hevm.addr(0x1345);
+    address appraiserOne = vm.addr(appraiserOnePK);
+    address lender = vm.addr(0x1340);
+    address borrower = vm.addr(0x1341);
+    address bidderOne = vm.addr(0x1342);
+    address bidderTwo = vm.addr(0x1343);
+    address appraiserTwo = vm.addr(appraiserTwoPK);
+    address appraisterThree = vm.addr(0x1345);
 
     event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
     event Repayment(bytes32 bondVault, uint256 collateralVault, uint256 amount);
@@ -102,7 +103,7 @@ contract AstariaTest is Test {
 
         MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
 
-        address liquidator = hevm.addr(0x1337); //remove
+        address liquidator = vm.addr(0x1337); //remove
 
         STAR_NFT = new StarNFT(MRA);
         TRANSFER_PROXY = new TransferProxy(MRA);
@@ -215,7 +216,7 @@ contract AstariaTest is Test {
         inputs[1] = "scripts/whitelistGenerator.js";
         inputs[2] = abi.encodePacked(newNFT).toHexString();
 
-        bytes memory res = hevm.ffi(inputs);
+        bytes memory res = vm.ffi(inputs);
         (root, proof) = abi.decode(res, (bytes32, bytes32[]));
     }
 
@@ -260,6 +261,18 @@ contract AstariaTest is Test {
         Ensure that we can create a new bond vault and we emit the correct events
      */
 
+    function _createBondVault(bytes32 vaultHash) internal {
+        return
+            _createBondVault(
+                appraiserOne,
+                block.timestamp + 30 days, //expiration
+                block.timestamp + 1 days, //deadline
+                uint256(10), //buyout
+                vaultHash,
+                appraiserOnePK
+            );
+    }
+
     function _createBondVault(
         address appraiser,
         uint256 expiration,
@@ -282,7 +295,7 @@ contract AstariaTest is Test {
         bytes32 r;
         bytes32 s;
 
-        (v, r, s) = hevm.sign(uint256(appraiserPk), hash);
+        (v, r, s) = vm.sign(uint256(appraiserPk), hash);
 
         BOND_CONTROLLER.newBondVault(
             appraiser,
@@ -320,7 +333,7 @@ contract AstariaTest is Test {
         inputs[7] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
         inputs[8] = abi.encodePacked(schedule).toHexString(); //schedule
 
-        bytes memory res = hevm.ffi(inputs);
+        bytes memory res = vm.ffi(inputs);
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
     }
 
@@ -328,9 +341,9 @@ contract AstariaTest is Test {
         ERC721 hijack = ERC721(tokenContract);
 
         address currentOwner = hijack.ownerOf(tokenId);
-        hevm.startPrank(currentOwner);
+        vm.startPrank(currentOwner);
         hijack.transferFrom(currentOwner, address(this), tokenId);
-        hevm.stopPrank();
+        vm.stopPrank();
     }
 
     /**
@@ -368,12 +381,29 @@ contract AstariaTest is Test {
     }
 
     function _lendToVault(bytes32 vaultHash, uint256 amount) internal {
-        hevm.deal(lender, amount);
-        hevm.startPrank(lender);
+        vm.deal(lender, amount);
+        vm.startPrank(lender);
         WETH9.deposit{value: amount}();
         WETH9.approve(address(TRANSFER_PROXY), type(uint256).max);
         BOND_CONTROLLER.lendToVault(vaultHash, amount);
-        hevm.stopPrank();
+        vm.stopPrank();
+    }
+
+    function _commitToLoan(address tokenContract, uint256 tokenId)
+        internal
+        returns (bytes32 vaultHash)
+    {
+        return
+            _commitToLoan(
+                tokenContract,
+                tokenId,
+                uint256(100000000000000000000),
+                uint256(50000000000000000000),
+                uint256(block.timestamp + 10 minutes),
+                uint256(1 ether),
+                uint256(0),
+                uint256(50 ether)
+            );
     }
 
     function _commitToLoan(
@@ -422,9 +452,9 @@ contract AstariaTest is Test {
         _lendToVault(vaultHash, uint256(500 ether));
 
         //event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
-        hevm.expectEmit(true, true, false, false);
+        vm.expectEmit(true, true, false, false);
         emit NewLoan(vaultHash, collateralVault, amount);
-        startMeasuringGas("Commit To Loan");
+        // startMeasuringGas("Commit To Loan");
         BOND_CONTROLLER.commitToLoan(
             proof,
             vaultHash,
@@ -436,7 +466,7 @@ contract AstariaTest is Test {
             lienPosition,
             schedule
         );
-        stopMeasuringGas();
+        // stopMeasuringGas();
     }
 
     function testReleaseToAddress() public {
@@ -444,13 +474,13 @@ contract AstariaTest is Test {
         address tokenContract = address(releaseTest);
         uint256 tokenId = uint256(1);
         _depositNFTs(tokenContract, tokenId);
-        startMeasuringGas("ReleaseTo Address");
+        // startMeasuringGas("ReleaseTo Address");
 
         STAR_NFT.releaseToAddress(
             uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
             address(this)
         );
-        stopMeasuringGas();
+        // stopMeasuringGas();
     }
 
     /**
@@ -479,7 +509,8 @@ contract AstariaTest is Test {
             lienPosition,
             schedule
         );
-        hevm.expectRevert(bytes("must be no liens to call this"));
+        vm.expectRevert(bytes("must be no liens to call this"));
+
         STAR_NFT.releaseToAddress(
             uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
             address(this)
@@ -496,11 +527,11 @@ contract AstariaTest is Test {
         BrokerImplementation broker = BrokerImplementation(brokerAddr);
 
         (, , , uint256 duration, , ) = broker.loans(collateralVault, index);
-        hevm.warp(block.timestamp + duration);
+        vm.warp(block.timestamp + duration);
     }
 
     //    function _warpToAuctionEnd() internal {
-    //        //        hevm.warp(block.timestamp + duration);
+    //        //        vm.warp(block.timestamp + duration);
     //    }
 
     /**
@@ -555,7 +586,7 @@ contract AstariaTest is Test {
     */
     function testCancelAuction() public {
         (bytes32 hash, uint256 starId, uint256 reserve) = testAuctionVault();
-        hevm.deal(address(this), reserve);
+        vm.deal(address(this), reserve);
         WETH9.deposit{value: reserve}();
         WETH9.approve(address(TRANSFER_PROXY), reserve);
         STAR_NFT.cancelAuction(starId);
@@ -566,13 +597,13 @@ contract AstariaTest is Test {
         uint256 tokenId,
         uint256 amount
     ) internal {
-        hevm.deal(bidder, (amount * 15) / 10);
-        hevm.startPrank(bidder);
+        vm.deal(bidder, (amount * 15) / 10);
+        vm.startPrank(bidder);
         WETH9.deposit{value: amount}();
         WETH9.approve(address(TRANSFER_PROXY), amount);
         uint256 auctionId = STAR_NFT.starIdToAuctionId(tokenId);
         AUCTION_HOUSE.createBid(auctionId, amount);
-        hevm.stopPrank();
+        vm.stopPrank();
     }
 
     function testEndAuctionWithBids() public {
@@ -634,7 +665,7 @@ contract AstariaTest is Test {
 
             _lendToVault(hashNew, uint256(500 ether));
 
-            hevm.startPrank(appraiserTwo);
+            vm.startPrank(appraiserTwo);
             BOND_CONTROLLER.refinanceLoan(
                 vaultHash,
                 hashNew,
@@ -643,7 +674,113 @@ contract AstariaTest is Test {
                 (loanDetails[1] / 2),
                 loanDetails[2] + BOND_CONTROLLER.MIN_DURATION_INCREASE() * 2
             );
-            hevm.stopPrank();
+            vm.stopPrank();
         }
     }
+
+    // failure testing
+    function testFailLendWithoutTransfer() public {
+        WETH9.transfer(address(BOND_CONTROLLER), uint256(1));
+        BOND_CONTROLLER.lendToVault(testBondVaultHash, uint256(1));
+    }
+
+    function testFailLendWithNonexistentVault() public {
+        NFTBondController emptyController;
+        emptyController.lendToVault(testBondVaultHash, uint256(1));
+    }
+
+    function testFailLendPastExpiration() public {
+        _createBondVault(testBondVaultHash);
+        vm.deal(lender, 1000 ether);
+        vm.startPrank(lender);
+        WETH9.deposit{value: 50 ether}();
+        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+
+        vm.warp(block.timestamp + 10000 days); // forward past expiration date
+
+        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
+        vm.stopPrank();
+    }
+
+    function testFailCommitToLoanNotOwner() public {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+        vm.prank(address(1));
+        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
+    }
+
+    // fuzzers
+
+    function testFuzzPermit(uint256 deadline) public {
+        vm.assume(deadline > block.timestamp);
+
+        // BOND_CONTROLLER.permit()
+
+        // assertGt(deadline, block.timestamp); // delete
+    }
+
+    function testFuzzCommitToLoan(
+        uint256 interestRate,
+        uint256 duration,
+        uint256 amount
+    ) public {
+        interestRate = bound(interestRate, 1e10, 1e30); // is this reasonable? (original tests were 1e20)
+        duration = bound(
+            duration,
+            uint256(block.timestamp + 1 minutes),
+            uint256(block.timestamp + 10 minutes)
+        );
+
+        uint256 maxAmount = uint256(100000000000000000000);
+
+        // reverts with "Attempting to borrow more than available in the specified vault" starting at an upper bound of ~100 ether
+        amount = bound(amount, 1 ether, 10 ether);
+
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+
+        bytes32 vaultHash = _commitToLoan(
+            tokenContract,
+            tokenId,
+            maxAmount,
+            interestRate,
+            duration,
+            amount,
+            uint256(0),
+            uint256(50 ether)
+        );
+    }
+
+    function testFuzzLendToVault(uint256 amount) public {
+        amount = bound(amount, 1 ether, 20 ether); // starts failing at ~200 ether
+
+        Dummy721 lienTest = new Dummy721();
+        address tokenContract = address(lienTest);
+        uint256 tokenId = uint256(1);
+
+        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
+
+        // _createBondVault(vaultHash);
+        vm.deal(lender, 1000 ether);
+        vm.startPrank(lender);
+        WETH9.deposit{value: 50 ether}();
+        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+
+        BOND_CONTROLLER.lendToVault(vaultHash, amount);
+        vm.stopPrank();
+    }
+
+    function testFuzzManageLiens(uint256 amount) public {}
+
+    function testFuzzCreateAuction(uint256 reservePrice) public {}
+
+    function testFuzzCreateBid(uint256 amount) public {}
+
+    // TODO repayLoan() test(s)
+
+    function testFuzzRefinanceLoan(uint256 newInterestRate, uint256 newDuration)
+        public
+    {}
 }
