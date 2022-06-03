@@ -2,7 +2,7 @@ pragma solidity ^0.8.13;
 
 import "gpl/ERC4626-Cloned.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
-import "./NFTBondController.sol";
+import "./BrokerRouter.sol";
 
 contract BrokerImplementation is ERC4626Cloned {
     struct Loan {
@@ -50,6 +50,7 @@ contract BrokerImplementation is ERC4626Cloned {
         uint256 collateralVault,
         uint256 outgoingIndex,
         uint256 buyout,
+        uint256 amount,
         uint256 newInterestRate,
         uint256 newDuration,
         uint256 schedule, // keep old or can be changed?
@@ -63,7 +64,7 @@ contract BrokerImplementation is ERC4626Cloned {
 
         newIndex = _addLoan(
             collateralVault,
-            buyout,
+            amount,
             newInterestRate,
             newDuration,
             schedule,
@@ -130,9 +131,8 @@ contract BrokerImplementation is ERC4626Cloned {
         //                lienPosition: uint8(lienPosition)
         //            })
         //        );
-        address borrower = IERC721(
-            NFTBondController(factory()).COLLATERAL_VAULT()
-        ).ownerOf(collateralVault);
+        address borrower = IERC721(BrokerRouter(factory()).COLLATERAL_VAULT())
+            .ownerOf(collateralVault);
         ERC20(asset()).transfer(borrower, amount);
         newIndex = loans[collateralVault].length - 1;
     }
@@ -165,7 +165,7 @@ contract BrokerImplementation is ERC4626Cloned {
         //            WETH.transferFrom(msg.sender, address(this), amount),
         //            "repayLoan: transfer failed"
         //        );
-        address weth = address(NFTBondController(factory()).WETH());
+        address weth = address(BrokerRouter(factory()).WETH());
         ERC20(weth).transferFrom(address(msg.sender), address(this), amount);
         unchecked {
             loans[collateralVault][index].amount -= amount;
@@ -173,7 +173,7 @@ contract BrokerImplementation is ERC4626Cloned {
         loans[collateralVault][index].start = uint64(block.timestamp);
 
         if (loans[collateralVault][index].amount == 0) {
-            NFTBondController(factory()).updateLien(
+            BrokerRouter(factory()).updateLien(
                 collateralVault,
                 index,
                 msg.sender

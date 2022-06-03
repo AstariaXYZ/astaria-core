@@ -10,7 +10,7 @@ import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {StarNFT} from "../StarNFT.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {NFTBondController} from "../NFTBondController.sol";
+import {BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {BrokerImplementation} from "../BrokerImplementation.sol";
@@ -60,7 +60,7 @@ contract AstariaTest is Test {
 
     using Strings2 for bytes;
     StarNFT STAR_NFT;
-    NFTBondController BOND_CONTROLLER;
+    BrokerRouter BOND_CONTROLLER;
     Dummy721 testNFT;
     TransferProxy TRANSFER_PROXY;
     IWETH9 WETH9;
@@ -109,7 +109,7 @@ contract AstariaTest is Test {
         TRANSFER_PROXY = new TransferProxy(MRA);
         BrokerImplementation implementation = new BrokerImplementation();
 
-        BOND_CONTROLLER = new NFTBondController(
+        BOND_CONTROLLER = new BrokerRouter(
             address(WETH9),
             address(STAR_NFT),
             address(TRANSFER_PROXY),
@@ -625,6 +625,14 @@ contract AstariaTest is Test {
         loanDetails[3] = uint256(1 ether); //amount
         loanDetails[4] = uint256(0); //lienPosition
         loanDetails[5] = uint256(50); //schedule
+
+        uint256[] memory loanDetails2 = new uint256[](6);
+        loanDetails2[0] = uint256(100000000000000000000); //maxAmount
+        loanDetails2[1] = uint256(50000000000000000000 / 2); //interestRate
+        loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
+        loanDetails2[3] = uint256(1 ether); //amount
+        loanDetails2[4] = uint256(0); //lienPosition
+        loanDetails2[5] = uint256(50); //schedule
         bytes32 vaultHash = _commitToLoan(
             tokenContract,
             tokenId,
@@ -647,11 +655,11 @@ contract AstariaTest is Test {
         {
             (bytes32 hashNew, bytes32[] memory proof) = _generateLoanProof(
                 collateralVault,
-                loanDetails[0],
-                (loanDetails[1] / 2),
-                loanDetails[2] + BOND_CONTROLLER.MIN_DURATION_INCREASE() * 2,
-                loanDetails[4],
-                loanDetails[5]
+                loanDetails2[0],
+                loanDetails2[1],
+                loanDetails2[2],
+                loanDetails2[4],
+                loanDetails2[5]
             );
 
             _createBondVault(
@@ -667,12 +675,12 @@ contract AstariaTest is Test {
 
             vm.startPrank(appraiserTwo);
             BOND_CONTROLLER.refinanceLoan(
+                proof,
                 vaultHash,
                 hashNew,
                 collateralVault,
                 uint256(0),
-                (loanDetails[1] / 2),
-                loanDetails[2] + BOND_CONTROLLER.MIN_DURATION_INCREASE() * 2
+                loanDetails2
             );
             vm.stopPrank();
         }
@@ -685,7 +693,7 @@ contract AstariaTest is Test {
     }
 
     function testFailLendWithNonexistentVault() public {
-        NFTBondController emptyController;
+        BrokerRouter emptyController;
         emptyController.lendToVault(testBondVaultHash, uint256(1));
     }
 

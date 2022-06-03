@@ -5,7 +5,7 @@ import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {StarNFT} from "./StarNFT.sol";
-import {NFTBondController} from "./NFTBondController.sol";
+import {BrokerRouter} from "./BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
 import {TransferProxy} from "./TransferProxy.sol";
@@ -50,7 +50,7 @@ contract AstariaDeploy {
         emit Deployed(address(TRANSFER_PROXY));
 
         BrokerImplementation implementation = new BrokerImplementation();
-        NFTBondController BOND_CONTROLLER = new NFTBondController(
+        BrokerRouter BOND_CONTROLLER = new BrokerRouter(
             address(WETH9),
             address(STAR_NFT),
             address(TRANSFER_PROXY),
