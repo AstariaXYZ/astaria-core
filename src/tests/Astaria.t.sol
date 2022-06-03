@@ -460,19 +460,17 @@ contract AstariaTest is Test {
         //event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
         vm.expectEmit(true, true, false, false);
         emit NewLoan(vaultHash, collateralVault, amount);
-        // startMeasuringGas("Commit To Loan");
-        BOND_CONTROLLER.commitToLoan(
-            proof,
-            vaultHash,
-            collateralVault,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
-        );
-        // stopMeasuringGas();
+        BrokerImplementation(BOND_CONTROLLER.getBroker(vaultHash)).commitToLoan(
+                proof,
+                collateralVault,
+                maxAmount,
+                interestRate,
+                duration,
+                amount,
+                lienPosition,
+                schedule,
+                address(this)
+            );
     }
 
     function testReleaseToAddress() public {

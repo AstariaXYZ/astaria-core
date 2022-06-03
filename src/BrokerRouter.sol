@@ -182,34 +182,34 @@ contract BrokerRouter {
             );
     }
 
-    function borrowAndBuy(
-        bytes32[] calldata proof,
-        bytes32 bondVault,
-        uint256[7] calldata loanTerms,
-        uint256 purchasePrice,
-        bytes calldata purchaseData,
-        bytes calldata purchaseTarget
-    ) external {
-        commitToLoan(
-            proof,
-            bondVault,
-            loanTerms[0],
-            loanTerms[1],
-            loanTerms[2],
-            loanTerms[3],
-            loanTerms[4],
-            loanTerms[5],
-            loanTerms[6]
-        );
-        TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(msg.sender),
-            address(this),
-            purchasePrice
-        );
-
-        //execute gem aggregation
-    }
+    //    function borrowAndBuy(
+    //        bytes32[] calldata proof,
+    //        bytes32 bondVault,
+    //        uint256[7] calldata loanTerms,
+    //        uint256 purchasePrice,
+    //        bytes calldata purchaseData,
+    //        bytes calldata purchaseTarget
+    //    ) external {
+    //        commitToLoan(
+    //            proof,
+    //            bondVault,
+    //            loanTerms[0],
+    //            loanTerms[1],
+    //            loanTerms[2],
+    //            loanTerms[3],
+    //            loanTerms[4],
+    //            loanTerms[5],
+    //            loanTerms[6]
+    //        );
+    //        TRANSFER_PROXY.tokenTransferFrom(
+    //            address(WETH),
+    //            address(msg.sender),
+    //            address(this),
+    //            purchasePrice
+    //        );
+    //
+    //        //execute gem aggregation
+    //    }
 
     function refinanceLoan(
         bytes32[] calldata proof,
@@ -248,12 +248,8 @@ contract BrokerRouter {
             bondVaults[bondVaultOutgoing].broker
         );
 
-        uint256 buyout = broker.getBuyout(collateralVault, outgoingIndex);
-        (uint256 amount, , , , , uint256 lienPosition) = getLoan(
-            broker,
-            collateralVault,
-            outgoingIndex
-        );
+        (uint256 amount, , , , , uint256 lienPosition, uint256 buyout) = broker
+            .getLoan(collateralVault, outgoingIndex);
         require(lienPosition <= newLoanDetails[3], "Invalid Appraisal"); // must have appraised a valid lien position
         {
             uint256 newIndex = BrokerImplementation(
@@ -282,12 +278,13 @@ contract BrokerRouter {
         address broker = ClonesWithImmutableArgs.clone(
             BROKER_IMPLEMENTATION,
             abi.encodePacked(
-                address(this),
+                address(COLLATERAL_VAULT),
                 address(WETH),
                 address(this),
                 root,
                 expiration,
-                buyout
+                buyout,
+                appraiser
             )
         );
         BondVault storage bondVault = bondVaults[root];
@@ -340,56 +337,55 @@ contract BrokerRouter {
         );
     }
 
-    // maxAmount so the borrower has the option to borrow less
-    // collateralVault is a tokenId that is precomputed off chain using the elements from the request
-    function commitToLoan(
-        bytes32[] calldata proof,
-        bytes32 bondVault,
-        uint256 collateralVault,
-        uint256 maxAmount,
-        uint256 interestRate,
-        uint256 duration,
-        uint256 amount,
-        uint256 lienPosition,
-        uint256 schedule
-    ) public {
-        require(
-            msg.sender == COLLATERAL_VAULT.ownerOf(collateralVault) ||
-                msg.sender == address(this),
-            "BrokerRouter.commitToLoan(): Owner of the collateral vault must be msg.sender"
-        );
-        _validateLoanTerms(
-            proof,
-            bondVault,
-            collateralVault,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
-        );
-
-        //ensure that we have space left in our appraisal value to take on more debt or refactor so each collateral
-        //can only have one loan per bondvault associated to it
-
-        //reach out to the bond vault and send loan to user
-
-        uint256 newIndex = BrokerImplementation(bondVaults[bondVault].broker)
-            .issueLoan(
-                address(msg.sender),
-                collateralVault,
-                amount,
-                interestRate,
-                duration,
-                schedule,
-                lienPosition
-            );
-
-        _addLien(collateralVault, bondVault, lienPosition, newIndex, amount);
-
-        emit NewLoan(bondVault, collateralVault, amount);
-    }
+    //
+    //    // maxAmount so the borrower has the option to borrow less
+    //    // collateralVault is a tokenId that is precomputed off chain using the elements from the request
+    //    function commitToLoan(
+    //        bytes32[] calldata proof,
+    //        bytes32 bondVault,
+    //        uint256 collateralVault,
+    //        uint256 maxAmount,
+    //        uint256 interestRate,
+    //        uint256 duration,
+    //        uint256 amount,
+    //        uint256 lienPosition,
+    //        uint256 schedule
+    //    ) public {
+    //        require(
+    //            msg.sender == COLLATERAL_VAULT.ownerOf(collateralVault) ||
+    //                msg.sender == address(this),
+    //            "BrokerRouter.commitToLoan(): Owner of the collateral vault must be msg.sender"
+    //        );
+    //        _validateLoanTerms(
+    //            proof,
+    //            bondVault,
+    //            collateralVault,
+    //            maxAmount,
+    //            interestRate,
+    //            duration,
+    //            amount,
+    //            lienPosition,
+    //            schedule
+    //        );
+    //
+    //        //ensure that we have space left in our appraisal value to take on more debt or refactor so each collateral
+    //        //can only have one loan per bondvault associated to it
+    //
+    //        //reach out to the bond vault and send loan to user
+    //
+    //        uint256 newIndex = BrokerImplementation(bondVaults[bondVault].broker)
+    //            .issueLoan(
+    //                address(msg.sender),
+    //                collateralVault,
+    //                amount,
+    //                interestRate,
+    //                duration,
+    //                schedule,
+    //                lienPosition
+    //            );
+    //
+    //        emit NewLoan(bondVault, collateralVault, amount);
+    //    }
 
     modifier onlyVaults() {
         require(
@@ -414,6 +410,16 @@ contract BrokerRouter {
         );
     }
 
+    function addLien(
+        uint256 collateralVault,
+        bytes32 bondVault,
+        uint256 lienPosition,
+        uint256 newIndex,
+        uint256 amount
+    ) external onlyVaults {
+        _addLien(collateralVault, bondVault, lienPosition, newIndex, amount);
+    }
+
     function updateLien(
         uint256 collateralVault,
         uint256 position,
@@ -424,9 +430,13 @@ contract BrokerRouter {
                 collateralVault
             );
 
-            if (newIndex != uint256(0)) newIndex -= 1;
+            if (newIndex != uint256(0)) {
+                unchecked {
+                    newIndex--;
+                }
+            }
 
-            (uint256 amount, , , , , ) = getLoan(
+            (uint256 amount, , , , , , ) = getLoan(
                 BrokerImplementation(payee),
                 collateralVault,
                 newIndex
@@ -490,11 +500,6 @@ contract BrokerRouter {
             bondVaults[bondVault].broker != address(0),
             "lendToVault: vault doesn't exist"
         );
-        require(
-            block.timestamp < bondVaults[bondVault].expiration,
-            "lendToVault: expiration exceeded"
-        );
-
         BrokerImplementation(bondVaults[bondVault].broker).deposit(
             amount,
             address(msg.sender)
@@ -526,10 +531,15 @@ contract BrokerRouter {
             uint256,
             uint256,
             uint256,
+            uint256,
             uint256
         )
     {
-        return broker.loans(collateralVault, index);
+        return broker.getLoan(collateralVault, index);
+    }
+
+    function getBroker(bytes32 bondVault) external view returns (address) {
+        return bondVaults[bondVault].broker;
     }
 
     function canLiquidate(
@@ -546,8 +556,9 @@ contract BrokerRouter {
             uint256 interest,
             uint256 start,
             uint256 duration,
+            uint256 lienPosition,
             uint256 schedule,
-            uint256 lienPosition
+            uint256 buyout
         ) = getLoan(broker, collateralVault, index);
         uint256 maxInterest = amount * schedule; //TODO: if schedule is 0, then this is a bug
 
