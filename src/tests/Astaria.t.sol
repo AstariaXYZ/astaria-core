@@ -368,6 +368,9 @@ contract AstariaTest is Test {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
+
+        uint256 balanceBefore = WETH9.balanceOf(address(this));
+        //balance of WETH before loan
         bytes32 vaultHash = _commitToLoan(
             tokenContract,
             tokenId,
@@ -378,6 +381,9 @@ contract AstariaTest is Test {
             lienPosition,
             schedule
         );
+
+        //assert weth balance is before + 1 ether
+        assert(WETH9.balanceOf(address(this)) == balanceBefore + 1 ether);
     }
 
     function _lendToVault(bytes32 vaultHash, uint256 amount) internal {
