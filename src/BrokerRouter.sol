@@ -10,6 +10,27 @@ import "./interfaces/IStarNFT.sol";
 import "./TransferProxy.sol";
 import "./BrokerImplementation.sol";
 
+interface IInvoker {
+    function onBorrowAndBuy(
+        bytes calldata data,
+        address token,
+        uint256 amount,
+        address payable recipient
+    ) external returns (bool);
+}
+
+abstract contract Invoker is IInvoker {
+    function onBorrowAndBuy(
+        IERC20 asset,
+        uint256 maxSpend,
+        address recipient
+    ) external returns (bool) {
+        //        asset.transferFrom(msg.sender, address(this), purchasePrice);
+
+        return true;
+    }
+}
+
 contract BrokerRouter {
     bytes32 public immutable DOMAIN_SEPARATOR;
 
@@ -182,92 +203,97 @@ contract BrokerRouter {
             );
     }
 
-    //    function borrowAndBuy(
-    //        bytes32[] calldata proof,
-    //        bytes32 bondVault,
-    //        uint256[7] calldata loanTerms,
-    //        uint256 purchasePrice,
-    //        bytes calldata purchaseData,
-    //        bytes calldata purchaseTarget
-    //    ) external {
-    //        commitToLoan(
-    //            proof,
-    //            bondVault,
-    //            loanTerms[0],
-    //            loanTerms[1],
-    //            loanTerms[2],
-    //            loanTerms[3],
-    //            loanTerms[4],
-    //            loanTerms[5],
-    //            loanTerms[6]
-    //        );
-    //        TRANSFER_PROXY.tokenTransferFrom(
-    //            address(WETH),
-    //            address(msg.sender),
-    //            address(this),
-    //            purchasePrice
-    //        );
-    //
-    //        //execute gem aggregation
-    //    }
-
-    function refinanceLoan(
+    function borrowAndBuy(
         bytes32[] calldata proof,
-        bytes32 bondVaultOutgoing,
-        bytes32 bondVaultIncoming,
-        uint256 collateralVault,
-        uint256 outgoingIndex,
-        uint256[] memory newLoanDetails //        uint256 maxAmount, //        uint256 interestRate, //        uint256 duration, //        uint256 amount, //        uint256 lienPosition, //        uint256 schedule
+        bytes32 bondVault,
+        uint256[7] calldata loanTerms,
+        address invoker,
+        uint256 purchasePrice, //the max to spend on the "buy portion of the txn"
+        bytes calldata purchaseData
     ) external {
-        //loanDetails2[0] = uint256(100000000000000000000); //maxAmount
-        //        loanDetails2[1] = uint256(50000000000000000000 / 2); //interestRate
-        //        loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
-        //        loanDetails2[3] = uint256(1 ether); //amount
-        //        loanDetails2[4] = uint256(0); //lienPosition
-        //        loanDetails2[5] = uint256(50); //schedule
         require(
-            msg.sender == bondVaults[bondVaultIncoming].appraiser,
-            "only the appraiser can call this method"
+            msg.sender == COLLATERAL_VAULT.ownerOf(loanTerms[0]),
+            "BrokerRouter.borrowAndBuy(): Owner of the collateral vault must be msg.sender"
         );
-        require(
-            bondVaults[bondVaultIncoming].expiration > block.timestamp,
-            "bond vault has expired"
-        );
-        _validateLoanTerms(
+        //router must be approved for the star nft to take a loan,
+        BrokerImplementation(bondVaults[bondVault].broker).commitToLoan(
             proof,
-            bondVaultIncoming,
-            collateralVault,
-            newLoanDetails[0],
-            newLoanDetails[1],
-            newLoanDetails[2],
-            newLoanDetails[3],
-            newLoanDetails[4],
-            newLoanDetails[5]
-        );
-        BrokerImplementation broker = BrokerImplementation(
-            bondVaults[bondVaultOutgoing].broker
+            loanTerms[0], //collateral vault
+            loanTerms[1],
+            loanTerms[2],
+            loanTerms[3],
+            loanTerms[4],
+            loanTerms[5],
+            loanTerms[6],
+            address(this)
         );
 
-        (uint256 amount, , , , , uint256 lienPosition, uint256 buyout) = broker
-            .getLoan(collateralVault, outgoingIndex);
-        require(lienPosition <= newLoanDetails[3], "Invalid Appraisal"); // must have appraised a valid lien position
-        {
-            uint256 newIndex = BrokerImplementation(
-                bondVaults[bondVaultIncoming].broker
-            ).buyoutLoan(
-                    address(broker),
-                    collateralVault,
-                    outgoingIndex,
-                    buyout,
-                    amount,
-                    newLoanDetails[1],
-                    newLoanDetails[2],
-                    lienPosition,
-                    newLoanDetails[4]
-                );
-        }
+        //        WETH.approve(purchaseTarget, purchasePrice);
+
+        require(
+            purchasePrice <= loanTerms[0],
+            "purchase price cannot be for more than your aggregate loan"
+        );
+
+        WETH.transfer(invoker, purchasePrice);
+        require(
+            IInvoker(invoker).onBorrowAndBuy(
+                purchaseData, // calldata for the invoker
+                address(WETH),
+                purchasePrice, //purchase
+                payable(msg.sender) // recipient
+            ),
+            "borrow and buy failed"
+        );
     }
 
+    //    function refinanceLoan(
+    //        bytes32[] calldata dealBrokers, //outgoing, incoming
+    //        bytes32[] calldata proof,
+    //        uint256[] calldata outgoingLoan,
+    //        uint256[] calldata incomingLoan //        uint256 maxAmount, //        uint256 interestRate, //        uint256 duration, //        uint256 amount, //        uint256 lienPosition, //        uint256 schedule
+    //    ) external {
+    //        //        loanDetails2[0] = uint256(100000000000000000000); //maxAmount
+    //        //        loanDetails2[1] = uint256(50000000000000000000 / 2); //interestRate
+    //        //        loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
+    //        //        loanDetails2[3] = uint256(1 ether); //amount
+    //        //        loanDetails2[4] = uint256(0); //lienPosition
+    //        //        loanDetails2[5] = uint256(50); //schedule
+    //        require(
+    //            bondVaults[dealBrokers[1]].expiration > block.timestamp,
+    //            "bond vault has expired"
+    //        );
+    //        //        _validateLoanTerms(
+    //        //            proof,
+    //        //            bondVaultIncoming,
+    //        //            collateralVault,
+    //        //            loanDetails[0],
+    //        //            loanDetails[1],
+    //        //            loanDetails[2],
+    //        //            loanDetails[3],
+    //        //            loanDetails[4],
+    //        //            loanDetails[5]
+    //        //        );
+    //
+    //        require(lienPosition <= incomingLoan[4], "Invalid Appraisal"); // must have appraised a valid lien position
+    //        {
+    //            uint256 newIndex = BrokerImplementation(
+    //                bondVaults[dealBrokers[1]].broker
+    //            ).buyoutLoan(
+    //                    BrokerImplementation(bondVaults[dealBrokers[0]].broker),
+    //                    outgoingLoan[0],
+    //                    outgoingLoan[1],
+    //                    proof,
+    //                    incomingLoan
+    //                );
+    //        }
+    //    }
+
+    //uint256 collateralVault,
+    //        uint256 outgoingIndex,
+    //        uint256 buyout,
+    //        bytes32[] calldata proof,
+    //        uint256[] memory loanDetails
     function _newBondVault(
         address appraiser,
         bytes32 root,
@@ -297,45 +323,45 @@ contract BrokerRouter {
         emit NewBondVault(appraiser, broker, root, contentHash, expiration);
     }
 
-    function _validateLoanTerms(
-        bytes32[] calldata proof,
-        bytes32 bondVault,
-        uint256 collateralVault,
-        uint256 maxAmount,
-        uint256 interestRate,
-        uint256 duration,
-        uint256 amount,
-        uint256 lienPosition,
-        uint256 schedule
-    ) internal {
-        require(
-            bondVaults[bondVault].appraiser != address(0),
-            "BrokerRouter.commitToLoan(): Attempting to instantiate an unitialized vault"
-        );
-        require(
-            maxAmount >= amount,
-            "BrokerRouter.commitToLoan(): Attempting to borrow more than maxAmount"
-        );
-        require(
-            amount <= WETH.balanceOf(bondVaults[bondVault].broker),
-            "BrokerRouter.commitToLoan():  Attempting to borrow more than available in the specified vault"
-        );
-        // filler hashing schema for merkle tree
-        bytes32 leaf = keccak256(
-            abi.encode(
-                bytes32(collateralVault),
-                maxAmount,
-                interestRate,
-                duration,
-                lienPosition,
-                schedule
-            )
-        );
-        require(
-            verifyMerkleBranch(proof, leaf, bondVault),
-            "BrokerRouter.commitToLoan(): Verification of provided merkle branch failed for the bondVault and parameters"
-        );
-    }
+    //    function _validateLoanTerms(
+    //        bytes32[] calldata proof,
+    //        bytes32 bondVault,
+    //        uint256 collateralVault,
+    //        uint256 maxAmount,
+    //        uint256 interestRate,
+    //        uint256 duration,
+    //        uint256 amount,
+    //        uint256 lienPosition,
+    //        uint256 schedule
+    //    ) internal {
+    //        require(
+    //            bondVaults[bondVault].appraiser != address(0),
+    //            "BrokerRouter.commitToLoan(): Attempting to instantiate an unitialized vault"
+    //        );
+    //        require(
+    //            maxAmount >= amount,
+    //            "BrokerRouter.commitToLoan(): Attempting to borrow more than maxAmount"
+    //        );
+    //        require(
+    //            amount <= WETH.balanceOf(bondVaults[bondVault].broker),
+    //            "BrokerRouter.commitToLoan():  Attempting to borrow more than available in the specified vault"
+    //        );
+    //        // filler hashing schema for merkle tree
+    //        bytes32 leaf = keccak256(
+    //            abi.encode(
+    //                bytes32(collateralVault),
+    //                maxAmount,
+    //                interestRate,
+    //                duration,
+    //                lienPosition,
+    //                schedule
+    //            )
+    //        );
+    //        require(
+    //            verifyMerkleBranch(proof, leaf, bondVault),
+    //            "BrokerRouter.commitToLoan(): Verification of provided merkle branch failed for the bondVault and parameters"
+    //        );
+    //    }
 
     //
     //    // maxAmount so the borrower has the option to borrow less
@@ -542,6 +568,12 @@ contract BrokerRouter {
         return bondVaults[bondVault].broker;
     }
 
+    function isActiveBroker(address bondVault) external view returns (bool) {
+        return
+            brokers[bondVault] != bytes32(0) &&
+            bondVaults[brokers[bondVault]].broker == bondVault;
+    }
+
     function canLiquidate(
         bytes32 bondVault,
         uint256 index,
@@ -573,8 +605,11 @@ contract BrokerRouter {
         uint256 index,
         uint256 collateralVault
     ) external returns (uint256 reserve) {
+        BrokerImplementation broker = BrokerImplementation(
+            bondVaults[bondVault].broker
+        );
         require(
-            canLiquidate(bondVault, index, collateralVault),
+            broker.canLiquidate(collateralVault, index),
             "liquidate: borrow is healthy"
         );
         //grab all lien positions compute all outstanding
@@ -585,7 +620,7 @@ contract BrokerRouter {
         ) = COLLATERAL_VAULT.getLiens(collateralVault);
 
         for (uint256 i = 0; i < brokers.length; i++) {
-            reserve += BrokerImplementation(brokers[i]).liquidateLoan(
+            reserve += BrokerImplementation(brokers[i]).moveToReceivership(
                 collateralVault,
                 indexes[i]
             );

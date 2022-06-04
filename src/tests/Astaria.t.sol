@@ -128,35 +128,35 @@ contract AstariaTest is Test {
         _setupRolesAndCapabilities();
     }
 
-    function onERC1155BatchReceived(
-        address operator,
-        address from,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        bytes calldata data
-    ) external returns (bytes4) {
-        return
-            bytes4(
-                keccak256(
-                    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"
-                )
-            );
-    }
-
-    function onERC1155Received(
-        address operator,
-        address from,
-        uint256 id,
-        uint256 value,
-        bytes calldata data
-    ) external returns (bytes4) {
-        return
-            bytes4(
-                keccak256(
-                    "onERC1155Received(address,address,uint256,uint256,bytes)"
-                )
-            );
-    }
+    //    function onERC1155BatchReceived(
+    //        address operator,
+    //        address from,
+    //        uint256[] calldata ids,
+    //        uint256[] calldata values,
+    //        bytes calldata data
+    //    ) external returns (bytes4) {
+    //        return
+    //            bytes4(
+    //                keccak256(
+    //                    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"
+    //                )
+    //            );
+    //    }
+    //
+    //    function onERC1155Received(
+    //        address operator,
+    //        address from,
+    //        uint256 id,
+    //        uint256 value,
+    //        bytes calldata data
+    //    ) external returns (bytes4) {
+    //        return
+    //            bytes4(
+    //                keccak256(
+    //                    "onERC1155Received(address,address,uint256,uint256,bytes)"
+    //                )
+    //            );
+    //    }
 
     function _setupRolesAndCapabilities() internal {
         MRA.setRoleCapability(
@@ -637,7 +637,7 @@ contract AstariaTest is Test {
         loanDetails2[3] = uint256(1 ether); //amount
         loanDetails2[4] = uint256(0); //lienPosition
         loanDetails2[5] = uint256(50); //schedule
-        bytes32 vaultHash = _commitToLoan(
+        bytes32 outgoing = _commitToLoan(
             tokenContract,
             tokenId,
             loanDetails[0],
@@ -657,13 +657,13 @@ contract AstariaTest is Test {
             )
         );
         {
-            (bytes32 hashNew, bytes32[] memory proof) = _generateLoanProof(
+            (bytes32 incoming, bytes32[] memory newLoanProof) = _generateLoanProof(
                 collateralVault,
-                loanDetails2[0],
-                loanDetails2[1],
-                loanDetails2[2],
-                loanDetails2[4],
-                loanDetails2[5]
+                loanDetails2[0], //max amount
+                loanDetails2[1], //interestRate
+                loanDetails2[2], //duration
+                loanDetails2[4], //lienPosition
+                loanDetails2[5] //schedule
             );
 
             _createBondVault(
@@ -671,21 +671,33 @@ contract AstariaTest is Test {
                 block.timestamp + 30 days, //expiration
                 block.timestamp + 1 days, //deadline
                 uint256(10), //buyout
-                hashNew,
+                incoming,
                 appraiserTwoPK
             );
 
-            _lendToVault(hashNew, uint256(500 ether));
+            _lendToVault(incoming, uint256(500 ether));
 
             vm.startPrank(appraiserTwo);
-            BOND_CONTROLLER.refinanceLoan(
-                proof,
-                vaultHash,
-                hashNew,
-                collateralVault,
-                uint256(0),
-                loanDetails2
-            );
+            bytes32[] memory dealBrokers = new bytes32[](2);
+            dealBrokers[0] = outgoing;
+            dealBrokers[1] = incoming;
+            uint256[] memory collateralDetails = new uint256[](2);
+            collateralDetails[0] = collateralVault;
+            collateralDetails[1] = uint256(0);
+
+            BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
+                .buyoutLoan(
+                    BrokerImplementation(BOND_CONTROLLER.getBroker(outgoing)),
+                    collateralDetails,
+                    newLoanProof,
+                    loanDetails2
+                );
+            //            BOND_CONTROLLER.refinanceLoan(
+            //                dealBrokers,
+            //                proof,
+            //                collateralDetails,
+            //                loanDetails2
+            //            );
             vm.stopPrank();
         }
     }

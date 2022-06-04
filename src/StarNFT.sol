@@ -88,7 +88,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         ERC721("Astaria NFT Wrapper", "Star NFT")
     {}
 
-    modifier noActiveLiens(uint256 assetId) {
+    modifier releaseCheck(uint256 assetId) {
         require(
             uint256(0) == liens[assetId].length &&
                 starIdToAuctionId[assetId] == uint256(0),
@@ -213,12 +213,13 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     //            revert AuctionStartedForCollateral(tokenId);
     //    }
 
-    function getTotalLiens(uint256 _starId) public returns (uint256) {
+    function getTotalLiens(uint256 _starId) public view returns (uint256) {
         return liens[_starId].length;
     }
 
     function getLiens(uint256 _starId)
         public
+        view
         returns (
             address[] memory,
             uint256[] memory,
@@ -257,6 +258,10 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
                 liens[_tokenId].length == position,
                 "Invalid Lien Position"
             );
+            //            uint256 lienId = uint256(
+            //                keccak256(abi.encodePacked(tokenContract_, tokenId_, position))
+            //            );
+            //            _mint(broker, lienId);
             liens[_tokenId].push(
                 Lien({broker: broker, index: index, amount: amount})
             );
@@ -292,7 +297,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
 
     function releaseToAddress(uint256 starTokenId, address releaseTo)
         public
-        noActiveLiens(starTokenId)
+        releaseCheck(starTokenId)
     {
         //check liens
         require(
