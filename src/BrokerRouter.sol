@@ -56,10 +56,9 @@ contract BrokerRouter {
         uint256 amount
     );
     event Liquidation(
+        bytes32 bondVault,
         uint256 collateralVault,
-        bytes32[] bondVaults,
-        uint256[] indexes,
-        uint256 recovered
+        uint256 index
     );
     event NewBondVault(
         address appraiser,
@@ -76,6 +75,26 @@ contract BrokerRouter {
 
     error InvalidAddress(address);
 
+    struct CommitmentParams {
+        uint256 collateralVault;
+        bytes32 broker;
+        bytes32[] proof;
+        uint256[] loanDetails;
+        address receiver;
+    }
+
+    struct BuyoutLien {
+        CommitmentParams incoming;
+        uint256 lienPosition;
+    }
+
+    struct BorrowAndBuyParams {
+        CommitmentParams[] commitments;
+        IInvoker invoker;
+        uint256 purchasePrice;
+        bytes purchaseData;
+    }
+
     struct BondVault {
         address appraiser; // address of the appraiser for the BondVault
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
@@ -86,12 +105,12 @@ contract BrokerRouter {
         address _WETH,
         address _COLLATERAL_VAULT,
         address _TRANSFER_PROXY,
-        address _BEACON_CLONE
+        address _BROKER_IMPL
     ) {
         WETH = IERC20(_WETH);
         COLLATERAL_VAULT = IStarNFT(_COLLATERAL_VAULT);
         TRANSFER_PROXY = TransferProxy(_TRANSFER_PROXY);
-        BROKER_IMPLEMENTATION = _BEACON_CLONE;
+        BROKER_IMPLEMENTATION = _BROKER_IMPL;
         LIQUIDATION_FEE_PERCENT = 13;
         MIN_INTEREST_BPS = 5;
         MIN_DURATION_INCREASE = 14 days;
@@ -124,18 +143,45 @@ contract BrokerRouter {
 
     // _verify() internal
     // merkle tree verifier
-    function verifyMerkleBranch(
-        bytes32[] calldata proof,
-        bytes32 leaf,
-        bytes32 root
-    ) public view returns (bool) {
-        bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
-        return isValidLeaf;
-    }
+    //    function verifyMerkleBranch(
+    //        bytes32[] calldata proof,
+    //        bytes32 leaf,
+    //        bytes32 root
+    //    ) public view returns (bool) {
+    //        bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
+    //        return isValidLeaf;
+    //    }
 
     // verifies the signature on the root of the merkle tree to be the appraiser
     // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
-    function newBondVault(
+
+    struct NewBondVaultParams {
+        address appraiser;
+        bytes32 root;
+        uint256 expiration;
+        uint256 deadline;
+        uint256 buyout;
+        bytes32 contentHash;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
+    function newBondVault(NewBondVaultParams memory params) external {
+        _newBondVault(
+            params.appraiser,
+            params.root,
+            params.expiration,
+            params.deadline,
+            params.buyout,
+            params.contentHash,
+            params.v,
+            params.r,
+            params.s
+        );
+    }
+
+    function _newBondVault(
         address appraiser,
         bytes32 root,
         uint256 expiration,
@@ -145,7 +191,7 @@ contract BrokerRouter {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external {
+    ) internal {
         require(
             appraiser != address(0),
             "BrokerRouter.newBondVault(): Appraiser address cannot be zero"
@@ -203,18 +249,72 @@ contract BrokerRouter {
             );
     }
 
-    function borrowAndBuy(
-        bytes32[] calldata proof,
-        bytes32 bondVault,
-        uint256[7] calldata loanTerms,
-        address invoker,
-        uint256 purchasePrice, //the max to spend on the "buy portion of the txn"
-        bytes calldata purchaseData
-    ) external {
+    function _validateCommitment(CommitmentParams memory c) internal {
         require(
-            msg.sender == COLLATERAL_VAULT.ownerOf(loanTerms[0]),
-            "BrokerRouter.borrowAndBuy(): Owner of the collateral vault must be msg.sender"
+            c.loanDetails.length == 7 &&
+                c.broker != bytes32(0) &&
+                c.collateralVault != uint256(0)
         );
+        require(
+            msg.sender == COLLATERAL_VAULT.ownerOf(c.collateralVault),
+            "invalid sender for collateralVault"
+        );
+    }
+
+    function _executeCommitment(CommitmentParams memory c) internal {
+        _validateCommitment(c);
+        _borrow(c.broker, c.proof, c.loanDetails, c.receiver);
+    }
+
+    function borrowAndBuy(BorrowAndBuyParams memory params)
+        external
+    //        CommitmentParams[] memory commitments,
+    //        address invoker,
+    //        uint256 purchasePrice, //the max to spend on the "buy portion of the txn"
+    //        bytes calldata purchaseData
+    {
+        uint256 spendableBalance;
+        for (uint256 i = 0; i < params.commitments.length; ++i) {
+            _executeCommitment(params.commitments[i]);
+            if (params.commitments[i].receiver == address(this)) {
+                spendableBalance += params.commitments[i].loanDetails[4]; //amount borrowed
+            }
+        }
+        require(
+            params.purchasePrice <= spendableBalance,
+            "purchase price cannot be for more than your aggregate loan"
+        );
+
+        WETH.approve(address(params.invoker), params.purchasePrice);
+        //        TRANSFER_PROXY.tokenTransferFrom(
+        //            address(WETH),
+        //            address(invoker),
+        //            address(this),
+        //            params.purchasePrice
+        //        );
+        require(
+            params.invoker.onBorrowAndBuy(
+                params.purchaseData, // calldata for the invoker
+                address(WETH), // token
+                params.purchasePrice, //max approval
+                payable(msg.sender) // recipient
+            ),
+            "borrow and buy failed"
+        );
+        if (spendableBalance - params.purchasePrice > uint256(0)) {
+            WETH.transfer(
+                address(msg.sender),
+                spendableBalance - params.purchasePrice
+            );
+        }
+    }
+
+    function _borrow(
+        bytes32 bondVault,
+        bytes32[] memory proof,
+        uint256[] memory loanTerms,
+        address receiver
+    ) internal returns (uint256) {
         //router must be approved for the star nft to take a loan,
         BrokerImplementation(bondVaults[bondVault].broker).commitToLoan(
             proof,
@@ -222,29 +322,51 @@ contract BrokerRouter {
             loanTerms[1],
             loanTerms[2],
             loanTerms[3],
-            loanTerms[4],
+            loanTerms[4], // amount
             loanTerms[5],
             loanTerms[6],
-            address(this)
+            receiver
         );
+        if (receiver == address(this)) return loanTerms[4];
+        return uint256(0);
 
         //        WETH.approve(purchaseTarget, purchasePrice);
+    }
 
-        require(
-            purchasePrice <= loanTerms[0],
-            "purchase price cannot be for more than your aggregate loan"
-        );
+    function buyoutLienPosition(
+        //        uint256[] calldata collateralDetails,
+        //        bytes32[] calldata incomingProof,
+        //        bytes32 incomingBroker,
+        //        uint256[] calldata incomingLoan
+        BuyoutLien memory params
+    ) external {
+        address incomingBroker = bondVaults[params.incoming.broker].broker;
+        (address outgoingBroker, uint256 outgoingIndex, ) = COLLATERAL_VAULT
+            .getLien(params.incoming.collateralVault, params.lienPosition);
+        (uint256 amountOwed, uint256 buyout) = BrokerImplementation(
+            outgoingBroker
+        ).getBuyout(params.incoming.collateralVault, params.lienPosition);
 
-        WETH.transfer(invoker, purchasePrice);
-        require(
-            IInvoker(invoker).onBorrowAndBuy(
-                purchaseData, // calldata for the invoker
-                address(WETH),
-                purchasePrice, //purchase
-                payable(msg.sender) // recipient
-            ),
-            "borrow and buy failed"
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            incomingBroker,
+            amountOwed + buyout
         );
+        WETH.approve(incomingBroker, uint256(amountOwed + buyout));
+        BrokerImplementation(incomingBroker).buyoutLoan(
+            BrokerImplementation(outgoingBroker),
+            outgoingIndex,
+            params.incoming.collateralVault,
+            params.incoming.proof,
+            params.incoming.loanDetails
+        );
+    }
+
+    function commitToLoans(CommitmentParams[] memory commitments) external {
+        for (uint256 i = 0; i < commitments.length; ++i) {
+            _executeCommitment(commitments[i]);
+        }
     }
 
     //    function refinanceLoan(
@@ -436,7 +558,7 @@ contract BrokerRouter {
         );
     }
 
-    function addLien(
+    function requestLienPosition(
         uint256 collateralVault,
         bytes32 bondVault,
         uint256 lienPosition,
@@ -634,5 +756,7 @@ contract BrokerRouter {
             address(msg.sender),
             LIQUIDATION_FEE_PERCENT
         );
+
+        emit Liquidation(bondVault, collateralVault, index);
     }
 }

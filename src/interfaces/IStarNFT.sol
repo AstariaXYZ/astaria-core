@@ -12,6 +12,15 @@ interface IStarNFT is IERC721 {
 
     function getTotalLiens(uint256) external returns (uint256);
 
+    function getLien(uint256 _starId, uint256 _position)
+        external
+        view
+        returns (
+            address,
+            uint256,
+            uint256
+        );
+
     function getLiens(uint256 _starId)
         external
         view

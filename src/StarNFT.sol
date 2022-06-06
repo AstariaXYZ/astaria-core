@@ -233,7 +233,9 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         for (uint256 i = 0; i < lienLength; ++i) {
             Lien memory lien = liens[_starId][i];
             vaults[i] = lien.broker;
-            amounts[i] = lien.amount;
+            (uint256 amount, , , , , , ) = BrokerImplementation(lien.broker)
+                .getLoan(_starId, lien.index);
+            amounts[i] = amount;
             indexes[i] = lien.index;
         }
         return (vaults, amounts, indexes);
