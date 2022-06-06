@@ -6,7 +6,7 @@ import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
 import "gpl/interfaces/IAuctionHouse.sol";
 import "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
-import "./interfaces/IStarNFT.sol";
+import {IStarNFT} from "./interfaces/IStarNFT.sol";
 import "./TransferProxy.sol";
 import "./BrokerImplementation.sol";
 
@@ -90,24 +90,20 @@ interface IBrokerRouter {
 
     function commitToLoans(CommitmentParams[] memory commitments) external;
 
-    function requestLienPosition(
-        uint256 collateralVault,
-        bytes32 bondVault,
-        uint256 lienPosition,
-        uint256 newIndex,
-        uint256 amount
-    ) external;
+    //    function requestLienPosition(
+    //        uint256 collateralVault,
+    //        bytes32 bondVault,
+    //        uint256 lienPosition,
+    //        uint256 newIndex,
+    //        uint256 amount
+    //    ) external;
 
     function lendToVault(bytes32 bondVault, uint256 amount) external;
 
     function getLiens(uint256 collateralVault)
         external
         view
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory
-        );
+        returns (IStarNFT.Lien[] memory);
 
     function getLoan(
         BrokerImplementation broker,
@@ -140,7 +136,10 @@ interface IBrokerRouter {
         uint256 collateralVault
     ) external view returns (bool);
 
-    function isActiveBroker(address bondVault) external view returns (bool);
+    function brokerIsOwner(uint256 collateralVault, uint256 position)
+        external
+        view
+        returns (bool);
 
     function isValidRefinance(RefinanceCheckParams memory params)
         external
@@ -410,22 +409,23 @@ contract BrokerRouter is IBrokerRouter {
 
     function buyoutLienPosition(BuyoutLienParams memory params) external {
         address incomingBroker = bondVaults[params.incoming.broker].broker;
-        (address outgoingBroker, uint256 outgoingIndex, ) = COLLATERAL_VAULT
-            .getLien(params.incoming.collateralVault, params.lienPosition);
-        (uint256 amountOwed, uint256 buyout) = BrokerImplementation(
-            outgoingBroker
-        ).getBuyout(params.incoming.collateralVault, params.lienPosition);
+        IStarNFT.Lien memory lien = COLLATERAL_VAULT.getLien(
+            params.incoming.collateralVault,
+            params.lienPosition
+        );
 
+        uint256 amountOwed = lien.amount + (lien.amount * lien.rate) / 100;
+
+        uint256 buyout = (lien.amount * lien.buyoutRate) / 100;
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
             address(msg.sender),
-            incomingBroker,
-            amountOwed + buyout
+            address(this),
+            uint256(amountOwed + buyout)
         );
         WETH.approve(incomingBroker, uint256(amountOwed + buyout));
-        BrokerImplementation(incomingBroker).buyoutLoan(
-            BrokerImplementation(outgoingBroker),
-            outgoingIndex,
+        BrokerImplementation(incomingBroker).buyoutLien(
+            params.lienPosition,
             params.incoming.collateralVault,
             params.incoming.proof,
             params.incoming.loanDetails
@@ -591,96 +591,99 @@ contract BrokerRouter is IBrokerRouter {
         _;
     }
 
-    function _addLien(
-        uint256 collateralVault,
-        bytes32 bondVault,
-        uint256 position,
-        uint256 newIndex,
-        uint256 amount
-    ) internal {
-        address broker = address(bondVaults[bondVault].broker);
+    function _addLien(IStarNFT.LienActionEncumber memory params) internal {
         COLLATERAL_VAULT.manageLien(
-            collateralVault,
             IStarNFT.LienAction.ENCUMBER,
-            abi.encode(broker, position, newIndex, amount)
+            abi.encode(params)
         );
     }
 
     function requestLienPosition(
         uint256 collateralVault,
-        bytes32 bondVault,
-        uint256 lienPosition,
-        uint256 newIndex,
-        uint256 amount
-    ) external onlyVaults {
-        _addLien(collateralVault, bondVault, lienPosition, newIndex, amount);
-    }
-
-    function updateLien(
-        uint256 collateralVault,
+        uint256 amount,
+        uint256 rate,
+        uint256 duration,
         uint256 position,
-        address payee
+        uint256 schedule
     ) external onlyVaults {
-        if (brokers[payee] != bytes32(0)) {
-            uint256 newIndex = BrokerImplementation(payee).getLoanCount(
-                collateralVault
-            );
-
-            if (newIndex != uint256(0)) {
-                unchecked {
-                    newIndex--;
-                }
-            }
-
-            (uint256 amount, , , , , , ) = getLoan(
-                BrokerImplementation(payee),
+        _addLien(
+            IStarNFT.LienActionEncumber(
                 collateralVault,
-                newIndex
-            );
-
-            _swapLien(
-                brokers[msg.sender],
-                brokers[payee],
-                collateralVault,
+                amount,
+                rate,
+                duration,
                 position,
-                newIndex,
-                amount
-            );
-        } else {
-            _removeLien(msg.sender, collateralVault, position);
-        }
+                schedule,
+                address(msg.sender)
+            )
+        );
     }
 
-    function _removeLien(
-        address bondVault,
-        uint256 collateralVault,
-        uint256 index
-    ) internal {
+    struct LienPayments {
+        IStarNFT.LienActionSwap[] payments;
+    }
+
+    //    function _updateLiens(BulkLienActionSwap params) internal {}
+
+    //    function updateLiens(BulkLienActionSwap params) external onlyVaults {
+    //        _updateLien(params);
+    //    }
+
+    //    function updateLien(
+    //        uint256 collateralVault,
+    //        uint256 position,
+    //        address payee
+    //    ) external onlyVaults {
+    //        if (brokers[payee] != bytes32(0)) {
+    //            uint256 newIndex = BrokerImplementation(payee).getLoanCount(
+    //                collateralVault
+    //            );
+    //
+    //            if (newIndex != uint256(0)) {
+    //                unchecked {
+    //                    newIndex--;
+    //                }
+    //            }
+    //
+    //            (uint256 amount, , , , , , ) = getLoan(
+    //                BrokerImplementation(payee),
+    //                collateralVault,
+    //                newIndex
+    //            );
+    //
+    //            _swapLien(
+    //                brokers[msg.sender],
+    //                brokers[payee],
+    //                collateralVault,
+    //                position,
+    //                newIndex,
+    //                amount
+    //            );
+    //        } else {
+    //            _removeLien(msg.sender, collateralVault, position);
+    //        }
+    //    }
+
+    function _removeLien(IStarNFT.LienActionUnEncumber memory params) internal {
         COLLATERAL_VAULT.manageLien(
-            collateralVault,
             IStarNFT.LienAction.UN_ENCUMBER,
-            abi.encode(bondVault, index)
+            abi.encode(params)
         );
     }
 
     function _swapLien(
-        bytes32 bondVaultOld,
-        bytes32 bondVaultNew,
-        uint256 collateralVault,
-        uint256 lienPosition,
-        uint256 newIndex,
-        uint256 amountOwed
+        //        bytes32 bondVaultOld,
+        //        bytes32 bondVaultNew,
+        //        uint256 collateralVault,
+        //        uint256 lienPosition,
+        //        uint256 newIndex,
+        //        uint256 amountOwed
+
+        IStarNFT.LienActionSwap memory params
     ) internal {
         COLLATERAL_VAULT.manageLien(
-            collateralVault,
             IStarNFT.LienAction.SWAP_VAULT,
-            abi.encode(
-                bondVaults[bondVaultOld].broker,
-                bondVaults[bondVaultNew].broker,
-                lienPosition,
-                newIndex,
-                amountOwed
-            )
+            abi.encode(params)
         );
     }
 
@@ -705,11 +708,7 @@ contract BrokerRouter is IBrokerRouter {
     function getLiens(uint256 collateralVault)
         public
         view
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory
-        )
+        returns (IStarNFT.Lien[] memory)
     {
         return COLLATERAL_VAULT.getLiens(collateralVault);
     }
@@ -738,35 +737,121 @@ contract BrokerRouter is IBrokerRouter {
         return bondVaults[bondVault].broker;
     }
 
-    function isActiveBroker(address bondVault) external view returns (bool) {
-        return
-            brokers[bondVault] != bytes32(0) &&
-            bondVaults[brokers[bondVault]].broker == bondVault;
+    function brokerIsOwner(uint256 collateralVault, uint256 position)
+        external
+        view
+        returns (bool)
+    {
+        IStarNFT.Lien memory lien = COLLATERAL_VAULT.getLien(
+            collateralVault,
+            position
+        );
+        address owner = COLLATERAL_VAULT.ownerOf(lien.lienId);
+
+        return brokers[owner] != bytes32(0);
     }
 
-    function canLiquidate(
-        bytes32 bondVault,
-        uint256 index,
-        uint256 collateralVault
-    ) public view returns (bool) {
-        BrokerImplementation broker = BrokerImplementation(
-            bondVaults[bondVault].broker
+    event Repayment(uint256 collateralVault, uint256 position, uint256 amount);
+
+    function _makeLienPayments(LienPayments memory params) internal {
+        COLLATERAL_VAULT.manageLien(
+            IStarNFT.LienAction.PAY_LIEN,
+            abi.encode(params)
         );
-        uint256 interestAccrued = broker.getInterest(index, collateralVault);
-        (
-            uint256 amount,
-            uint256 interest,
-            uint256 start,
-            uint256 duration,
-            uint256 lienPosition,
-            uint256 schedule,
-            uint256 buyout
-        ) = getLoan(broker, collateralVault, index);
-        uint256 maxInterest = amount * schedule; //TODO: if schedule is 0, then this is a bug
+    }
+
+    function makePayment(uint256 collateralVault, uint256 repayment) external {
+        // calculates interest here and apply it to the loan
+
+        IStarNFT.Lien[] memory liens = COLLATERAL_VAULT.getLiens(
+            collateralVault
+        );
+        IStarNFT.LienActionPayment[] memory payments;
+
+        for (uint256 i = 0; i < liens.length; ++i) {
+            uint256 openInterest = COLLATERAL_VAULT.getInterest(
+                collateralVault,
+                i
+            );
+            uint256 maxLienPayment = liens[i].amount + openInterest;
+            address owner = COLLATERAL_VAULT.ownerOf(liens[i].lienId);
+            if (maxLienPayment >= repayment) {
+                repayment = maxLienPayment;
+            }
+            //            payments.push(
+            //                IStarNFT.LienActionPayment(collateralVault, i, repayment)
+            //            );
+            TRANSFER_PROXY.tokenTransferFrom(
+                address(WETH),
+                address(msg.sender),
+                owner,
+                repayment
+            );
+            emit Repayment(collateralVault, i, repayment);
+        }
+
+        //        _makeLienPayments(LienPayments(payments));
+        //        //TODO: ensure math is correct on calcs
+        //        uint256 appraiserPayout = (20 * convertToShares(openInterest)) / 100;
+        //        _mint(appraiser(), appraiserPayout);
+        //
+        //        unchecked {
+        //            repayment -= appraiserPayout;
+        //
+        //            terms[collateralVault][index].amount += getInterest(
+        //                index,
+        //                collateralVault
+        //            );
+        //            repayment = (terms[collateralVault][index].amount >= repayment)
+        //                ? repayment
+        //                : terms[collateralVault][index].amount;
+        //
+        //            terms[collateralVault][index].amount -= repayment;
+        //        }
+        //
+        //        if (terms[collateralVault][index].amount == 0) {
+        //            BrokerRouter(router()).updateLien(
+        //                collateralVault,
+        //                index,
+        //                msg.sender
+        //            );
+        //            delete terms[collateralVault][index];
+        //        } else {
+        //            terms[collateralVault][index].start = uint64(block.timestamp);
+        //        }
+    }
+
+    function canLiquidate(uint256 collateralVault, uint256 position)
+        public
+        view
+        returns (bool)
+    {
+        //        BrokerImplementation broker = BrokerImplementation(
+        //            bondVaults[bondVault].broker
+        //        );
+        uint256 interestAccrued = COLLATERAL_VAULT.getInterest(
+            position,
+            collateralVault
+        );
+        //        (
+        //            uint256 amount,
+        //            uint256 interest,
+        //            uint256 start,
+        //            uint256 duration,
+        //            uint256 lienPosition,
+        //            uint256 schedule,
+        //            uint256 buyout
+        //        ) = getLoan(broker, collateralVault, index);
+
+        IStarNFT.Lien memory lien = COLLATERAL_VAULT.getLien(
+            collateralVault,
+            position
+        );
+        uint256 maxInterest = lien.amount * lien.rate * lien.schedule;
 
         return
             maxInterest > interestAccrued ||
-            (start + duration >= block.timestamp && amount > 0);
+            (lien.start + lien.duration >= block.timestamp && lien.amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction

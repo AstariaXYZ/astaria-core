@@ -647,19 +647,13 @@ contract AstariaTest is Test {
             //            collateralDetails[1] = uint256(0);
 
             BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
-                .buyoutLoan(
+                .buyoutLien(
                     BrokerImplementation(BOND_CONTROLLER.getBroker(outgoing)),
                     collateralVault,
                     uint256(0),
                     newLoanProof,
                     loanDetails2
                 );
-            //            BOND_CONTROLLER.refinanceLoan(
-            //                dealBrokers,
-            //                proof,
-            //                collateralDetails,
-            //                loanDetails2
-            //            );
             vm.stopPrank();
         }
     }

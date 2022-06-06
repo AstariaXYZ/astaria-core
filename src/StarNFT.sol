@@ -32,31 +32,34 @@ interface ISecurityHook {
     - setup the wrapper contract to verify erc1271 signatures so that it can work with looks rare
     - setup cancel auction flow(owner must repay reserve of auction)
  */
-contract StarNFT is Auth, ERC721, IERC721Receiver {
-    enum LienAction {
-        ENCUMBER,
-        UN_ENCUMBER,
-        SWAP_VAULT
-    }
-
-    //what about a notion of a resolver address that settles lien(external contract)?
-    struct Lien {
-        address broker;
-        uint256 index;
-        uint256 amount;
-        //        address tokenContract;
-        //        uint256 resolution; //if 0, unresolved lien, set to resolved 1
-        //        address resolver; //IResolver contract, interface for sending to beacon proxy
-        //        interfaceID: bytes4; support for many token types, 777 1155 etc, imagine fractional art being a currency for loans ??
-        //interfaceId: btyes4; could just be emitted when lien is created, what the interface needed to call this this vs storage
-    }
+contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
+    //    enum LienAction {
+    //        ENCUMBER,
+    //        UN_ENCUMBER,
+    //        SWAP_VAULT
+    //    }
+    //
+    //    //what about a notion of a resolver address that settles lien(external contract)?
+    //    struct Lien {
+    //        //        address broker;
+    //        //        uint256 index;
+    //        uint256 lienId;
+    //        uint256 amount;
+    //        uint256 rate;
+    //        uint256 start;
+    //        uint256 duration;
+    //        //        uint256 resolution; //if 0, unresolved lien, set to resolved 1
+    //        //        address resolver; //IResolver contract, interface for sending to beacon proxy
+    //        //        interfaceID: bytes4; support for many token types, 777 1155 etc, imagine fractional art being a currency for loans ??
+    //        //interfaceId: btyes4; could just be emitted when lien is created, what the interface needed to call this this vs storage
+    //    }
 
     struct Asset {
         address tokenContract;
         uint256 tokenId;
     }
 
-    //    uint256 lienCounter;
+    uint256 lienCounter;
     mapping(uint256 => Asset) starToUnderlying;
     mapping(address => address) public securityHooks;
     mapping(uint256 => Lien[]) liens; // tokenId to bondvaults hash only can move up and down.
@@ -78,7 +81,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         address indexed to
     );
 
-    event LienUpdated(uint256 starId, LienAction action, bytes lienData);
+    event LienUpdated(LienAction action, bytes lienData);
 
     error AssetNotSupported(address);
     error AuctionStartedForCollateral(uint256);
@@ -87,7 +90,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria NFT Wrapper", "Star NFT")
     {
-        //        lienCounter = 1;
+        lienCounter = 1;
     }
 
     modifier releaseCheck(uint256 assetId) {
@@ -219,91 +222,121 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         return liens[_starId].length;
     }
 
-    function getLiens(uint256 _starId)
+    function getInterest(uint256 collateralVault, uint256 position)
         public
         view
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory
-        )
+        returns (uint256)
     {
-        uint256 lienLength = getTotalLiens(_starId);
-        address[] memory vaults = new address[](lienLength);
-        uint256[] memory amounts = new uint256[](lienLength);
-        uint256[] memory indexes = new uint256[](lienLength);
-        for (uint256 i = 0; i < lienLength; ++i) {
-            Lien memory lien = liens[_starId][i];
-            vaults[i] = lien.broker;
-            (uint256 amount, , , , , , ) = BrokerImplementation(lien.broker)
-                .getLoan(_starId, lien.index);
-            amounts[i] = amount;
-            indexes[i] = lien.index;
-        }
-        return (vaults, amounts, indexes);
+        uint256 delta_t = block.timestamp -
+            liens[collateralVault][position].start;
+        return (delta_t *
+            liens[collateralVault][position].rate *
+            liens[collateralVault][position].amount);
     }
 
-    function manageLien(
-        uint256 _tokenId,
-        LienAction _action,
-        bytes calldata _lienData
-    ) external requiresAuth {
-        if (_action == LienAction.ENCUMBER) {
-            address broker;
-            uint256 position;
-            uint256 index;
-            uint256 amount;
+    //    function getLiens(uint256 _starId) public view returns (Lien[] memory) {
+    //        uint256 lienLength = getTotalLiens(_starId);
+    //        address[] memory vaults = new address[](lienLength);
+    //        uint256[] memory amounts = new uint256[](lienLength);
+    //        uint256[] memory indexes = new uint256[](lienLength);
+    //        for (uint256 i = 0; i < lienLength; ++i) {
+    //            Lien memory lien = liens[_starId][i];
+    //            vaults[i] = ownerOf(lien.lienId);
+    //            amounts[i] = lien.amount + getInterest(_starId, i);
+    //            indexes[i] = i;
+    //        }
+    //        return (vaults, amounts, indexes);
+    //    }
+    function getLiens(uint256 _starId) public view returns (Lien[] memory) {
+        return liens[_starId];
+    }
 
-            (broker, position, index, amount) = abi.decode(
+    function getLien(uint256 _starId, uint256 position)
+        external
+        view
+        returns (Lien memory)
+    {
+        return liens[_starId][position];
+    }
+
+    function manageLien(LienAction _action, bytes calldata _lienData)
+        external
+        requiresAuth
+    {
+        if (_action == LienAction.ENCUMBER) {
+            //            address broker;
+            //            uint256 position;
+            //            uint256 index;
+            //            uint256 amount;
+
+            LienActionEncumber memory params = abi.decode(
                 _lienData,
-                (address, uint256, uint256, uint256)
+                (LienActionEncumber)
             );
             require(
-                liens[_tokenId].length == position,
+                liens[params.collateralVault].length == params.position,
                 "Invalid Lien Position"
             );
-            //            uint256 lienId = uint256(
-            //                keccak256(
-            //                    abi.encodePacked(
-            //                        tokenContract_,
-            //                        tokenId_,
-            //                        position,
-            //                        lienCounter++
-            //                    )
-            //                )
+            uint256 lienId = uint256(
+                keccak256(
+                    abi.encodePacked(
+                        params.collateralVault,
+                        params.position,
+                        lienCounter++
+                    )
+                )
+            );
+            _mint(params.broker, lienId);
+            liens[params.collateralVault].push(
+                Lien({
+                    lienId: lienId,
+                    amount: params.amount,
+                    start: block.timestamp,
+                    rate: params.rate,
+                    duration: params.duration,
+                    schedule: params.schedule,
+                    buyoutRate: params.buyoutRate
+                })
+            );
+            //            liens[_tokenId].push(
+            //                Lien({broker: broker, index: index, amount: amount})
             //            );
-            //            _mint(broker, lienId);
-            liens[_tokenId].push(
-                Lien({broker: broker, index: index, amount: amount})
-            );
         } else if (_action == LienAction.UN_ENCUMBER) {
-            uint256 position;
-            address broker;
-            (broker, position) = abi.decode(_lienData, (address, uint256));
-            require(
-                liens[_tokenId][position].broker != address(0),
-                "this lien position is not set"
-            );
-            delete liens[_tokenId][position];
-        } else if (_action == LienAction.SWAP_VAULT) {
-            uint256 position;
-            address broker;
-            address brokerNew;
-            uint256 newIndex;
-            (broker, brokerNew, position, newIndex) = abi.decode(
+            LienActionUnEncumber memory params = abi.decode(
                 _lienData,
-                (address, address, uint256, uint256)
+                (LienActionUnEncumber)
             );
             require(
-                liens[_tokenId][position].broker == broker,
+                liens[params.collateralVault][params.position].lienId !=
+                    uint256(0),
                 "this lien position is not set"
             );
-            liens[_tokenId][position].broker = brokerNew;
-            liens[_tokenId][position].index = newIndex;
+            _burn(liens[params.collateralVault][params.position].lienId);
+            delete liens[params.collateralVault][params.position];
+        } else if (_action == LienAction.SWAP_VAULT) {
+            //            uint256 position;
+            //            address broker;
+            //            address brokerNew;
+            //            uint256 newIndex;
+            LienActionSwap memory params = abi.decode(
+                _lienData,
+                (LienActionSwap)
+            );
+            //            require(
+            //                liens[_tokenId][position].broker == broker,
+            //                "this lien position is not set"
+            //            );
+            //            liens[_tokenId][position].broker = brokerNew;
+            //            liens[_tokenId][position].index = newIndex;
+
+            uint256 lienId = liens[params.collateralVault][
+                params.outgoing.position
+            ].lienId;
+            _transfer(ownerOf(lienId), params.incoming.broker, lienId);
         } else {
             revert("Invalid Action");
         }
-        emit LienUpdated(_tokenId, _action, _lienData);
+        emit LienUpdated(_action, _lienData);
     }
 
     function releaseToAddress(uint256 starTokenId, address releaseTo)
