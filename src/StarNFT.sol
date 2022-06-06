@@ -56,8 +56,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         uint256 tokenId;
     }
 
+    //    uint256 lienCounter;
     mapping(uint256 => Asset) starToUnderlying;
-
     mapping(address => address) public securityHooks;
     mapping(uint256 => Lien[]) liens; // tokenId to bondvaults hash only can move up and down.
     mapping(uint256 => uint256) public starIdToAuctionId;
@@ -86,7 +86,9 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     constructor(Authority AUTHORITY_)
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria NFT Wrapper", "Star NFT")
-    {}
+    {
+        //        lienCounter = 1;
+    }
 
     modifier releaseCheck(uint256 assetId) {
         require(
@@ -261,7 +263,14 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
                 "Invalid Lien Position"
             );
             //            uint256 lienId = uint256(
-            //                keccak256(abi.encodePacked(tokenContract_, tokenId_, position))
+            //                keccak256(
+            //                    abi.encodePacked(
+            //                        tokenContract_,
+            //                        tokenId_,
+            //                        position,
+            //                        lienCounter++
+            //                    )
+            //                )
             //            );
             //            _mint(broker, lienId);
             liens[_tokenId].push(

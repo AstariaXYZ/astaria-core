@@ -10,7 +10,7 @@ import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {StarNFT} from "../StarNFT.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {BrokerRouter} from "../BrokerRouter.sol";
+import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {BrokerImplementation} from "../BrokerImplementation.sol";
@@ -128,36 +128,6 @@ contract AstariaTest is Test {
         _setupRolesAndCapabilities();
     }
 
-    //    function onERC1155BatchReceived(
-    //        address operator,
-    //        address from,
-    //        uint256[] calldata ids,
-    //        uint256[] calldata values,
-    //        bytes calldata data
-    //    ) external returns (bytes4) {
-    //        return
-    //            bytes4(
-    //                keccak256(
-    //                    "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"
-    //                )
-    //            );
-    //    }
-    //
-    //    function onERC1155Received(
-    //        address operator,
-    //        address from,
-    //        uint256 id,
-    //        uint256 value,
-    //        bytes calldata data
-    //    ) external returns (bytes4) {
-    //        return
-    //            bytes4(
-    //                keccak256(
-    //                    "onERC1155Received(address,address,uint256,uint256,bytes)"
-    //                )
-    //            );
-    //    }
-
     function _setupRolesAndCapabilities() internal {
         MRA.setRoleCapability(
             uint8(UserRoles.WRAPPER),
@@ -224,24 +194,6 @@ contract AstariaTest is Test {
         Ensure our deposit function emits the correct events
         Ensure that the token Id's are correct
      */
-    //    function _depositNFTs() internal {
-    //        STAR_NFT.depositERC721(
-    //            address(this),
-    //            address(testNFT),
-    //            uint256(1),
-    //            nftProof
-    //        );
-    //        STAR_NFT.depositERC721(
-    //            address(this),
-    //            address(testNFT),
-    //            uint256(2),
-    //            nftProof
-    //        );
-    //    }
-    /**
-        Ensure our deposit function emits the correct events
-        Ensure that the token Id's are correct
-     */
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
         ERC721(tokenContract).setApprovalForAll(address(STAR_NFT), true);
@@ -298,7 +250,7 @@ contract AstariaTest is Test {
         (v, r, s) = vm.sign(uint256(appraiserPk), hash);
 
         BOND_CONTROLLER.newBondVault(
-            BrokerRouter.NewBondVaultParams(
+            IBrokerRouter.NewBondVaultParams(
                 appraiser,
                 _rootHash,
                 expiration,
@@ -539,7 +491,7 @@ contract AstariaTest is Test {
         (, , brokerAddr) = BOND_CONTROLLER.bondVaults(bondVault);
         BrokerImplementation broker = BrokerImplementation(brokerAddr);
 
-        (, , , uint256 duration, , ) = broker.loans(collateralVault, index);
+        (, , , uint256 duration, , ) = broker.terms(collateralVault, index);
         vm.warp(block.timestamp + duration);
     }
 
@@ -641,7 +593,7 @@ contract AstariaTest is Test {
 
         uint256[] memory loanDetails2 = new uint256[](6);
         loanDetails2[0] = uint256(100000000000000000000); //maxAmount
-        loanDetails2[1] = uint256(50000000000000000000 / 2); //interestRate
+        loanDetails2[1] = uint256(10000000000000000000); //interestRate
         loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
         loanDetails2[3] = uint256(1 ether); //amount
         loanDetails2[4] = uint256(0); //lienPosition

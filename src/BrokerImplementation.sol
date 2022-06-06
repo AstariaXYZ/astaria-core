@@ -3,8 +3,8 @@ pragma solidity ^0.8.13;
 import "gpl/ERC4626-Cloned.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
 import "./BrokerRouter.sol";
-import "../lib/solmate/src/utils/SafeTransferLib.sol";
-import "../lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 
 contract BrokerImplementation is ERC4626Cloned {
     event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
@@ -29,9 +29,9 @@ contract BrokerImplementation is ERC4626Cloned {
         address indexed redeemer
     );
     using SafeTransferLib for ERC20;
-    struct Loan {
+    struct Term {
         uint256 amount; // loans are only in wETH
-        uint32 interestRate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
+        uint32 rate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
         uint64 start; // epoch time of last interest accrual
         uint64 duration; // duration of the loan
         //        uint64 duration; // epoch time at which the loan must be repaid
@@ -39,7 +39,7 @@ contract BrokerImplementation is ERC4626Cloned {
         uint32 schedule; // percentage margin before the borrower needs to repay
     }
 
-    mapping(uint256 => Loan[]) public loans;
+    mapping(uint256 => Term[]) public terms;
 
     function _validateLoanTerms(
         bytes32[] memory proof,
@@ -63,6 +63,7 @@ contract BrokerImplementation is ERC4626Cloned {
             amount <= ERC20(asset()).balanceOf(address(this)),
             "Broker.commitToLoan():  Attempting to borrow more than available in the specified vault"
         );
+
         // filler hashing schema for merkle tree
         bytes32 leaf = keccak256(
             abi.encode(
@@ -161,23 +162,18 @@ contract BrokerImplementation is ERC4626Cloned {
         view
         returns (bool)
     {
-        Loan memory loan = loans[collateralVault][index];
+        Term memory term = terms[collateralVault][index];
         uint256 interestAccrued = getInterest(index, collateralVault);
-        //        (
-        //            uint256 amount,
-        //            uint256 interest,
-        //            uint256 start,
-        //            uint256 duration,
-        //            uint256 lienPosition,
-        //            uint256 schedule,
-        //            uint256 buyout
-        //        ) = getLoan(broker, collateralVault, index);
-        uint256 maxInterest = loan.amount * loan.schedule; //TODO: if schedule is 0, then this is a bug
+
+        //TODO: math
+        uint256 maxInterest = term.schedule > uint256(0)
+            ? term.amount * term.rate * term.schedule
+            : term.amount * term.rate;
 
         return
             (maxInterest > interestAccrued) ||
-            (((loan.start + loan.duration) >= block.timestamp) &&
-                loan.amount > 0);
+            (((term.start + term.duration) >= block.timestamp) &&
+                term.amount > 0);
     }
 
     function moveToReceivership(uint256 collateralVault, uint256 index)
@@ -186,9 +182,9 @@ contract BrokerImplementation is ERC4626Cloned {
     {
         require(msg.sender == router(), "router only call");
         //out lien has been sent to auction, how much are we claiming
-        amountOwed = (loans[collateralVault][index].amount +
+        amountOwed = (terms[collateralVault][index].amount +
             getInterest(index, collateralVault));
-        delete loans[collateralVault][index];
+        delete terms[collateralVault][index];
     }
 
     function getLoan(uint256 collateralVault, uint256 index)
@@ -205,16 +201,16 @@ contract BrokerImplementation is ERC4626Cloned {
         )
     {
         amount =
-            loans[collateralVault][index].amount +
+            terms[collateralVault][index].amount +
             getInterest(index, collateralVault);
-        interestRate = loans[collateralVault][index].interestRate;
-        start = loans[collateralVault][index].start;
-        duration = loans[collateralVault][index].duration;
-        lienPosition = loans[collateralVault][index].lienPosition;
-        schedule = loans[collateralVault][index].schedule;
+        interestRate = terms[collateralVault][index].rate;
+        start = terms[collateralVault][index].start;
+        duration = terms[collateralVault][index].duration;
+        lienPosition = terms[collateralVault][index].lienPosition;
+        schedule = terms[collateralVault][index].schedule;
         buyersPremium =
-            loans[collateralVault][index].amount +
-            (loans[collateralVault][index].amount * buyout()) /
+            terms[collateralVault][index].amount +
+            (terms[collateralVault][index].amount * buyout()) /
             100;
     }
 
@@ -223,7 +219,7 @@ contract BrokerImplementation is ERC4626Cloned {
         view
         returns (uint256)
     {
-        return loans[collateralVault].length;
+        return terms[collateralVault].length;
     }
 
     function getBuyout(uint256 collateralVault, uint256 index)
@@ -231,7 +227,7 @@ contract BrokerImplementation is ERC4626Cloned {
         view
         returns (uint256, uint256)
     {
-        uint256 owed = loans[collateralVault][index].amount +
+        uint256 owed = terms[collateralVault][index].amount +
             getInterest(index, collateralVault);
 
         uint256 premium = buyout();
@@ -253,7 +249,7 @@ contract BrokerImplementation is ERC4626Cloned {
         uint256 collateralVault,
         uint256 outgoingIndex,
         bytes32[] memory incomingProof,
-        uint256[] memory incomingLoanDetails
+        uint256[] memory incomingTerms
     )
         external
         onlyNetworkBrokers(address(outgoing))
@@ -269,7 +265,28 @@ contract BrokerImplementation is ERC4626Cloned {
                 uint256 schedule,
                 uint256 buyout
             ) = outgoing.getLoan(collateralVault, outgoingIndex);
-
+            require(
+                IBrokerRouter(router()).isValidRefinance(
+                    IBrokerRouter.RefinanceCheckParams(
+                        Term(
+                            amount,
+                            uint32(interestRate),
+                            uint64(start),
+                            uint64(duration),
+                            uint8(lienPosition),
+                            uint32(schedule)
+                        ),
+                        Term(
+                            amount, //amount
+                            uint32(incomingTerms[1]), //interestRate
+                            uint64(block.timestamp),
+                            uint64(incomingTerms[2]), // duration
+                            uint8(lienPosition), // lienPosition
+                            uint32(schedule) //schedule)
+                        )
+                    )
+                )
+            );
             require(
                 amount + buyout <= ERC20(asset()).balanceOf(address(this)),
                 "not enough balance to buy out loan"
@@ -281,17 +298,14 @@ contract BrokerImplementation is ERC4626Cloned {
 
             ERC20(asset()).safeApprove(address(outgoing), amount);
             //add the new loan
-            require(
-                lienPosition <= incomingLoanDetails[4],
-                "Invalid Lien Position"
-            );
+            require(lienPosition <= incomingTerms[4], "Invalid Lien Position");
             {
                 _validateLoanTerms(
                     incomingProof,
                     collateralVault,
-                    incomingLoanDetails[0], //maxAmount
-                    incomingLoanDetails[1], //interestRate
-                    incomingLoanDetails[2], // duration
+                    incomingTerms[0], //maxAmount
+                    incomingTerms[1], //interestRate
+                    incomingTerms[2], // duration
                     amount, //amount
                     lienPosition, // lienPosition
                     schedule //schedule
@@ -299,8 +313,8 @@ contract BrokerImplementation is ERC4626Cloned {
             }
             newIndex = _addLoan(
                 collateralVault,
-                incomingLoanDetails[3],
-                incomingLoanDetails[2],
+                incomingTerms[3],
+                incomingTerms[2],
                 amount,
                 lienPosition, //lienP
                 schedule
@@ -318,10 +332,10 @@ contract BrokerImplementation is ERC4626Cloned {
         uint256 lienPosition,
         uint256 schedule
     ) internal returns (uint256 newIndex) {
-        loans[collateralVault].push(
-            Loan({
+        terms[collateralVault].push(
+            Term({
                 amount: amount,
-                interestRate: uint32(interestRate),
+                rate: uint32(interestRate),
                 start: uint64(block.timestamp),
                 duration: uint64(duration),
                 lienPosition: uint8(lienPosition),
@@ -329,7 +343,7 @@ contract BrokerImplementation is ERC4626Cloned {
             })
         );
 
-        newIndex = loans[collateralVault].length - 1;
+        newIndex = terms[collateralVault].length - 1;
     }
 
     function _issueLoan(
@@ -341,11 +355,6 @@ contract BrokerImplementation is ERC4626Cloned {
         uint256 lienPosition,
         uint256 schedule
     ) internal returns (uint256 newIndex) {
-        //        require(
-        //            address(msg.sender) == factory(),
-        //            "issueLoan, can only be called by the factory"
-        //        );
-
         _addLoan(
             collateralVault,
             amount,
@@ -354,20 +363,10 @@ contract BrokerImplementation is ERC4626Cloned {
             lienPosition,
             schedule
         );
-        //        loans[collateralVault].push(
-        //            Loan({
-        //                amount: amount,
-        //                interestRate: uint32(interestRate),
-        //                start: uint64(block.timestamp),
-        //                end: uint64(block.timestamp + duration),
-        //                schedule: uint32(schedule),
-        //                lienPosition: uint8(lienPosition)
-        //            })
-        //        );
         address borrower = IERC721(BrokerRouter(router()).COLLATERAL_VAULT())
             .ownerOf(collateralVault);
         ERC20(asset()).safeTransfer(borrower, amount);
-        newIndex = loans[collateralVault].length - 1;
+        newIndex = terms[collateralVault].length - 1;
     }
 
     function getInterest(uint256 index, uint256 collateralVault)
@@ -375,10 +374,10 @@ contract BrokerImplementation is ERC4626Cloned {
         view
         returns (uint256)
     {
-        uint256 delta_t = block.timestamp - loans[collateralVault][index].start;
+        uint256 delta_t = block.timestamp - terms[collateralVault][index].start;
         return (delta_t *
-            loans[collateralVault][index].interestRate *
-            loans[collateralVault][index].amount);
+            terms[collateralVault][index].rate *
+            terms[collateralVault][index].amount);
     }
 
     function repayLoan(
@@ -389,39 +388,41 @@ contract BrokerImplementation is ERC4626Cloned {
         // calculates interest here and apply it to the loan
         uint256 interestRate = getInterest(index, collateralVault);
 
-        uint256 appraiserRake = (20 * convertToShares(interestRate)) / 100;
-        _mint(appraiser(), appraiserRake);
+        //TODO: ensure math is correct on calcs
+        uint256 appraiserPayout = (20 * convertToShares(interestRate)) / 100;
+        _mint(appraiser(), appraiserPayout);
 
         unchecked {
-            amount -= appraiserRake;
+            amount -= appraiserPayout;
 
-            loans[collateralVault][index].amount += getInterest(
+            terms[collateralVault][index].amount += getInterest(
                 index,
                 collateralVault
             );
-            amount = (loans[collateralVault][index].amount >= amount)
+            amount = (terms[collateralVault][index].amount >= amount)
                 ? amount
-                : loans[collateralVault][index].amount;
+                : terms[collateralVault][index].amount;
 
-            loans[collateralVault][index].amount -= amount;
+            terms[collateralVault][index].amount -= amount;
+        }
+
+        emit Repayment(collateralVault, index, amount);
+
+        if (terms[collateralVault][index].amount == 0) {
+            BrokerRouter(router()).updateLien(
+                collateralVault,
+                index,
+                msg.sender
+            );
+            delete terms[collateralVault][index];
+        } else {
+            terms[collateralVault][index].start = uint64(block.timestamp);
         }
         ERC20(asset()).safeTransferFrom(
             address(msg.sender),
             address(this),
             amount
         );
-        emit Repayment(collateralVault, index, amount);
-
-        if (loans[collateralVault][index].amount == 0) {
-            BrokerRouter(router()).updateLien(
-                collateralVault,
-                index,
-                msg.sender
-            );
-            delete loans[collateralVault][index];
-        } else {
-            loans[collateralVault][index].start = uint64(block.timestamp);
-        }
     }
 
     function totalAssets() public view virtual override returns (uint256) {
