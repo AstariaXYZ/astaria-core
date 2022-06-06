@@ -83,14 +83,14 @@ contract BrokerRouter {
         address receiver;
     }
 
-    struct BuyoutLien {
+    struct BuyoutLienParams {
         CommitmentParams incoming;
         uint256 lienPosition;
     }
 
     struct BorrowAndBuyParams {
         CommitmentParams[] commitments;
-        IInvoker invoker;
+        address invoker;
         uint256 purchasePrice;
         bytes purchaseData;
     }
@@ -266,13 +266,7 @@ contract BrokerRouter {
         _borrow(c.broker, c.proof, c.loanDetails, c.receiver);
     }
 
-    function borrowAndBuy(BorrowAndBuyParams memory params)
-        external
-    //        CommitmentParams[] memory commitments,
-    //        address invoker,
-    //        uint256 purchasePrice, //the max to spend on the "buy portion of the txn"
-    //        bytes calldata purchaseData
-    {
+    function borrowAndBuy(BorrowAndBuyParams memory params) external {
         uint256 spendableBalance;
         for (uint256 i = 0; i < params.commitments.length; ++i) {
             _executeCommitment(params.commitments[i]);
@@ -285,15 +279,9 @@ contract BrokerRouter {
             "purchase price cannot be for more than your aggregate loan"
         );
 
-        WETH.approve(address(params.invoker), params.purchasePrice);
-        //        TRANSFER_PROXY.tokenTransferFrom(
-        //            address(WETH),
-        //            address(invoker),
-        //            address(this),
-        //            params.purchasePrice
-        //        );
+        WETH.approve(params.invoker, params.purchasePrice);
         require(
-            params.invoker.onBorrowAndBuy(
+            IInvoker(params.invoker).onBorrowAndBuy(
                 params.purchaseData, // calldata for the invoker
                 address(WETH), // token
                 params.purchasePrice, //max approval
@@ -338,7 +326,7 @@ contract BrokerRouter {
         //        bytes32[] calldata incomingProof,
         //        bytes32 incomingBroker,
         //        uint256[] calldata incomingLoan
-        BuyoutLien memory params
+        BuyoutLienParams memory params
     ) external {
         address incomingBroker = bondVaults[params.incoming.broker].broker;
         (address outgoingBroker, uint256 outgoingIndex, ) = COLLATERAL_VAULT
