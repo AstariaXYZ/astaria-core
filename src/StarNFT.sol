@@ -422,14 +422,14 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
         uint256 _tokenId,
         address liquidator,
         uint256 liquidationFee
-    ) external requiresAuth {
+    ) external requiresAuth returns (uint256 reserve) {
         require(
             starIdToAuctionId[_tokenId] == uint256(0),
             "auctionVault: auction already exists"
         );
 
         Lien[] storage l = liens[_tokenId];
-        uint256 reserve;
+        reserve;
         uint256[] memory lienIds = new uint256[](l.length);
         uint256[] memory amounts = new uint256[](l.length);
         for (uint256 i = 0; i < l.length; ++i) {

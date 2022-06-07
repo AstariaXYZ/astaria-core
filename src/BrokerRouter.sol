@@ -161,7 +161,11 @@ contract BrokerRouter is IBrokerRouter {
     mapping(address => bytes32) public brokers;
     mapping(address => uint256) public appraiserNonces;
 
-    event Liquidation(uint256 collateralVault, uint256 position);
+    event Liquidation(
+        uint256 collateralVault,
+        uint256 position,
+        uint256 reserve
+    );
     event NewBondVault(
         address appraiser,
         address broker,
@@ -824,8 +828,8 @@ contract BrokerRouter is IBrokerRouter {
         //            bondVaults[bondVault].broker
         //        );
         uint256 interestAccrued = COLLATERAL_VAULT.getInterest(
-            position,
-            collateralVault
+            collateralVault,
+            position
         );
         //        (
         //            uint256 amount,
@@ -873,13 +877,13 @@ contract BrokerRouter is IBrokerRouter {
         //
         //        reserve += ((reserve * LIQUIDATION_FEE_PERCENT) / 100);
 
-        COLLATERAL_VAULT.auctionVault(
+        reserve = COLLATERAL_VAULT.auctionVault(
             collateralVault,
             address(msg.sender),
             LIQUIDATION_FEE_PERCENT
         );
 
-        emit Liquidation(collateralVault, position);
+        emit Liquidation(collateralVault, position, reserve);
     }
 
     function isValidRefinance(RefinanceCheckParams memory params)

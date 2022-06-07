@@ -71,7 +71,7 @@ interface IStarNFT is IERC721 {
         uint256 tokenId,
         address initiator,
         uint256 initiatorFee
-    ) external;
+    ) external returns (uint256);
 
     function getUnderlyingFromStar(uint256 starId_)
         external

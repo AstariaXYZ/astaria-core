@@ -482,17 +482,15 @@ contract AstariaTest is Test {
         );
     }
 
-    function _warpToMaturity(
-        bytes32 bondVault,
-        uint256 collateralVault,
-        uint256 index
-    ) internal {
+    function _warpToMaturity(uint256 collateralVault, uint256 position)
+        internal
+    {
         address brokerAddr;
-        (, , brokerAddr) = BOND_CONTROLLER.bondVaults(bondVault);
-        BrokerImplementation broker = BrokerImplementation(brokerAddr);
+        //        (, , brokerAddr) = BOND_CONTROLLER.bondVaults(bondVault);
+        //        BrokerImplementation broker = BrokerImplementation(brokerAddr);
 
-        (, , , uint256 duration, , ) = broker.terms(collateralVault, index);
-        vm.warp(block.timestamp + duration);
+        StarNFT.Lien memory lien = STAR_NFT.getLien(collateralVault, position);
+        vm.warp(block.timestamp + lien.duration);
     }
 
     //    function _warpToAuctionEnd() internal {
@@ -535,7 +533,7 @@ contract AstariaTest is Test {
         uint256 starId = uint256(
             keccak256(abi.encodePacked(tokenContract, tokenId))
         );
-        _warpToMaturity(vaultHash, starId, uint256(0));
+        _warpToMaturity(starId, uint256(0));
         uint256 reserve = BOND_CONTROLLER.liquidate(starId, uint256(0));
         return (vaultHash, starId, reserve);
     }
