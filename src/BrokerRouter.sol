@@ -124,17 +124,14 @@ interface IBrokerRouter {
 
     function getBroker(bytes32 bondVault) external view returns (address);
 
-    function liquidate(
-        bytes32 bondVault,
-        uint256 index,
-        uint256 collateralVault
-    ) external returns (uint256 reserve);
+    function liquidate(uint256 collateralVault, uint256 index)
+        external
+        returns (uint256 reserve);
 
-    function canLiquidate(
-        bytes32 bondVault,
-        uint256 index,
-        uint256 collateralVault
-    ) external view returns (bool);
+    function canLiquidate(uint256 collateralVault, uint256 index)
+        external
+        view
+        returns (bool);
 
     function brokerIsOwner(uint256 collateralVault, uint256 position)
         external
@@ -164,11 +161,7 @@ contract BrokerRouter is IBrokerRouter {
     mapping(address => bytes32) public brokers;
     mapping(address => uint256) public appraiserNonces;
 
-    event Liquidation(
-        bytes32 bondVault,
-        uint256 collateralVault,
-        uint256 index
-    );
+    event Liquidation(uint256 collateralVault, uint256 position);
     event NewBondVault(
         address appraiser,
         address broker,
@@ -614,6 +607,7 @@ contract BrokerRouter is IBrokerRouter {
                 duration,
                 position,
                 schedule,
+                BrokerImplementation(address(msg.sender)).buyout(),
                 address(msg.sender)
             )
         );
@@ -855,42 +849,37 @@ contract BrokerRouter is IBrokerRouter {
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(
-        bytes32 bondVault,
-        uint256 index,
-        uint256 collateralVault
-    ) external returns (uint256 reserve) {
-        BrokerImplementation broker = BrokerImplementation(
-            bondVaults[bondVault].broker
-        );
+    function liquidate(uint256 collateralVault, uint256 position)
+        external
+        returns (uint256 reserve)
+    {
         require(
-            broker.canLiquidate(collateralVault, index),
+            canLiquidate(collateralVault, position),
             "liquidate: borrow is healthy"
         );
-        //grab all lien positions compute all outstanding
-        (
-            address[] memory brokers,
-            ,
-            uint256[] memory indexes
-        ) = COLLATERAL_VAULT.getLiens(collateralVault);
-
-        for (uint256 i = 0; i < brokers.length; i++) {
-            reserve += BrokerImplementation(brokers[i]).moveToReceivership(
-                collateralVault,
-                indexes[i]
-            );
-        }
-
-        reserve += ((reserve * LIQUIDATION_FEE_PERCENT) / 100);
+        //        //grab all lien positions compute all outstanding
+        //        (
+        //            address[] memory brokers,
+        //            ,
+        //            uint256[] memory indexes
+        //        ) = COLLATERAL_VAULT.getLiens(collateralVault);
+        //
+        //        for (uint256 i = 0; i < brokers.length; i++) {
+        //            reserve += BrokerImplementation(brokers[i]).moveToReceivership(
+        //                collateralVault,
+        //                indexes[i]
+        //            );
+        //        }
+        //
+        //        reserve += ((reserve * LIQUIDATION_FEE_PERCENT) / 100);
 
         COLLATERAL_VAULT.auctionVault(
             collateralVault,
-            reserve,
             address(msg.sender),
             LIQUIDATION_FEE_PERCENT
         );
 
-        emit Liquidation(bondVault, collateralVault, index);
+        emit Liquidation(collateralVault, position);
     }
 
     function isValidRefinance(RefinanceCheckParams memory params)

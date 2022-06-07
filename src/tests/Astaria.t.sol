@@ -536,11 +536,7 @@ contract AstariaTest is Test {
             keccak256(abi.encodePacked(tokenContract, tokenId))
         );
         _warpToMaturity(vaultHash, starId, uint256(0));
-        uint256 reserve = BOND_CONTROLLER.liquidate(
-            vaultHash,
-            uint256(0),
-            starId
-        );
+        uint256 reserve = BOND_CONTROLLER.liquidate(starId, uint256(0));
         return (vaultHash, starId, reserve);
     }
 
@@ -648,7 +644,6 @@ contract AstariaTest is Test {
 
             BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
                 .buyoutLien(
-                    BrokerImplementation(BOND_CONTROLLER.getBroker(outgoing)),
                     collateralVault,
                     uint256(0),
                     newLoanProof,

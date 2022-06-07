@@ -155,18 +155,7 @@ contract BrokerImplementation is ERC4626Cloned {
         view
         returns (bool)
     {
-        Term memory term = terms[collateralVault][index];
-        uint256 interestAccrued = getInterest(index, collateralVault);
-
-        //TODO: math
-        uint256 maxInterest = term.schedule > uint256(0)
-            ? term.amount * term.rate * term.schedule
-            : term.amount * term.rate;
-
-        return
-            (maxInterest > interestAccrued) ||
-            (((term.start + term.duration) >= block.timestamp) &&
-                term.amount > 0);
+        return BrokerRouter(router()).canLiquidate(collateralVault, index);
     }
 
     function moveToReceivership(uint256 collateralVault, uint256 index)

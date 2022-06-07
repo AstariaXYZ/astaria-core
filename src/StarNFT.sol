@@ -227,6 +227,9 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
         view
         returns (uint256)
     {
+        //        if (!liens[collateralVault][position].active) {
+        //            return uint256(0);
+        //        }
         uint256 delta_t = block.timestamp -
             liens[collateralVault][position].start;
         return (delta_t *
@@ -417,7 +420,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
 
     function auctionVault(
         uint256 _tokenId,
-        uint256 _reservePrice,
         address liquidator,
         uint256 liquidationFee
     ) external requiresAuth {
@@ -426,15 +428,22 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
             "auctionVault: auction already exists"
         );
 
-        (address[] memory vaults, uint256[] memory amounts, ) = getLiens(
-            _tokenId
-        );
+        Lien[] storage l = liens[_tokenId];
+        uint256 reserve;
+        uint256[] memory lienIds = new uint256[](l.length);
+        uint256[] memory amounts = new uint256[](l.length);
+        for (uint256 i = 0; i < l.length; ++i) {
+            lienIds[i] = l[i].lienId;
+            amounts[i] = l[i].amount + getInterest(_tokenId, i);
+            reserve += amounts[i];
+            delete liens[_tokenId][i];
+        }
 
         uint256 auctionId = AUCTION_HOUSE.createAuction(
             _tokenId,
             uint256(7 days),
-            _reservePrice,
-            vaults,
+            reserve,
+            lienIds,
             amounts,
             liquidator,
             liquidationFee

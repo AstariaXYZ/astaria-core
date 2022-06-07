@@ -32,8 +32,8 @@ interface IStarNFT is IERC721 {
         uint256 duration;
         uint256 position;
         uint256 schedule;
-        address broker;
         uint256 buyoutRate;
+        address broker;
     }
     struct LienActionUnEncumber {
         uint256 collateralVault;
@@ -69,7 +69,6 @@ interface IStarNFT is IERC721 {
 
     function auctionVault(
         uint256 tokenId,
-        uint256 reservePrice,
         address initiator,
         uint256 initiatorFee
     ) external;
