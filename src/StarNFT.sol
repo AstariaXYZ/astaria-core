@@ -10,7 +10,7 @@ import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import "./NFTBondController.sol";
+import "./BrokerRouter.sol";
 
 interface IFlashAction {
     function onFlashAction(bytes calldata data) external returns (bytes32);
@@ -56,8 +56,8 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         uint256 tokenId;
     }
 
+    //    uint256 lienCounter;
     mapping(uint256 => Asset) starToUnderlying;
-
     mapping(address => address) public securityHooks;
     mapping(uint256 => Lien[]) liens; // tokenId to bondvaults hash only can move up and down.
     mapping(uint256 => uint256) public starIdToAuctionId;
@@ -65,7 +65,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     bytes32 SUPPORTED_ASSETS_ROOT;
 
     IAuctionHouse AUCTION_HOUSE;
-    NFTBondController BOND_CONTROLLER;
+    BrokerRouter BOND_CONTROLLER;
 
     event DepositERC721(
         address indexed from,
@@ -86,9 +86,11 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     constructor(Authority AUTHORITY_)
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria NFT Wrapper", "Star NFT")
-    {}
+    {
+        //        lienCounter = 1;
+    }
 
-    modifier noActiveLiens(uint256 assetId) {
+    modifier releaseCheck(uint256 assetId) {
         require(
             uint256(0) == liens[assetId].length &&
                 starIdToAuctionId[assetId] == uint256(0),
@@ -163,7 +165,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     }
 
     function setBondController(address _bondController) external requiresAuth {
-        BOND_CONTROLLER = NFTBondController(_bondController);
+        BOND_CONTROLLER = BrokerRouter(_bondController);
     }
 
     function setSupportedRoot(bytes32 _supportedAssetsRoot)
@@ -213,12 +215,13 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
     //            revert AuctionStartedForCollateral(tokenId);
     //    }
 
-    function getTotalLiens(uint256 _starId) public returns (uint256) {
+    function getTotalLiens(uint256 _starId) public view returns (uint256) {
         return liens[_starId].length;
     }
 
     function getLiens(uint256 _starId)
         public
+        view
         returns (
             address[] memory,
             uint256[] memory,
@@ -232,7 +235,9 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
         for (uint256 i = 0; i < lienLength; ++i) {
             Lien memory lien = liens[_starId][i];
             vaults[i] = lien.broker;
-            amounts[i] = lien.amount;
+            (uint256 amount, , , , , , ) = BrokerImplementation(lien.broker)
+                .getLoan(_starId, lien.index);
+            amounts[i] = amount;
             indexes[i] = lien.index;
         }
         return (vaults, amounts, indexes);
@@ -257,6 +262,17 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
                 liens[_tokenId].length == position,
                 "Invalid Lien Position"
             );
+            //            uint256 lienId = uint256(
+            //                keccak256(
+            //                    abi.encodePacked(
+            //                        tokenContract_,
+            //                        tokenId_,
+            //                        position,
+            //                        lienCounter++
+            //                    )
+            //                )
+            //            );
+            //            _mint(broker, lienId);
             liens[_tokenId].push(
                 Lien({broker: broker, index: index, amount: amount})
             );
@@ -292,7 +308,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver {
 
     function releaseToAddress(uint256 starTokenId, address releaseTo)
         public
-        noActiveLiens(starTokenId)
+        releaseCheck(starTokenId)
     {
         //check liens
         require(

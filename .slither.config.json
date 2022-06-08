@@ -3,6 +3,7 @@
     "solmate/=./lib/solmate/src/",
     "ds-test/=./lib/ds-test/src/",
     "openzeppelin/=./lib/openzeppelin-contracts/contracts/",
-    "auction/=./lib/auction-house/src/"
+    "clones-with-immutable-args/=./lib/clones-with-immutable-args/src/",
+    "gpl/=./lib/gpl/src/"
   ]
 }
