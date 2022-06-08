@@ -16,8 +16,8 @@ Install Foundry (https://getfoundry.sh)
 8. If the borrow fails to meet the schedule the NFT is sent to liquidation in the `ERC721Wrapper`. Lenders are paid back in order of lien holder lowest to highest until auction funds are depleted. If there is an amount remaining, a liquidation penalty is sent to the liquidator and the remaining amount is returned to the borrower.
 9. One the `BondVault` reaches `maturity` any loan remaining is liquidated. Once liquidations are complete each borrower can redeem burn their ERC155 token for a proportional amount of the `BondVault.balance`
 
-### NFTBondController
-In the `NFTBondController` new loans are initiated against specific `BondVault`s. The borrower provides their `tokenId` from the `ERC721Wrapper` and loan parameters. Those parameters are validated against the merkle root of the `BondVault`. The ERC721 token is transferred to the `NFTBondController` address until repayment or liquidation occurs.
+### BrokerRouter
+In the `BrokerRouter` new loans are initiated against specific `BondVault`s. The borrower provides their `tokenId` from the `ERC721Wrapper` and loan parameters. Those parameters are validated against the merkle root of the `BondVault`. The ERC721 token is transferred to the `BrokerRouter` address until repayment or liquidation occurs.
 
 ```js
   struct BondVault {
@@ -72,7 +72,7 @@ keccack256('loan, 'collateral)
 
 
 ### Collateral Types
-Collateral types will be used as a hash component to generate a unique ERC721 `tokenId`. The `tokenId` will be utilized in the `NFTBondController` to separate the concerns of collateral lock up, liquidation, and lien position management.
+Collateral types will be used as a hash component to generate a unique ERC721 `tokenId`. The `tokenId` will be utilized in the `BrokerRouter` to separate the concerns of collateral lock up, liquidation, and lien position management.
 
 #### ERC721
 ```json
@@ -102,7 +102,7 @@ Collateral types will be used as a hash component to generate a unique ERC721 `t
 #### Nonce
 `nonce` will be hashed together with the `amount` and fungible collateral types (ERC1155, ERC20) to ensure a unique `tokenId` is generated. ERC721 contract nonce will be incremented.
 
-The only drawback to this design is the user will need to provide their amount and nonce as a component of the verifying hash in the `NFTBondController`. The benefits are that the appraiser can provide lending appraisals on fungible token type.
+The only drawback to this design is the user will need to provide their amount and nonce as a component of the verifying hash in the `BrokerRouter`. The benefits are that the appraiser can provide lending appraisals on fungible token type.
 
 ```json
 {

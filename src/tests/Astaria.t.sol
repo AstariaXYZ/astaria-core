@@ -33,22 +33,10 @@ interface IWETH9 is IERC20 {
     function withdraw(uint256) external;
 }
 
-// contract Test is DSTestPlus {
-//     function deployCode(string memory what) public returns (address addr) {
-//         bytes memory bytecode = vm.getCode(what);
-//         assembly {
-//             addr := create(0, add(bytecode, 0x20), mload(bytecode))
-//         }
-//     }
-// }
-
 //TODO:
-// - setup helpers that let us put a loan into default
 // - setup helpers to repay loans
 // - setup helpers to pay loans at their schedule
 // - test for interest
-// - test auction flow
-// - create/cancel/end
 contract AstariaTest is Test {
     enum UserRoles {
         ADMIN,
@@ -490,7 +478,7 @@ contract AstariaTest is Test {
             lienPosition,
             schedule
         );
-        vm.expectRevert(bytes("must be no liens or auctionsn to call this"));
+        vm.expectRevert(bytes("must be no liens or auctions to call this"));
 
         STAR_NFT.releaseToAddress(
             uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),

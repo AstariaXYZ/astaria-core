@@ -136,6 +136,7 @@ contract BrokerRouter is IBrokerRouter {
     IERC20 public immutable WETH;
     IStarNFT public immutable COLLATERAL_VAULT;
     TransferProxy public immutable TRANSFER_PROXY;
+    address VAULT_IMPLEMENTATION;
     address BROKER_IMPLEMENTATION;
 
     uint256 public LIQUIDATION_FEE_PERCENT; // a percent(13) then mul by 100
@@ -144,6 +145,7 @@ contract BrokerRouter is IBrokerRouter {
 
     mapping(bytes32 => BondVault) public bondVaults;
     mapping(address => bytes32) public brokerHashes;
+    mapping(address => bool) public appraisers;
     mapping(address => uint256) public appraiserNonces;
 
     event Liquidation(
@@ -217,7 +219,23 @@ contract BrokerRouter is IBrokerRouter {
     // verifies the signature on the root of the merkle tree to be the appraiser
     // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
 
-    function newBondVault(NewBondVaultParams memory params) external {
+    function newSoloVault(NewBondVaultParams memory params) external {
+        require(params.appraiser == msg.sender);
+    }
+
+    modifier onlyAppraisers() {
+        //        require(appraisers[msg.sender] == true, "sender is not an appraiser");
+        _;
+    }
+
+    function newBondVault(NewBondVaultParams memory params)
+        external
+        onlyAppraisers
+    {
+        _newBondVault(params);
+    }
+
+    function _newBondVault(NewBondVaultParams memory params) internal {
         require(
             params.appraiser != address(0),
             "BrokerRouter.newBondVault(): Appraiser address cannot be zero"
