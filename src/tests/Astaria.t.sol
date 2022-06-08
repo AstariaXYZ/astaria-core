@@ -490,7 +490,7 @@ contract AstariaTest is Test {
             lienPosition,
             schedule
         );
-        vm.expectRevert(bytes("must be no liens to call this"));
+        vm.expectRevert(bytes("must be no liens or auctionsn to call this"));
 
         STAR_NFT.releaseToAddress(
             uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
