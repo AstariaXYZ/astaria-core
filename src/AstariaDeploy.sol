@@ -43,11 +43,10 @@ contract AstariaDeploy {
         );
         emit Deployed(address(MRA));
 
-        StarNFT STAR_NFT = new StarNFT(MRA);
-        emit Deployed(address(STAR_NFT));
-
         TransferProxy TRANSFER_PROXY = new TransferProxy(MRA);
         emit Deployed(address(TRANSFER_PROXY));
+        StarNFT STAR_NFT = new StarNFT(MRA, address(TRANSFER_PROXY));
+        emit Deployed(address(STAR_NFT));
 
         BrokerImplementation implementation = new BrokerImplementation();
         BrokerRouter BOND_CONTROLLER = new BrokerRouter(

@@ -33,27 +33,6 @@ interface ISecurityHook {
     - setup cancel auction flow(owner must repay reserve of auction)
  */
 contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
-    //    enum LienAction {
-    //        ENCUMBER,
-    //        UN_ENCUMBER,
-    //        SWAP_VAULT
-    //    }
-    //
-    //    //what about a notion of a resolver address that settles lien(external contract)?
-    //    struct Lien {
-    //        //        address broker;
-    //        //        uint256 index;
-    //        uint256 lienId;
-    //        uint256 amount;
-    //        uint256 rate;
-    //        uint256 start;
-    //        uint256 duration;
-    //        //        uint256 resolution; //if 0, unresolved lien, set to resolved 1
-    //        //        address resolver; //IResolver contract, interface for sending to beacon proxy
-    //        //        interfaceID: bytes4; support for many token types, 777 1155 etc, imagine fractional art being a currency for loans ??
-    //        //interfaceId: btyes4; could just be emitted when lien is created, what the interface needed to call this this vs storage
-    //    }
-
     struct Asset {
         address tokenContract;
         uint256 tokenId;
@@ -67,6 +46,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
 
     bytes32 SUPPORTED_ASSETS_ROOT;
 
+    ITransferProxy TRANSFER_PROXY;
     IAuctionHouse AUCTION_HOUSE;
     BrokerRouter BOND_CONTROLLER;
 
@@ -86,18 +66,19 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
     error AssetNotSupported(address);
     error AuctionStartedForCollateral(uint256);
 
-    constructor(Authority AUTHORITY_)
+    constructor(Authority AUTHORITY_, address TRANSFER_PROXY_)
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria NFT Wrapper", "Star NFT")
     {
         lienCounter = 1;
+        TRANSFER_PROXY = ITransferProxy(TRANSFER_PROXY_);
     }
 
     modifier releaseCheck(uint256 assetId) {
         require(
             uint256(0) == liens[assetId].length &&
                 starIdToAuctionId[assetId] == uint256(0),
-            "must be no liens to call this"
+            "must be no liens or auctions to call this"
         );
         _;
     }
@@ -121,7 +102,6 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
         _;
     }
 
-    // needs reentrancyGuard
     function flashAction(
         IFlashAction receiver,
         uint256 starId,
@@ -231,7 +211,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
         //            return uint256(0);
         //        }
         uint256 delta_t = block.timestamp -
-            liens[collateralVault][position].start;
+            liens[collateralVault][position].last;
         return (delta_t *
             liens[collateralVault][position].rate *
             liens[collateralVault][position].amount);
@@ -262,6 +242,32 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
         return liens[_starId][position];
     }
 
+    event LienPayment(
+        uint256 collateralVault,
+        uint256 position,
+        uint256 amount
+    );
+
+    function encodeStateHash(uint256 lienId, Terms memory params)
+        public
+        view
+        returns (bytes32)
+    {
+        return
+            keccak256(
+                abi.encodePacked(
+                    lienId,
+                    params.collateralVault,
+                    params.position,
+                    //                    params.amount,
+                    params.rate,
+                    params.duration,
+                    params.schedule,
+                    BrokerImplementation(params.broker).buyout()
+                )
+            );
+    }
+
     function manageLien(LienAction _action, bytes calldata _lienData)
         external
         requiresAuth
@@ -277,30 +283,34 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
                 (LienActionEncumber)
             );
             require(
-                liens[params.collateralVault].length == params.position,
+                liens[params.terms.collateralVault].length ==
+                    params.terms.position,
                 "Invalid Lien Position"
             );
             uint256 lienId = uint256(
                 keccak256(
                     abi.encodePacked(
-                        params.collateralVault,
-                        params.position,
+                        params.terms.collateralVault,
+                        params.terms.position,
                         lienCounter++
                     )
                 )
             );
-            _mint(params.broker, lienId);
-            liens[params.collateralVault].push(
+            //            bytes32 stateHash = encodeStateHash(lienId, params.terms);
+
+            liens[params.terms.collateralVault].push(
                 Lien({
                     lienId: lienId,
                     amount: params.amount,
-                    start: block.timestamp,
-                    rate: params.rate,
-                    duration: params.duration,
-                    schedule: params.schedule,
-                    buyoutRate: params.buyoutRate
+                    root: BrokerImplementation(params.terms.broker).vaultHash(),
+                    rate: uint32(params.terms.rate),
+                    last: uint32(block.timestamp),
+                    end: uint32(block.timestamp + params.terms.duration)
+                    //                    state: stateHash
                 })
             );
+            _mint(params.terms.broker, lienId);
+
             //            liens[_tokenId].push(
             //                Lien({broker: broker, index: index, amount: amount})
             //            );
@@ -332,14 +342,125 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
             //            liens[_tokenId][position].broker = brokerNew;
             //            liens[_tokenId][position].index = newIndex;
 
-            uint256 lienId = liens[params.collateralVault][
+            uint256 lienId = liens[params.outgoing.collateralVault][
                 params.outgoing.position
             ].lienId;
-            _transfer(ownerOf(lienId), params.incoming.broker, lienId);
+            _transfer(ownerOf(lienId), params.incoming.terms.broker, lienId);
         } else {
             revert("Invalid Action");
         }
         emit LienUpdated(_action, _lienData);
+    }
+
+    function validateTerms(
+        bytes32[] memory proof,
+        uint256 collateralVault,
+        uint256 maxAmount,
+        uint256 interestRate,
+        uint256 duration,
+        uint256 position,
+        uint256 schedule
+    ) public view returns (bool) {
+        // filler hashing schema for merkle tree
+        bytes32 leaf = keccak256(
+            abi.encode(
+                bytes32(collateralVault),
+                maxAmount,
+                interestRate,
+                duration,
+                position,
+                schedule
+            )
+        );
+        return
+            verifyMerkleBranch(
+                proof,
+                leaf,
+                liens[collateralVault][position].root
+            );
+    }
+
+    function validateTerms(IStarNFT.Terms memory params)
+        public
+        view
+        returns (bool)
+    {
+        return
+            validateTerms(
+                params.proof,
+                params.collateralVault,
+                params.maxAmount,
+                params.rate,
+                params.duration,
+                params.position,
+                params.schedule
+            );
+    }
+
+    function verifyMerkleBranch(
+        bytes32[] memory proof,
+        bytes32 leaf,
+        bytes32 root
+    ) public pure returns (bool) {
+        bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
+        return isValidLeaf;
+    }
+
+    struct PaymentTerms {
+        uint256 collateralVault;
+        uint256 position;
+        uint256 paymentAmount;
+    }
+
+    //    function makePayment(PaymentTerms memory params) external {
+    function makePayment(uint256 collateralVault, uint256 paymentAmount)
+        external
+    {
+        // calculates interest here and apply it to the loan
+        Lien[] storage openLiens = liens[collateralVault];
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            address owner = ownerOf(openLiens[i].lienId);
+            uint256 maxLienPayment = openLiens[i].amount +
+                getInterest(collateralVault, i);
+            if (maxLienPayment >= paymentAmount) {
+                paymentAmount = maxLienPayment;
+                delete liens[collateralVault][i];
+            } else {
+                openLiens[i].amount -= paymentAmount;
+                openLiens[i].last = uint32(block.timestamp);
+            }
+            if (paymentAmount > 0) {
+                TRANSFER_PROXY.tokenTransferFrom(
+                    address(BOND_CONTROLLER.WETH()),
+                    address(msg.sender),
+                    owner,
+                    paymentAmount
+                );
+            }
+        }
+
+        //        //TODO: ensure math is correct on calcs
+        //        uint256 appraiserPayout = (20 * convertToShares(openInterest)) / 100;
+        //        _mint(appraiser(), appraiserPayout);
+        //
+        //        unchecked {
+        //            repayment -= appraiserPayout;
+        //
+        //            terms[collateralVault][index].amount += getInterest(
+        //                index,
+        //                collateralVault
+        //            );
+        //            repayment = (terms[collateralVault][index].amount >= repayment)
+        //                ? repayment
+        //                : terms[collateralVault][index].amount;
+        //
+        //            terms[collateralVault][index].amount -= repayment;
+        //        }
+        //
+
+        //        } else {
+        //            terms[collateralVault][index].start = uint64(block.timestamp);
+        //        }
     }
 
     function releaseToAddress(uint256 starTokenId, address releaseTo)
@@ -419,28 +540,29 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
     }
 
     function auctionVault(
-        uint256 _tokenId,
+        Terms memory terms,
         address liquidator,
         uint256 liquidationFee
     ) external requiresAuth returns (uint256 reserve) {
         require(
-            starIdToAuctionId[_tokenId] == uint256(0),
+            starIdToAuctionId[terms.collateralVault] == uint256(0),
             "auctionVault: auction already exists"
         );
 
-        Lien[] storage l = liens[_tokenId];
-        reserve;
+        Lien[] storage l = liens[terms.collateralVault];
         uint256[] memory lienIds = new uint256[](l.length);
         uint256[] memory amounts = new uint256[](l.length);
         for (uint256 i = 0; i < l.length; ++i) {
             lienIds[i] = l[i].lienId;
-            amounts[i] = l[i].amount + getInterest(_tokenId, i);
+            amounts[i] =
+                l[i].amount +
+                getInterest(terms.collateralVault, terms.position);
             reserve += amounts[i];
-            delete liens[_tokenId][i];
+            delete liens[terms.collateralVault][i];
         }
 
         uint256 auctionId = AUCTION_HOUSE.createAuction(
-            _tokenId,
+            terms.collateralVault,
             uint256(7 days),
             reserve,
             lienIds,
@@ -448,7 +570,7 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
             liquidator,
             liquidationFee
         );
-        starIdToAuctionId[_tokenId] = auctionId;
+        starIdToAuctionId[terms.collateralVault] = auctionId;
     }
 
     function cancelAuction(uint256 _starTokenId)
@@ -467,6 +589,14 @@ contract StarNFT is Auth, ERC721, IERC721Receiver, IStarNFT {
         AUCTION_HOUSE.cancelAuction(auctionId, msg.sender);
         delete liens[_starTokenId];
         delete starIdToAuctionId[_starTokenId];
+    }
+
+    function burnLien(uint256 _lienId) external requiresAuth {
+        require(
+            AUCTION_HOUSE.getClaimableBalance(_lienId) == uint256(0),
+            "can only burn if nothing to claim"
+        );
+        _burn(_lienId);
     }
 
     function endAuction(uint256 _tokenId) external {

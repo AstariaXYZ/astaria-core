@@ -8,7 +8,7 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {StarNFT} from "../StarNFT.sol";
+import {IStarNFT, StarNFT} from "../StarNFT.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
@@ -105,8 +105,8 @@ contract AstariaTest is Test {
 
         address liquidator = vm.addr(0x1337); //remove
 
-        STAR_NFT = new StarNFT(MRA);
         TRANSFER_PROXY = new TransferProxy(MRA);
+        STAR_NFT = new StarNFT(MRA, address(TRANSFER_PROXY));
         BrokerImplementation implementation = new BrokerImplementation();
 
         BOND_CONTROLLER = new BrokerRouter(
@@ -325,7 +325,7 @@ contract AstariaTest is Test {
 
         uint256 balanceBefore = WETH9.balanceOf(address(this));
         //balance of WETH before loan
-        bytes32 vaultHash = _commitToLoan(
+        (bytes32 vaultHash, ) = _commitToLoan(
             tokenContract,
             tokenId,
             maxAmount,
@@ -358,7 +358,7 @@ contract AstariaTest is Test {
 
     function _commitToLoan(address tokenContract, uint256 tokenId)
         internal
-        returns (bytes32 vaultHash)
+        returns (bytes32 vaultHash, IStarNFT.Terms memory)
     {
         return
             _commitToLoan(
@@ -373,6 +373,8 @@ contract AstariaTest is Test {
             );
     }
 
+    event LogStuff(address);
+
     function _commitToLoan(
         address tokenContract,
         uint256 tokenId,
@@ -382,7 +384,7 @@ contract AstariaTest is Test {
         uint256 amount,
         uint256 lienPosition,
         uint256 schedule
-    ) internal returns (bytes32 vaultHash) {
+    ) internal returns (bytes32 vaultHash, IStarNFT.Terms memory) {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
@@ -405,6 +407,18 @@ contract AstariaTest is Test {
             lienPosition,
             schedule
         );
+
+        //        terms = IStarNFT.Terms(
+        //            broker,
+        //            proof,
+        //            collateralVault,
+        //            maxAmount,
+        //            interestRate,
+        //            duration,
+        //            lienPosition,
+        //            schedule
+        //        );
+
         {
             _createBondVault(
                 appraiserOne,
@@ -421,17 +435,19 @@ contract AstariaTest is Test {
         //event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
         vm.expectEmit(true, true, false, false);
         emit NewLoan(vaultHash, collateralVault, amount);
-        BrokerImplementation(BOND_CONTROLLER.getBroker(vaultHash)).commitToLoan(
-                proof,
-                collateralVault,
-                maxAmount,
-                interestRate,
-                duration,
-                amount,
-                lienPosition,
-                schedule,
-                address(this)
-            );
+        address broker = BOND_CONTROLLER.getBroker(vaultHash);
+        IStarNFT.Terms memory terms = IStarNFT.Terms(
+            broker,
+            proof,
+            collateralVault,
+            maxAmount,
+            interestRate,
+            duration,
+            lienPosition,
+            schedule
+        );
+        BrokerImplementation(broker).commitToLoan(terms, amount, address(this));
+        return (vaultHash, terms);
     }
 
     function testReleaseToAddress() public {
@@ -464,7 +480,7 @@ contract AstariaTest is Test {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
-        bytes32 vaultHash = _commitToLoan(
+        (bytes32 vaultHash, IStarNFT.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             maxAmount,
@@ -485,17 +501,22 @@ contract AstariaTest is Test {
     function _warpToMaturity(uint256 collateralVault, uint256 position)
         internal
     {
-        address brokerAddr;
-        //        (, , brokerAddr) = BOND_CONTROLLER.bondVaults(bondVault);
-        //        BrokerImplementation broker = BrokerImplementation(brokerAddr);
-
         StarNFT.Lien memory lien = STAR_NFT.getLien(collateralVault, position);
-        vm.warp(block.timestamp + lien.duration);
+        vm.warp(block.timestamp + lien.end + 2 days);
     }
 
-    //    function _warpToAuctionEnd() internal {
-    //        //        vm.warp(block.timestamp + duration);
-    //    }
+    function _warpToAuctionEnd(uint256 collateralVault) internal {
+        uint256 auctionId = STAR_NFT.starIdToAuctionId(collateralVault);
+        (
+            uint256 tokenId,
+            uint256 amount,
+            uint256 duration,
+            uint256 firstBidTime,
+            uint256 reservePrice,
+            address bidder
+        ) = AUCTION_HOUSE.getAuctionData(auctionId);
+        vm.warp(block.timestamp + duration);
+    }
 
     /**
         Ensure that we can auction underlying vaults
@@ -503,13 +524,16 @@ contract AstariaTest is Test {
         ensure that we're repaying the proper collateral
 
     */
+
+    struct TestAuctionVaultResponse {
+        bytes32 hash;
+        uint256 collateralVault;
+        uint256 reserve;
+    }
+
     function testAuctionVault()
         public
-        returns (
-            bytes32,
-            uint256,
-            uint256
-        )
+        returns (TestAuctionVaultResponse memory)
     {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(address(loanTest));
@@ -520,7 +544,7 @@ contract AstariaTest is Test {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
-        bytes32 vaultHash = _commitToLoan(
+        (bytes32 vaultHash, IStarNFT.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             maxAmount,
@@ -534,8 +558,10 @@ contract AstariaTest is Test {
             keccak256(abi.encodePacked(tokenContract, tokenId))
         );
         _warpToMaturity(starId, uint256(0));
-        uint256 reserve = BOND_CONTROLLER.liquidate(starId, uint256(0));
-        return (vaultHash, starId, reserve);
+        address broker = BOND_CONTROLLER.getBroker(vaultHash);
+        uint256 reserve = BOND_CONTROLLER.liquidate(terms);
+        //        return (vaultHash, starId, reserve);
+        return TestAuctionVaultResponse(vaultHash, starId, reserve);
     }
 
     /**
@@ -544,11 +570,11 @@ contract AstariaTest is Test {
 
     */
     function testCancelAuction() public {
-        (bytes32 hash, uint256 starId, uint256 reserve) = testAuctionVault();
-        vm.deal(address(this), reserve);
-        WETH9.deposit{value: reserve}();
-        WETH9.approve(address(TRANSFER_PROXY), reserve);
-        STAR_NFT.cancelAuction(starId);
+        TestAuctionVaultResponse memory response = testAuctionVault();
+        vm.deal(address(this), response.reserve);
+        WETH9.deposit{value: response.reserve}();
+        WETH9.approve(address(TRANSFER_PROXY), response.reserve);
+        STAR_NFT.cancelAuction(response.collateralVault);
     }
 
     function _createBid(
@@ -566,10 +592,20 @@ contract AstariaTest is Test {
     }
 
     function testEndAuctionWithBids() public {
-        (bytes32 hash, uint256 starId, uint256 reserve) = testAuctionVault();
-        _createBid(bidderOne, starId, reserve);
-        _createBid(bidderTwo, starId, reserve += ((reserve * 5) / 100));
-        _createBid(bidderOne, starId, reserve += ((reserve * 30) / 100));
+        TestAuctionVaultResponse memory response = testAuctionVault();
+        _createBid(bidderOne, response.collateralVault, response.reserve);
+        _createBid(
+            bidderTwo,
+            response.collateralVault,
+            response.reserve += ((response.reserve * 5) / 100)
+        );
+        _createBid(
+            bidderOne,
+            response.collateralVault,
+            response.reserve += ((response.reserve * 30) / 100)
+        );
+        _warpToAuctionEnd(response.collateralVault);
+        STAR_NFT.endAuction(response.collateralVault);
     }
 
     function testRefinanceLoan() public {
@@ -592,7 +628,7 @@ contract AstariaTest is Test {
         loanDetails2[3] = uint256(1 ether); //amount
         loanDetails2[4] = uint256(0); //lienPosition
         loanDetails2[5] = uint256(50); //schedule
-        bytes32 outgoing = _commitToLoan(
+        (bytes32 outgoing, IStarNFT.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             loanDetails[0],
@@ -640,13 +676,13 @@ contract AstariaTest is Test {
             //            collateralDetails[0] = collateralVault;
             //            collateralDetails[1] = uint256(0);
 
-            BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
-                .buyoutLien(
-                    collateralVault,
-                    uint256(0),
-                    newLoanProof,
-                    loanDetails2
-                );
+            //            BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
+            //                .buyoutLien(
+            //                    collateralVault,
+            //                    uint256(0),
+            //                    newLoanProof,
+            //                    loanDetails2
+            //                );
             vm.stopPrank();
         }
     }
@@ -688,7 +724,7 @@ contract AstariaTest is Test {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
         vm.prank(address(1));
-        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
+        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId);
     }
 
     // fuzzers
@@ -722,7 +758,7 @@ contract AstariaTest is Test {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        bytes32 vaultHash = _commitToLoan(
+        (bytes32 vaultHash, IStarNFT.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             maxAmount,
