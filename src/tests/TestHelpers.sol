@@ -8,12 +8,14 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {StarNFT} from "../StarNFT.sol";
+import {ICollateralVault, CollateralVault, LienToken, ILienToken} from "../CollateralVault.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {BrokerImplementation} from "../BrokerImplementation.sol";
+import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation.sol";
+import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
@@ -33,8 +35,11 @@ interface IWETH9 is IERC20 {
     function withdraw(uint256) external;
 }
 
+//TODO:
+// - setup helpers to repay loans
+// - setup helpers to pay loans at their schedule
+// - test for interest
 contract TestHelpers is Test {
-
     enum UserRoles {
         ADMIN,
         BOND_CONTROLLER,
@@ -44,7 +49,8 @@ contract TestHelpers is Test {
     }
 
     using Strings2 for bytes;
-    StarNFT STAR_NFT;
+    CollateralVault COLLATERAL_VAULT;
+    LienToken LIEN_TOKEN;
     BrokerRouter BOND_CONTROLLER;
     Dummy721 testNFT;
     TransferProxy TRANSFER_PROXY;
@@ -90,29 +96,51 @@ contract TestHelpers is Test {
 
         address liquidator = vm.addr(0x1337); //remove
 
-        STAR_NFT = new StarNFT(MRA);
         TRANSFER_PROXY = new TransferProxy(MRA);
-        BrokerImplementation implementation = new BrokerImplementation();
+        LIEN_TOKEN = new LienToken(
+            MRA,
+            address(TRANSFER_PROXY),
+            address(WETH9)
+        );
+        COLLATERAL_VAULT = new CollateralVault(
+            MRA,
+            address(TRANSFER_PROXY),
+            address(LIEN_TOKEN)
+        );
+        SoloBroker soloImpl = new SoloBroker();
+        BrokerVault vaultImpl = new BrokerVault();
 
         BOND_CONTROLLER = new BrokerRouter(
+            MRA,
             address(WETH9),
-            address(STAR_NFT),
+            address(COLLATERAL_VAULT),
+            address(LIEN_TOKEN),
             address(TRANSFER_PROXY),
-            address(implementation)
+            address(vaultImpl),
+            address(soloImpl)
         );
 
         AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
             address(MRA),
-            address(STAR_NFT),
+            address(COLLATERAL_VAULT),
+            address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
 
-        STAR_NFT.setBondController(address(BOND_CONTROLLER));
-        STAR_NFT.setAuctionHouse(address(AUCTION_HOUSE));
+        COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
+        COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
         _setupRolesAndCapabilities();
+        _setupAppraisers();
     }
 
+    function _setupAppraisers() internal {
+        address[] memory appraisers = new address[](2);
+        appraisers[0] = appraiserOne;
+        appraisers[1] = appraiserTwo;
+
+        BOND_CONTROLLER.setAppraisers(appraisers);
+    }
 
     function _setupRolesAndCapabilities() internal {
         MRA.setRoleCapability(
@@ -126,23 +154,33 @@ contract TestHelpers is Test {
             true
         );
         MRA.setRoleCapability(
+            uint8(UserRoles.BOND_CONTROLLER),
+            LienToken.createLien.selector,
+            true
+        );
+        MRA.setRoleCapability(
             uint8(UserRoles.WRAPPER),
             AuctionHouse.cancelAuction.selector,
             true
         );
         MRA.setRoleCapability(
             uint8(UserRoles.BOND_CONTROLLER),
-            StarNFT.manageLien.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER),
-            StarNFT.auctionVault.selector,
+            CollateralVault.auctionVault.selector,
             true
         );
         MRA.setRoleCapability(
             uint8(UserRoles.BOND_CONTROLLER),
             TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE),
+            LienToken.removeLiens.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE),
+            LienToken.stopLiens.selector,
             true
         );
         MRA.setRoleCapability(
@@ -155,7 +193,11 @@ contract TestHelpers is Test {
             uint8(UserRoles.BOND_CONTROLLER),
             true
         );
-        MRA.setUserRole(address(STAR_NFT), uint8(UserRoles.WRAPPER), true);
+        MRA.setUserRole(
+            address(COLLATERAL_VAULT),
+            uint8(UserRoles.WRAPPER),
+            true
+        );
         MRA.setUserRole(
             address(AUCTION_HOUSE),
             uint8(UserRoles.AUCTION_HOUSE),
@@ -182,12 +224,15 @@ contract TestHelpers is Test {
      */
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
-        ERC721(tokenContract).setApprovalForAll(address(STAR_NFT), true);
+        ERC721(tokenContract).setApprovalForAll(
+            address(COLLATERAL_VAULT),
+            true
+        );
         (bytes32 root, bytes32[] memory proof) = _createWhitelist(
             tokenContract
         );
-        STAR_NFT.setSupportedRoot(root);
-        STAR_NFT.depositERC721(
+        COLLATERAL_VAULT.setSupportedRoot(root);
+        COLLATERAL_VAULT.depositERC721(
             address(this),
             address(tokenContract),
             uint256(tokenId),
@@ -236,7 +281,7 @@ contract TestHelpers is Test {
         (v, r, s) = vm.sign(uint256(appraiserPk), hash);
 
         BOND_CONTROLLER.newBondVault(
-            IBrokerRouter.NewBondVaultParams(
+            IBrokerRouter.BrokerParams(
                 appraiser,
                 _rootHash,
                 expiration,
@@ -258,7 +303,7 @@ contract TestHelpers is Test {
         uint256 lienPosition,
         uint256 schedule
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
-        (address tokenContract, uint256 tokenId) = STAR_NFT
+        (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
             .getUnderlyingFromStar(_collateralVault);
         string[] memory inputs = new string[](9);
         //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
@@ -286,27 +331,9 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-
-
-    function _lendToVault(bytes32 vaultHash, uint256 amount) internal {
-        vm.deal(lender, amount);
-        vm.startPrank(lender);
-        WETH9.deposit{value: amount}();
-        WETH9.approve(
-            address(BOND_CONTROLLER.getBroker(vaultHash)),
-            type(uint256).max
-        );
-        //        BOND_CONTROLLER.lendToVault(vaultHash, amount);
-        BrokerImplementation(BOND_CONTROLLER.getBroker(vaultHash)).deposit(
-            amount,
-            address(this)
-        );
-        vm.stopPrank();
-    }
-
     function _commitToLoan(address tokenContract, uint256 tokenId)
         internal
-        returns (bytes32 vaultHash)
+        returns (bytes32 vaultHash, ICollateralVault.Terms memory)
     {
         return
             _commitToLoan(
@@ -330,7 +357,7 @@ contract TestHelpers is Test {
         uint256 amount,
         uint256 lienPosition,
         uint256 schedule
-    ) internal returns (bytes32 vaultHash) {
+    ) internal returns (bytes32 vaultHash, ICollateralVault.Terms memory) {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
@@ -353,6 +380,18 @@ contract TestHelpers is Test {
             lienPosition,
             schedule
         );
+
+        //        terms = ICollateralVault.Terms(
+        //            broker,
+        //            proof,
+        //            collateralVault,
+        //            maxAmount,
+        //            interestRate,
+        //            duration,
+        //            lienPosition,
+        //            schedule
+        //        );
+
         {
             _createBondVault(
                 appraiserOne,
@@ -364,42 +403,48 @@ contract TestHelpers is Test {
             );
         }
 
-        _lendToVault(vaultHash, uint256(500 ether));
+        _lendToVault(vaultHash, uint256(500 ether), appraiserOne);
 
         //event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
         vm.expectEmit(true, true, false, false);
         emit NewLoan(vaultHash, collateralVault, amount);
-        BrokerImplementation(BOND_CONTROLLER.getBroker(vaultHash)).commitToLoan(
-                proof,
-                collateralVault,
-                maxAmount,
-                interestRate,
-                duration,
-                amount,
-                lienPosition,
-                schedule,
-                address(this)
-            );
+        address broker = BOND_CONTROLLER.getBroker(vaultHash);
+        ICollateralVault.Terms memory terms = ICollateralVault.Terms(
+            broker,
+            proof,
+            collateralVault,
+            maxAmount,
+            interestRate,
+            duration,
+            lienPosition,
+            schedule
+        );
+        BrokerImplementation(broker).commitToLoan(terms, amount, address(this));
+        return (vaultHash, terms);
     }
 
+    function _warpToMaturity(uint256 collateralVault, uint256 position)
+        internal
+    {
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
+            collateralVault,
+            position
+        );
+        vm.warp(block.timestamp + lien.start + lien.duration + 2 days);
+    }
 
-    function _warpToMaturity(
-        bytes32 bondVault,
-        uint256 collateralVault,
-        uint256 index
-    ) internal {
-        address brokerAddr;
-        (, , brokerAddr) = BOND_CONTROLLER.bondVaults(bondVault);
-        BrokerImplementation broker = BrokerImplementation(brokerAddr);
-
-        (, , , uint256 duration, , ) = broker.terms(collateralVault, index);
+    function _warpToAuctionEnd(uint256 collateralVault) internal {
+        uint256 auctionId = COLLATERAL_VAULT.starIdToAuctionId(collateralVault);
+        (
+            uint256 tokenId,
+            uint256 amount,
+            uint256 duration,
+            uint256 firstBidTime,
+            uint256 reservePrice,
+            address bidder
+        ) = AUCTION_HOUSE.getAuctionData(auctionId);
         vm.warp(block.timestamp + duration);
     }
-
-    //    function _warpToAuctionEnd() internal {
-    //        //        vm.warp(block.timestamp + duration);
-    //    }
-
 
     function _createBid(
         address bidder,
@@ -410,9 +455,25 @@ contract TestHelpers is Test {
         vm.startPrank(bidder);
         WETH9.deposit{value: amount}();
         WETH9.approve(address(TRANSFER_PROXY), amount);
-        uint256 auctionId = STAR_NFT.starIdToAuctionId(tokenId);
+        uint256 auctionId = COLLATERAL_VAULT.starIdToAuctionId(tokenId);
         AUCTION_HOUSE.createBid(auctionId, amount);
         vm.stopPrank();
     }
-    
+
+    function _lendToVault(
+        bytes32 vaultHash,
+        uint256 amount,
+        address lendAs
+    ) internal {
+        vm.deal(lendAs, amount);
+        vm.startPrank(lendAs);
+        WETH9.deposit{value: amount}();
+        WETH9.approve(
+            address(BOND_CONTROLLER.getBroker(vaultHash)),
+            type(uint256).max
+        );
+        //        BOND_CONTROLLER.lendToVault(vaultHash, amount);
+        IBroker(BOND_CONTROLLER.getBroker(vaultHash)).deposit(amount, lendAs);
+        vm.stopPrank();
+    }
 }

@@ -8,12 +8,13 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {StarNFT} from "../StarNFT.sol";
+import {ICollateralVault, CollateralVault, LienToken, ILienToken} from "../CollateralVault.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
-import {BrokerImplementation} from "../BrokerImplementation.sol";
+import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation.sol";
+import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
@@ -22,28 +23,13 @@ import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
-// contract Test is DSTestPlus {
-//     function deployCode(string memory what) public returns (address addr) {
-//         bytes memory bytecode = vm.getCode(what);
-//         assembly {
-//             addr := create(0, add(bytecode, 0x20), mload(bytecode))
-//         }
-//     }
-// }
-
 //TODO:
-// - setup helpers that let us put a loan into default
 // - setup helpers to repay loans
 // - setup helpers to pay loans at their schedule
 // - test for interest
 // - test auction flow
 // - create/cancel/end
 contract AstariaTest is TestHelpers {
-    
-
-    
-
-
     /**
        Ensure that we can borrow capital from the bond controller
        ensure that we're emitting the correct events
@@ -69,7 +55,7 @@ contract AstariaTest is TestHelpers {
 
         uint256 balanceBefore = WETH9.balanceOf(address(this));
         //balance of WETH before loan
-        bytes32 vaultHash = _commitToLoan(
+        (bytes32 vaultHash, ) = _commitToLoan(
             tokenContract,
             tokenId,
             maxAmount,
@@ -84,7 +70,6 @@ contract AstariaTest is TestHelpers {
         assert(WETH9.balanceOf(address(this)) == balanceBefore + 1 ether);
     }
 
-
     function testReleaseToAddress() public {
         Dummy721 releaseTest = new Dummy721();
         address tokenContract = address(releaseTest);
@@ -92,7 +77,7 @@ contract AstariaTest is TestHelpers {
         _depositNFTs(tokenContract, tokenId);
         // startMeasuringGas("ReleaseTo Address");
 
-        STAR_NFT.releaseToAddress(
+        COLLATERAL_VAULT.releaseToAddress(
             uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
             address(this)
         );
@@ -115,24 +100,26 @@ contract AstariaTest is TestHelpers {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
-        bytes32 vaultHash = _commitToLoan(
-            tokenContract,
-            tokenId,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
-        );
-        vm.expectRevert(bytes("must be no liens to call this"));
+        (
+            bytes32 vaultHash,
+            ICollateralVault.Terms memory terms
+        ) = _commitToLoan(
+                tokenContract,
+                tokenId,
+                maxAmount,
+                interestRate,
+                duration,
+                amount,
+                lienPosition,
+                schedule
+            );
+        vm.expectRevert(bytes("must be no liens or auctions to call this"));
 
-        STAR_NFT.releaseToAddress(
+        COLLATERAL_VAULT.releaseToAddress(
             uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
             address(this)
         );
     }
-
 
     /**
         Ensure that we can auction underlying vaults
@@ -140,13 +127,16 @@ contract AstariaTest is TestHelpers {
         ensure that we're repaying the proper collateral
 
     */
+
+    struct TestAuctionVaultResponse {
+        bytes32 hash;
+        uint256 collateralVault;
+        uint256 reserve;
+    }
+
     function testAuctionVault()
         public
-        returns (
-            bytes32,
-            uint256,
-            uint256
-        )
+        returns (TestAuctionVaultResponse memory)
     {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(address(loanTest));
@@ -157,26 +147,27 @@ contract AstariaTest is TestHelpers {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
-        bytes32 vaultHash = _commitToLoan(
-            tokenContract,
-            tokenId,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
-        );
+        (
+            bytes32 vaultHash,
+            ICollateralVault.Terms memory terms
+        ) = _commitToLoan(
+                tokenContract,
+                tokenId,
+                maxAmount,
+                interestRate,
+                duration,
+                amount,
+                lienPosition,
+                schedule
+            );
         uint256 starId = uint256(
             keccak256(abi.encodePacked(tokenContract, tokenId))
         );
-        _warpToMaturity(vaultHash, starId, uint256(0));
-        uint256 reserve = BOND_CONTROLLER.liquidate(
-            vaultHash,
-            uint256(0),
-            starId
-        );
-        return (vaultHash, starId, reserve);
+        _warpToMaturity(starId, uint256(0));
+        address broker = BOND_CONTROLLER.getBroker(vaultHash);
+        uint256 reserve = BOND_CONTROLLER.liquidate(terms);
+        //        return (vaultHash, starId, reserve);
+        return TestAuctionVaultResponse(vaultHash, starId, reserve);
     }
 
     /**
@@ -185,19 +176,28 @@ contract AstariaTest is TestHelpers {
 
     */
     function testCancelAuction() public {
-        (bytes32 hash, uint256 starId, uint256 reserve) = testAuctionVault();
-        vm.deal(address(this), reserve);
-        WETH9.deposit{value: reserve}();
-        WETH9.approve(address(TRANSFER_PROXY), reserve);
-        STAR_NFT.cancelAuction(starId);
+        TestAuctionVaultResponse memory response = testAuctionVault();
+        vm.deal(address(this), response.reserve);
+        WETH9.deposit{value: response.reserve}();
+        WETH9.approve(address(TRANSFER_PROXY), response.reserve);
+        COLLATERAL_VAULT.cancelAuction(response.collateralVault);
     }
 
-
     function testEndAuctionWithBids() public {
-        (bytes32 hash, uint256 starId, uint256 reserve) = testAuctionVault();
-        _createBid(bidderOne, starId, reserve);
-        _createBid(bidderTwo, starId, reserve += ((reserve * 5) / 100));
-        _createBid(bidderOne, starId, reserve += ((reserve * 30) / 100));
+        TestAuctionVaultResponse memory response = testAuctionVault();
+        _createBid(bidderOne, response.collateralVault, response.reserve);
+        _createBid(
+            bidderTwo,
+            response.collateralVault,
+            response.reserve += ((response.reserve * 5) / 100)
+        );
+        _createBid(
+            bidderOne,
+            response.collateralVault,
+            response.reserve += ((response.reserve * 30) / 100)
+        );
+        _warpToAuctionEnd(response.collateralVault);
+        COLLATERAL_VAULT.endAuction(response.collateralVault);
     }
 
     function testRefinanceLoan() public {
@@ -220,7 +220,7 @@ contract AstariaTest is TestHelpers {
         loanDetails2[3] = uint256(1 ether); //amount
         loanDetails2[4] = uint256(0); //lienPosition
         loanDetails2[5] = uint256(50); //schedule
-        bytes32 outgoing = _commitToLoan(
+        (bytes32 outgoing, ICollateralVault.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             loanDetails[0],
@@ -258,7 +258,7 @@ contract AstariaTest is TestHelpers {
                 appraiserTwoPK
             );
 
-            _lendToVault(incoming, uint256(500 ether));
+            _lendToVault(incoming, uint256(500 ether), appraiserTwo);
 
             vm.startPrank(appraiserTwo);
             bytes32[] memory dealBrokers = new bytes32[](2);
@@ -268,20 +268,13 @@ contract AstariaTest is TestHelpers {
             //            collateralDetails[0] = collateralVault;
             //            collateralDetails[1] = uint256(0);
 
-            BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
-                .buyoutLoan(
-                    BrokerImplementation(BOND_CONTROLLER.getBroker(outgoing)),
-                    collateralVault,
-                    uint256(0),
-                    newLoanProof,
-                    loanDetails2
-                );
-            //            BOND_CONTROLLER.refinanceLoan(
-            //                dealBrokers,
-            //                proof,
-            //                collateralDetails,
-            //                loanDetails2
-            //            );
+            //            BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
+            //                .buyoutLien(
+            //                    collateralVault,
+            //                    uint256(0),
+            //                    newLoanProof,
+            //                    loanDetails2
+            //                );
             vm.stopPrank();
         }
     }
@@ -289,15 +282,19 @@ contract AstariaTest is TestHelpers {
     // failure testing
     function testFailLendWithoutTransfer() public {
         WETH9.transfer(address(BOND_CONTROLLER), uint256(1));
-        BrokerImplementation(BOND_CONTROLLER.getBroker(testBondVaultHash))
-            .deposit(uint256(1), address(this));
+        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
+            uint256(1),
+            address(this)
+        );
     }
 
     function testFailLendWithNonexistentVault() public {
         BrokerRouter emptyController;
         //        emptyController.lendToVault(testBondVaultHash, uint256(1));
-        BrokerImplementation(BOND_CONTROLLER.getBroker(testBondVaultHash))
-            .deposit(uint256(1), address(this));
+        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
+            uint256(1),
+            address(this)
+        );
     }
 
     function testFailLendPastExpiration() public {
@@ -313,8 +310,10 @@ contract AstariaTest is TestHelpers {
         vm.warp(block.timestamp + 10000 days); // forward past expiration date
 
         //        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
-        BrokerImplementation(BOND_CONTROLLER.getBroker(testBondVaultHash))
-            .deposit(50 ether, address(this));
+        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
+            50 ether,
+            address(this)
+        );
         vm.stopPrank();
     }
 
@@ -323,8 +322,6 @@ contract AstariaTest is TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
         vm.prank(address(1));
-        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
+        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId);
     }
-
-    
 }
