@@ -1,13 +1,15 @@
 pragma solidity ^0.8.13;
-
-import "gpl/ERC4626-Cloned.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import {Base, ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
 import {BrokerRouter} from "./BrokerRouter.sol";
-import {IStarNFT} from "./interfaces/IStarNFT.sol";
+import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
+import {ILienToken} from "./CollateralVault.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
-contract BrokerImplementation is ERC4626Cloned {
+contract BrokerImplementation is Base {
     event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
 
     event Repayment(uint256 collateralVault, uint256 index, uint256 amount);
@@ -31,16 +33,10 @@ contract BrokerImplementation is ERC4626Cloned {
     );
     using SafeTransferLib for ERC20;
 
+    //    function deposit(uint256 amount, address receiver) external virtual {}
+
     function _validateLoanTerms(
-        //        bytes32[] memory proof,
-        //        uint256 collateralVault,
-        //        uint256 maxAmount,
-        //        uint256 interestRate,
-        //        uint256 duration,
-        //        uint256 amount,
-        //        uint256 lienPosition,
-        //        uint256 schedule
-        IStarNFT.Terms memory params,
+        ICollateralVault.Terms memory params,
         uint256 amount
     ) internal view {
         require(
@@ -62,7 +58,8 @@ contract BrokerImplementation is ERC4626Cloned {
         );
     }
 
-    function validateTerms(IStarNFT.Terms memory params)
+    //move this to a lib so we can reuse on star nft
+    function validateTerms(ICollateralVault.Terms memory params)
         public
         view
         returns (bool)
@@ -103,15 +100,7 @@ contract BrokerImplementation is ERC4626Cloned {
     }
 
     function commitToLoan(
-        //        bytes32[] calldata proof,
-        //        uint256 collateralVault,
-        //        uint256 maxAmount,
-        //        uint256 rate,
-        //        uint256 duration,
-        //        uint256 amount,
-        //        uint256 position,
-        //        uint256 schedule,
-        IStarNFT.Terms memory params,
+        ICollateralVault.Terms memory params,
         uint256 amount,
         address receiver
     ) public {
@@ -153,12 +142,7 @@ contract BrokerImplementation is ERC4626Cloned {
         return isValidLeaf;
     }
 
-    function afterDeposit(uint256 assets, uint256 shares) internal override {
-        require(block.timestamp < expiration(), "deposit: expiration exceeded");
-        _mint(appraiser(), (shares * 2) / 100);
-    }
-
-    function canLiquidate(IStarNFT.Terms memory params)
+    function canLiquidate(ICollateralVault.Terms memory params)
         public
         view
         returns (bool)
@@ -166,50 +150,23 @@ contract BrokerImplementation is ERC4626Cloned {
         return BrokerRouter(router()).canLiquidate(params);
     }
 
-    //
-    //    function moveToReceivership(uint256 collateralVault, uint256 index)
-    //        external
-    //        returns (uint256 amountOwed)
-    //    {
-    //        require(msg.sender == router(), "router only call");
-    //        //out lien has been sent to auction, how much are we claiming
-    //        amountOwed = (terms[collateralVault][index].amount +
-    //            getInterest(index, collateralVault));
-    //        delete terms[collateralVault][index];
+    //    modifier onlyNetworkBrokers(uint256 collateralVault, uint256 position) {
+    //        (bool isOwner, ) = BrokerRouter(router()).brokerIsOwner(
+    //            collateralVault,
+    //            position
+    //        );
+    //        require(isOwner, "only active broker's can use this feature");
+    //        _;
     //    }
-
-    //
-    //    function getBuyout(uint256 collateralVault, uint256 index)
-    //        public
-    //        view
-    //        returns (uint256, uint256)
-    //    {
-    //        uint256 owed = terms[collateralVault][index].amount +
-    //            getInterest(index, collateralVault);
-    //
-    //        uint256 premium = buyout();
-    //
-    //        //        return owed += (owed * premium) / 100;
-    //        return (owed, owed + (owed * premium) / 100);
-    //    }
-
-    modifier onlyNetworkBrokers(uint256 collateralVault, uint256 position) {
-        (bool isOwner, ) = BrokerRouter(router()).brokerIsOwner(
-            collateralVault,
-            position
-        );
-        require(isOwner, "only active broker's can use this feature");
-        _;
-    }
 
     modifier checkSender(
-        IStarNFT.Terms memory outgoingTerms,
-        IStarNFT.Terms memory incomingTerms
+        ICollateralVault.Terms memory outgoingTerms,
+        ICollateralVault.Terms memory incomingTerms
     ) {
         if (outgoingTerms.collateralVault != incomingTerms.collateralVault) {
             require(
                 address(msg.sender) ==
-                    IStarNFT(COLLATERAL_VAULT()).ownerOf(
+                    ICollateralVault(COLLATERAL_VAULT()).ownerOf(
                         incomingTerms.collateralVault
                     ),
                 "Only the holder of the token can encumber it"
@@ -219,53 +176,26 @@ contract BrokerImplementation is ERC4626Cloned {
     }
 
     function buyoutLien(
-        IStarNFT.Terms memory outgoingTerms,
-        IStarNFT.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
+        ICollateralVault.Terms memory outgoingTerms,
+        ICollateralVault.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
     ) external {
         {
-            IStarNFT.Lien memory lien = BrokerRouter(router())
-                .COLLATERAL_VAULT()
-                .getLien(outgoingTerms.collateralVault, outgoingTerms.position);
-            //move a lot of this back to the router
-            //            require(
-            //                IBrokerRouter(router()).isValidRefinance(
-            //                    IBrokerRouter.RefinanceCheckParams(
-            //                        Term(
-            //                            amount,
-            //                            uint32(interestRate),
-            //                            uint64(start),
-            //                            uint64(duration),
-            //                            uint8(lienPosition),
-            //                            uint32(schedule)
-            //                        ),
-            //                        Term(
-            //                            amount, //amount
-            //                            uint32(incomingTerms[1]), //interestRate
-            //                            uint64(block.timestamp),
-            //                            uint64(incomingTerms[2]), // duration
-            //                            uint8(lienPosition), // lienPosition
-            //                            uint32(schedule) //schedule)
-            //                        )
-            //                    )
-            //                )
-            //            );
-            lien.amount += IStarNFT(COLLATERAL_VAULT()).getInterest(
-                outgoingTerms.collateralVault,
-                outgoingTerms.position
-            );
-            uint256 buyersPremium = lien.amount +
-                (lien.amount *
-                    BrokerImplementation(outgoingTerms.broker).buyout());
+            (uint256 owed, uint256 buyout) = BrokerRouter(router())
+                .LIEN_TOKEN()
+                .getBuyout(
+                    outgoingTerms.collateralVault,
+                    outgoingTerms.position
+                );
 
             require(
-                buyersPremium <= ERC20(asset()).balanceOf(address(this)),
+                buyout <= ERC20(asset()).balanceOf(address(this)),
                 "not enough balance to buy out loan"
             );
 
             //TODO: require interest rate is better and duration is better
             //payout appraiser their premium
             //            ERC20(asset()).safeTransfer(
-            //                BrokerImplementation(IStarNFT.ownerOf(lien.lienId)).appraiser(),
+            //                BrokerImplementation(ICollateralVault.ownerOf(lien.lienId)).appraiser(),
             //                buyout
             //            );
             //
@@ -280,7 +210,7 @@ contract BrokerImplementation is ERC4626Cloned {
             {
                 _validateLoanTerms(
                     incomingTerms,
-                    lien.amount //amount
+                    owed //amount
                 );
             }
             //broker still validates the terms, paves the way for updating the bond vault hashes after expiration
@@ -323,10 +253,13 @@ contract BrokerImplementation is ERC4626Cloned {
     function _issueLoan(
         address recipient,
         uint256 amount,
-        IStarNFT.Terms memory params //        uint256 collateralVault, //        uint256 amount, //        uint256 interestRate, //        uint256 duration, //        uint256 lienPosition, //        uint256 schedule
+        ICollateralVault.Terms memory params //        uint256 collateralVault, //        uint256 amount, //        uint256 interestRate, //        uint256 duration, //        uint256 lienPosition, //        uint256 schedule
     ) internal {
-        BrokerRouter(router()).requestLienPosition(
-            IStarNFT.LienActionEncumber(params, amount)
+        require(
+            BrokerRouter(router()).requestLienPosition(
+                ILienToken.LienActionEncumber(params, amount)
+            ),
+            "lien position not available"
         );
         ERC20(asset()).safeTransfer(recipient, amount);
         //        newIndex = terms[collateralVault].length - 1;
@@ -376,8 +309,42 @@ contract BrokerImplementation is ERC4626Cloned {
     //            amount
     //        );
     //    }
+}
 
-    function totalAssets() public view virtual override returns (uint256) {
-        return ERC20(asset()).balanceOf(address(this));
+interface IBroker {
+    function deposit(uint256 amount, address receiver) external virtual;
+}
+
+contract SoloBroker is BrokerImplementation {
+    using SafeTransferLib for ERC20;
+
+    event LogAddress(address);
+
+    function deposit(uint256 amount, address) external virtual {
+        emit LogAddress(appraiser());
+        require(
+            msg.sender == appraiser(),
+            "only the appraiser can fund this vault"
+        );
+        ERC20(asset()).safeTransferFrom(
+            address(msg.sender),
+            address(this),
+            amount
+        );
     }
+
+    function withdraw(uint256 amount) external {
+        require(
+            msg.sender == appraiser(),
+            "only the appraiser can exit this vault"
+        );
+        ERC20(asset()).safeTransferFrom(
+            address(this),
+            address(msg.sender),
+            amount
+        );
+    }
+}
+struct BrokerSlot {
+    address broker;
 }

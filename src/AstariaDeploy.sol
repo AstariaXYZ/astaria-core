@@ -4,10 +4,11 @@ import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
-import {StarNFT} from "./StarNFT.sol";
+import {CollateralVault, LienToken} from "./CollateralVault.sol";
 import {BrokerRouter} from "./BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
-import {BrokerImplementation} from "./BrokerImplementation.sol";
+import {SoloBroker} from "./BrokerImplementation.sol";
+import {BrokerVault} from "./BrokerVault.sol";
 import {TransferProxy} from "./TransferProxy.sol";
 import "../lib/foundry_eip-4626/src/WEth.sol";
 
@@ -27,8 +28,9 @@ interface IWETH9 is IERC20 {
 contract AstariaDeploy {
     enum UserRoles {
         ADMIN,
-        BOND_CONTROLLER,
-        WRAPPER,
+        BROKER_ROUTER,
+        COLLATERAL_VAULT,
+        LIEN_TOKEN,
         AUCTION_HOUSE,
         TRANSFER_PROXY
     }
@@ -44,54 +46,73 @@ contract AstariaDeploy {
         emit Deployed(address(MRA));
 
         TransferProxy TRANSFER_PROXY = new TransferProxy(MRA);
-        emit Deployed(address(TRANSFER_PROXY));
-        StarNFT STAR_NFT = new StarNFT(MRA, address(TRANSFER_PROXY));
-        emit Deployed(address(STAR_NFT));
-
-        BrokerImplementation implementation = new BrokerImplementation();
-        BrokerRouter BOND_CONTROLLER = new BrokerRouter(
-            address(WETH9),
-            address(STAR_NFT),
+        LienToken LIEN_TOKEN = new LienToken(
+            MRA,
             address(TRANSFER_PROXY),
-            address(implementation)
+            address(WETH9)
+        );
+        emit Deployed(address(TRANSFER_PROXY));
+        CollateralVault COLLATERAL_VAULT = new CollateralVault(
+            MRA,
+            address(TRANSFER_PROXY),
+            address(LIEN_TOKEN)
+        );
+        emit Deployed(address(COLLATERAL_VAULT));
+
+        SoloBroker soloImpl = new SoloBroker();
+        BrokerVault vaultImpl = new BrokerVault();
+        BrokerRouter BOND_CONTROLLER = new BrokerRouter(
+            MRA,
+            address(WETH9),
+            address(COLLATERAL_VAULT),
+            address(LIEN_TOKEN),
+            address(TRANSFER_PROXY),
+            address(vaultImpl),
+            address(soloImpl)
         );
         //
         AuctionHouse AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
             address(MRA),
-            address(STAR_NFT),
+            address(COLLATERAL_VAULT),
+            address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
-        STAR_NFT.setBondController(address(BOND_CONTROLLER));
-        STAR_NFT.setAuctionHouse(address(AUCTION_HOUSE));
+        COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
+        COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
         MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER),
+            uint8(UserRoles.COLLATERAL_VAULT),
             AuctionHouse.createAuction.selector,
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER),
+            uint8(UserRoles.COLLATERAL_VAULT),
             AuctionHouse.endAuction.selector,
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER),
+            uint8(UserRoles.COLLATERAL_VAULT),
             AuctionHouse.cancelAuction.selector,
             true
         );
 
+        //        MRA.setRoleCapability(
+        //            uint8(UserRoles.BOND_CONTROLLER),
+        //            CollateralVault.manageLien.selector,
+        //            true
+        //        );
         MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER),
-            StarNFT.manageLien.selector,
+            uint8(UserRoles.BROKER_ROUTER),
+            CollateralVault.auctionVault.selector,
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER),
-            StarNFT.auctionVault.selector,
+            uint8(UserRoles.BROKER_ROUTER),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER),
+            uint8(UserRoles.BROKER_ROUTER),
             TRANSFER_PROXY.tokenTransferFrom.selector,
             true
         );
@@ -100,12 +121,21 @@ contract AstariaDeploy {
             TRANSFER_PROXY.tokenTransferFrom.selector,
             true
         );
-        MRA.setUserRole(
-            address(BOND_CONTROLLER),
-            uint8(UserRoles.BOND_CONTROLLER),
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE),
+            LienToken.stopLiens.selector,
             true
         );
-        MRA.setUserRole(address(STAR_NFT), uint8(UserRoles.WRAPPER), true);
+        MRA.setUserRole(
+            address(BOND_CONTROLLER),
+            uint8(UserRoles.BROKER_ROUTER),
+            true
+        );
+        MRA.setUserRole(
+            address(COLLATERAL_VAULT),
+            uint8(UserRoles.COLLATERAL_VAULT),
+            true
+        );
         MRA.setUserRole(
             address(AUCTION_HOUSE),
             uint8(UserRoles.AUCTION_HOUSE),

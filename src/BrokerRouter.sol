@@ -1,12 +1,13 @@
 pragma solidity ^0.8.13;
-
+import {Auth, Authority} from "solmate/auth/Auth.sol";
 import "openzeppelin/token/ERC1155/ERC1155.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
 import "openzeppelin/utils/cryptography/MerkleProof.sol";
 import "gpl/interfaces/IAuctionHouse.sol";
 import "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
-import {IStarNFT} from "./interfaces/IStarNFT.sol";
+import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
+import {ILienToken} from "./CollateralVault.sol";
 import "./TransferProxy.sol";
 import "./BrokerImplementation.sol";
 
@@ -32,7 +33,7 @@ interface IInvoker {
 //}
 
 interface IBrokerRouter {
-    struct NewBondVaultParams {
+    struct BrokerParams {
         address appraiser;
         bytes32 root;
         uint256 expiration;
@@ -44,6 +45,11 @@ interface IBrokerRouter {
         bytes32 s;
     }
 
+    //    struct NewBondVaultParams {
+    //        BrokerParams brokerParams;
+    //        bytes32[] vaultProof;
+    //    }
+
     struct CommitmentParams {
         uint256 collateralVault;
         bytes32 broker;
@@ -53,13 +59,13 @@ interface IBrokerRouter {
     }
 
     struct BuyoutLienParams {
-        IStarNFT.Terms outgoing;
-        IStarNFT.Terms incoming;
+        ICollateralVault.Terms outgoing;
+        ICollateralVault.Terms incoming;
     }
 
     struct RefinanceCheckParams {
-        IStarNFT.Terms outgoing;
-        IStarNFT.Terms incoming;
+        ICollateralVault.Terms outgoing;
+        ICollateralVault.Terms incoming;
     }
 
     struct BorrowAndBuyParams {
@@ -75,7 +81,7 @@ interface IBrokerRouter {
         address broker; //cloned proxy
     }
 
-    function newBondVault(NewBondVaultParams memory params) external;
+    function newBondVault(BrokerParams memory params) external;
 
     function encodeBondVaultHash(
         address appraiser,
@@ -100,28 +106,16 @@ interface IBrokerRouter {
 
     function lendToVault(bytes32 bondVault, uint256 amount) external;
 
-    function getLiens(uint256 collateralVault)
-        external
-        view
-        returns (IStarNFT.Lien[] memory);
-
-    function getLoan(uint256 collateralVault, uint256 index)
-        external
-        view
-        returns (IStarNFT.Lien memory);
-
     function getBroker(bytes32 bondVault) external view returns (address);
 
-    function liquidate(IStarNFT.Terms memory)
+    function liquidate(ICollateralVault.Terms memory)
         external
         returns (uint256 reserve);
 
-    function canLiquidate(IStarNFT.Terms memory) external view returns (bool);
-
-    function brokerIsOwner(uint256 collateralVault, uint256 position)
+    function canLiquidate(ICollateralVault.Terms memory)
         external
         view
-        returns (bool, address);
+        returns (bool);
 
     function isValidRefinance(RefinanceCheckParams memory params)
         external
@@ -129,15 +123,16 @@ interface IBrokerRouter {
         returns (bool);
 }
 
-contract BrokerRouter is IBrokerRouter {
+contract BrokerRouter is IBrokerRouter, Auth {
     bytes32 public immutable DOMAIN_SEPARATOR;
 
     string public constant name = "Astaria NFT Bond Vault";
     IERC20 public immutable WETH;
-    IStarNFT public immutable COLLATERAL_VAULT;
+    ICollateralVault public immutable COLLATERAL_VAULT;
+    ILienToken public immutable LIEN_TOKEN;
     TransferProxy public immutable TRANSFER_PROXY;
     address VAULT_IMPLEMENTATION;
-    address BROKER_IMPLEMENTATION;
+    address SOLO_IMPLEMENTATION;
 
     uint256 public LIQUIDATION_FEE_PERCENT; // a percent(13) then mul by 100
     uint64 public MIN_INTEREST_BPS; // a percent(13) then mul by 100
@@ -166,15 +161,20 @@ contract BrokerRouter is IBrokerRouter {
     error InvalidRefinanceDuration(uint256);
 
     constructor(
+        Authority _AUTHORITY,
         address _WETH,
         address _COLLATERAL_VAULT,
+        address _LIEN_TOKEN,
         address _TRANSFER_PROXY,
-        address _BROKER_IMPL
-    ) {
+        address _VAULT_IMPL,
+        address _SOLO_IMPL
+    ) Auth(address(msg.sender), _AUTHORITY) {
         WETH = IERC20(_WETH);
-        COLLATERAL_VAULT = IStarNFT(_COLLATERAL_VAULT);
+        COLLATERAL_VAULT = ICollateralVault(_COLLATERAL_VAULT);
+        LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
         TRANSFER_PROXY = TransferProxy(_TRANSFER_PROXY);
-        BROKER_IMPLEMENTATION = _BROKER_IMPL;
+        VAULT_IMPLEMENTATION = _VAULT_IMPL;
+        SOLO_IMPLEMENTATION = _SOLO_IMPL;
         LIQUIDATION_FEE_PERCENT = 13;
         MIN_INTEREST_BPS = 5; //5 bps
         MIN_DURATION_INCREASE = 14 days;
@@ -206,7 +206,7 @@ contract BrokerRouter is IBrokerRouter {
         );
 
     // _verify() internal
-    // merkle tree verifier
+    //     merkle tree verifier
     //    function verifyMerkleBranch(
     //        bytes32[] calldata proof,
     //        bytes32 leaf,
@@ -219,23 +219,33 @@ contract BrokerRouter is IBrokerRouter {
     // verifies the signature on the root of the merkle tree to be the appraiser
     // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
 
-    function newSoloVault(NewBondVaultParams memory params) external {
+    function newSoloVault(BrokerParams memory params) external {
         require(params.appraiser == msg.sender);
+        _newBondVault(params, false);
     }
 
-    modifier onlyAppraisers() {
-        //        require(appraisers[msg.sender] == true, "sender is not an appraiser");
+    modifier onlyAppraisers(address appraiser) {
+        require(appraisers[appraiser] == true, "sender is not an appraiser");
         _;
     }
 
-    function newBondVault(NewBondVaultParams memory params)
+    function setAppraisers(address[] memory vaultAppraisers)
         external
-        onlyAppraisers
+        requiresAuth
     {
-        _newBondVault(params);
+        for (uint256 i = 0; i < vaultAppraisers.length; ++i) {
+            appraisers[vaultAppraisers[i]] = true;
+        }
     }
 
-    function _newBondVault(NewBondVaultParams memory params) internal {
+    function newBondVault(BrokerParams memory params)
+        external
+        onlyAppraisers(params.appraiser)
+    {
+        _newBondVault(params, true);
+    }
+
+    function _newBondVault(BrokerParams memory params, bool vault) internal {
         require(
             params.appraiser != address(0),
             "BrokerRouter.newBondVault(): Appraiser address cannot be zero"
@@ -269,9 +279,15 @@ contract BrokerRouter is IBrokerRouter {
             recoveredAddress == params.appraiser,
             "newBondVault: Invalid Signature"
         );
+        address implementation;
+        if (vault) {
+            implementation = VAULT_IMPLEMENTATION;
+        } else {
+            implementation = SOLO_IMPLEMENTATION;
+        }
 
         address broker = ClonesWithImmutableArgs.clone(
-            BROKER_IMPLEMENTATION,
+            implementation,
             abi.encodePacked(
                 address(COLLATERAL_VAULT),
                 address(WETH),
@@ -279,7 +295,7 @@ contract BrokerRouter is IBrokerRouter {
                 params.root,
                 params.expiration,
                 params.buyout,
-                params.appraiser
+                recoveredAddress
             )
         );
         BondVault storage bondVault = bondVaults[params.root];
@@ -298,17 +314,7 @@ contract BrokerRouter is IBrokerRouter {
         );
     }
 
-    function _newBondVault(
-        address appraiser,
-        bytes32 root,
-        uint256 expiration,
-        uint256 deadline,
-        uint256 buyout,
-        bytes32 contentHash,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) internal {}
+    function swapLiensForBalance(uint256[] memory liens) external {}
 
     function encodeBondVaultHash(
         address appraiser,
@@ -384,7 +390,7 @@ contract BrokerRouter is IBrokerRouter {
     //    }
 
     function _borrow(
-        IStarNFT.Terms memory terms,
+        ICollateralVault.Terms memory terms,
         uint256 amount,
         address receiver
     ) internal returns (uint256) {
@@ -401,7 +407,7 @@ contract BrokerRouter is IBrokerRouter {
     }
 
     function buyoutLienPosition(BuyoutLienParams memory params) external {
-        IStarNFT.Lien memory lien = COLLATERAL_VAULT.getLien(
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
             params.outgoing.collateralVault,
             params.outgoing.position
         );
@@ -484,13 +490,6 @@ contract BrokerRouter is IBrokerRouter {
     //        uint256 buyout,
     //        bytes32[] calldata proof,
     //        uint256[] memory loanDetails
-    function _newBondVault(
-        address appraiser,
-        bytes32 root,
-        bytes32 contentHash,
-        uint256 expiration,
-        uint256 buyout
-    ) internal {}
 
     //    function _validateLoanTerms(
     //        bytes32[] calldata proof,
@@ -590,24 +589,26 @@ contract BrokerRouter is IBrokerRouter {
         _;
     }
 
-    function _addLien(IStarNFT.LienActionEncumber memory params) internal {
-        COLLATERAL_VAULT.manageLien(
-            IStarNFT.LienAction.ENCUMBER,
-            abi.encode(params)
-        );
+    function _addLien(ILienToken.LienActionEncumber memory params) internal {
+        //        COLLATERAL_VAULT.manageLien(
+        //            ILienToken.LienAction.ENCUMBER,
+        //            abi.encode(params)
+        //        );
+
+        LIEN_TOKEN.createLien(params);
     }
 
-    function requestLienPosition(IStarNFT.LienActionEncumber calldata params)
+    function requestLienPosition(ILienToken.LienActionEncumber calldata params)
         external
         onlyVaults
         returns (bool)
     {
-        _addLien(IStarNFT.LienActionEncumber(params.terms, params.amount));
+        _addLien(ILienToken.LienActionEncumber(params.terms, params.amount));
         return true;
     }
 
     //    struct LienPayments {
-    //        IStarNFT.LienActionPayment[] payments;
+    //        ILienToken.LienActionPayment[] payments;
     //    }
 
     //    function _updateLiens(BulkLienActionSwap params) internal {}
@@ -651,28 +652,30 @@ contract BrokerRouter is IBrokerRouter {
     //        }
     //    }
 
-    function _removeLien(IStarNFT.LienActionUnEncumber memory params) internal {
-        COLLATERAL_VAULT.manageLien(
-            IStarNFT.LienAction.UN_ENCUMBER,
-            abi.encode(params)
-        );
-    }
+    //    function _removeLien(ILienToken.LienActionUnEncumber memory params)
+    //        internal
+    //    {
+    //        //        COLLATERAL_VAULT.manageLien(
+    //        //            ILienToken.LienAction.UN_ENCUMBER,
+    //        //            abi.encode(params)
+    //        //        );
+    //    }
 
-    function _swapLien(
-        //        bytes32 bondVaultOld,
-        //        bytes32 bondVaultNew,
-        //        uint256 collateralVault,
-        //        uint256 lienPosition,
-        //        uint256 newIndex,
-        //        uint256 amountOwed
-
-        IStarNFT.LienActionSwap memory params
-    ) internal {
-        COLLATERAL_VAULT.manageLien(
-            IStarNFT.LienAction.SWAP_VAULT,
-            abi.encode(params)
-        );
-    }
+    //    function _swapLien(
+    //        //        bytes32 bondVaultOld,
+    //        //        bytes32 bondVaultNew,
+    //        //        uint256 collateralVault,
+    //        //        uint256 lienPosition,
+    //        //        uint256 newIndex,
+    //        //        uint256 amountOwed
+    //
+    //        ILienToken.LienActionSwap memory params
+    //    ) internal {
+    //        //        COLLATERAL_VAULT.manageLien(
+    //        //            ILienToken.LienAction.SWAP_VAULT,
+    //        //            abi.encode(params)
+    //        //        );
+    //    }
 
     function lendToVault(bytes32 bondVault, uint256 amount) external {
         TRANSFER_PROXY.tokenTransferFrom(
@@ -686,27 +689,27 @@ contract BrokerRouter is IBrokerRouter {
             bondVaults[bondVault].broker != address(0),
             "lendToVault: vault doesn't exist"
         );
-        BrokerImplementation(bondVaults[bondVault].broker).deposit(
+        IBroker(bondVaults[bondVault].broker).deposit(
             amount,
             address(msg.sender)
         );
     }
 
-    function getLiens(uint256 collateralVault)
-        public
-        view
-        returns (IStarNFT.Lien[] memory)
-    {
-        return COLLATERAL_VAULT.getLiens(collateralVault);
-    }
+    //    function getLiens(uint256 collateralVault)
+    //        public
+    //        view
+    //        returns (ILienToken.Lien[] memory)
+    //    {
+    //        return LIEN_TOKEN.getLiens(collateralVault);
+    //    }
 
-    function getLoan(uint256 collateralVault, uint256 index)
-        public
-        view
-        returns (IStarNFT.Lien memory)
-    {
-        return COLLATERAL_VAULT.getLien(collateralVault, index);
-    }
+    //    function getLoan(uint256 collateralVault, uint256 index)
+    //        public
+    //        view
+    //        returns (ILienToken.Lien memory)
+    //    {
+    //        return LIEN_TOKEN.getLien(collateralVault, index);
+    //    }
 
     function getBrokerHash(address broker) external view returns (bytes32) {
         return brokerHashes[broker];
@@ -716,25 +719,25 @@ contract BrokerRouter is IBrokerRouter {
         return bondVaults[bondVault].broker;
     }
 
-    function brokerIsOwner(uint256 collateralVault, uint256 position)
-        external
-        view
-        returns (bool, address)
-    {
-        IStarNFT.Lien memory lien = COLLATERAL_VAULT.getLien(
-            collateralVault,
-            position
-        );
-        address owner = COLLATERAL_VAULT.ownerOf(lien.lienId);
+    //    function brokerIsOwner(uint256 collateralVault, uint256 position)
+    //        external
+    //        view
+    //        returns (bool, address)
+    //    {
+    //        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
+    //            collateralVault,
+    //            position
+    //        );
+    //        address owner = COLLATERAL_VAULT.ownerOf(lien.lienId);
+    //
+    //        return (brokerHashes[owner] != bytes32(0), owner);
+    //    }
 
-        return (brokerHashes[owner] != bytes32(0), owner);
-    }
-
-    event Repayment(uint256 collateralVault, uint256 position, uint256 amount);
+    //    event Repayment(uint256 collateralVault, uint256 position, uint256 amount);
 
     //    function _makeLienPayments(LienPayments memory params) internal {
     //        COLLATERAL_VAULT.manageLien(
-    //            IStarNFT.LienAction.PAY_LIEN,
+    //            ILienToken.LienAction.PAY_LIEN,
     //            abi.encode(params)
     //        );
     //    }
@@ -742,10 +745,10 @@ contract BrokerRouter is IBrokerRouter {
     //    function makePayment(uint256 collateralVault, uint256 repayment) external {
     //        // calculates interest here and apply it to the loan
     //
-    //        IStarNFT.Lien[] memory liens = COLLATERAL_VAULT.getLiens(
+    //        ILienToken.Lien[] memory liens = LIEN_TOKEN.getLiens(
     //            collateralVault
     //        );
-    //        IStarNFT.LienActionPayment[] memory payments;
+    //        ILienToken.LienActionPayment[] memory payments;
     //
     //        for (uint256 i = 0; i < liens.length; ++i) {
     //            uint256 openInterest = COLLATERAL_VAULT.getInterest(
@@ -758,7 +761,7 @@ contract BrokerRouter is IBrokerRouter {
     //                repayment = maxLienPayment;
     //            }
     //            //            payments.push(
-    //            //                IStarNFT.LienActionPayment(collateralVault, i, repayment)
+    //            //                ILienToken.LienActionPayment(collateralVault, i, repayment)
     //            //            );
     //            TRANSFER_PROXY.tokenTransferFrom(
     //                address(WETH),
@@ -800,17 +803,19 @@ contract BrokerRouter is IBrokerRouter {
     //        //        }
     //    }
 
-    function canLiquidate(IStarNFT.Terms memory params)
+    function canLiquidate(ICollateralVault.Terms memory params)
         public
         view
         returns (bool)
     {
-        require(COLLATERAL_VAULT.validateTerms(params), "invalid loan hash");
-        IStarNFT.Lien memory lien = COLLATERAL_VAULT.getLien(
+        require(LIEN_TOKEN.validateTerms(params), "invalid loan hash");
+
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
             params.collateralVault,
             params.position
         );
-        uint256 interestAccrued = COLLATERAL_VAULT.getInterest(
+
+        uint256 interestAccrued = LIEN_TOKEN.getInterest(
             params.collateralVault,
             params.position
         );
@@ -818,11 +823,11 @@ contract BrokerRouter is IBrokerRouter {
 
         return
             maxInterest > interestAccrued ||
-            (lien.end <= block.timestamp && lien.amount > 0);
+            (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(IStarNFT.Terms memory params)
+    function liquidate(ICollateralVault.Terms memory params)
         external
         returns (uint256 reserve)
     {
@@ -832,7 +837,7 @@ contract BrokerRouter is IBrokerRouter {
         //            address[] memory brokers,
         //            ,
         //            uint256[] memory indexes
-        //        ) = COLLATERAL_VAULT.getLiens(collateralVault);
+        //        ) = LIEN_TOKEN.getLiens(collateralVault);
         //
         //        for (uint256 i = 0; i < brokers.length; i++) {
         //            reserve += BrokerImplementation(brokers[i]).moveToReceivership(
@@ -857,7 +862,7 @@ contract BrokerRouter is IBrokerRouter {
         view
         returns (bool)
     {
-        IStarNFT.Lien memory lien = COLLATERAL_VAULT.getLien(
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
             params.outgoing.collateralVault,
             params.outgoing.position
         );
@@ -867,7 +872,8 @@ contract BrokerRouter is IBrokerRouter {
             revert InvalidRefinanceRate(params.incoming.rate);
 
         if (
-            (block.timestamp + params.incoming.duration) - (lien.end) <
+            (block.timestamp + params.incoming.duration) -
+                (lien.start + lien.duration) <
             MIN_DURATION_INCREASE
         ) revert InvalidRefinanceDuration(params.incoming.duration);
 
