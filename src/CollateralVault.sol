@@ -251,44 +251,28 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
         uint256 liquidationFee
     ) external requiresAuth returns (uint256 reserve) {
         require(
-            starIdToAuctionId[terms.collateralVault] == uint256(0),
+            !AUCTION_HOUSE.auctionExists(terms.collateralVault),
             "auctionVault: auction already exists"
         );
-        uint256 auctionId;
-        (auctionId, reserve) = AUCTION_HOUSE.createAuction(
+        reserve = AUCTION_HOUSE.createAuction(
             terms.collateralVault,
             uint256(7 days),
             liquidator,
             liquidationFee
         );
-        starIdToAuctionId[terms.collateralVault] = auctionId;
     }
 
-    function cancelAuction(uint256 _starTokenId)
-        external
-        onlyOwner(_starTokenId)
-    {
-        require(
-            starIdToAuctionId[_starTokenId] > uint256(0),
-            "Auction doesn't exist"
-        );
-        uint256 auctionId = starIdToAuctionId[_starTokenId];
-        (, , , , uint256 reservePrice, ) = AUCTION_HOUSE.getAuctionData(
-            auctionId
-        );
+    function cancelAuction(uint256 tokenId) external onlyOwner(tokenId) {
+        require(AUCTION_HOUSE.auctionExists(tokenId), "Auction doesn't exist");
 
-        AUCTION_HOUSE.cancelAuction(auctionId, msg.sender);
-        delete starIdToAuctionId[_starTokenId];
+        AUCTION_HOUSE.cancelAuction(tokenId, msg.sender);
     }
 
-    function endAuction(uint256 _tokenId) external {
-        require(
-            starIdToAuctionId[_tokenId] > uint256(0),
-            "Auction doesn't exist"
-        );
+    function endAuction(uint256 tokenId) external {
+        require(AUCTION_HOUSE.auctionExists(tokenId), "Auction doesn't exist");
 
-        address winner = AUCTION_HOUSE.endAuction(starIdToAuctionId[_tokenId]);
-        delete starIdToAuctionId[_tokenId];
-        _transfer(ownerOf(_tokenId), winner, _tokenId);
+        address winner = AUCTION_HOUSE.endAuction(tokenId);
+        //        _transfer(ownerOf(tokenId), winner, tokenId);
+        releaseToAddress(tokenId, winner);
     }
 }

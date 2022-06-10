@@ -441,15 +441,13 @@ contract TestHelpers is Test {
     }
 
     function _warpToAuctionEnd(uint256 collateralVault) internal {
-        uint256 auctionId = COLLATERAL_VAULT.starIdToAuctionId(collateralVault);
         (
-            uint256 tokenId,
             uint256 amount,
             uint256 duration,
             uint256 firstBidTime,
             uint256 reservePrice,
             address bidder
-        ) = AUCTION_HOUSE.getAuctionData(auctionId);
+        ) = AUCTION_HOUSE.getAuctionData(collateralVault);
         vm.warp(block.timestamp + duration);
     }
 
@@ -462,8 +460,7 @@ contract TestHelpers is Test {
         vm.startPrank(bidder);
         WETH9.deposit{value: amount}();
         WETH9.approve(address(TRANSFER_PROXY), amount);
-        uint256 auctionId = COLLATERAL_VAULT.starIdToAuctionId(tokenId);
-        AUCTION_HOUSE.createBid(auctionId, amount);
+        AUCTION_HOUSE.createBid(tokenId, amount);
         vm.stopPrank();
     }
 
