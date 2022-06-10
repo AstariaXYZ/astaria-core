@@ -8,7 +8,10 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {ICollateralVault, CollateralVault, LienToken, ILienToken} from "../CollateralVault.sol";
+import {CollateralVault} from "../CollateralVault.sol";
+import {LienToken} from "../LienToken.sol";
+import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
+import {ILienToken} from "../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
@@ -74,7 +77,11 @@ contract TestHelpers is Test {
     address appraiserTwo = vm.addr(appraiserTwoPK);
     address appraisterThree = vm.addr(0x1345);
 
-    event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
+    event NewTermCommitment(
+        bytes32 bondVault,
+        uint256 collateralVault,
+        uint256 amount
+    );
     event Repayment(bytes32 bondVault, uint256 collateralVault, uint256 amount);
     event Liquidation(bytes32 bondVault, uint256 collateralVault);
     event NewBondVault(
@@ -333,7 +340,7 @@ contract TestHelpers is Test {
 
     function _commitToLoan(address tokenContract, uint256 tokenId)
         internal
-        returns (bytes32 vaultHash, ICollateralVault.Terms memory)
+        returns (bytes32 vaultHash, IBrokerRouter.Terms memory)
     {
         return
             _commitToLoan(
@@ -357,7 +364,7 @@ contract TestHelpers is Test {
         uint256 amount,
         uint256 lienPosition,
         uint256 schedule
-    ) internal returns (bytes32 vaultHash, ICollateralVault.Terms memory) {
+    ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory) {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
@@ -381,7 +388,7 @@ contract TestHelpers is Test {
             schedule
         );
 
-        //        terms = ICollateralVault.Terms(
+        //        terms = IBrokerRouter.Terms(
         //            broker,
         //            proof,
         //            collateralVault,
@@ -407,9 +414,9 @@ contract TestHelpers is Test {
 
         //event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
         vm.expectEmit(true, true, false, false);
-        emit NewLoan(vaultHash, collateralVault, amount);
+        emit NewTermCommitment(vaultHash, collateralVault, amount);
         address broker = BOND_CONTROLLER.getBroker(vaultHash);
-        ICollateralVault.Terms memory terms = ICollateralVault.Terms(
+        IBrokerRouter.Terms memory terms = IBrokerRouter.Terms(
             broker,
             proof,
             collateralVault,

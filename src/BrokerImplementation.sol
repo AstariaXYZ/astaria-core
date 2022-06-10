@@ -2,17 +2,22 @@ pragma solidity ^0.8.13;
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {Base, ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
-import {BrokerRouter} from "./BrokerRouter.sol";
+import {IBrokerRouter, BrokerRouter} from "./BrokerRouter.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
-import {ILienToken} from "./CollateralVault.sol";
+import {ILienToken} from "./interfaces/ILienToken.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
+import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
 
-contract BrokerImplementation is Base {
-    event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
+contract BrokerImplementation is IERC721Receiver, Base {
+    event NewTermCommitment(
+        bytes32 bondVault,
+        uint256 collateralVault,
+        uint256 amount
+    );
 
-    event Repayment(uint256 collateralVault, uint256 index, uint256 amount);
+    event Payment(uint256 collateralVault, uint256 index, uint256 amount);
     event Liquidation(
         uint256 collateralVault,
         bytes32[] bondVaults,
@@ -33,10 +38,17 @@ contract BrokerImplementation is Base {
     );
     using SafeTransferLib for ERC20;
 
-    //    function deposit(uint256 amount, address receiver) external virtual {}
+    function onERC721Received(
+        address operator_,
+        address from_,
+        uint256 tokenId_,
+        bytes calldata data_
+    ) external pure override returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
 
     function _validateLoanTerms(
-        ICollateralVault.Terms memory params,
+        IBrokerRouter.Terms memory params,
         uint256 amount
     ) internal view {
         require(
@@ -59,7 +71,7 @@ contract BrokerImplementation is Base {
     }
 
     //move this to a lib so we can reuse on star nft
-    function validateTerms(ICollateralVault.Terms memory params)
+    function validateTerms(IBrokerRouter.Terms memory params)
         public
         view
         returns (bool)
@@ -100,7 +112,7 @@ contract BrokerImplementation is Base {
     }
 
     function commitToLoan(
-        ICollateralVault.Terms memory params,
+        IBrokerRouter.Terms memory params,
         uint256 amount,
         address receiver
     ) public {
@@ -130,7 +142,7 @@ contract BrokerImplementation is Base {
 
         _issueLoan(receiver, amount, params);
 
-        emit NewLoan(vaultHash(), params.collateralVault, amount);
+        emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
     }
 
     function verifyMerkleBranch(
@@ -142,7 +154,7 @@ contract BrokerImplementation is Base {
         return isValidLeaf;
     }
 
-    function canLiquidate(ICollateralVault.Terms memory params)
+    function canLiquidate(IBrokerRouter.Terms memory params)
         public
         view
         returns (bool)
@@ -160,8 +172,8 @@ contract BrokerImplementation is Base {
     //    }
 
     modifier checkSender(
-        ICollateralVault.Terms memory outgoingTerms,
-        ICollateralVault.Terms memory incomingTerms
+        IBrokerRouter.Terms memory outgoingTerms,
+        IBrokerRouter.Terms memory incomingTerms
     ) {
         if (outgoingTerms.collateralVault != incomingTerms.collateralVault) {
             require(
@@ -176,8 +188,8 @@ contract BrokerImplementation is Base {
     }
 
     function buyoutLien(
-        ICollateralVault.Terms memory outgoingTerms,
-        ICollateralVault.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
+        IBrokerRouter.Terms memory outgoingTerms,
+        IBrokerRouter.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
     ) external {
         {
             (uint256 owed, uint256 buyout) = BrokerRouter(router())
@@ -253,7 +265,7 @@ contract BrokerImplementation is Base {
     function _issueLoan(
         address recipient,
         uint256 amount,
-        ICollateralVault.Terms memory params //        uint256 collateralVault, //        uint256 amount, //        uint256 interestRate, //        uint256 duration, //        uint256 lienPosition, //        uint256 schedule
+        IBrokerRouter.Terms memory params //        uint256 collateralVault, //        uint256 amount, //        uint256 interestRate, //        uint256 duration, //        uint256 lienPosition, //        uint256 schedule
     ) internal {
         require(
             BrokerRouter(router()).requestLienPosition(

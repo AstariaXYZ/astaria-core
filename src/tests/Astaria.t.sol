@@ -8,7 +8,10 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {ICollateralVault, CollateralVault, LienToken, ILienToken} from "../CollateralVault.sol";
+import {CollateralVault} from "../CollateralVault.sol";
+import {LienToken} from "../LienToken.sol";
+import {ILienToken} from "../interfaces/ILienToken.sol";
+import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
@@ -100,19 +103,16 @@ contract AstariaTest is TestHelpers {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
-        (
-            bytes32 vaultHash,
-            ICollateralVault.Terms memory terms
-        ) = _commitToLoan(
-                tokenContract,
-                tokenId,
-                maxAmount,
-                interestRate,
-                duration,
-                amount,
-                lienPosition,
-                schedule
-            );
+        (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            maxAmount,
+            interestRate,
+            duration,
+            amount,
+            lienPosition,
+            schedule
+        );
         vm.expectRevert(bytes("must be no liens or auctions to call this"));
 
         COLLATERAL_VAULT.releaseToAddress(
@@ -147,19 +147,16 @@ contract AstariaTest is TestHelpers {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
-        (
-            bytes32 vaultHash,
-            ICollateralVault.Terms memory terms
-        ) = _commitToLoan(
-                tokenContract,
-                tokenId,
-                maxAmount,
-                interestRate,
-                duration,
-                amount,
-                lienPosition,
-                schedule
-            );
+        (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            maxAmount,
+            interestRate,
+            duration,
+            amount,
+            lienPosition,
+            schedule
+        );
         uint256 starId = uint256(
             keccak256(abi.encodePacked(tokenContract, tokenId))
         );
@@ -220,7 +217,7 @@ contract AstariaTest is TestHelpers {
         loanDetails2[3] = uint256(1 ether); //amount
         loanDetails2[4] = uint256(0); //lienPosition
         loanDetails2[5] = uint256(50); //schedule
-        (bytes32 outgoing, ICollateralVault.Terms memory terms) = _commitToLoan(
+        (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             loanDetails[0],

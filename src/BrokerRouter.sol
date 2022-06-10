@@ -1,5 +1,6 @@
 pragma solidity ^0.8.13;
 import {Auth, Authority} from "solmate/auth/Auth.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import "openzeppelin/token/ERC1155/ERC1155.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
@@ -7,9 +8,10 @@ import "openzeppelin/utils/cryptography/MerkleProof.sol";
 import "gpl/interfaces/IAuctionHouse.sol";
 import "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
-import {ILienToken} from "./CollateralVault.sol";
-import "./TransferProxy.sol";
-import "./BrokerImplementation.sol";
+import {ILienToken} from "./interfaces/ILienToken.sol";
+import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
+import {IBroker, BrokerImplementation} from "./BrokerImplementation.sol";
+import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 interface IInvoker {
     function onBorrowAndBuy(
@@ -33,6 +35,16 @@ interface IInvoker {
 //}
 
 interface IBrokerRouter {
+    struct Terms {
+        address broker;
+        bytes32[] proof;
+        uint256 collateralVault;
+        uint256 maxAmount;
+        uint256 rate;
+        uint256 duration;
+        uint256 position;
+        uint256 schedule;
+    }
     struct BrokerParams {
         address appraiser;
         bytes32 root;
@@ -45,27 +57,19 @@ interface IBrokerRouter {
         bytes32 s;
     }
 
-    //    struct NewBondVaultParams {
-    //        BrokerParams brokerParams;
-    //        bytes32[] vaultProof;
-    //    }
-
     struct CommitmentParams {
-        uint256 collateralVault;
-        bytes32 broker;
-        bytes32[] proof;
-        uint256[] loanDetails;
-        address receiver;
+        Terms terms;
+        uint256 amount;
     }
 
     struct BuyoutLienParams {
-        ICollateralVault.Terms outgoing;
-        ICollateralVault.Terms incoming;
+        IBrokerRouter.Terms outgoing;
+        IBrokerRouter.Terms incoming;
     }
 
     struct RefinanceCheckParams {
-        ICollateralVault.Terms outgoing;
-        ICollateralVault.Terms incoming;
+        IBrokerRouter.Terms outgoing;
+        IBrokerRouter.Terms incoming;
     }
 
     struct BorrowAndBuyParams {
@@ -73,6 +77,7 @@ interface IBrokerRouter {
         address invoker;
         uint256 purchasePrice;
         bytes purchaseData;
+        address receiver;
     }
 
     struct BondVault {
@@ -94,7 +99,7 @@ interface IBrokerRouter {
 
     //    function buyoutLienPosition(BuyoutLienParams memory params) external;
 
-    //    function commitToLoans(CommitmentParams[] calldata commitments) external;
+    function commitToLoans(CommitmentParams[] calldata commitments) external;
 
     //    function requestLienPosition(
     //        uint256 collateralVault,
@@ -108,11 +113,11 @@ interface IBrokerRouter {
 
     function getBroker(bytes32 bondVault) external view returns (address);
 
-    function liquidate(ICollateralVault.Terms memory)
+    function liquidate(IBrokerRouter.Terms memory)
         external
         returns (uint256 reserve);
 
-    function canLiquidate(ICollateralVault.Terms memory)
+    function canLiquidate(IBrokerRouter.Terms memory)
         external
         view
         returns (bool);
@@ -121,27 +126,6 @@ interface IBrokerRouter {
         external
         view
         returns (bool);
-}
-
-contract BrokerRouter is IBrokerRouter, Auth {
-    bytes32 public immutable DOMAIN_SEPARATOR;
-
-    string public constant name = "Astaria NFT Bond Vault";
-    IERC20 public immutable WETH;
-    ICollateralVault public immutable COLLATERAL_VAULT;
-    ILienToken public immutable LIEN_TOKEN;
-    TransferProxy public immutable TRANSFER_PROXY;
-    address VAULT_IMPLEMENTATION;
-    address SOLO_IMPLEMENTATION;
-
-    uint256 public LIQUIDATION_FEE_PERCENT; // a percent(13) then mul by 100
-    uint64 public MIN_INTEREST_BPS; // a percent(13) then mul by 100
-    uint64 public MIN_DURATION_INCREASE; // a percent(13) then mul by 100
-
-    mapping(bytes32 => BondVault) public bondVaults;
-    mapping(address => bytes32) public brokerHashes;
-    mapping(address => bool) public appraisers;
-    mapping(address => uint256) public appraiserNonces;
 
     event Liquidation(
         uint256 collateralVault,
@@ -159,6 +143,27 @@ contract BrokerRouter is IBrokerRouter, Auth {
     error InvalidAddress(address);
     error InvalidRefinanceRate(uint256);
     error InvalidRefinanceDuration(uint256);
+}
+
+contract BrokerRouter is IBrokerRouter, Auth {
+    bytes32 public immutable DOMAIN_SEPARATOR;
+    using SafeERC20 for IERC20;
+    string public constant name = "Astaria NFT Bond Vault";
+    IERC20 public immutable WETH;
+    ICollateralVault public immutable COLLATERAL_VAULT;
+    ILienToken public immutable LIEN_TOKEN;
+    ITransferProxy public immutable TRANSFER_PROXY;
+    address VAULT_IMPLEMENTATION;
+    address SOLO_IMPLEMENTATION;
+
+    uint256 public LIQUIDATION_FEE_PERCENT; // a percent(13) then mul by 100
+    uint64 public MIN_INTEREST_BPS; // a percent(13) then mul by 100
+    uint64 public MIN_DURATION_INCREASE; // a percent(13) then mul by 100
+
+    mapping(bytes32 => BondVault) public bondVaults;
+    mapping(address => bytes32) public brokerHashes;
+    mapping(address => bool) public appraisers;
+    mapping(address => uint256) public appraiserNonces;
 
     constructor(
         Authority _AUTHORITY,
@@ -172,7 +177,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
         WETH = IERC20(_WETH);
         COLLATERAL_VAULT = ICollateralVault(_COLLATERAL_VAULT);
         LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
-        TRANSFER_PROXY = TransferProxy(_TRANSFER_PROXY);
+        TRANSFER_PROXY = ITransferProxy(_TRANSFER_PROXY);
         VAULT_IMPLEMENTATION = _VAULT_IMPL;
         SOLO_IMPLEMENTATION = _SOLO_IMPL;
         LIQUIDATION_FEE_PERCENT = 13;
@@ -193,7 +198,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
                 address(this)
             )
         );
-        WETH.approve(address(TRANSFER_PROXY), type(uint256).max);
+        WETH.safeApprove(address(TRANSFER_PROXY), type(uint256).max);
     }
 
     // See https://eips.ethereum.org/EIPS/eip-191
@@ -202,19 +207,19 @@ contract BrokerRouter is IBrokerRouter, Auth {
 
     bytes32 private constant NEW_VAULT_SIGNATURE_HASH =
         keccak256(
-            "NewBondVault(address appraiser,bytes32 root,uint256 expiration,uint256 nonce,uint256 deadline,uint256 maturity)"
+            "NewBondVault(address appraiser,bytes32 root,uint256 expiration,uint256 nonce,uint256 deadline)"
         );
 
     // _verify() internal
     //     merkle tree verifier
-    //    function verifyMerkleBranch(
-    //        bytes32[] calldata proof,
-    //        bytes32 leaf,
-    //        bytes32 root
-    //    ) public view returns (bool) {
-    //        bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
-    //        return isValidLeaf;
-    //    }
+    function verifyMerkleBranch(
+        bytes32[] calldata proof,
+        bytes32 leaf,
+        bytes32 root
+    ) public view returns (bool) {
+        bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
+        return isValidLeaf;
+    }
 
     // verifies the signature on the root of the merkle tree to be the appraiser
     // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
@@ -314,8 +319,6 @@ contract BrokerRouter is IBrokerRouter, Auth {
         );
     }
 
-    function swapLiensForBalance(uint256[] memory liens) external {}
-
     function encodeBondVaultHash(
         address appraiser,
         bytes32 root,
@@ -343,54 +346,47 @@ contract BrokerRouter is IBrokerRouter, Auth {
 
     function _validateCommitment(CommitmentParams calldata c) internal {
         require(
-            c.loanDetails.length == 7 &&
-                c.broker != bytes32(0) &&
-                c.collateralVault != uint256(0)
-        );
-        require(
-            msg.sender == COLLATERAL_VAULT.ownerOf(c.collateralVault),
+            msg.sender == COLLATERAL_VAULT.ownerOf(c.terms.collateralVault),
             "invalid sender for collateralVault"
         );
     }
 
-    //    function _executeCommitment(Terms calldata c) internal {
-    //        _validateCommitment(c);
-    //        _borrow(c.broker, c.proof, c.loanDetails, c.receiver);
-    //    }
+    function _executeCommitment(CommitmentParams calldata c) internal {
+        _validateCommitment(c);
+        _borrow(c.terms, c.amount, address(this));
+    }
 
-    //    function borrowAndBuy(BorrowAndBuyParams calldata params) external {
-    //        uint256 spendableBalance;
-    //        for (uint256 i = 0; i < params.commitments.length; ++i) {
-    //            _executeCommitment(params.commitments[i]);
-    //            if (params.commitments[i].receiver == address(this)) {
-    //                spendableBalance += params.commitments[i].loanDetails[4]; //amount borrowed
-    //            }
-    //        }
-    //        require(
-    //            params.purchasePrice <= spendableBalance,
-    //            "purchase price cannot be for more than your aggregate loan"
-    //        );
-    //
-    //        WETH.approve(params.invoker, params.purchasePrice);
-    //        require(
-    //            IInvoker(params.invoker).onBorrowAndBuy(
-    //                params.purchaseData, // calldata for the invoker
-    //                address(WETH), // token
-    //                params.purchasePrice, //max approval
-    //                payable(msg.sender) // recipient
-    //            ),
-    //            "borrow and buy failed"
-    //        );
-    //        if (spendableBalance - params.purchasePrice > uint256(0)) {
-    //            WETH.transfer(
-    //                address(msg.sender),
-    //                spendableBalance - params.purchasePrice
-    //            );
-    //        }
-    //    }
+    function borrowAndBuy(BorrowAndBuyParams calldata params) external {
+        uint256 spendableBalance;
+        for (uint256 i = 0; i < params.commitments.length; ++i) {
+            _executeCommitment(params.commitments[i]);
+            spendableBalance += params.commitments[i].amount; //amount borrowed
+        }
+        require(
+            params.purchasePrice <= spendableBalance,
+            "purchase price cannot be for more than your aggregate loan"
+        );
+
+        WETH.safeApprove(params.invoker, params.purchasePrice);
+        require(
+            IInvoker(params.invoker).onBorrowAndBuy(
+                params.purchaseData, // calldata for the invoker
+                address(WETH), // token
+                params.purchasePrice, //max approval
+                payable(msg.sender) // recipient
+            ),
+            "borrow and buy failed"
+        );
+        if (spendableBalance - params.purchasePrice > uint256(0)) {
+            WETH.safeTransfer(
+                msg.sender,
+                spendableBalance - params.purchasePrice
+            );
+        }
+    }
 
     function _borrow(
-        ICollateralVault.Terms memory terms,
+        IBrokerRouter.Terms memory terms,
         uint256 amount,
         address receiver
     ) internal returns (uint256) {
@@ -402,46 +398,26 @@ contract BrokerRouter is IBrokerRouter, Auth {
         );
         if (receiver == address(this)) return amount;
         return uint256(0);
-
-        //        WETH.approve(purchaseTarget, purchasePrice);
     }
 
-    function buyoutLienPosition(BuyoutLienParams memory params) external {
-        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
-            params.outgoing.collateralVault,
-            params.outgoing.position
-        );
-
-        BrokerImplementation(params.outgoing.broker).validateTerms(
-            params.outgoing
-        );
-
-        uint256 amountOwed = lien.amount +
-            (lien.amount * params.outgoing.rate) /
-            100;
-
-        uint256 buyout = (lien.amount *
-            BrokerImplementation(params.outgoing.broker).buyout()) / 100;
-        TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(msg.sender),
-            address(this),
-            uint256(amountOwed + buyout)
-        );
-        WETH.approve(params.incoming.broker, uint256(amountOwed + buyout));
-        //        BrokerImplementation(params.incoming.broker).buyoutLien(
-        //            params.incoming.position,
-        //            params.incoming.collateralVault,
-        //            params.incoming.proof,
-        //            params.incoming.loanDetails
+    function buyoutLienPosition(uint256 collateralVault, uint256 position)
+        external
+    {
+        //        TRANSFER_PROXY.tokenTransferFrom(
+        //            address(WETH),
+        //            address(msg.sender),
+        //            address(this),
+        //            uint256(buyout)
         //        );
+        //        WETH.safeApprove(params.incoming.broker, uint256(buyout));
+        //        LIEN_TOKEN.buyoutLien(collateralVault, position);
     }
 
-    //    function commitToLoans(CommitmentParams[] calldata commitments) external {
-    //        for (uint256 i = 0; i < commitments.length; ++i) {
-    //            _executeCommitment(commitments[i]);
-    //        }
-    //    }
+    function commitToLoans(CommitmentParams[] calldata commitments) external {
+        for (uint256 i = 0; i < commitments.length; ++i) {
+            _executeCommitment(commitments[i]);
+        }
+    }
 
     //    function refinanceLoan(
     //        bytes32[] calldata dealBrokers, //outgoing, incoming
@@ -684,7 +660,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
             address(this),
             amount
         );
-        WETH.approve(bondVaults[bondVault].broker, amount);
+        WETH.safeApprove(bondVaults[bondVault].broker, amount);
         require(
             bondVaults[bondVault].broker != address(0),
             "lendToVault: vault doesn't exist"
@@ -719,91 +695,9 @@ contract BrokerRouter is IBrokerRouter, Auth {
         return bondVaults[bondVault].broker;
     }
 
-    //    function brokerIsOwner(uint256 collateralVault, uint256 position)
-    //        external
-    //        view
-    //        returns (bool, address)
-    //    {
-    //        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
-    //            collateralVault,
-    //            position
-    //        );
-    //        address owner = COLLATERAL_VAULT.ownerOf(lien.lienId);
-    //
-    //        return (brokerHashes[owner] != bytes32(0), owner);
-    //    }
+    event Repayment(uint256 collateralVault, uint256 position, uint256 amount);
 
-    //    event Repayment(uint256 collateralVault, uint256 position, uint256 amount);
-
-    //    function _makeLienPayments(LienPayments memory params) internal {
-    //        COLLATERAL_VAULT.manageLien(
-    //            ILienToken.LienAction.PAY_LIEN,
-    //            abi.encode(params)
-    //        );
-    //    }
-
-    //    function makePayment(uint256 collateralVault, uint256 repayment) external {
-    //        // calculates interest here and apply it to the loan
-    //
-    //        ILienToken.Lien[] memory liens = LIEN_TOKEN.getLiens(
-    //            collateralVault
-    //        );
-    //        ILienToken.LienActionPayment[] memory payments;
-    //
-    //        for (uint256 i = 0; i < liens.length; ++i) {
-    //            uint256 openInterest = COLLATERAL_VAULT.getInterest(
-    //                collateralVault,
-    //                i
-    //            );
-    //            uint256 maxLienPayment = liens[i].amount + openInterest;
-    //            address owner = COLLATERAL_VAULT.ownerOf(liens[i].lienId);
-    //            if (maxLienPayment >= repayment) {
-    //                repayment = maxLienPayment;
-    //            }
-    //            //            payments.push(
-    //            //                ILienToken.LienActionPayment(collateralVault, i, repayment)
-    //            //            );
-    //            TRANSFER_PROXY.tokenTransferFrom(
-    //                address(WETH),
-    //                address(msg.sender),
-    //                owner,
-    //                repayment
-    //            );
-    //            emit Repayment(collateralVault, i, repayment);
-    //        }
-    //
-    //        //        _makeLienPayments(LienPayments(payments));
-    //        //        //TODO: ensure math is correct on calcs
-    //        //        uint256 appraiserPayout = (20 * convertToShares(openInterest)) / 100;
-    //        //        _mint(appraiser(), appraiserPayout);
-    //        //
-    //        //        unchecked {
-    //        //            repayment -= appraiserPayout;
-    //        //
-    //        //            terms[collateralVault][index].amount += getInterest(
-    //        //                index,
-    //        //                collateralVault
-    //        //            );
-    //        //            repayment = (terms[collateralVault][index].amount >= repayment)
-    //        //                ? repayment
-    //        //                : terms[collateralVault][index].amount;
-    //        //
-    //        //            terms[collateralVault][index].amount -= repayment;
-    //        //        }
-    //        //
-    //        //        if (terms[collateralVault][index].amount == 0) {
-    //        //            BrokerRouter(router()).updateLien(
-    //        //                collateralVault,
-    //        //                index,
-    //        //                msg.sender
-    //        //            );
-    //        //            delete terms[collateralVault][index];
-    //        //        } else {
-    //        //            terms[collateralVault][index].start = uint64(block.timestamp);
-    //        //        }
-    //    }
-
-    function canLiquidate(ICollateralVault.Terms memory params)
+    function canLiquidate(IBrokerRouter.Terms memory params)
         public
         view
         returns (bool)
@@ -827,7 +721,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(ICollateralVault.Terms memory params)
+    function liquidate(IBrokerRouter.Terms memory params)
         external
         returns (uint256 reserve)
     {

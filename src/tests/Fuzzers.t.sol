@@ -8,7 +8,10 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {ICollateralVault, CollateralVault, LienToken, ILienToken} from "../CollateralVault.sol";
+import {CollateralVault} from "../CollateralVault.sol";
+import {LienToken} from "../LienToken.sol";
+import {ILienToken} from "../interfaces/ILienToken.sol";
+import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
@@ -35,7 +38,7 @@ contract Fuzzers is TestHelpers {
         uint256 duration,
         uint256 amount
     ) public {
-        interestRate = bound(interestRate, 1e10, 1e30); // is this reasonable? (original tests were 1e20)
+        interestRate = bound(interestRate, 1e10, 1e12); // is this reasonable? (original tests were 1e20)
         duration = bound(
             duration,
             uint256(block.timestamp + 1 minutes),

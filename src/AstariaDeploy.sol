@@ -4,7 +4,8 @@ import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
-import {CollateralVault, LienToken} from "./CollateralVault.sol";
+import {CollateralVault} from "./CollateralVault.sol";
+import {LienToken} from "./LienToken.sol";
 import {BrokerRouter} from "./BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {SoloBroker} from "./BrokerImplementation.sol";
@@ -61,7 +62,7 @@ contract AstariaDeploy {
 
         SoloBroker soloImpl = new SoloBroker();
         BrokerVault vaultImpl = new BrokerVault();
-        BrokerRouter BOND_CONTROLLER = new BrokerRouter(
+        BrokerRouter BROKER_ROUTER = new BrokerRouter(
             MRA,
             address(WETH9),
             address(COLLATERAL_VAULT),
@@ -78,7 +79,7 @@ contract AstariaDeploy {
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
-        COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
+        COLLATERAL_VAULT.setBondController(address(BROKER_ROUTER));
         COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_VAULT),
@@ -127,7 +128,7 @@ contract AstariaDeploy {
             true
         );
         MRA.setUserRole(
-            address(BOND_CONTROLLER),
+            address(BROKER_ROUTER),
             uint8(UserRoles.BROKER_ROUTER),
             true
         );
