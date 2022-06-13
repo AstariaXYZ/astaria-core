@@ -227,7 +227,10 @@ contract AstariaTest is TestHelpers {
 
         emit Liquidation(terms.collateralVault, terms.position, uint256(0)); // not calculating/checking reserve
 
-        uint256 reserve = BOND_CONTROLLER.liquidate(terms);
+        uint256 reserve = BOND_CONTROLLER.liquidate(
+            terms.collateralVault,
+            terms.position
+        );
 
         //        return (vaultHash, starId, reserve);
         return TestAuctionVaultResponse(vaultHash, starId, reserve);
@@ -340,7 +343,13 @@ contract AstariaTest is TestHelpers {
             );
 
             vm.expectEmit(false, false, false, false);
-            emit NewBondVault(address(0), address(0), bytes32(0), bytes32(0), uint256(0));
+            emit NewBondVault(
+                address(0),
+                address(0),
+                bytes32(0),
+                bytes32(0),
+                uint256(0)
+            );
             _createBondVault(
                 appraiserTwo,
                 block.timestamp + 30 days, //expiration

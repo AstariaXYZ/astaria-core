@@ -4,7 +4,7 @@ import {IBrokerRouter} from "../BrokerRouter.sol";
 
 interface ICollateralVault is IERC721 {
     function auctionVault(
-        IBrokerRouter.Terms memory params,
+        uint256 collateralVault,
         address initiator,
         uint256 initiatorFee
     ) external returns (uint256);

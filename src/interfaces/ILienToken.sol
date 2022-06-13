@@ -4,14 +4,14 @@ import {IBrokerRouter} from "../BrokerRouter.sol";
 
 interface ILienToken is IERC721 {
     struct Lien {
-        uint256 amount;
-        uint32 last;
-        uint32 start;
-        uint32 rate;
-        uint32 buyout;
+        uint256 amount; //32
+        address broker; //20
+        uint32 rate; //2
         uint32 duration;
-        bool active;
-        bytes32 root;
+        bool active; //? // can we track it being inactive elsewhere?
+        uint32 last; // 64?
+        uint32 start;
+        uint32 schedule;
     }
 
     struct LienActionEncumber {
@@ -62,14 +62,4 @@ interface ILienToken is IERC721 {
         external
         view
         returns (bool);
-
-    function validateTerms(
-        bytes32[] memory proof,
-        uint256 collateralVault,
-        uint256 maxAmount,
-        uint256 interestRate,
-        uint256 duration,
-        uint256 position,
-        uint256 schedule
-    ) external view returns (bool);
 }

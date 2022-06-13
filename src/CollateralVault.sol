@@ -246,17 +246,17 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
     }
 
     function auctionVault(
-        IBrokerRouter.Terms memory terms,
+        uint256 collateralVault,
         address liquidator,
         uint256 liquidationFee
     ) external requiresAuth returns (uint256 reserve) {
         require(
-            !AUCTION_HOUSE.auctionExists(terms.collateralVault),
+            !AUCTION_HOUSE.auctionExists(collateralVault),
             "auctionVault: auction already exists"
         );
         reserve = AUCTION_HOUSE.createAuction(
-            terms.collateralVault,
-            uint256(7 days),
+            collateralVault,
+            uint256(7 days), //todo make htis a param we can change
             liquidator,
             liquidationFee
         );

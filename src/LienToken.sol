@@ -67,15 +67,16 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 lienId = liens[params.incoming.collateralVault][
             params.incoming.position
         ];
+        validateBuyoutTerms(params.incoming);
+        //todo: ensure rates and duration is better;
         lienData[lienId].last = uint32(block.timestamp);
         lienData[lienId].rate = uint32(params.incoming.rate);
         lienData[lienId].duration = uint32(params.incoming.duration);
         //so, something about brokers
-        lienData[lienId].root = BrokerImplementation(params.incoming.broker)
-            .vaultHash();
-        lienData[lienId].buyout = uint32(
-            BrokerImplementation(params.incoming.broker).buyout()
-        );
+        lienData[lienId].broker = params.incoming.broker;
+        //        lienData[lienId].buyout = uint32(
+        //            BrokerImplementation(params.incoming.broker).buyout()
+        //        );
         //TODO: emit event, should we send to sender or broker on buyout?
         //        _transfer(ownerOf(lienId), address(msg.sender), lienId);
         _transfer(ownerOf(lienId), address(params.receiver), lienId);
@@ -93,52 +94,55 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         //        );
     }
 
-    function validateTerms(
-        bytes32[] memory proof,
-        uint256 collateralVault,
-        uint256 maxAmount,
-        uint256 interestRate,
-        uint256 duration,
-        uint256 position,
-        uint256 schedule
-    ) public view returns (bool) {
-        // filler hashing schema for merkle tree
-        bytes32 leaf = keccak256(
-            abi.encode(
-                bytes32(collateralVault),
-                maxAmount,
-                interestRate,
-                duration,
-                position,
-                schedule
-            )
-        );
-        uint256 lienId = liens[collateralVault][position];
-        return verifyMerkleBranch(proof, leaf, lienData[lienId].root);
-    }
-
     function validateTerms(IBrokerRouter.Terms memory params)
         public
         view
         returns (bool)
     {
+        uint256 lienId = liens[params.collateralVault][params.position];
+
         return
-            validateTerms(
-                params.proof,
-                params.collateralVault,
+            _validateTerms(
+                params,
+                BrokerImplementation(lienData[lienId].broker).vaultHash()
+            );
+    }
+
+    function validateBuyoutTerms(IBrokerRouter.Terms memory params)
+        public
+        view
+        returns (bool)
+    {
+        return
+            _validateTerms(
+                params,
+                BrokerImplementation(params.broker).vaultHash()
+            );
+    }
+
+    function _validateTerms(IBrokerRouter.Terms memory params, bytes32 root)
+        internal
+        view
+        returns (bool)
+    {
+        bytes32 leaf = keccak256(
+            abi.encode(
+                bytes32(params.collateralVault),
                 params.maxAmount,
                 params.rate,
                 params.duration,
                 params.position,
                 params.schedule
-            );
+            )
+        );
+        return _verifyMerkleBranch(params.proof, leaf, root);
     }
 
-    function verifyMerkleBranch(
+    function _verifyMerkleBranch(
         bytes32[] memory proof,
         bytes32 leaf,
         bytes32 root
-    ) public pure returns (bool) {
+    ) internal pure returns (bool) {
         bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
         return isValidLeaf;
     }
@@ -153,9 +157,13 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         return _getInterest(lienData[lien]);
     }
 
+    function _getOwed(Lien memory lien) internal view returns (uint256) {
+        return lien.amount += _getInterest(lien);
+    }
+
     function _getInterest(Lien memory lien) internal view returns (uint256) {
-        uint256 delta_t = block.timestamp - lien.last;
-        return (delta_t * lien.rate * lien.amount);
+        uint256 delta_t = uint32(block.timestamp) - lien.last;
+        return (delta_t * uint256(lien.rate) * lien.amount);
     }
 
     function stopLiens(uint256 collateralVault)
@@ -202,15 +210,17 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
                 )
             )
         );
+        uint256 buyout = BrokerImplementation(params.terms.broker).buyout();
         lienData[lienId] = Lien({
-            active: true,
             amount: params.amount,
+//            root: BrokerImplementation(params.terms.broker).vaultHash(),
+            broker: params.terms.broker,
+            active: true,
             rate: uint32(params.amount),
             last: uint32(block.timestamp),
             start: uint32(block.timestamp),
-            buyout: uint32(BrokerImplementation(params.terms.broker).buyout()),
             duration: uint32(params.terms.duration),
-            root: BrokerImplementation(params.terms.broker).vaultHash()
+            schedule: uint32(params.terms.schedule)
         });
 
         liens[params.terms.collateralVault].push(lienId);
@@ -231,7 +241,7 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     }
 
     function getLien(uint256 collateralVault, uint256 position)
-        external
+        public
         view
         returns (Lien memory)
     {
@@ -244,41 +254,68 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         view
         returns (uint256, uint256)
     {
-        uint256 lienId = liens[collateralVault][index];
-        Lien storage lien = lienData[lienId];
-        uint256 owed = lien.amount + _getInterest(lien);
+        Lien memory lien = getLien(collateralVault, index);
+        uint256 owed = _getOwed(lien);
 
-        uint256 premium = lien.buyout;
-
-        //        return owed += (owed * premium) / 100;
-        return (owed, owed + (owed * premium) / 100);
+        return (
+            owed,
+            owed + (owed * BrokerImplementation(lien.broker).buyout()) / 100
+        );
     }
 
     function makePayment(uint256 collateralVault, uint256 paymentAmount)
         external
     {
         // calculates interest here and apply it to the loan
-        uint256[] storage openLiens = liens[collateralVault];
+        uint256[] memory openLiens = liens[collateralVault];
         for (uint256 i = 0; i < openLiens.length; ++i) {
-            Lien storage l = lienData[openLiens[i]];
-            uint256 maxLienPayment = l.amount + _getInterest(l);
-            if (maxLienPayment >= paymentAmount) {
-                paymentAmount = maxLienPayment;
-                delete liens[collateralVault][i];
-            } else {
-                l.amount -= paymentAmount;
-                l.last = uint32(block.timestamp);
-            }
-            if (paymentAmount > 0) {
-                address owner = ownerOf(openLiens[i]);
-
-                TRANSFER_PROXY.tokenTransferFrom(
-                    address(WETH),
-                    address(msg.sender),
-                    owner,
-                    paymentAmount
-                );
-            }
+            paymentAmount = _payment(collateralVault, i, paymentAmount);
+            //            Lien storage l = lienData[openLiens[i]];
+            //            uint256 maxPayment = _getOwed(l);
+            //            if (maxPayment >= paymentAmount) {
+            //                paymentAmount = maxPayment;
+            //                delete liens[collateralVault][i];
+            //            } else {
+            //                l.amount -= paymentAmount;
+            //                l.last = uint32(block.timestamp);
+            //            }
+            //            if (paymentAmount > 0) {
+            //                address owner = ownerOf(openLiens[i]);
+            //
+            //                TRANSFER_PROXY.tokenTransferFrom(
+            //                    address(WETH),
+            //                    address(msg.sender),
+            //                    owner,
+            //                    paymentAmount
+            //                );
+            //            }
         }
+    }
+
+    function _payment(
+        uint256 collateralVault,
+        uint256 position,
+        uint256 paymentAmount
+    ) internal returns (uint256) {
+        if (paymentAmount == uint256(0)) return uint256(0);
+        Lien storage l = lienData[liens[collateralVault][position]];
+        uint256 maxPayment = _getOwed(l);
+        address owner = ownerOf(liens[collateralVault][position]);
+
+        if (maxPayment < paymentAmount) {
+            l.amount -= paymentAmount;
+            l.last = uint32(block.timestamp);
+        } else {
+            paymentAmount = maxPayment;
+            delete liens[collateralVault][position];
+        }
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            owner,
+            paymentAmount
+        );
+
+        return paymentAmount;
     }
 }

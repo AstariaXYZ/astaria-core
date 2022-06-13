@@ -53,20 +53,20 @@ contract BrokerImplementation is IERC721Receiver, Base {
     ) internal view {
         require(
             appraiser() != address(0),
-            "BrokerImplementation.commitToLoan(): Attempting to instantiate an unitialized vault"
+            "BrokerImplementation._validateLoanTerms(): Attempting to instantiate an unitialized vault"
         );
         require(
             params.maxAmount >= amount,
-            "Broker.commitToLoan(): Attempting to borrow more than maxAmount"
+            "Broker._validateLoanTerms(): Attempting to borrow more than maxAmount"
         );
         require(
             amount <= ERC20(asset()).balanceOf(address(this)),
-            "Broker.commitToLoan():  Attempting to borrow more than available in the specified vault"
+            "Broker._validateLoanTerms():  Attempting to borrow more than available in the specified vault"
         );
 
         require(
             validateTerms(params),
-            "Broker.commitToLoan(): Verification of provided merkle branch failed for the bondVault and parameters"
+            "Broker._validateLoanTerms(): Verification of provided merkle branch failed for the bondVault and parameters"
         );
     }
 
@@ -116,17 +116,16 @@ contract BrokerImplementation is IERC721Receiver, Base {
         uint256 amount,
         address receiver
     ) public {
+        address operator = IERC721(COLLATERAL_VAULT()).getApproved(
+            params.collateralVault
+        );
         address owner = IERC721(COLLATERAL_VAULT()).ownerOf(
             params.collateralVault
         );
-
+        if (msg.sender != owner) {
+            require(msg.sender == operator, "invalid request");
+        }
         if (receiver != owner) {
-            address operator = IERC721(COLLATERAL_VAULT()).getApproved(
-                params.collateralVault
-            );
-            if (msg.sender != owner) {
-                require(msg.sender == operator, "invalid request");
-            }
             require(
                 receiver == operator,
                 "can only issue funds to an operator that is approved by the owner"
@@ -140,7 +139,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
 
         //reach out to the bond vault and send loan to user
 
-        _issueLoan(receiver, amount, params);
+        _encumberCollateralAndIssuePayout(receiver, amount, params);
 
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
     }
@@ -154,22 +153,13 @@ contract BrokerImplementation is IERC721Receiver, Base {
         return isValidLeaf;
     }
 
-    function canLiquidate(IBrokerRouter.Terms memory params)
+    function canLiquidate(uint256 collateralVault, uint256 position)
         public
         view
         returns (bool)
     {
-        return BrokerRouter(router()).canLiquidate(params);
+        return BrokerRouter(router()).canLiquidate(collateralVault, position);
     }
-
-    //    modifier onlyNetworkBrokers(uint256 collateralVault, uint256 position) {
-    //        (bool isOwner, ) = BrokerRouter(router()).brokerIsOwner(
-    //            collateralVault,
-    //            position
-    //        );
-    //        require(isOwner, "only active broker's can use this feature");
-    //        _;
-    //    }
 
     modifier checkSender(
         IBrokerRouter.Terms memory outgoingTerms,
@@ -204,65 +194,24 @@ contract BrokerImplementation is IERC721Receiver, Base {
                 "not enough balance to buy out loan"
             );
 
-            //TODO: require interest rate is better and duration is better
-            //payout appraiser their premium
-            //            ERC20(asset()).safeTransfer(
-            //                BrokerImplementation(ICollateralVault.ownerOf(lien.lienId)).appraiser(),
-            //                buyout
-            //            );
-            //
-            //            ERC20(asset()).safeApprove(address(outgoing), amount);
-            //add the new loan
-            //can actually not do this and let you buy out one lien with a whole other asset
-
             require(
                 outgoingTerms.position <= incomingTerms.position,
                 "Invalid Lien Position"
             );
-            {
-                _validateLoanTerms(
-                    incomingTerms,
-                    owed //amount
-                );
-            }
-            //broker still validates the terms, paves the way for updating the bond vault hashes after expiration
-            //            newIndex = _addLoan(
-            //                collateralVault,
-            //                incomingTerms[3],
-            //                incomingTerms[2],
-            //                amount,
-            //                lienPosition, //lienP
-            //                schedule
-            //            );
 
-            //            outgoing.repayLoan(collateralVault, position, amount); //
-            //            BrokerRouter(router()).repayLoan(collateralVault, amount);
+            //also validated on the other end, is it needed here? since buyout is permissionless prob
+            _validateLoanTerms(
+                incomingTerms,
+                owed //amount
+            );
+
+            BrokerRouter(router()).LIEN_TOKEN().buyoutLien(
+                ILienToken.LienActionBuyout(incomingTerms, address(this))
+            );
         }
     }
 
-    //    function _addLoan(
-    //        uint256 collateralVault,
-    //        uint256 amount,
-    //        uint256 interestRate,
-    //        uint256 duration,
-    //        uint256 lienPosition,
-    //        uint256 schedule
-    //    ) internal returns (uint256 newIndex) {
-    //        terms[collateralVault].push(
-    //            Term({
-    //                amount: amount,
-    //                rate: uint32(interestRate),
-    //                start: uint64(block.timestamp),
-    //                duration: uint64(duration),
-    //                lienPosition: uint8(lienPosition),
-    //                schedule: uint32(schedule)
-    //            })
-    //        );
-    //
-    //        newIndex = terms[collateralVault].length - 1;
-    //    }
-
-    function _issueLoan(
+    function _encumberCollateralAndIssuePayout(
         address recipient,
         uint256 amount,
         IBrokerRouter.Terms memory params //        uint256 collateralVault, //        uint256 amount, //        uint256 interestRate, //        uint256 duration, //        uint256 lienPosition, //        uint256 schedule

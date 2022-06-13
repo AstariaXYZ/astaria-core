@@ -388,17 +388,6 @@ contract TestHelpers is Test {
             schedule
         );
 
-        //        terms = IBrokerRouter.Terms(
-        //            broker,
-        //            proof,
-        //            collateralVault,
-        //            maxAmount,
-        //            interestRate,
-        //            duration,
-        //            lienPosition,
-        //            schedule
-        //        );
-
         {
             _createBondVault(
                 appraiserOne,
@@ -412,7 +401,6 @@ contract TestHelpers is Test {
 
         _lendToVault(vaultHash, uint256(500 ether), appraiserOne);
 
-        //event NewLoan(bytes32 bondVault, uint256 collateralVault, uint256 amount);
         vm.expectEmit(true, true, false, false);
         emit NewTermCommitment(vaultHash, collateralVault, amount);
         address broker = BOND_CONTROLLER.getBroker(vaultHash);

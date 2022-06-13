@@ -113,11 +113,11 @@ interface IBrokerRouter {
 
     function getBroker(bytes32 bondVault) external view returns (address);
 
-    function liquidate(IBrokerRouter.Terms memory)
+    function liquidate(uint256 collateralVault, uint256 position)
         external
         returns (uint256 reserve);
 
-    function canLiquidate(IBrokerRouter.Terms memory)
+    function canLiquidate(uint256 collateralVault, uint256 position)
         external
         view
         returns (bool);
@@ -400,17 +400,16 @@ contract BrokerRouter is IBrokerRouter, Auth {
         return uint256(0);
     }
 
-    function buyoutLienPosition(uint256 collateralVault, uint256 position)
-        external
-    {
-        //        TRANSFER_PROXY.tokenTransferFrom(
-        //            address(WETH),
-        //            address(msg.sender),
-        //            address(this),
-        //            uint256(buyout)
-        //        );
-        //        WETH.safeApprove(params.incoming.broker, uint256(buyout));
-        //        LIEN_TOKEN.buyoutLien(collateralVault, position);
+    function buyoutLien(
+        IBrokerRouter.Terms memory outgoingTerms,
+        IBrokerRouter.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
+    ) external {
+        {
+            BrokerImplementation(incomingTerms.broker).buyoutLien(
+                outgoingTerms,
+                incomingTerms
+            );
+        }
     }
 
     function commitToLoans(CommitmentParams[] calldata commitments) external {
@@ -697,23 +696,21 @@ contract BrokerRouter is IBrokerRouter, Auth {
 
     event Repayment(uint256 collateralVault, uint256 position, uint256 amount);
 
-    function canLiquidate(IBrokerRouter.Terms memory params)
+    function canLiquidate(uint256 collateralVault, uint256 position)
         public
         view
         returns (bool)
     {
-        require(LIEN_TOKEN.validateTerms(params), "invalid loan hash");
-
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
-            params.collateralVault,
-            params.position
+            collateralVault,
+            position
         );
 
         uint256 interestAccrued = LIEN_TOKEN.getInterest(
-            params.collateralVault,
-            params.position
+            collateralVault,
+            position
         );
-        uint256 maxInterest = lien.amount * lien.rate * params.schedule;
+        uint256 maxInterest = lien.amount * lien.rate * lien.schedule;
 
         return
             maxInterest > interestAccrued ||
@@ -721,11 +718,14 @@ contract BrokerRouter is IBrokerRouter, Auth {
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(IBrokerRouter.Terms memory params)
+    function liquidate(uint256 collateralVault, uint256 position)
         external
         returns (uint256 reserve)
     {
-        require(canLiquidate(params), "liquidate: borrow is healthy");
+        require(
+            canLiquidate(collateralVault, position),
+            "liquidate: borrow is healthy"
+        );
         //        //grab all lien positions compute all outstanding
         //        (
         //            address[] memory brokers,
@@ -743,12 +743,12 @@ contract BrokerRouter is IBrokerRouter, Auth {
         //        reserve += ((reserve * LIQUIDATION_FEE_PERCENT) / 100);
 
         reserve = COLLATERAL_VAULT.auctionVault(
-            params,
+            collateralVault,
             address(msg.sender),
             LIQUIDATION_FEE_PERCENT
         );
 
-        emit Liquidation(params.collateralVault, params.position, reserve);
+        emit Liquidation(collateralVault, position, reserve);
     }
 
     function isValidRefinance(RefinanceCheckParams memory params)
@@ -767,7 +767,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
 
         if (
             (block.timestamp + params.incoming.duration) -
-                (lien.start + lien.duration) <
+                (lien.start + params.outgoing.duration) <
             MIN_DURATION_INCREASE
         ) revert InvalidRefinanceDuration(params.incoming.duration);
 
