@@ -33,6 +33,49 @@ string constant weth9Artifact = "src/tests/WETH9.json";
 // - test auction flow
 // - create/cancel/end
 contract AstariaTest is TestHelpers {
+    event DepositERC721(
+        address indexed from,
+        address indexed tokenContract,
+        uint256 tokenId
+    );
+
+    event ReleaseTo(
+        address indexed underlyingAsset,
+        uint256 assetId,
+        address indexed to
+    );
+
+    event Liquidation(
+        uint256 collateralVault,
+        uint256 position,
+        uint256 reserve
+    );
+
+    event AuctionCanceled(uint256 indexed auctionId);
+
+    event AuctionBid(
+        uint256 indexed tokenId,
+        address sender,
+        uint256 value,
+        bool firstBid,
+        bool extended
+    );
+
+    event AuctionEnded(
+        uint256 indexed tokenId,
+        address winner,
+        uint256 winningBid,
+        uint256[] recipients
+    );
+
+    event NewBondVault(
+        address appraiser,
+        address broker,
+        bytes32 bondVault,
+        bytes32 contentHash,
+        uint256 expiration
+    );
+
     /**
        Ensure that we can borrow capital from the bond controller
        ensure that we're emitting the correct events
@@ -58,6 +101,9 @@ contract AstariaTest is TestHelpers {
 
         uint256 balanceBefore = WETH9.balanceOf(address(this));
         //balance of WETH before loan
+
+        vm.expectEmit(true, true, false, true);
+        emit DepositERC721(address(this), tokenContract, tokenId);
         (bytes32 vaultHash, ) = _commitToLoan(
             tokenContract,
             tokenId,
@@ -80,10 +126,18 @@ contract AstariaTest is TestHelpers {
         _depositNFTs(tokenContract, tokenId);
         // startMeasuringGas("ReleaseTo Address");
 
-        COLLATERAL_VAULT.releaseToAddress(
-            uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
-            address(this)
+        uint256 starTokenId = uint256(
+            keccak256(abi.encodePacked(tokenContract, tokenId))
         );
+
+        (address underlyingAsset, uint256 assetId) = COLLATERAL_VAULT
+            .getUnderlyingFromStar(starTokenId);
+
+        vm.expectEmit(true, true, false, true);
+
+        emit ReleaseTo(underlyingAsset, assetId, address(this));
+
+        COLLATERAL_VAULT.releaseToAddress(starTokenId, address(this));
         // stopMeasuringGas();
     }
 
@@ -103,6 +157,9 @@ contract AstariaTest is TestHelpers {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
+
+        vm.expectEmit(true, true, false, true);
+        emit DepositERC721(address(this), tokenContract, tokenId);
         (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
@@ -147,6 +204,9 @@ contract AstariaTest is TestHelpers {
         uint256 amount = uint256(1 ether);
         uint8 lienPosition = uint8(0);
         uint256 schedule = uint256(50);
+
+        vm.expectEmit(true, true, false, true);
+        emit DepositERC721(address(this), tokenContract, tokenId);
         (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
@@ -162,7 +222,13 @@ contract AstariaTest is TestHelpers {
         );
         _warpToMaturity(starId, uint256(0));
         address broker = BOND_CONTROLLER.getBroker(vaultHash);
+
+        vm.expectEmit(false, false, false, false);
+
+        emit Liquidation(terms.collateralVault, terms.position, uint256(0)); // not calculating/checking reserve
+
         uint256 reserve = BOND_CONTROLLER.liquidate(terms);
+
         //        return (vaultHash, starId, reserve);
         return TestAuctionVaultResponse(vaultHash, starId, reserve);
     }
@@ -172,16 +238,34 @@ contract AstariaTest is TestHelpers {
         ensure that we're emitting the correct events
 
     */
+    // expect emit cancelAuction
     function testCancelAuction() public {
         TestAuctionVaultResponse memory response = testAuctionVault();
         vm.deal(address(this), response.reserve);
         WETH9.deposit{value: response.reserve}();
         WETH9.approve(address(TRANSFER_PROXY), response.reserve);
+
+        vm.expectEmit(true, false, false, false);
+
+        emit AuctionCanceled(response.collateralVault);
+
         COLLATERAL_VAULT.cancelAuction(response.collateralVault);
     }
 
     function testEndAuctionWithBids() public {
         TestAuctionVaultResponse memory response = testAuctionVault();
+
+        vm.expectEmit(true, false, false, false);
+
+        // uint256 indexed tokenId, address sender, uint256 value, bool firstBid, bool extended
+        emit AuctionBid(
+            response.collateralVault,
+            address(this),
+            response.reserve,
+            true,
+            true
+        ); // TODO check (non-indexed data check failing)
+
         _createBid(bidderOne, response.collateralVault, response.reserve);
         _createBid(
             bidderTwo,
@@ -194,6 +278,12 @@ contract AstariaTest is TestHelpers {
             response.reserve += ((response.reserve * 30) / 100)
         );
         _warpToAuctionEnd(response.collateralVault);
+
+        vm.expectEmit(false, false, false, false);
+
+        uint256[] memory dummyRecipients;
+        emit AuctionEnded(uint256(0), address(0), uint256(0), dummyRecipients);
+
         COLLATERAL_VAULT.endAuction(response.collateralVault);
     }
 
@@ -217,6 +307,9 @@ contract AstariaTest is TestHelpers {
         loanDetails2[3] = uint256(1 ether); //amount
         loanDetails2[4] = uint256(0); //lienPosition
         loanDetails2[5] = uint256(50); //schedule
+
+        vm.expectEmit(true, true, false, true);
+        emit DepositERC721(address(this), tokenContract, tokenId);
         (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
@@ -246,6 +339,8 @@ contract AstariaTest is TestHelpers {
                 loanDetails2[5] //schedule
             );
 
+            vm.expectEmit(false, false, false, false);
+            emit NewBondVault(address(0), address(0), bytes32(0), bytes32(0), uint256(0));
             _createBondVault(
                 appraiserTwo,
                 block.timestamp + 30 days, //expiration
