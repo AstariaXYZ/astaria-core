@@ -2,8 +2,10 @@ pragma solidity ^0.8.13;
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {Base, ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import "openzeppelin/token/ERC721/IERC721.sol";
-import {IBrokerRouter, BrokerRouter} from "./BrokerRouter.sol";
+import {BrokerRouter} from "./BrokerRouter.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
+import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
+
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
@@ -73,7 +75,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
     //move this to a lib so we can reuse on star nft
     function validateTerms(IBrokerRouter.Terms memory params)
         public
-        view
+        pure
         returns (bool)
     {
         return
@@ -96,7 +98,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
         uint256 duration,
         uint256 lienPosition,
         uint256 schedule
-    ) public view returns (bool) {
+    ) public pure returns (bool) {
         // filler hashing schema for merkle tree
         bytes32 leaf = keccak256(
             abi.encode(
@@ -139,7 +141,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
 
         //reach out to the bond vault and send loan to user
 
-        _encumberCollateralAndIssuePayout(receiver, amount, params);
+        _requestLienAndIssuePayout(params, receiver, amount);
 
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
     }
@@ -211,10 +213,10 @@ contract BrokerImplementation is IERC721Receiver, Base {
         }
     }
 
-    function _encumberCollateralAndIssuePayout(
+    function _requestLienAndIssuePayout(
+        IBrokerRouter.Terms memory params, //        uint256 collateralVault, //        uint256 amount, //        uint256 interestRate, //        uint256 duration, //        uint256 lienPosition, //        uint256 schedule
         address recipient,
-        uint256 amount,
-        IBrokerRouter.Terms memory params //        uint256 collateralVault, //        uint256 amount, //        uint256 interestRate, //        uint256 duration, //        uint256 lienPosition, //        uint256 schedule
+        uint256 amount
     ) internal {
         require(
             BrokerRouter(router()).requestLienPosition(
@@ -222,67 +224,30 @@ contract BrokerImplementation is IERC721Receiver, Base {
             ),
             "lien position not available"
         );
+        address feeTo = BrokerRouter(router()).feeTo();
+        bool feeOn = feeTo != address(0);
+        if (feeOn) {
+            ERC20(asset()).safeTransfer(recipient, (amount * 997) / 1000);
+        }
         ERC20(asset()).safeTransfer(recipient, amount);
-        //        newIndex = terms[collateralVault].length - 1;
     }
-
-    //    function repayLoan(
-    //        uint256 collateralVault,
-    //        uint256 index,
-    //        uint256 amount
-    //    ) external {
-    //        // calculates interest here and apply it to the loan
-    //        uint256 interestRate = getInterest(index, collateralVault);
-    //
-    //        //TODO: ensure math is correct on calcs
-    //        uint256 appraiserPayout = (20 * convertToShares(interestRate)) / 100;
-    //        _mint(appraiser(), appraiserPayout);
-    //
-    //        unchecked {
-    //            amount -= appraiserPayout;
-    //
-    //            terms[collateralVault][index].amount += getInterest(
-    //                index,
-    //                collateralVault
-    //            );
-    //            amount = (terms[collateralVault][index].amount >= amount)
-    //                ? amount
-    //                : terms[collateralVault][index].amount;
-    //
-    //            terms[collateralVault][index].amount -= amount;
-    //        }
-    //
-    //        emit Repayment(collateralVault, index, amount);
-    //
-    //        if (terms[collateralVault][index].amount == 0) {
-    //            //            BrokerRouter(router()).updateLien(
-    //            //                collateralVault,
-    //            //                index,
-    //            //                msg.sender
-    //            //            );
-    //            delete terms[collateralVault][index];
-    //        } else {
-    //            terms[collateralVault][index].start = uint64(block.timestamp);
-    //        }
-    //        ERC20(asset()).safeTransferFrom(
-    //            address(msg.sender),
-    //            address(this),
-    //            amount
-    //        );
-    //    }
 }
 
 interface IBroker {
-    function deposit(uint256 amount, address receiver) external virtual;
+    function deposit(uint256 assets, address receiver)
+        external
+        virtual
+        returns (uint256 shares);
 }
 
-contract SoloBroker is BrokerImplementation {
+contract SoloBroker is BrokerImplementation, IBroker {
     using SafeTransferLib for ERC20;
 
-    event LogAddress(address);
-
-    function deposit(uint256 amount, address) external virtual {
-        emit LogAddress(appraiser());
+    function deposit(uint256 amount, address)
+        external
+        virtual
+        returns (uint256)
+    {
         require(
             msg.sender == appraiser(),
             "only the appraiser can fund this vault"
@@ -292,6 +257,7 @@ contract SoloBroker is BrokerImplementation {
             address(this),
             amount
         );
+        return amount;
     }
 
     function withdraw(uint256 amount) external {
@@ -305,7 +271,4 @@ contract SoloBroker is BrokerImplementation {
             amount
         );
     }
-}
-struct BrokerSlot {
-    address broker;
 }

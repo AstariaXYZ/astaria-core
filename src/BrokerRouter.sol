@@ -10,6 +10,7 @@ import "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
+import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {IBroker, BrokerImplementation} from "./BrokerImplementation.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
@@ -34,117 +35,6 @@ interface IInvoker {
 //    }
 //}
 
-interface IBrokerRouter {
-    struct Terms {
-        address broker;
-        bytes32[] proof;
-        uint256 collateralVault;
-        uint256 maxAmount;
-        uint256 rate;
-        uint256 duration;
-        uint256 position;
-        uint256 schedule;
-    }
-    struct BrokerParams {
-        address appraiser;
-        bytes32 root;
-        uint256 expiration;
-        uint256 deadline;
-        uint256 buyout;
-        bytes32 contentHash;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
-    struct CommitmentParams {
-        Terms terms;
-        uint256 amount;
-    }
-
-    struct BuyoutLienParams {
-        IBrokerRouter.Terms outgoing;
-        IBrokerRouter.Terms incoming;
-    }
-
-    struct RefinanceCheckParams {
-        IBrokerRouter.Terms outgoing;
-        IBrokerRouter.Terms incoming;
-    }
-
-    struct BorrowAndBuyParams {
-        CommitmentParams[] commitments;
-        address invoker;
-        uint256 purchasePrice;
-        bytes purchaseData;
-        address receiver;
-    }
-
-    struct BondVault {
-        address appraiser; // address of the appraiser for the BondVault
-        uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
-        address broker; //cloned proxy
-    }
-
-    function newBondVault(BrokerParams memory params) external;
-
-    function encodeBondVaultHash(
-        address appraiser,
-        bytes32 root,
-        uint256 expiration,
-        uint256 appraiserNonce,
-        uint256 deadline,
-        uint256 buyout
-    ) external view returns (bytes memory);
-
-    //    function buyoutLienPosition(BuyoutLienParams memory params) external;
-
-    function commitToLoans(CommitmentParams[] calldata commitments) external;
-
-    //    function requestLienPosition(
-    //        uint256 collateralVault,
-    //        bytes32 bondVault,
-    //        uint256 lienPosition,
-    //        uint256 newIndex,
-    //        uint256 amount
-    //    ) external;
-
-    function lendToVault(bytes32 bondVault, uint256 amount) external;
-
-    function getBroker(bytes32 bondVault) external view returns (address);
-
-    function liquidate(uint256 collateralVault, uint256 position)
-        external
-        returns (uint256 reserve);
-
-    function canLiquidate(uint256 collateralVault, uint256 position)
-        external
-        view
-        returns (bool);
-
-    function isValidRefinance(RefinanceCheckParams memory params)
-        external
-        view
-        returns (bool);
-
-    event Liquidation(
-        uint256 collateralVault,
-        uint256 position,
-        uint256 reserve
-    );
-    event NewBondVault(
-        address appraiser,
-        address broker,
-        bytes32 bondVault,
-        bytes32 contentHash,
-        uint256 expiration
-    );
-
-    error InvalidAddress(address);
-    error InvalidRefinanceRate(uint256);
-    error InvalidRefinanceDuration(uint256);
-}
-
 contract BrokerRouter is IBrokerRouter, Auth {
     bytes32 public immutable DOMAIN_SEPARATOR;
     using SafeERC20 for IERC20;
@@ -155,6 +45,8 @@ contract BrokerRouter is IBrokerRouter, Auth {
     ITransferProxy public immutable TRANSFER_PROXY;
     address VAULT_IMPLEMENTATION;
     address SOLO_IMPLEMENTATION;
+
+    address public feeTo;
 
     uint256 public LIQUIDATION_FEE_PERCENT; // a percent(13) then mul by 100
     uint64 public MIN_INTEREST_BPS; // a percent(13) then mul by 100
@@ -216,7 +108,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
         bytes32[] calldata proof,
         bytes32 leaf,
         bytes32 root
-    ) public view returns (bool) {
+    ) public pure returns (bool) {
         bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
         return isValidLeaf;
     }
@@ -344,14 +236,19 @@ contract BrokerRouter is IBrokerRouter, Auth {
             );
     }
 
-    function _validateCommitment(CommitmentParams calldata c) internal {
+    function _validateCommitment(ILienToken.LienActionEncumber calldata c)
+        internal
+        view
+    {
         require(
             msg.sender == COLLATERAL_VAULT.ownerOf(c.terms.collateralVault),
             "invalid sender for collateralVault"
         );
     }
 
-    function _executeCommitment(CommitmentParams calldata c) internal {
+    function _executeCommitment(ILienToken.LienActionEncumber calldata c)
+        internal
+    {
         _validateCommitment(c);
         _borrow(c.terms, c.amount, address(this));
     }
@@ -412,7 +309,9 @@ contract BrokerRouter is IBrokerRouter, Auth {
         }
     }
 
-    function commitToLoans(CommitmentParams[] calldata commitments) external {
+    function commitToLoans(ILienToken.LienActionEncumber[] calldata commitments)
+        external
+    {
         for (uint256 i = 0; i < commitments.length; ++i) {
             _executeCommitment(commitments[i]);
         }
@@ -751,7 +650,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
         emit Liquidation(collateralVault, position, reserve);
     }
 
-    function isValidRefinance(RefinanceCheckParams memory params)
+    function isValidRefinance(IBrokerRouter.RefinanceCheckParams memory params)
         external
         view
         returns (bool)

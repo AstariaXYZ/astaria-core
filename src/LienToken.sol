@@ -57,41 +57,27 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
             params.incoming.position
         );
 
+        uint256 lienId = liens[params.incoming.collateralVault][params.incoming.position];
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
             address(msg.sender),
-            address(this),
-            uint256(buyout)
+            ownerOf(lienId),
+            uint256(owed + buyout)
         );
-        //        WETH.safeApprove(params.incoming.broker, uint256(buyout));
-        uint256 lienId = liens[params.incoming.collateralVault][
-            params.incoming.position
-        ];
+
         validateBuyoutTerms(params.incoming);
         //todo: ensure rates and duration is better;
+        require(params.incoming.rate <= lienData[lienId].rate, "rate must be better to allow for buyout");
+        require(params.incoming.duration <= type(uint).max, "rate must be better to allow for buyout"); //TODO: set this check to be proper with a min DURATION
         lienData[lienId].last = uint32(block.timestamp);
         lienData[lienId].rate = uint32(params.incoming.rate);
         lienData[lienId].duration = uint32(params.incoming.duration);
         //so, something about brokers
         lienData[lienId].broker = params.incoming.broker;
-        //        lienData[lienId].buyout = uint32(
-        //            BrokerImplementation(params.incoming.broker).buyout()
-        //        );
+
         //TODO: emit event, should we send to sender or broker on buyout?
-        //        _transfer(ownerOf(lienId), address(msg.sender), lienId);
         _transfer(ownerOf(lienId), address(params.receiver), lienId);
-        //        _mint(
-        //            address(msg.sender),
-        //            uint256(
-        //                keccak256(
-        //                    abi.encodePacked(
-        //                        params.incoming.collateralVault,
-        //                        params.incoming.position,
-        //                        lienCounter++
-        //                    )
-        //                )
-        //            )
-        //        );
+
     }
 
     function validateTerms(IBrokerRouter.Terms memory params)
@@ -122,7 +108,7 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
 
     function _validateTerms(IBrokerRouter.Terms memory params, bytes32 root)
         internal
-        view
+        pure
         returns (bool)
     {
         bytes32 leaf = keccak256(

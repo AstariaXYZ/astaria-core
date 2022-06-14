@@ -12,8 +12,8 @@ import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
+import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
-import {IBrokerRouter} from "./BrokerRouter.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
 
 interface IFlashAction {
@@ -24,11 +24,6 @@ interface ISecurityHook {
     function getState(address, uint256) external view returns (bytes memory);
 }
 
-/*
- TODO: registry proxies for selling across the different networks(opensea)
-    - setup the wrapper contract to verify erc1271 signatures so that it can work with looks rare
-    - setup cancel auction flow(owner must repay reserve of auction)
- */
 contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
     struct Asset {
         address tokenContract;
