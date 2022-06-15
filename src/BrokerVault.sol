@@ -5,8 +5,11 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 
 contract BrokerVault is ERC4626Cloned, BrokerImplementation {
     function afterDeposit(uint256 assets, uint256 shares) internal override {
-        require(block.timestamp < expiration(), "deposit: expiration exceeded");
-        _mint(appraiser(), (shares * 2) / 100);
+        require(
+            block.timestamp < expiration(),
+            "afterDeposit: expiration exceeded"
+        );
+        _mint(appraiser(), (convertToShares(assets) * 2) / 100);
     }
 
     function totalAssets() public view virtual override returns (uint256) {

@@ -5,13 +5,14 @@ import {IBrokerRouter} from "../BrokerRouter.sol";
 interface ILienToken is IERC721 {
     struct Lien {
         uint256 amount; //32
-        address broker; //20
-        uint32 rate; //2
-        uint32 duration;
-        bool active; //? // can we track it being inactive elsewhere?
-        uint32 last; // 64?
-        uint32 start;
-        uint32 schedule;
+        //        address token; // 20
+        address broker; // 20
+        bool active; // 1
+        uint32 rate; // 4
+        uint32 duration; //4
+        uint32 last; // 4
+        uint32 start; // 4
+        uint32 schedule; // 4
     }
 
     struct LienActionEncumber {
@@ -51,6 +52,8 @@ interface ILienToken is IERC721 {
         external
         view
         returns (Lien memory);
+
+    function setAuctionHouse(address) external;
 
     function createLien(LienActionEncumber calldata params)
         external

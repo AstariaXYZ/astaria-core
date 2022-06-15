@@ -1,6 +1,7 @@
 pragma solidity ^0.8.0;
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ILienToken} from "./ILienToken.sol";
+import {ICollateralVault} from "./ICollateralVault.sol";
 
 interface IBrokerRouter {
     struct Terms {
@@ -67,13 +68,13 @@ interface IBrokerRouter {
     function commitToLoans(ILienToken.LienActionEncumber[] calldata commitments)
         external;
 
-    //    function requestLienPosition(
-    //        uint256 collateralVault,
-    //        bytes32 bondVault,
-    //        uint256 lienPosition,
-    //        uint256 newIndex,
-    //        uint256 amount
-    //    ) external;
+    function requestLienPosition(ILienToken.LienActionEncumber calldata params)
+        external
+        returns (bool);
+
+    function LIEN_TOKEN() external returns (ILienToken);
+
+    function COLLATERAL_VAULT() external returns (ICollateralVault);
 
     function lendToVault(bytes32 bondVault, uint256 amount) external;
 

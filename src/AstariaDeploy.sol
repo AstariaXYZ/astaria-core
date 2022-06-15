@@ -81,6 +81,7 @@ contract AstariaDeploy {
         );
         COLLATERAL_VAULT.setBondController(address(BROKER_ROUTER));
         COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
+        LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_VAULT),
             AuctionHouse.createAuction.selector,
@@ -96,12 +97,6 @@ contract AstariaDeploy {
             AuctionHouse.cancelAuction.selector,
             true
         );
-
-        //        MRA.setRoleCapability(
-        //            uint8(UserRoles.BOND_CONTROLLER),
-        //            CollateralVault.manageLien.selector,
-        //            true
-        //        );
         MRA.setRoleCapability(
             uint8(UserRoles.BROKER_ROUTER),
             CollateralVault.auctionVault.selector,
@@ -144,5 +139,8 @@ contract AstariaDeploy {
         );
 
         MRA.setOwner(address(msg.sender));
+        BROKER_ROUTER.setOwner(address(msg.sender));
+        LIEN_TOKEN.setOwner(address(msg.sender));
+        COLLATERAL_VAULT.setOwner(address(msg.sender));
     }
 }

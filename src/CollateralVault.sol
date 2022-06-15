@@ -30,9 +30,8 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
         uint256 tokenId;
     }
 
-    mapping(uint256 => Asset) starToUnderlying;
+    mapping(uint256 => Asset) idToUnderlying;
     mapping(address => address) public securityHooks;
-    mapping(uint256 => uint256) public starIdToAuctionId;
 
     bytes32 SUPPORTED_ASSETS_ROOT;
 
@@ -52,8 +51,6 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
         address indexed to
     );
 
-    //    event LienUpdated(LienAction action, bytes lienData);
-
     error AssetNotSupported(address);
     error AuctionStartedForCollateral(uint256);
 
@@ -69,10 +66,10 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
         LIEN_TOKEN = ILienToken(LIEN_TOKEN_);
     }
 
-    modifier releaseCheck(uint256 assetId) {
+    modifier releaseCheck(uint256 collateralVault) {
         require(
-            uint256(0) == LIEN_TOKEN.getLiens(assetId).length &&
-                starIdToAuctionId[assetId] == uint256(0),
+            uint256(0) == LIEN_TOKEN.getLiens(collateralVault).length &&
+                !AUCTION_HOUSE.auctionExists(collateralVault),
             "must be no liens or auctions to call this"
         );
         _;
@@ -164,34 +161,39 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
         securityHooks[_hookTarget] = _securityHook;
     }
 
-    function releaseToAddress(uint256 starTokenId, address releaseTo)
+    function releaseToAddress(uint256 collateralVault, address releaseTo)
         public
-        releaseCheck(starTokenId)
+        releaseCheck(collateralVault)
     {
         //check liens
         require(
-            msg.sender == ownerOf(starTokenId) ||
-                (msg.sender == address(this) &&
-                    starIdToAuctionId[starTokenId] == uint256(0)),
+            msg.sender == ownerOf(collateralVault),
             "You don't have permission to call this"
         );
+        _releaseToAddress(collateralVault, releaseTo);
+    }
+
+    function _releaseToAddress(uint256 collateralVault, address releaseTo)
+        internal
+    {
         (address underlyingAsset, uint256 assetId) = getUnderlyingFromStar(
-            starTokenId
+            collateralVault
         );
         IERC721(underlyingAsset).transferFrom(
             address(this),
             releaseTo,
             assetId
         );
+        delete idToUnderlying[collateralVault];
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
 
-    function getUnderlyingFromStar(uint256 starId_)
+    function getUnderlyingFromStar(uint256 collateralVault)
         public
         view
         returns (address, uint256)
     {
-        Asset memory underlying = starToUnderlying[starId_];
+        Asset memory underlying = idToUnderlying[collateralVault];
         return (underlying.tokenContract, underlying.tokenId);
     }
 
@@ -223,16 +225,19 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
         uint256 tokenId_,
         bytes32[] calldata proof_
     ) external onlySupportedAssets(tokenContract_, proof_) {
-        ERC721(tokenContract_).transferFrom(
-            depositFor_,
-            address(this),
-            tokenId_
-        );
-        uint256 starId = uint256(
+        uint256 collateralVault = uint256(
             keccak256(abi.encodePacked(tokenContract_, tokenId_))
         );
-        _mint(depositFor_, starId);
-        starToUnderlying[starId] = Asset({
+
+        ERC721(tokenContract_).safeTransferFrom(
+            depositFor_,
+            address(this),
+            tokenId_,
+            ""
+        );
+
+        _mint(depositFor_, collateralVault);
+        idToUnderlying[collateralVault] = Asset({
             tokenContract: tokenContract_,
             tokenId: tokenId_
         });
@@ -268,6 +273,6 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
 
         address winner = AUCTION_HOUSE.endAuction(tokenId);
         //        _transfer(ownerOf(tokenId), winner, tokenId);
-        releaseToAddress(tokenId, winner);
+        _releaseToAddress(tokenId, winner);
     }
 }

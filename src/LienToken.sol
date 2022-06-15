@@ -10,10 +10,10 @@ import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
-import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
-import {IBrokerRouter, BrokerRouter} from "./BrokerRouter.sol";
+import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
+import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 
 contract TransferAgent {
     address public immutable WETH;
@@ -26,18 +26,13 @@ contract TransferAgent {
 }
 
 contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
-    uint256 lienCounter;
-
-    enum LienAction {
-        ADD,
-        REMOVE,
-        UPDATED
-    }
-
-    mapping(uint256 => Lien) lienData;
-    mapping(uint256 => uint256[]) liens;
+    using ValidateTerms for IBrokerRouter.Terms;
+    uint256 public lienCounter;
+    IAuctionHouse public AUCTION_HOUSE;
+    mapping(uint256 => Lien) public lienData;
+    mapping(uint256 => uint256[]) public liens;
     event NewLien(uint256 lienId);
-    event LienUpdated(LienAction action);
+    event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
 
     constructor(
         Authority _AUTHORITY,
@@ -51,13 +46,19 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         lienCounter = 1;
     }
 
+    function setAuctionHouse(address _AUCTION_HOUSE) external requiresAuth {
+        AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
+    }
+
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
         (uint256 owed, uint256 buyout) = getBuyout(
             params.incoming.collateralVault,
             params.incoming.position
         );
 
-        uint256 lienId = liens[params.incoming.collateralVault][params.incoming.position];
+        uint256 lienId = liens[params.incoming.collateralVault][
+            params.incoming.position
+        ];
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
             address(msg.sender),
@@ -67,8 +68,11 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
 
         validateBuyoutTerms(params.incoming);
         //todo: ensure rates and duration is better;
-        require(params.incoming.rate <= lienData[lienId].rate, "rate must be better to allow for buyout");
-        require(params.incoming.duration <= type(uint).max, "rate must be better to allow for buyout"); //TODO: set this check to be proper with a min DURATION
+        require(params.incoming.rate <= lienData[lienId].rate, "Invalid Rate");
+        require(
+            params.incoming.duration <= type(uint256).max,
+            "Invalid Duration"
+        ); //TODO: set this check to be proper with a min DURATION
         lienData[lienId].last = uint32(block.timestamp);
         lienData[lienId].rate = uint32(params.incoming.rate);
         lienData[lienId].duration = uint32(params.incoming.duration);
@@ -77,7 +81,6 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
 
         //TODO: emit event, should we send to sender or broker on buyout?
         _transfer(ownerOf(lienId), address(params.receiver), lienId);
-
     }
 
     function validateTerms(IBrokerRouter.Terms memory params)
@@ -88,40 +91,20 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 lienId = liens[params.collateralVault][params.position];
 
         return
-            _validateTerms(
-                params,
+            params.validateTerms(
                 BrokerImplementation(lienData[lienId].broker).vaultHash()
             );
     }
 
     function validateBuyoutTerms(IBrokerRouter.Terms memory params)
         public
-        view
-        returns (bool)
-    {
-        return
-            _validateTerms(
-                params,
-                BrokerImplementation(params.broker).vaultHash()
-            );
-    }
-
-    function _validateTerms(IBrokerRouter.Terms memory params, bytes32 root)
-        internal
         pure
         returns (bool)
     {
-        bytes32 leaf = keccak256(
-            abi.encode(
-                bytes32(params.collateralVault),
-                params.maxAmount,
-                params.rate,
-                params.duration,
-                params.position,
-                params.schedule
-            )
-        );
-        return _verifyMerkleBranch(params.proof, leaf, root);
+        return
+            params.validateTerms(
+                BrokerImplementation(params.broker).vaultHash()
+            );
     }
 
     function _verifyMerkleBranch(
@@ -165,13 +148,13 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         lienIds = liens[collateralVault];
         amounts = new uint256[](liens[collateralVault].length);
         for (uint256 i = 0; i < lienIds.length; ++i) {
-            ILienToken.Lien storage l = lienData[lienIds[i]];
+            ILienToken.Lien storage lien = lienData[lienIds[i]];
             unchecked {
-                l.amount += _getInterest(l);
-                reserve += l.amount;
+                lien.amount += _getInterest(lien);
+                reserve += lien.amount;
             }
-            amounts[i] = l.amount;
-            l.active = false;
+            amounts[i] = lien.amount;
+            lien.active = false;
         }
     }
 
@@ -199,7 +182,6 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 buyout = BrokerImplementation(params.terms.broker).buyout();
         lienData[lienId] = Lien({
             amount: params.amount,
-//            root: BrokerImplementation(params.terms.broker).vaultHash(),
             broker: params.terms.broker,
             active: true,
             rate: uint32(params.amount),
@@ -284,13 +266,13 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 paymentAmount
     ) internal returns (uint256) {
         if (paymentAmount == uint256(0)) return uint256(0);
-        Lien storage l = lienData[liens[collateralVault][position]];
-        uint256 maxPayment = _getOwed(l);
+        Lien storage lien = lienData[liens[collateralVault][position]];
+        uint256 maxPayment = _getOwed(lien);
         address owner = ownerOf(liens[collateralVault][position]);
 
         if (maxPayment < paymentAmount) {
-            l.amount -= paymentAmount;
-            l.last = uint32(block.timestamp);
+            lien.amount -= paymentAmount;
+            lien.last = uint32(block.timestamp);
         } else {
             paymentAmount = maxPayment;
             delete liens[collateralVault][position];

@@ -1,18 +1,19 @@
 pragma solidity ^0.8.13;
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {Base, ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
-import "openzeppelin/token/ERC721/IERC721.sol";
-import {BrokerRouter} from "./BrokerRouter.sol";
+import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
+import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
-import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
-
 import {ILienToken} from "./interfaces/ILienToken.sol";
+import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import {Base} from "gpl/ERC4626-Cloned.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
+import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 
 contract BrokerImplementation is IERC721Receiver, Base {
+    using SafeTransferLib for ERC20;
+    using ValidateTerms for IBrokerRouter.Terms;
     event NewTermCommitment(
         bytes32 bondVault,
         uint256 collateralVault,
@@ -38,7 +39,6 @@ contract BrokerImplementation is IERC721Receiver, Base {
         uint256 amount,
         address indexed redeemer
     );
-    using SafeTransferLib for ERC20;
 
     function onERC721Received(
         address operator_,
@@ -49,10 +49,10 @@ contract BrokerImplementation is IERC721Receiver, Base {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function _validateLoanTerms(
-        IBrokerRouter.Terms memory params,
-        uint256 amount
-    ) internal view {
+    function _validateTerms(IBrokerRouter.Terms memory params, uint256 amount)
+        internal
+        view
+    {
         require(
             appraiser() != address(0),
             "BrokerImplementation._validateLoanTerms(): Attempting to instantiate an unitialized vault"
@@ -67,7 +67,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
         );
 
         require(
-            validateTerms(params),
+            params.validateTerms(vaultHash()),
             "Broker._validateLoanTerms(): Verification of provided merkle branch failed for the bondVault and parameters"
         );
     }
@@ -78,39 +78,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
         pure
         returns (bool)
     {
-        return
-            validateTerms(
-                params.proof,
-                params.collateralVault,
-                params.maxAmount,
-                params.rate,
-                params.duration,
-                params.position,
-                params.schedule
-            );
-    }
-
-    function validateTerms(
-        bytes32[] memory proof,
-        uint256 collateralVault,
-        uint256 maxAmount,
-        uint256 interestRate,
-        uint256 duration,
-        uint256 lienPosition,
-        uint256 schedule
-    ) public pure returns (bool) {
-        // filler hashing schema for merkle tree
-        bytes32 leaf = keccak256(
-            abi.encode(
-                bytes32(collateralVault),
-                maxAmount,
-                interestRate,
-                duration,
-                lienPosition,
-                schedule
-            )
-        );
-        return verifyMerkleBranch(proof, leaf, vaultHash());
+        return params.validateTerms(vaultHash());
     }
 
     function commitToLoan(
@@ -134,7 +102,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
             );
         }
 
-        _validateLoanTerms(params, amount);
+        _validateTerms(params, amount);
 
         //ensure that we have space left in our appraisal value to take on more debt or refactor so each collateral
         //can only have one loan per bondvault associated to it
@@ -160,7 +128,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
         view
         returns (bool)
     {
-        return BrokerRouter(router()).canLiquidate(collateralVault, position);
+        return IBrokerRouter(router()).canLiquidate(collateralVault, position);
     }
 
     modifier checkSender(
@@ -184,7 +152,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
         IBrokerRouter.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
     ) external {
         {
-            (uint256 owed, uint256 buyout) = BrokerRouter(router())
+            (uint256 owed, uint256 buyout) = IBrokerRouter(router())
                 .LIEN_TOKEN()
                 .getBuyout(
                     outgoingTerms.collateralVault,
@@ -202,12 +170,12 @@ contract BrokerImplementation is IERC721Receiver, Base {
             );
 
             //also validated on the other end, is it needed here? since buyout is permissionless prob
-            _validateLoanTerms(
+            _validateTerms(
                 incomingTerms,
                 owed //amount
             );
 
-            BrokerRouter(router()).LIEN_TOKEN().buyoutLien(
+            IBrokerRouter(router()).LIEN_TOKEN().buyoutLien(
                 ILienToken.LienActionBuyout(incomingTerms, address(this))
             );
         }
@@ -219,12 +187,12 @@ contract BrokerImplementation is IERC721Receiver, Base {
         uint256 amount
     ) internal {
         require(
-            BrokerRouter(router()).requestLienPosition(
+            IBrokerRouter(router()).requestLienPosition(
                 ILienToken.LienActionEncumber(params, amount)
             ),
             "lien position not available"
         );
-        address feeTo = BrokerRouter(router()).feeTo();
+        address feeTo = IBrokerRouter(router()).feeTo();
         bool feeOn = feeTo != address(0);
         if (feeOn) {
             ERC20(asset()).safeTransfer(recipient, (amount * 997) / 1000);
