@@ -20,4 +20,4 @@ jobs:
         with:
           version: nightly
 
-      - run: forge test --ffi
+      - run: forge test --ffi --no-match-contract ForkedTest
