@@ -8,7 +8,7 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {CollateralVault} from "../CollateralVault.sol";
+import {CollateralVault, IFlashAction} from "../CollateralVault.sol";
 import {LienToken} from "../LienToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
@@ -25,6 +25,18 @@ import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol
 import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
+
+
+contract BorrowAndRedeposit is IFlashAction, TestHelpers {
+    function onFlashAction(bytes calldata data) external returns (bytes32) {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(address(loanTest));
+        uint256 tokenId = uint256(1);
+
+        _commitToLoan(tokenContract, tokenId);
+        return bytes32(keccak256("FlashAction.onFlashAction"));
+    }
+}
 
 //TODO:
 // - setup helpers to repay loans
@@ -378,6 +390,39 @@ contract AstariaTest is TestHelpers {
             //                );
             vm.stopPrank();
         }
+    }
+
+    // flashAction testing
+
+    // should fail with "flashAction: NFT not returned"
+    function testFailDoubleFlashAction() public {
+        Dummy721 loanTest = new Dummy721();
+
+        address tokenContract = address(address(loanTest));
+        uint256 tokenId = uint256(1);
+
+        uint256 maxAmount = uint256(100000000000000000000);
+        uint256 interestRate = uint256(50000000000000000000);
+        uint256 duration = uint256(block.timestamp + 10 minutes);
+        uint256 amount = uint256(1 ether);
+        uint8 lienPosition = uint8(0);
+        uint256 schedule = uint256(50);
+        (bytes32 vaultHash, ) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            maxAmount,
+            interestRate,
+            duration,
+            amount,
+            lienPosition,
+            schedule
+        );
+
+        uint256 starId = uint256(
+            keccak256(abi.encodePacked(tokenContract, tokenId))
+        );
+        IFlashAction borrowAndRedeposit = new BorrowAndRedeposit();
+        COLLATERAL_VAULT.flashAction(borrowAndRedeposit, starId, "");
     }
 
     // failure testing
