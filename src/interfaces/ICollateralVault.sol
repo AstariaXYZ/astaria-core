@@ -8,8 +8,15 @@ interface ICollateralVault is IERC721 {
         uint256 initiatorFee
     ) external returns (uint256);
 
-    function getUnderlyingFromStar(uint256 starId_)
+    function getUnderlying(uint256 starId_)
         external
         view
         returns (address, uint256);
+
+    function depositERC721(
+        address depositFor_,
+        address tokenContract_,
+        uint256 tokenId_,
+        bytes32[] calldata proof_
+    ) external;
 }

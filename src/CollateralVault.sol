@@ -101,7 +101,7 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
     ) external onlyOwner(starId) {
         address addr;
         uint256 tokenId;
-        (addr, tokenId) = getUnderlyingFromStar(starId);
+        (addr, tokenId) = getUnderlying(starId);
         IERC721 nft = IERC721(addr);
         // transfer the NFT to the desitnation optimistically
 
@@ -176,7 +176,7 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
     function _releaseToAddress(uint256 collateralVault, address releaseTo)
         internal
     {
-        (address underlyingAsset, uint256 assetId) = getUnderlyingFromStar(
+        (address underlyingAsset, uint256 assetId) = getUnderlying(
             collateralVault
         );
         IERC721(underlyingAsset).transferFrom(
@@ -188,7 +188,7 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
 
-    function getUnderlyingFromStar(uint256 collateralVault)
+    function getUnderlying(uint256 collateralVault)
         public
         view
         returns (address, uint256)
@@ -204,9 +204,7 @@ contract CollateralVault is Auth, ERC721, IERC721Receiver, ICollateralVault {
         override
         returns (string memory)
     {
-        (address underlyingAsset, uint256 assetId) = getUnderlyingFromStar(
-            starTokenId
-        );
+        (address underlyingAsset, uint256 assetId) = getUnderlying(starTokenId);
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 

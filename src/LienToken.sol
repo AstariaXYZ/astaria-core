@@ -31,7 +31,11 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     IAuctionHouse public AUCTION_HOUSE;
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
+
+    uint256 public buyoutNumerator;
+    uint256 public buyoutDenominator;
     event NewLien(uint256 lienId);
+    event RemovedLiens(uint256 lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
 
     constructor(
@@ -44,6 +48,8 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         ERC721("Astaria Lien Token", "Lien")
     {
         lienCounter = 1;
+        buyoutNumerator = 10;
+        buyoutDenominator = 100;
     }
 
     function setAuctionHouse(address _AUCTION_HOUSE) external requiresAuth {
@@ -107,15 +113,6 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
             );
     }
 
-    function _verifyMerkleBranch(
-        bytes32[] memory proof,
-        bytes32 leaf,
-        bytes32 root
-    ) internal pure returns (bool) {
-        bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
-        return isValidLeaf;
-    }
-
     function getInterest(uint256 collateralVault, uint256 position)
         public
         view
@@ -130,8 +127,19 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         return lien.amount += _getInterest(lien);
     }
 
+    function _getRemainingInterest(Lien memory lien)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 delta_t = uint256(
+            uint32(lien.start + lien.duration) - lien.last
+        );
+        return (delta_t * uint256(lien.rate) * lien.amount);
+    }
+
     function _getInterest(Lien memory lien) internal view returns (uint256) {
-        uint256 delta_t = uint32(block.timestamp) - lien.last;
+        uint256 delta_t = uint256(uint32(block.timestamp) - lien.last);
         return (delta_t * uint256(lien.rate) * lien.amount);
     }
 
@@ -163,13 +171,16 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         requiresAuth
         returns (uint256 lienId)
     {
+        // require that the auction is not under way
+        require(
+            !AUCTION_HOUSE.auctionExists(params.terms.collateralVault),
+            "collateralVault is being liquidated, cannot open new liens"
+        );
         require(
             liens[params.terms.collateralVault].length == params.terms.position,
             "invalid position request"
         );
 
-        // require that the auction is not under way
-        //                require();
         lienId = uint256(
             keccak256(
                 abi.encodePacked(
@@ -179,12 +190,11 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
                 )
             )
         );
-        uint256 buyout = BrokerImplementation(params.terms.broker).buyout();
         lienData[lienId] = Lien({
             amount: params.amount,
             broker: params.terms.broker,
             active: true,
-            rate: uint32(params.amount),
+            rate: uint32(params.terms.rate),
             last: uint32(block.timestamp),
             start: uint32(block.timestamp),
             duration: uint32(params.terms.duration),
@@ -198,6 +208,7 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
 
     function removeLiens(uint256 collateralVault) external requiresAuth {
         delete liens[collateralVault];
+        emit RemovedLiens(collateralVault);
     }
 
     function getLiens(uint256 _starId) public view returns (uint256[] memory) {
@@ -224,10 +235,10 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     {
         Lien memory lien = getLien(collateralVault, index);
         uint256 owed = _getOwed(lien);
-
+        uint256 remainingInterest = _getRemainingInterest(lien);
         return (
             owed,
-            owed + (owed * BrokerImplementation(lien.broker).buyout()) / 100
+            owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
         );
     }
 
@@ -238,25 +249,6 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256[] memory openLiens = liens[collateralVault];
         for (uint256 i = 0; i < openLiens.length; ++i) {
             paymentAmount = _payment(collateralVault, i, paymentAmount);
-            //            Lien storage l = lienData[openLiens[i]];
-            //            uint256 maxPayment = _getOwed(l);
-            //            if (maxPayment >= paymentAmount) {
-            //                paymentAmount = maxPayment;
-            //                delete liens[collateralVault][i];
-            //            } else {
-            //                l.amount -= paymentAmount;
-            //                l.last = uint32(block.timestamp);
-            //            }
-            //            if (paymentAmount > 0) {
-            //                address owner = ownerOf(openLiens[i]);
-            //
-            //                TRANSFER_PROXY.tokenTransferFrom(
-            //                    address(WETH),
-            //                    address(msg.sender),
-            //                    owner,
-            //                    paymentAmount
-            //                );
-            //            }
         }
     }
 

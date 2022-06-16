@@ -14,6 +14,12 @@ interface IBrokerRouter {
         uint256 position;
         uint256 schedule;
     }
+    struct Commitment {
+        address tokenContract;
+        uint256 tokenId;
+        bytes32[] depositProof;
+        ILienToken.LienActionEncumber action;
+    }
     struct BrokerParams {
         address appraiser;
         bytes32 root;
@@ -64,9 +70,9 @@ interface IBrokerRouter {
     ) external view returns (bytes memory);
 
     //    function buyoutLienPosition(BuyoutLienParams memory params) external;
-
-    function commitToLoans(ILienToken.LienActionEncumber[] calldata commitments)
-        external;
+    function commitToLoans(Commitment[] calldata commitments)
+        external
+        returns (uint256 totalBorrowed);
 
     function requestLienPosition(ILienToken.LienActionEncumber calldata params)
         external

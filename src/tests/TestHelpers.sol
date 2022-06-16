@@ -137,6 +137,7 @@ contract TestHelpers is Test {
 
         COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
         COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
+        LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
         _setupRolesAndCapabilities();
         _setupAppraisers();
     }
@@ -311,7 +312,7 @@ contract TestHelpers is Test {
         uint256 schedule
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
         (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
-            .getUnderlyingFromStar(_collateralVault);
+            .getUnderlying(_collateralVault);
         string[] memory inputs = new string[](9);
         //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
 

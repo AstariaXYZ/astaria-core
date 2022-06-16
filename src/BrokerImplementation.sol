@@ -114,15 +114,6 @@ contract BrokerImplementation is IERC721Receiver, Base {
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
     }
 
-    function verifyMerkleBranch(
-        bytes32[] memory proof,
-        bytes32 leaf,
-        bytes32 root
-    ) public pure returns (bool) {
-        bool isValidLeaf = MerkleProof.verify(proof, root, leaf);
-        return isValidLeaf;
-    }
-
     function canLiquidate(uint256 collateralVault, uint256 position)
         public
         view

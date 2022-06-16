@@ -131,7 +131,7 @@ contract AstariaTest is TestHelpers {
         );
 
         (address underlyingAsset, uint256 assetId) = COLLATERAL_VAULT
-            .getUnderlyingFromStar(starTokenId);
+            .getUnderlying(starTokenId);
 
         vm.expectEmit(true, true, false, true);
 
