@@ -43,6 +43,8 @@ interface IWETH9 is IERC20 {
 // - setup helpers to pay loans at their schedule
 // - test for interest
 contract TestHelpers is Test {
+    event Dummy();
+
     enum UserRoles {
         ADMIN,
         BOND_CONTROLLER,
@@ -75,7 +77,7 @@ contract TestHelpers is Test {
     address bidderOne = vm.addr(0x1342);
     address bidderTwo = vm.addr(0x1343);
     address appraiserTwo = vm.addr(appraiserTwoPK);
-    address appraisterThree = vm.addr(0x1345);
+    address appraiserThree = vm.addr(0x1345);
 
     event NewTermCommitment(
         bytes32 bondVault,
@@ -252,16 +254,27 @@ contract TestHelpers is Test {
         Ensure that we can create a new bond vault and we emit the correct events
      */
 
-    function _createBondVault(bytes32 vaultHash) internal {
-        return
+    function _createBondVault(bytes32 vaultHash, bool vault) internal {
+        if (vault) {
+            return
+                _createBondVault(
+                    appraiserTwo, // appraiserTwo for vault
+                    block.timestamp + 30 days, //expiration
+                    block.timestamp + 1 days, //deadline
+                    uint256(10), //buyout
+                    vaultHash,
+                    appraiserTwoPK
+                );
+        } else {
             _createBondVault(
-                appraiserOne,
+                appraiserOne, // appraiserOne for solo vault
                 block.timestamp + 30 days, //expiration
                 block.timestamp + 1 days, //deadline
                 uint256(10), //buyout
                 vaultHash,
                 appraiserOnePK
             );
+        }
     }
 
     function _createBondVault(
@@ -288,19 +301,22 @@ contract TestHelpers is Test {
 
         (v, r, s) = vm.sign(uint256(appraiserPk), hash);
 
-        BOND_CONTROLLER.newBondVault(
-            IBrokerRouter.BrokerParams(
-                appraiser,
-                _rootHash,
-                expiration,
-                deadline,
-                buyout,
-                bytes32("0x12345"),
-                v,
-                r,
-                s
-            )
+        IBrokerRouter.BrokerParams memory params = IBrokerRouter.BrokerParams(
+            appraiser,
+            _rootHash,
+            expiration,
+            deadline,
+            buyout,
+            bytes32("0x12345"),
+            v,
+            r,
+            s
         );
+        if (appraiser == appraiserOne) {
+            BOND_CONTROLLER.newSoloVault(params);
+        } else {
+            BOND_CONTROLLER.newBondVault(params);
+        }
     }
 
     function _generateLoanProof(
@@ -390,17 +406,18 @@ contract TestHelpers is Test {
         );
 
         {
-            _createBondVault(
-                appraiserOne,
-                block.timestamp + 30 days, //expiration
-                block.timestamp + 1 days, //deadline
-                uint256(10), //buyout
-                vaultHash,
-                appraiserOnePK
-            );
+            // _createBondVault(
+            //     appraiserTwo,
+            //     block.timestamp + 30 days, //expiration
+            //     block.timestamp + 1 days, //deadline
+            //     uint256(10), //buyout
+            //     vaultHash,
+            //     appraiserTwoPK
+            // );
+            _createBondVault(vaultHash, true);
         }
 
-        _lendToVault(vaultHash, uint256(500 ether), appraiserOne);
+        _lendToVault(vaultHash, uint256(500 ether), appraiserTwo);
 
         vm.expectEmit(true, true, false, false);
         emit NewTermCommitment(vaultHash, collateralVault, amount);

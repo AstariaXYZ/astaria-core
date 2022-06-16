@@ -30,7 +30,7 @@ string constant weth9Artifact = "src/tests/WETH9.json";
 contract BorrowAndRedeposit is IFlashAction, TestHelpers {
     function onFlashAction(bytes calldata data) external returns (bytes32) {
         Dummy721 loanTest = new Dummy721();
-        address tokenContract = address(address(loanTest));
+        address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
         _commitToLoan(tokenContract, tokenId);
@@ -102,33 +102,40 @@ contract AstariaTest is TestHelpers {
         //        _hijackNFT(tokenContract, tokenId);
 
         Dummy721 loanTest = new Dummy721();
-        address tokenContract = address(address(loanTest));
+        address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        uint256 maxAmount = uint256(100000000000000000000);
-        uint256 interestRate = uint256(50000000000000000000);
-        uint256 duration = uint256(block.timestamp + 10 minutes);
-        uint256 amount = uint256(1 ether);
-        uint8 lienPosition = uint8(0);
-        uint256 schedule = uint256(50);
 
         uint256 balanceBefore = WETH9.balanceOf(address(this));
         //balance of WETH before loan
 
         vm.expectEmit(true, true, false, true);
         emit DepositERC721(address(this), tokenContract, tokenId);
-        (bytes32 vaultHash, ) = _commitToLoan(
-            tokenContract,
-            tokenId,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
-        );
+
+        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId);
 
         //assert weth balance is before + 1 ether
         assert(WETH9.balanceOf(address(this)) == balanceBefore + 1 ether);
+    }
+
+    function testSoloLend() public {
+        vm.startPrank(appraiserOne);
+        _createBondVault(testBondVaultHash, false);
+        
+        vm.deal(appraiserOne, 1000 ether);
+        WETH9.deposit{value: 50 ether}();
+        WETH9.approve(
+            address(BOND_CONTROLLER.getBroker(testBondVaultHash)),
+            type(uint256).max
+        );
+
+        vm.warp(block.timestamp + 10000 days); // forward past expiration date
+
+        //        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
+        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
+            50 ether,
+            address(this)
+        );
+        vm.stopPrank();
     }
 
     function testReleaseToAddress() public {
@@ -161,7 +168,7 @@ contract AstariaTest is TestHelpers {
         //try to release asset
 
         Dummy721 loanTest = new Dummy721();
-        address tokenContract = address(address(loanTest));
+        address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
         uint256 maxAmount = uint256(100000000000000000000);
         uint256 interestRate = uint256(50000000000000000000);
@@ -208,7 +215,7 @@ contract AstariaTest is TestHelpers {
         returns (TestAuctionVaultResponse memory)
     {
         Dummy721 loanTest = new Dummy721();
-        address tokenContract = address(address(loanTest));
+        address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
         uint256 maxAmount = uint256(100000000000000000000);
         uint256 interestRate = uint256(50000000000000000000);
@@ -304,7 +311,7 @@ contract AstariaTest is TestHelpers {
 
     function testRefinanceLoan() public {
         Dummy721 loanTest = new Dummy721();
-        address tokenContract = address(address(loanTest));
+        address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
         uint256[] memory loanDetails = new uint256[](6);
@@ -398,25 +405,11 @@ contract AstariaTest is TestHelpers {
     function testFailDoubleFlashAction() public {
         Dummy721 loanTest = new Dummy721();
 
-        address tokenContract = address(address(loanTest));
+        address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        uint256 maxAmount = uint256(100000000000000000000);
-        uint256 interestRate = uint256(50000000000000000000);
-        uint256 duration = uint256(block.timestamp + 10 minutes);
-        uint256 amount = uint256(1 ether);
-        uint8 lienPosition = uint8(0);
-        uint256 schedule = uint256(50);
-        (bytes32 vaultHash, ) = _commitToLoan(
-            tokenContract,
-            tokenId,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
-        );
+
+        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId);
 
         uint256 starId = uint256(
             keccak256(abi.encodePacked(tokenContract, tokenId))
@@ -444,7 +437,7 @@ contract AstariaTest is TestHelpers {
     }
 
     function testFailLendPastExpiration() public {
-        _createBondVault(testBondVaultHash);
+        _createBondVault(testBondVaultHash, true);
         vm.deal(lender, 1000 ether);
         vm.startPrank(lender);
         WETH9.deposit{value: 50 ether}();
@@ -470,4 +463,29 @@ contract AstariaTest is TestHelpers {
         vm.prank(address(1));
         (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId);
     }
+
+    function testFailSoloLendNotAppraiser() public {
+        vm.startPrank(appraiserOne);
+        _createBondVault(testBondVaultHash, false);
+        vm.stopPrank();
+
+        vm.deal(lender, 1000 ether);
+        vm.startPrank(lender);
+        WETH9.deposit{value: 50 ether}();
+        WETH9.approve(
+            address(BOND_CONTROLLER.getBroker(testBondVaultHash)),
+            type(uint256).max
+        );
+
+        vm.warp(block.timestamp + 10000 days); // forward past expiration date
+
+        //        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
+        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
+            50 ether,
+            address(this)
+        );
+        vm.stopPrank();
+    }
+
+    
 }
