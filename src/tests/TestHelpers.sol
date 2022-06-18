@@ -52,14 +52,15 @@ contract TestHelpers is Test {
         uint256 schedule;
     }
 
-    LoanTerms defaultTerms = LoanTerms({
-        maxAmount: uint256(100000000000000000000),
-        interestRate: uint256(50000000000000000000),
-        duration:  uint256(block.timestamp + 10 minutes),
-        amount: uint256(1 ether),
-        lienPosition: uint256(0),
-        schedule: uint256(50 ether)
-    });
+    LoanTerms defaultTerms =
+        LoanTerms({
+            maxAmount: uint256(100000000000000000000),
+            interestRate: uint256(50000000000000000000),
+            duration: uint256(block.timestamp + 10 minutes),
+            amount: uint256(1 ether),
+            lienPosition: uint256(0),
+            schedule: uint256(50 ether)
+        });
 
     event Dummy();
     event NewLien(uint256 lienId);
@@ -383,36 +384,57 @@ contract TestHelpers is Test {
         uint256 amount,
         uint256 lienPosition,
         uint256 schedule
-    ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory) {
+    ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory terms) {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
         );
 
-        return
-            _commitWithoutDeposit(
-                tokenContract,
-                tokenId,
-                maxAmount,
-                interestRate,
-                duration,
-                amount,
-                lienPosition,
-                schedule
-            );
+        // return
+        //     _commitWithoutDeposit(
+        //         tokenContract,
+        //         tokenId,
+        //         maxAmount,
+        //         interestRate,
+        //         duration,
+        //         amount,
+        //         lienPosition,
+        //         schedule
+        //     );
+
+        address broker;
+
+        (vaultHash, terms, broker) = _commitWithoutDeposit(
+            tokenContract,
+            tokenId,
+            maxAmount,
+            interestRate,
+            duration,
+            amount,
+            lienPosition,
+            schedule
+        );
+
+        // vm.expectEmit(true, true, false, false);
+        // emit NewTermCommitment(vaultHash, collateralVault, amount);
+        BrokerImplementation(broker).commitToLoan(terms, amount, address(this));
+
+        return (vaultHash, terms);
     }
 
     function _commitToLoan(
         address tokenContract,
         uint256 tokenId,
         LoanTerms memory loanTerms
-    )internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory) {
+    ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory terms) {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
         );
 
-        return _commitWithoutDeposit(
+        address broker;
+
+        (vaultHash, terms, broker) = _commitWithoutDeposit(
             tokenContract,
             tokenId,
             loanTerms.maxAmount,
@@ -422,6 +444,13 @@ contract TestHelpers is Test {
             loanTerms.lienPosition,
             loanTerms.schedule
         );
+        BrokerImplementation(broker).commitToLoan(
+            terms,
+            loanTerms.amount,
+            address(this)
+        );
+
+        return (vaultHash, terms);
     }
 
     // TODO clean up flow, for now makes refinancing more convenient
@@ -434,7 +463,14 @@ contract TestHelpers is Test {
         uint256 amount,
         uint256 lienPosition,
         uint256 schedule
-    ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory) {
+    )
+        internal
+        returns (
+            bytes32 vaultHash,
+            IBrokerRouter.Terms memory terms,
+            address broker
+        )
+    {
         uint256 collateralVault = uint256(
             keccak256(
                 abi.encodePacked(
@@ -458,8 +494,6 @@ contract TestHelpers is Test {
 
         _lendToVault(vaultHash, uint256(500 ether), appraiserTwo);
 
-        vm.expectEmit(true, true, false, false);
-        emit NewTermCommitment(vaultHash, collateralVault, amount);
         address broker = BOND_CONTROLLER.getBroker(vaultHash);
         IBrokerRouter.Terms memory terms = IBrokerRouter.Terms(
             broker,
@@ -472,14 +506,11 @@ contract TestHelpers is Test {
             schedule
         );
 
-        // vm.expectEmit(false, false, false, false);
-        // emit NewLien(uint256(6919438989300878265903610643376834864758626414031344077247736039270251210152));
-        BrokerImplementation(broker).commitToLoan(terms, amount, address(this));
-        return (vaultHash, terms);
+        return (vaultHash, terms, broker);
     }
 
     // function _refinanceLoan(IBrokerRouter.Terms oldTerms, IBrokerRouter.Terms newTerms) internal {
-        
+
     // }
 
     function _warpToMaturity(uint256 collateralVault, uint256 position)
