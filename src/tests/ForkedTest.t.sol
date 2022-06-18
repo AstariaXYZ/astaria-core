@@ -66,24 +66,19 @@ contract ForkedTest is TestHelpers {
 
         address tokenContract = APE_ADDRESS;
         
-        uint256 maxAmount = uint256(100000000000000000000);
-        uint256 interestRate = uint256(50000000000000000000);
-        uint256 duration = uint256(block.timestamp + 10 minutes);
-        uint256 amount = uint256(1 ether);
-        uint8 lienPosition = uint8(0);
-        uint256 schedule = uint256(50);
+        // uint256 maxAmount = uint256(100000000000000000000);
+        // uint256 interestRate = uint256(50000000000000000000);
+        // uint256 duration = uint256(block.timestamp + 10 minutes);
+        // uint256 amount = uint256(1 ether);
+        // uint8 lienPosition = uint8(0);
+        // uint256 schedule = uint256(50);
 
         //balance of WETH before loan
 
         (bytes32 vaultHash, ) = _commitToLoan(
             APE_ADDRESS,
             tokenId,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
+            defaultTerms
         );
 
         uint256 collateralVault = uint256(keccak256(abi.encodePacked(APE_ADDRESS, tokenId)));

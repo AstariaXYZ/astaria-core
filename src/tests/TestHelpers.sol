@@ -43,7 +43,26 @@ interface IWETH9 is IERC20 {
 // - setup helpers to pay loans at their schedule
 // - test for interest
 contract TestHelpers is Test {
+    struct LoanTerms {
+        uint256 maxAmount;
+        uint256 interestRate;
+        uint256 duration;
+        uint256 amount;
+        uint256 lienPosition;
+        uint256 schedule;
+    }
+
+    LoanTerms defaultTerms = LoanTerms({
+        maxAmount: uint256(100000000000000000000),
+        interestRate: uint256(50000000000000000000),
+        duration:  uint256(block.timestamp + 10 minutes),
+        amount: uint256(1 ether),
+        lienPosition: uint256(0),
+        schedule: uint256(50 ether)
+    });
+
     event Dummy();
+    event NewLien(uint256 lienId);
 
     enum UserRoles {
         ADMIN,
@@ -355,23 +374,6 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-    function _commitToLoan(address tokenContract, uint256 tokenId)
-        internal
-        returns (bytes32 vaultHash, IBrokerRouter.Terms memory)
-    {
-        return
-            _commitToLoan(
-                tokenContract,
-                tokenId,
-                uint256(100000000000000000000),
-                uint256(50000000000000000000),
-                uint256(block.timestamp + 10 minutes),
-                uint256(1 ether),
-                uint256(0),
-                uint256(50 ether)
-            );
-    }
-
     function _commitToLoan(
         address tokenContract,
         uint256 tokenId,
@@ -386,6 +388,53 @@ contract TestHelpers is Test {
             tokenContract, //based ghoul
             tokenId
         );
+
+        return
+            _commitWithoutDeposit(
+                tokenContract,
+                tokenId,
+                maxAmount,
+                interestRate,
+                duration,
+                amount,
+                lienPosition,
+                schedule
+            );
+    }
+
+    function _commitToLoan(
+        address tokenContract,
+        uint256 tokenId,
+        LoanTerms memory loanTerms
+    )internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory) {
+        _depositNFTs(
+            tokenContract, //based ghoul
+            tokenId
+        );
+
+        return _commitWithoutDeposit(
+            tokenContract,
+            tokenId,
+            loanTerms.maxAmount,
+            loanTerms.interestRate,
+            loanTerms.duration,
+            loanTerms.amount,
+            loanTerms.lienPosition,
+            loanTerms.schedule
+        );
+    }
+
+    // TODO clean up flow, for now makes refinancing more convenient
+    function _commitWithoutDeposit(
+        address tokenContract,
+        uint256 tokenId,
+        uint256 maxAmount,
+        uint256 interestRate,
+        uint256 duration,
+        uint256 amount,
+        uint256 lienPosition,
+        uint256 schedule
+    ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory) {
         uint256 collateralVault = uint256(
             keccak256(
                 abi.encodePacked(
@@ -405,17 +454,7 @@ contract TestHelpers is Test {
             schedule
         );
 
-        {
-            // _createBondVault(
-            //     appraiserTwo,
-            //     block.timestamp + 30 days, //expiration
-            //     block.timestamp + 1 days, //deadline
-            //     uint256(10), //buyout
-            //     vaultHash,
-            //     appraiserTwoPK
-            // );
-            _createBondVault(vaultHash, true);
-        }
+        _createBondVault(vaultHash, true);
 
         _lendToVault(vaultHash, uint256(500 ether), appraiserTwo);
 
@@ -432,9 +471,16 @@ contract TestHelpers is Test {
             lienPosition,
             schedule
         );
+
+        // vm.expectEmit(false, false, false, false);
+        // emit NewLien(uint256(6919438989300878265903610643376834864758626414031344077247736039270251210152));
         BrokerImplementation(broker).commitToLoan(terms, amount, address(this));
         return (vaultHash, terms);
     }
+
+    // function _refinanceLoan(IBrokerRouter.Terms oldTerms, IBrokerRouter.Terms newTerms) internal {
+        
+    // }
 
     function _warpToMaturity(uint256 collateralVault, uint256 position)
         internal

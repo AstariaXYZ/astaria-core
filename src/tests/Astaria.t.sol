@@ -33,7 +33,7 @@ contract BorrowAndRedeposit is IFlashAction, TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        _commitToLoan(tokenContract, tokenId);
+        _commitToLoan(tokenContract, tokenId, defaultTerms);
         return bytes32(keccak256("FlashAction.onFlashAction"));
     }
 }
@@ -111,7 +111,7 @@ contract AstariaTest is TestHelpers {
         vm.expectEmit(true, true, false, true);
         emit DepositERC721(address(this), tokenContract, tokenId);
 
-        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId);
+        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
         //assert weth balance is before + 1 ether
         assert(WETH9.balanceOf(address(this)) == balanceBefore + 1 ether);
@@ -170,24 +170,13 @@ contract AstariaTest is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        uint256 maxAmount = uint256(100000000000000000000);
-        uint256 interestRate = uint256(50000000000000000000);
-        uint256 duration = uint256(block.timestamp + 10 minutes);
-        uint256 amount = uint256(1 ether);
-        uint8 lienPosition = uint8(0);
-        uint256 schedule = uint256(50);
 
         vm.expectEmit(true, true, false, true);
         emit DepositERC721(address(this), tokenContract, tokenId);
         (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
+            defaultTerms
         );
         vm.expectRevert(bytes("must be no liens or auctions to call this"));
 
@@ -217,24 +206,12 @@ contract AstariaTest is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        uint256 maxAmount = uint256(100000000000000000000);
-        uint256 interestRate = uint256(50000000000000000000);
-        uint256 duration = uint256(block.timestamp + 10 minutes);
-        uint256 amount = uint256(1 ether);
-        uint8 lienPosition = uint8(0);
-        uint256 schedule = uint256(50);
-
         vm.expectEmit(true, true, false, true);
         emit DepositERC721(address(this), tokenContract, tokenId);
         (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
-            maxAmount,
-            interestRate,
-            duration,
-            amount,
-            lienPosition,
-            schedule
+            defaultTerms
         );
         uint256 starId = uint256(
             keccak256(abi.encodePacked(tokenContract, tokenId))
@@ -310,17 +287,40 @@ contract AstariaTest is TestHelpers {
     }
 
     function testRefinanceLoan() public {
+
+
+
+
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
+        (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
+                tokenContract,
+                tokenId,
+                defaultTerms
+        );
 
-        uint256[] memory loanDetails = new uint256[](6);
-        loanDetails[0] = uint256(100000000000000000000); //maxAmount
-        loanDetails[1] = uint256(50000000000000000000); //interestRate
-        loanDetails[2] = uint256(block.timestamp + 10 minutes); //duration
-        loanDetails[3] = uint256(1 ether); //amount
-        loanDetails[4] = uint256(0); //lienPosition
-        loanDetails[5] = uint256(50); //schedule
+        // (bytes32 incoming, IBrokerRouter.Terms memory newTerms) = _commitToLoan(
+        //         tokenContract,
+        //         tokenId,
+        //         uint256(100000000000000000000),
+        //         uint256(10000000000000000000), // lower interest rate
+        //         uint256(block.timestamp + 10 minutes * 2), // double length
+        //         uint256(1 ether),
+        //         uint256(0),
+        //         uint256(50 ether)
+        // );
+        
+
+
+
+        // uint256[] memory loanDetails = new uint256[](6);
+        // loanDetails[0] = uint256(100000000000000000000); //maxAmount
+        // loanDetails[1] = uint256(50000000000000000000); //interestRate
+        // loanDetails[2] = uint256(block.timestamp + 10 minutes); //duration
+        // loanDetails[3] = uint256(1 ether); //amount
+        // loanDetails[4] = uint256(0); //lienPosition
+        // loanDetails[5] = uint256(50); //schedule
 
         uint256[] memory loanDetails2 = new uint256[](6);
         loanDetails2[0] = uint256(100000000000000000000); //maxAmount
@@ -330,18 +330,18 @@ contract AstariaTest is TestHelpers {
         loanDetails2[4] = uint256(0); //lienPosition
         loanDetails2[5] = uint256(50); //schedule
 
-        vm.expectEmit(true, true, false, true);
-        emit DepositERC721(address(this), tokenContract, tokenId);
-        (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
-            tokenContract,
-            tokenId,
-            loanDetails[0],
-            loanDetails[1],
-            loanDetails[2],
-            loanDetails[3],
-            loanDetails[4],
-            loanDetails[5]
-        );
+        // vm.expectEmit(true, true, false, true);
+        // emit DepositERC721(address(this), tokenContract, tokenId);
+        // (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
+        //     tokenContract,
+        //     tokenId,
+        //     loanDetails[0],
+        //     loanDetails[1],
+        //     loanDetails[2],
+        //     loanDetails[3],
+        //     loanDetails[4],
+        //     loanDetails[5]
+        // );
 
         uint256 collateralVault = uint256(
             keccak256(
@@ -379,24 +379,25 @@ contract AstariaTest is TestHelpers {
             );
 
             _lendToVault(incoming, uint256(500 ether), appraiserTwo);
-
-            vm.startPrank(appraiserTwo);
-            bytes32[] memory dealBrokers = new bytes32[](2);
-            dealBrokers[0] = outgoing;
-            dealBrokers[1] = incoming;
-            //            uint256[] memory collateralDetails = new uint256[](2);
-            //            collateralDetails[0] = collateralVault;
-            //            collateralDetails[1] = uint256(0);
-
-            //            BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
-            //                .buyoutLien(
-            //                    collateralVault,
-            //                    uint256(0),
-            //                    newLoanProof,
-            //                    loanDetails2
-            //                );
-            vm.stopPrank();
         }
+
+        //     vm.startPrank(appraiserTwo);
+        //     bytes32[] memory dealBrokers = new bytes32[](2);
+        //     dealBrokers[0] = outgoing;
+        //     dealBrokers[1] = incoming;
+        //     //            uint256[] memory collateralDetails = new uint256[](2);
+        //     //            collateralDetails[0] = collateralVault;
+        //     //            collateralDetails[1] = uint256(0);
+
+        //     //            BrokerImplementation(BOND_CONTROLLER.getBroker(incoming))
+        //     //                .buyoutLien(
+        //     //                    collateralVault,
+        //     //                    uint256(0),
+        //     //                    newLoanProof,
+        //     //                    loanDetails2
+        //     //                );
+        //     vm.stopPrank();
+        // }
     }
 
     // flashAction testing
@@ -409,7 +410,7 @@ contract AstariaTest is TestHelpers {
         uint256 tokenId = uint256(1);
 
 
-        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId);
+        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
         uint256 starId = uint256(
             keccak256(abi.encodePacked(tokenContract, tokenId))
@@ -461,7 +462,7 @@ contract AstariaTest is TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
         vm.prank(address(1));
-        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId);
+        (bytes32 vaultHash, ) = _commitToLoan(tokenContract, tokenId, defaultTerms);
     }
 
     function testFailSoloLendNotAppraiser() public {
