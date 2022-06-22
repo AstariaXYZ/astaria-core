@@ -293,30 +293,42 @@ contract AstariaTest is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
-            tokenContract,
-            tokenId,
-            defaultTerms
-        );
 
-        uint256[] memory loanDetails2 = new uint256[](6);
-        loanDetails2[0] = uint256(100000000000000000000); //maxAmount
-        loanDetails2[1] = uint256(10000000000000000000); //interestRate
-        loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
-        loanDetails2[3] = uint256(1 ether); //amount
-        loanDetails2[4] = uint256(0); //lienPosition
-        loanDetails2[5] = uint256(50); //schedule
+        LoanTerms memory newTerms = LoanTerms({
+            maxAmount: uint256(100000000000000000000),
+            interestRate: uint256(10000000000000000000), // interest rate decreased
+            duration: uint256(block.timestamp + 10 minutes * 2), // duration doubled
+            amount: uint256(1 ether),
+            lienPosition: uint256(0),
+            schedule: uint256(50 ether)
+        });
 
-        _commitWithoutDeposit(
-            tokenContract,
-            tokenId,
-            loanDetails2[0],
-            loanDetails2[1], //interestRate
-            loanDetails2[2], //duration
-            loanDetails2[3], // amount
-            loanDetails2[4], //lienPosition
-            loanDetails2[5] //schedule
-        );
+        _refinanceLoan(tokenContract, tokenId, defaultTerms, newTerms);
+
+        // (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
+        //     tokenContract,
+        //     tokenId,
+        //     defaultTerms
+        // );
+
+        // uint256[] memory loanDetails2 = new uint256[](6);
+        // loanDetails2[0] = uint256(100000000000000000000); //maxAmount
+        // loanDetails2[1] = uint256(10000000000000000000); //interestRate
+        // loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
+        // loanDetails2[3] = uint256(1 ether); //amount
+        // loanDetails2[4] = uint256(0); //lienPosition
+        // loanDetails2[5] = uint256(50); //schedule
+
+        // _commitWithoutDeposit(
+        //     tokenContract,
+        //     tokenId,
+        //     loanDetails2[0],
+        //     loanDetails2[1], //interestRate
+        //     loanDetails2[2], //duration
+        //     loanDetails2[3], // amount
+        //     loanDetails2[4], //lienPosition
+        //     loanDetails2[5] //schedule
+        // );
     }
 
     // flashAction testing

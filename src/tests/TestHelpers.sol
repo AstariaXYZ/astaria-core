@@ -453,6 +453,31 @@ contract TestHelpers is Test {
         return (vaultHash, terms);
     }
 
+    function _commitWithoutDeposit(
+        address tokenContract,
+        uint256 tokenId,
+        LoanTerms memory loanTerms
+    )
+        internal
+        returns (
+            bytes32 vaultHash,
+            IBrokerRouter.Terms memory terms,
+            address broker
+        )
+    {
+        return
+            _commitWithoutDeposit(
+                tokenContract,
+                tokenId,
+                loanTerms.maxAmount,
+                loanTerms.interestRate,
+                loanTerms.duration,
+                loanTerms.amount,
+                loanTerms.lienPosition,
+                loanTerms.schedule
+            );
+    }
+
     // TODO clean up flow, for now makes refinancing more convenient
     function _commitWithoutDeposit(
         address tokenContract,
@@ -509,9 +534,25 @@ contract TestHelpers is Test {
         return (vaultHash, terms, broker);
     }
 
-    // function _refinanceLoan(IBrokerRouter.Terms oldTerms, IBrokerRouter.Terms newTerms) internal {
-
+    // struct LoanTerms {
+    //     uint256 maxAmount;
+    //     uint256 interestRate;
+    //     uint256 duration;
+    //     uint256 amount;
+    //     uint256 lienPosition;
+    //     uint256 schedule;
     // }
+
+    function _refinanceLoan(
+        address tokenContract,
+        uint256 tokenId,
+        LoanTerms memory oldTerms,
+        LoanTerms memory newTerms
+    ) internal {
+        _commitToLoan(tokenContract, tokenId, oldTerms);
+        
+        _commitWithoutDeposit(tokenContract, tokenId, newTerms);
+    }
 
     function _warpToMaturity(uint256 collateralVault, uint256 position)
         internal
