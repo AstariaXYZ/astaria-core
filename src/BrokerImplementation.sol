@@ -168,7 +168,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
     }
 
     function _requestLienAndIssuePayout(
-        IBrokerRouter.Terms memory params, //        uint256 collateralVault, //        uint256 amount, //        uint256 interestRate, //        uint256 duration, //        uint256 lienPosition, //        uint256 schedule
+        IBrokerRouter.Terms memory params,
         address recipient,
         uint256 amount
     ) internal {
