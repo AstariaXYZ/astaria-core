@@ -108,7 +108,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
         //can only have one loan per bondvault associated to it
 
         //reach out to the bond vault and send loan to user
-
+        
         _requestLienAndIssuePayout(params, receiver, amount);
 
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);

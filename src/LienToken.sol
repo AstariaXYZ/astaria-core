@@ -335,8 +335,9 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         });
 
         liens[params.terms.collateralVault].push(lienId);
-        _mint(params.terms.broker, lienId);
         emit NewLien(lienId);
+        _mint(params.terms.broker, lienId);
+        
     }
 
     function removeLiens(uint256 collateralVault) external requiresAuth {
