@@ -312,6 +312,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
         external
         returns (uint256 totalBorrowed)
     {
+        totalBorrowed = 0;
         for (uint256 i = 0; i < commitments.length; ++i) {
             _transferAndDepositAsset(
                 commitments[i].tokenContract,

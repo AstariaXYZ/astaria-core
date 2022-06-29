@@ -27,13 +27,25 @@ contract TransferAgent {
 
 contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     using ValidateTerms for IBrokerRouter.Terms;
-    uint256 public lienCounter;
+
     IAuctionHouse public AUCTION_HOUSE;
+
+    bytes32 public immutable DOMAIN_SEPARATOR;
+
+    string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA =
+        "\x19\x01";
+    bytes32 private constant NEW_SUBJUGATION_OFFER =
+        keccak256(
+            "NewSubjugationOffer(uint256 collateralVault,uint256 lienId,uint256 currentPosition,uint256 lowestPosition,uint256 price,uint256 deadline)"
+        );
+
+    uint256 public lienCounter;
+    uint256 public buyoutNumerator;
+    uint256 public buyoutDenominator;
+
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
 
-    uint256 public buyoutNumerator;
-    uint256 public buyoutDenominator;
     event NewLien(uint256 lienId);
     event RemovedLiens(uint256 lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
@@ -50,6 +62,21 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         lienCounter = 1;
         buyoutNumerator = 10;
         buyoutDenominator = 100;
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256("LienToken"),
+                keccak256("1"),
+                chainId,
+                address(this)
+            )
+        );
     }
 
     function setAuctionHouse(address _AUCTION_HOUSE) external requiresAuth {
@@ -164,6 +191,112 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
             amounts[i] = lien.amount;
             lien.active = false;
         }
+    }
+
+    function encodeSubjugationOffer(
+        uint256 collateralVault,
+        uint256 lien,
+        uint256 currentPosition,
+        uint256 lowestPosition,
+        uint256 price,
+        uint256 deadline
+    ) public view returns (bytes memory) {
+        return
+            abi.encodePacked(
+                EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
+                DOMAIN_SEPARATOR,
+                keccak256(
+                    abi.encode(
+                        NEW_SUBJUGATION_OFFER,
+                        collateralVault,
+                        lien,
+                        currentPosition,
+                        lowestPosition,
+                        price,
+                        deadline
+                    )
+                )
+            );
+    }
+
+    //wip
+    function takeSubjugationOffer(ILienToken.LienActionSwap calldata params)
+        external
+    {
+        require(block.timestamp <= params.offer.deadline, "offer has expired");
+        //struct SwapTerms {
+        //        uint256 collateralVault;
+        //        uint256 lien;
+        //        uint256 currentPosition;
+        //        uint256 lowestPosition;
+        //        uint256 price;
+        //        uint8 v;
+        //        bytes32 r;
+        //        bytes32 s;
+        //    }
+        //    struct LienActionSwap {
+        //        SwapTerms terms;
+        //        uint256 replacementLien;
+        //        uint256 replacementPosition;
+        //    }
+        require(
+            msg.sender == ownerOf(params.replacementLien),
+            "only the holder of the replacement lien can call this"
+        );
+        require(
+            liens[params.offer.collateralVault][params.replacementPosition] ==
+                params.replacementLien,
+            "invalid swap criteria"
+        );
+        require(
+            params.replacementPosition <= params.offer.lowestPosition,
+            "your lien is too low to swap with this holder"
+        );
+        //validate signer of the swap terms is the holder of the lien you are swapping
+
+        bytes32 digest = keccak256(
+            encodeSubjugationOffer(
+                params.offer.collateralVault,
+                params.offer.lien,
+                params.offer.currentPosition,
+                params.offer.lowestPosition,
+                params.offer.price,
+                params.offer.deadline
+            )
+        );
+
+        address recoveredAddress = ecrecover(
+            digest,
+            params.offer.v,
+            params.offer.r,
+            params.offer.s
+        );
+
+        require(
+            recoveredAddress ==
+                ownerOf(
+                    liens[params.offer.collateralVault][
+                        params.offer.currentPosition
+                    ]
+                ),
+            "invalid owner sig for lien"
+        );
+
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            ownerOf(params.offer.lien),
+            params.offer.price
+        );
+
+        //swap positions in the queue
+        liens[params.offer.collateralVault][
+            params.offer.currentPosition
+        ] = params.replacementLien;
+
+        liens[params.offer.collateralVault][params.replacementPosition] = params
+            .offer
+            .lien;
     }
 
     function createLien(ILienToken.LienActionEncumber calldata params)

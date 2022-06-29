@@ -19,9 +19,28 @@ interface ILienToken is IERC721 {
         IBrokerRouter.Terms terms;
         uint256 amount;
     }
+
     struct LienActionBuyout {
         IBrokerRouter.Terms incoming;
         address receiver;
+    }
+
+    struct SubjugationOffer {
+        uint256 collateralVault;
+        uint256 lien;
+        uint256 currentPosition;
+        uint256 lowestPosition;
+        uint256 price;
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
+    struct LienActionSwap {
+        SubjugationOffer offer;
+        uint256 replacementLien;
+        uint256 replacementPosition;
     }
 
     function stopLiens(uint256 collateralVault)
@@ -58,6 +77,15 @@ interface ILienToken is IERC721 {
     function createLien(LienActionEncumber calldata params)
         external
         returns (uint256 lienId);
+
+    function encodeSubjugationOffer(
+        uint256 collateralVault,
+        uint256 lien,
+        uint256 currentPosition,
+        uint256 lowestPosition,
+        uint256 price,
+        uint256 deadline
+    ) external view returns (bytes memory);
 
     function buyoutLien(LienActionBuyout calldata params) external;
 
