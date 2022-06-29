@@ -32,11 +32,6 @@ interface IBrokerRouter {
         bytes32 s;
     }
 
-    struct BuyoutLienParams {
-        Terms outgoing;
-        Terms incoming;
-    }
-
     struct RefinanceCheckParams {
         Terms outgoing;
         Terms incoming;
@@ -69,7 +64,6 @@ interface IBrokerRouter {
         uint256 buyout
     ) external view returns (bytes memory);
 
-    //    function buyoutLienPosition(BuyoutLienParams memory params) external;
     function commitToLoans(Commitment[] calldata commitments)
         external
         returns (uint256 totalBorrowed);

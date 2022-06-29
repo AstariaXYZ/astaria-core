@@ -104,11 +104,6 @@ contract BrokerImplementation is IERC721Receiver, Base {
 
         _validateTerms(params, amount);
 
-        //ensure that we have space left in our appraisal value to take on more debt or refactor so each collateral
-        //can only have one loan per bondvault associated to it
-
-        //reach out to the bond vault and send loan to user
-        
         _requestLienAndIssuePayout(params, receiver, amount);
 
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
@@ -186,7 +181,11 @@ contract BrokerImplementation is IERC721Receiver, Base {
         address feeTo = IBrokerRouter(router()).feeTo();
         bool feeOn = feeTo != address(0);
         if (feeOn) {
-            ERC20(asset()).safeTransfer(recipient, (amount * 997) / 1000);
+            uint256 rake = (amount * 997) / 1000;
+            ERC20(asset()).safeTransfer(feeTo, rake);
+            unchecked {
+                amount -= rake;
+            }
         }
         ERC20(asset()).safeTransfer(recipient, amount);
     }
