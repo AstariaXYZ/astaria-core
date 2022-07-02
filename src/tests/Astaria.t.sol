@@ -22,7 +22,7 @@ import {TransferProxy} from "../TransferProxy.sol";
 import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 
-import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.sol";
+import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -116,6 +116,8 @@ contract AstariaTest is TestHelpers {
             defaultTerms
         );
 
+        // BrokerVault(BOND_CONTROLLER.getBroker(testBondVaultHash)).withdraw(50 ether);
+
         //assert weth balance is before + 1 ether
         assert(WETH9.balanceOf(address(this)) == balanceBefore + 1 ether);
     }
@@ -138,8 +140,14 @@ contract AstariaTest is TestHelpers {
             50 ether,
             address(this)
         );
+
+        SoloBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).withdraw(
+            50 ether
+        );
         vm.stopPrank();
     }
+
+    function testWithdraw() public {}
 
     function testReleaseToAddress() public {
         Dummy721 releaseTest = new Dummy721();
@@ -289,47 +297,163 @@ contract AstariaTest is TestHelpers {
         COLLATERAL_VAULT.endAuction(response.collateralVault);
     }
 
+    // TODO break up refinanceLoan() in here to test
     function testRefinanceLoan() public {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
+        vm.expectEmit(true, true, false, true);
+        emit DepositERC721(address(this), tokenContract, tokenId);
+        (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            defaultTerms
+        );
+        uint256 starId = uint256(
+            keccak256(abi.encodePacked(tokenContract, tokenId))
+        );
+        _warpToMaturity(starId, uint256(0));
+        address broker = BOND_CONTROLLER.getBroker(vaultHash);
+
+        vm.expectEmit(false, false, false, false);
+
+        emit Liquidation(terms.collateralVault, terms.position, uint256(0)); // not calculating/checking reserve
+
+        uint256 reserve = BOND_CONTROLLER.liquidate(
+            terms.collateralVault,
+            terms.position
+        );
+
+        //        return (vaultHash, starId, reserve);
 
         LoanTerms memory newTerms = LoanTerms({
             maxAmount: uint256(100000000000000000000),
-            interestRate: uint256(10000000000000000000), // interest rate decreased
-            duration: uint256(block.timestamp + 10 minutes * 2), // duration doubled
+            interestRate: uint256(100), // interest rate decreased
+            duration: uint256(block.timestamp + 10 minutes + 14 days), // duration doubled
             amount: uint256(1 ether),
             lienPosition: uint256(0),
             schedule: uint256(50 ether)
         });
 
-        _refinanceLoan(tokenContract, tokenId, defaultTerms, newTerms);
+        IBrokerRouter.Terms memory outgoing = IBrokerRouter.Terms({
+            broker: broker, // broker
+            proof: terms.proof, // proof
+            collateralVault: terms.collateralVault, // collateralVault
+            maxAmount: defaultTerms.maxAmount,
+            rate: defaultTerms.interestRate, // rate
+            duration: defaultTerms.duration,
+            position: defaultTerms.lienPosition, // position
+            schedule: defaultTerms.schedule
+        });
 
-        // (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
-        //     tokenContract,
-        //     tokenId,
-        //     defaultTerms
-        // );
+        IBrokerRouter.Terms memory incoming = IBrokerRouter.Terms({
+            broker: broker, // broker
+            proof: terms.proof, // proof
+            collateralVault: terms.collateralVault, // collateralVault
+            maxAmount: newTerms.maxAmount,
+            rate: newTerms.interestRate, // rate
+            duration: newTerms.duration,
+            position: newTerms.lienPosition, // position
+            schedule: newTerms.schedule
+        });
 
-        // uint256[] memory loanDetails2 = new uint256[](6);
-        // loanDetails2[0] = uint256(100000000000000000000); //maxAmount
-        // loanDetails2[1] = uint256(10000000000000000000); //interestRate
-        // loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
-        // loanDetails2[3] = uint256(1 ether); //amount
-        // loanDetails2[4] = uint256(0); //lienPosition
-        // loanDetails2[5] = uint256(50); //schedule
+        IBrokerRouter.RefinanceCheckParams
+            memory refinanceCheckParams = IBrokerRouter.RefinanceCheckParams(
+                terms,
+                incoming
+            );
 
-        // _commitWithoutDeposit(
-        //     tokenContract,
-        //     tokenId,
-        //     loanDetails2[0],
-        //     loanDetails2[1], //interestRate
-        //     loanDetails2[2], //duration
-        //     loanDetails2[3], // amount
-        //     loanDetails2[4], //lienPosition
-        //     loanDetails2[5] //schedule
-        // );
+        assert(BOND_CONTROLLER.isValidRefinance(refinanceCheckParams));
+
+        _commitWithoutDeposit(tokenContract, tokenId, newTerms);
     }
+
+    // function testRefinanceLoan() public {
+    //     //------------------------------
+
+    //     Dummy721 loanTest = new Dummy721();
+    //     address tokenContract = address(loanTest);
+    //     uint256 tokenId = uint256(1);
+
+    //     LoanTerms memory newTerms = LoanTerms({
+    //         maxAmount: uint256(100000000000000000000),
+    //         interestRate: uint256(10000000000000000000), // interest rate decreased
+    //         duration: uint256(block.timestamp + 10 minutes * 2), // duration doubled
+    //         amount: uint256(1 ether),
+    //         lienPosition: uint256(0),
+    //         schedule: uint256(50 ether)
+    //     });
+
+    //     uint256 collateralVault = uint256(
+    //         keccak256(abi.encodePacked(tokenContract, tokenId))
+    //     );
+    //     bytes32 vaultHash;
+    //     bytes32[] memory proof;
+
+    //     (vaultHash, proof) = _generateLoanProof(collateralVault, defaultTerms);
+
+    //     address broker = BOND_CONTROLLER.getBroker(vaultHash);
+
+    //     // TODO fix
+    //     IBrokerRouter.Terms memory outgoing = IBrokerRouter.Terms({
+    //         broker: broker, // broker
+    //         proof: proof, // proof
+    //         collateralVault: collateralVault, // collateralVault
+    //         maxAmount: defaultTerms.maxAmount,
+    //         rate: defaultTerms.interestRate, // rate
+    //         duration: defaultTerms.duration,
+    //         position: defaultTerms.lienPosition, // position
+    //         schedule: defaultTerms.schedule
+    //     });
+
+    //     (vaultHash, proof) = _generateLoanProof(collateralVault, newTerms);
+
+    //     IBrokerRouter.Terms memory incoming = IBrokerRouter.Terms({
+    //         broker: broker, // broker
+    //         proof: proof, // proof
+    //         collateralVault: collateralVault, // collateralVault
+    //         maxAmount: newTerms.maxAmount,
+    //         rate: newTerms.interestRate, // rate
+    //         duration: newTerms.duration,
+    //         position: newTerms.lienPosition, // position
+    //         schedule: newTerms.schedule
+    //     });
+
+    //     IBrokerRouter.RefinanceCheckParams
+    //         memory refinanceCheckParams = IBrokerRouter.RefinanceCheckParams(
+    //             outgoing,
+    //             incoming
+    //         );
+
+    // BOND_CONTROLLER.isValidRefinance(refinanceCheckParams);
+
+    // _refinanceLoan(tokenContract, tokenId, defaultTerms, newTerms);
+
+    // (bytes32 outgoing, IBrokerRouter.Terms memory terms) = _commitToLoan(
+    //     tokenContract,
+    //     tokenId,
+    //     defaultTerms
+    // );
+
+    // uint256[] memory loanDetails2 = new uint256[](6);
+    // loanDetails2[0] = uint256(100000000000000000000); //maxAmount
+    // loanDetails2[1] = uint256(10000000000000000000); //interestRate
+    // loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
+    // loanDetails2[3] = uint256(1 ether); //amount
+    // loanDetails2[4] = uint256(0); //lienPosition
+    // loanDetails2[5] = uint256(50); //schedule
+
+    // _commitWithoutDeposit(
+    //     tokenContract,
+    //     tokenId,
+    //     loanDetails2[0],
+    //     loanDetails2[1], //interestRate
+    //     loanDetails2[2], //duration
+    //     loanDetails2[3], // amount
+    //     loanDetails2[4], //lienPosition
+    //     loanDetails2[5] //schedule
+    // );
+    // }
 
     // flashAction testing
 
@@ -418,7 +542,9 @@ contract AstariaTest is TestHelpers {
 
         vm.warp(block.timestamp + 10000 days); // forward past expiration date
 
-        //        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
+        // delete?
+        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
+
         IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
             50 ether,
             address(this)

@@ -23,7 +23,7 @@ import {TransferProxy} from "../TransferProxy.sol";
 import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 
-import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.sol";
+import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -56,7 +56,7 @@ contract ForkedTest is TestHelpers {
         uint256 timestamp
     );
 
-    function testFlashApeClaim() public {
+    function estFlashApeClaim() public {
         uint256 tokenId = uint256(10);
         
         _hijackNFT(APE_ADDRESS, tokenId);

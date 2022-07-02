@@ -62,6 +62,10 @@ contract TestHelpers is Test {
             schedule: uint256(50 ether)
         });
 
+    // modifier validateLoanTerms(LoanTerms memory terms) {
+        
+    // }
+
     event Dummy();
     event NewLien(uint256 lienId);
 
@@ -341,6 +345,20 @@ contract TestHelpers is Test {
 
     function _generateLoanProof(
         uint256 _collateralVault,
+        LoanTerms memory terms
+    ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
+        return _generateLoanProof(
+            _collateralVault,
+            terms.maxAmount,
+            terms.interestRate,
+            terms.duration,
+            terms.lienPosition,
+            terms.schedule
+        );
+    }
+
+    function _generateLoanProof(
+        uint256 _collateralVault,
         uint256 maxAmount,
         uint256 interest,
         uint256 duration,
@@ -418,6 +436,8 @@ contract TestHelpers is Test {
         // vm.expectEmit(true, true, false, false);
         // emit NewTermCommitment(vaultHash, collateralVault, amount);
         BrokerImplementation(broker).commitToLoan(terms, amount, address(this));
+        // BrokerVault(broker).withdraw(0 ether);
+
 
         return (vaultHash, terms);
     }
@@ -550,7 +570,7 @@ contract TestHelpers is Test {
         LoanTerms memory newTerms
     ) internal {
         _commitToLoan(tokenContract, tokenId, oldTerms);
-        
+
         _commitWithoutDeposit(tokenContract, tokenId, newTerms);
     }
 
@@ -602,6 +622,16 @@ contract TestHelpers is Test {
         );
         //        BOND_CONTROLLER.lendToVault(vaultHash, amount);
         IBroker(BOND_CONTROLLER.getBroker(vaultHash)).deposit(amount, lendAs);
+        // BOND_CONTROLLER.getBroker(vaultHash).withdraw(uint256(0));
+
         vm.stopPrank();
     }
+
+    function _withdraw(bytes32 vaultHash, uint256 amount, address lendAs) internal {
+        vm.startPrank(lendAs);
+        
+        
+        vm.stopPrank();
+    }
+
 }

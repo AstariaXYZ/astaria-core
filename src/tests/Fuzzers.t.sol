@@ -20,7 +20,7 @@ import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation
 import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 
-import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.sol";
+import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
