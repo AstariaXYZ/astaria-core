@@ -297,7 +297,6 @@ contract AstariaTest is TestHelpers {
         COLLATERAL_VAULT.endAuction(response.collateralVault);
     }
 
-    // TODO break up refinanceLoan() in here to test
     function testRefinanceLoan() public {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
@@ -315,16 +314,11 @@ contract AstariaTest is TestHelpers {
         _warpToMaturity(starId, uint256(0));
         address broker = BOND_CONTROLLER.getBroker(vaultHash);
 
-        vm.expectEmit(false, false, false, false);
-
-        emit Liquidation(terms.collateralVault, terms.position, uint256(0)); // not calculating/checking reserve
-
+        // TODO check
         uint256 reserve = BOND_CONTROLLER.liquidate(
             terms.collateralVault,
             terms.position
         );
-
-        //        return (vaultHash, starId, reserve);
 
         LoanTerms memory newTerms = LoanTerms({
             maxAmount: uint256(100000000000000000000),
@@ -365,7 +359,7 @@ contract AstariaTest is TestHelpers {
 
         assert(BOND_CONTROLLER.isValidRefinance(refinanceCheckParams));
 
-        _commitWithoutDeposit(tokenContract, tokenId, newTerms);
+        _commitWithoutDeposit(tokenContract, tokenId, newTerms); // refinances loan
     }
 
     // function testRefinanceLoan() public {
