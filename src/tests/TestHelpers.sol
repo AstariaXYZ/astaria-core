@@ -20,8 +20,6 @@ import {BrokerImplementation} from "../BrokerImplementation.sol";
 import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation.sol";
 import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
-import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
-import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -45,20 +43,22 @@ interface IWETH9 is IERC20 {
 contract TestHelpers is Test {
     struct LoanTerms {
         uint256 maxAmount;
+        uint256 maxDebt;
         uint256 interestRate;
+        uint256 maxInterestRate;
         uint256 duration;
         uint256 amount;
-        uint256 lienPosition;
         uint256 schedule;
     }
 
     LoanTerms defaultTerms =
         LoanTerms({
             maxAmount: uint256(100000000000000000000),
+            maxDebt: uint256(10000000000000000000),
             interestRate: uint256(50000000000000000000),
+            maxInterestRate: uint256(500000000000000000000),
             duration: uint256(block.timestamp + 10 minutes),
             amount: uint256(1 ether),
-            lienPosition: uint256(0),
             schedule: uint256(50 ether)
         });
 
@@ -160,6 +160,7 @@ contract TestHelpers is Test {
         COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
         COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
         LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
+        LIEN_TOKEN.setCollateralVault(address(COLLATERAL_VAULT));
         _setupRolesAndCapabilities();
         _setupAppraisers();
     }
@@ -310,7 +311,7 @@ contract TestHelpers is Test {
                 appraiser,
                 _rootHash,
                 expiration,
-                BOND_CONTROLLER.appraiserNonces(appraiser),
+                BOND_CONTROLLER.brokerNonce(),
                 deadline,
                 buyout
             )
@@ -342,14 +343,15 @@ contract TestHelpers is Test {
     function _generateLoanProof(
         uint256 _collateralVault,
         uint256 maxAmount,
+        uint256 maxDebt,
         uint256 interest,
+        uint256 maxInterest,
         uint256 duration,
-        uint256 lienPosition,
         uint256 schedule
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
         (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
             .getUnderlying(_collateralVault);
-        string[] memory inputs = new string[](9);
+        string[] memory inputs = new string[](10);
         //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
 
         inputs[0] = "node";
@@ -357,10 +359,11 @@ contract TestHelpers is Test {
         inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
         inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
         inputs[4] = abi.encodePacked(maxAmount).toHexString(); //valuation
-        inputs[5] = abi.encodePacked(interest).toHexString(); //interest
-        inputs[6] = abi.encodePacked(duration).toHexString(); //stop
-        inputs[7] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
-        inputs[8] = abi.encodePacked(schedule).toHexString(); //schedule
+        inputs[5] = abi.encodePacked(maxDebt).toHexString(); //valuation
+        inputs[6] = abi.encodePacked(interest).toHexString(); //interest
+        inputs[7] = abi.encodePacked(maxInterest).toHexString(); //interest
+        inputs[8] = abi.encodePacked(duration).toHexString(); //stop
+        inputs[9] = abi.encodePacked(schedule).toHexString(); //schedule
 
         bytes memory res = vm.ffi(inputs);
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
@@ -379,10 +382,11 @@ contract TestHelpers is Test {
         address tokenContract,
         uint256 tokenId,
         uint256 maxAmount,
+        uint256 maxDebt,
         uint256 interestRate,
+        uint256 maxInterestRate,
         uint256 duration,
         uint256 amount,
-        uint256 lienPosition,
         uint256 schedule
     ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory terms) {
         _depositNFTs(
@@ -408,10 +412,11 @@ contract TestHelpers is Test {
             tokenContract,
             tokenId,
             maxAmount,
+            maxDebt,
             interestRate,
+            maxInterestRate,
             duration,
             amount,
-            lienPosition,
             schedule
         );
 
@@ -438,10 +443,11 @@ contract TestHelpers is Test {
             tokenContract,
             tokenId,
             loanTerms.maxAmount,
+            loanTerms.maxDebt,
             loanTerms.interestRate,
+            loanTerms.maxInterestRate,
             loanTerms.duration,
             loanTerms.amount,
-            loanTerms.lienPosition,
             loanTerms.schedule
         );
         BrokerImplementation(broker).commitToLoan(
@@ -470,10 +476,11 @@ contract TestHelpers is Test {
                 tokenContract,
                 tokenId,
                 loanTerms.maxAmount,
+                loanTerms.maxDebt,
                 loanTerms.interestRate,
+                loanTerms.maxInterestRate,
                 loanTerms.duration,
                 loanTerms.amount,
-                loanTerms.lienPosition,
                 loanTerms.schedule
             );
     }
@@ -483,10 +490,11 @@ contract TestHelpers is Test {
         address tokenContract,
         uint256 tokenId,
         uint256 maxAmount,
+        uint256 maxDebt,
         uint256 interestRate,
+        uint256 maxInterestRate,
         uint256 duration,
         uint256 amount,
-        uint256 lienPosition,
         uint256 schedule
     )
         internal
@@ -509,9 +517,10 @@ contract TestHelpers is Test {
         (vaultHash, proof) = _generateLoanProof(
             collateralVault,
             maxAmount,
+            maxDebt,
             interestRate,
+            maxInterestRate,
             duration,
-            lienPosition,
             schedule
         );
 
@@ -522,12 +531,14 @@ contract TestHelpers is Test {
         address broker = BOND_CONTROLLER.getBroker(vaultHash);
         IBrokerRouter.Terms memory terms = IBrokerRouter.Terms(
             broker,
+            address(WETH9),
             proof,
             collateralVault,
             maxAmount,
+            maxDebt,
             interestRate,
+            maxInterestRate,
             duration,
-            lienPosition,
             schedule
         );
 
@@ -550,7 +561,7 @@ contract TestHelpers is Test {
         LoanTerms memory newTerms
     ) internal {
         _commitToLoan(tokenContract, tokenId, oldTerms);
-        
+
         _commitWithoutDeposit(tokenContract, tokenId, newTerms);
     }
 

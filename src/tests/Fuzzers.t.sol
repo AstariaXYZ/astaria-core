@@ -39,6 +39,7 @@ contract Fuzzers is TestHelpers {
         uint256 amount
     ) public {
         interestRate = bound(interestRate, 1e10, 1e12); // is this reasonable? (original tests were 1e20)
+        uint256 maxInterestRate = bound(interestRate, 1e10, 1e12); // is this reasonable? (original tests were 1e20)
         duration = bound(
             duration,
             uint256(block.timestamp + 1 minutes),
@@ -46,6 +47,7 @@ contract Fuzzers is TestHelpers {
         );
 
         uint256 maxAmount = uint256(100000000000000000000);
+        uint256 maxDebt = uint256(10000000000000000000);
 
         // reverts with "Attempting to borrow more than available in the specified vault" starting at an upper bound of ~100 ether
         amount = bound(amount, 1 ether, 10 ether);
@@ -58,10 +60,11 @@ contract Fuzzers is TestHelpers {
             tokenContract,
             tokenId,
             maxAmount,
+            maxDebt,
             interestRate,
+            maxInterestRate,
             duration,
             amount,
-            uint256(0),
             uint256(50 ether)
         );
     }

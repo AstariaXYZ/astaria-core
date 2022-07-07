@@ -11,7 +11,7 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 
-contract BrokerImplementation is IERC721Receiver, Base {
+abstract contract BrokerImplementation is IERC721Receiver, Base {
     using SafeTransferLib for ERC20;
     using ValidateTerms for IBrokerRouter.Terms;
     event NewTermCommitment(
@@ -49,26 +49,28 @@ contract BrokerImplementation is IERC721Receiver, Base {
         return IERC721Receiver.onERC721Received.selector;
     }
 
+    function _handleAppraiserReward(uint256) internal virtual {}
+
     function _validateTerms(IBrokerRouter.Terms memory params, uint256 amount)
         internal
         view
     {
         require(
             appraiser() != address(0),
-            "BrokerImplementation._validateLoanTerms(): Attempting to instantiate an unitialized vault"
+            "BrokerImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
         );
         require(
             params.maxAmount >= amount,
-            "Broker._validateLoanTerms(): Attempting to borrow more than maxAmount"
+            "Broker._validateTerms(): Attempting to borrow more than maxAmount"
         );
         require(
             amount <= ERC20(asset()).balanceOf(address(this)),
-            "Broker._validateLoanTerms():  Attempting to borrow more than available in the specified vault"
+            "Broker._validateTerms():  Attempting to borrow more than available in the specified vault"
         );
 
         require(
             params.validateTerms(vaultHash()),
-            "Broker._validateLoanTerms(): Verification of provided merkle branch failed for the bondVault and parameters"
+            "Broker._validateTerms(): Verification of provided merkle branch failed for the bondVault and parameters"
         );
     }
 
@@ -105,7 +107,7 @@ contract BrokerImplementation is IERC721Receiver, Base {
         _validateTerms(params, amount);
 
         _requestLienAndIssuePayout(params, receiver, amount);
-
+        _handleAppraiserReward(amount);
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
     }
 
@@ -134,36 +136,34 @@ contract BrokerImplementation is IERC721Receiver, Base {
     }
 
     function buyoutLien(
-        IBrokerRouter.Terms memory outgoingTerms,
+        uint256 collateralVault,
+        uint256 position,
         IBrokerRouter.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
     ) external {
-        {
-            (uint256 owed, uint256 buyout) = IBrokerRouter(router())
-                .LIEN_TOKEN()
-                .getBuyout(
-                    outgoingTerms.collateralVault,
-                    outgoingTerms.position
-                );
+        (uint256 owed, uint256 buyout) = IBrokerRouter(router())
+            .LIEN_TOKEN()
+            .getBuyout(collateralVault, position);
 
-            require(
-                buyout <= ERC20(asset()).balanceOf(address(this)),
-                "not enough balance to buy out loan"
-            );
+        require(
+            buyout <= ERC20(asset()).balanceOf(address(this)),
+            "not enough balance to buy out loan"
+        );
 
-            require(
-                outgoingTerms.position <= incomingTerms.position,
-                "Invalid Lien Position"
-            );
+        _validateTerms(
+            incomingTerms,
+            owed //amount
+        );
 
-            //also validated on the other end, is it needed here? since buyout is permissionless prob
-            _validateTerms(
-                incomingTerms,
-                owed //amount
-            );
+        IBrokerRouter(router()).LIEN_TOKEN().buyoutLien(
+            ILienToken.LienActionBuyout(incomingTerms, position, recipient())
+        );
+    }
 
-            IBrokerRouter(router()).LIEN_TOKEN().buyoutLien(
-                ILienToken.LienActionBuyout(incomingTerms, address(this))
-            );
+    function recipient() public view returns (address) {
+        if (BROKER_TYPE() == uint256(1)) {
+            return address(this);
+        } else {
+            return appraiser();
         }
     }
 
@@ -200,6 +200,8 @@ interface IBroker {
 
 contract SoloBroker is BrokerImplementation, IBroker {
     using SafeTransferLib for ERC20;
+
+    function _handleAppraiserReward(uint256 shares) internal virtual override {}
 
     function deposit(uint256 amount, address)
         external

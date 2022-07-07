@@ -43,7 +43,7 @@ contract ApeCoinClaim is IFlashAction {
             abi.encodePacked(bytes4((keccak256("claimTokens()"))))
         );
         ERC721 ape = ERC721(APE_ADDRESS);
-        ape.transferFrom(address(this), vault, uint(10));
+        ape.transferFrom(address(this), vault, uint256(10));
         return bytes32(keccak256("FlashAction.onFlashAction"));
     }
 }
@@ -58,14 +58,14 @@ contract ForkedTest is TestHelpers {
 
     function testFlashApeClaim() public {
         uint256 tokenId = uint256(10);
-        
+
         _hijackNFT(APE_ADDRESS, tokenId);
 
         vm.roll(9699885); // March 18, 2020
         // vm.roll(14404760);
 
         address tokenContract = APE_ADDRESS;
-        
+
         // uint256 maxAmount = uint256(100000000000000000000);
         // uint256 interestRate = uint256(50000000000000000000);
         // uint256 duration = uint256(block.timestamp + 10 minutes);
@@ -81,15 +81,14 @@ contract ForkedTest is TestHelpers {
             defaultTerms
         );
 
-        uint256 collateralVault = uint256(keccak256(abi.encodePacked(APE_ADDRESS, tokenId)));
+        uint256 collateralVault = uint256(
+            keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
+        );
 
         IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_VAULT));
 
         // vm.expectEmit(false, false, false, false);
         // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
         COLLATERAL_VAULT.flashAction(apeCoinClaim, collateralVault, "");
-  
-
     }
-
 }

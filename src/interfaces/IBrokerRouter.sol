@@ -6,12 +6,14 @@ import {ICollateralVault} from "./ICollateralVault.sol";
 interface IBrokerRouter {
     struct Terms {
         address broker;
+        address token;
         bytes32[] proof;
         uint256 collateralVault;
         uint256 maxAmount;
+        uint256 maxDebt;
         uint256 rate;
+        uint256 maxRate;
         uint256 duration;
-        uint256 position;
         uint256 schedule;
     }
     struct Commitment {
@@ -33,7 +35,7 @@ interface IBrokerRouter {
     }
 
     struct RefinanceCheckParams {
-        Terms outgoing;
+        uint256 position;
         Terms incoming;
     }
 
@@ -75,6 +77,8 @@ interface IBrokerRouter {
     function LIEN_TOKEN() external returns (ILienToken);
 
     function COLLATERAL_VAULT() external returns (ICollateralVault);
+
+    function getAppraiserFee() external view returns (uint256, uint256);
 
     function lendToVault(bytes32 bondVault, uint256 amount) external;
 

@@ -19,7 +19,7 @@ const keccak256 = solidityKeccak256;
 // Hash addresses to get the leaves
 
 // get list of
-// address, tokenId, maxAmount, interest, duration, lienPosition, schedule
+// address, tokenId, maxAmount, maxDebt, interest, maxInterest, duration, schedule
 const leaves = [];
 
 // const loan = keccak256(
@@ -39,20 +39,24 @@ const loan = [
   BigNumber.from(args[4]),
   BigNumber.from(args[5]),
   BigNumber.from(args[6]),
+  BigNumber.from(args[7]),
 ];
 const collateral = keccak256(
   ["address", "uint256"],
   [args[0], BigNumber.from(args[1]).toString()]
 );
 
-// console.log(collateral.toString());
-// const uintCollateral = solidityPack("uint256"], [collateral]);
-// console.log(collateral);
-// console.log(uintCollateral);
-
 leaves.push(
   keccak256(
-    ["bytes32", "uint256", "uint256", "uint256", "uint256", "uint256"],
+    [
+      "bytes32",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+    ],
     [collateral, ...loan]
   )
 );
