@@ -45,6 +45,7 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     uint256 public buyoutNumerator;
     uint256 public buyoutDenominator;
 
+    mapping(address => bool) public validatorAssets;
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
 
@@ -105,7 +106,7 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
             lienData[lienId].token,
             address(msg.sender),
             ownerOf(lienId),
-            uint256(owed + buyout)
+            uint256(buyout)
         );
 
         validateBuyoutTerms(params.incoming);
@@ -156,11 +157,15 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     {
         uint256 lien = liens[collateralVault][position];
         if (!lienData[lien].active) return uint256(0);
-        return _getInterest(lienData[lien]);
+        return _getInterest(lienData[lien], block.timestamp);
     }
 
-    function _getInterest(Lien memory lien) internal view returns (uint256) {
-        uint256 delta_t = uint256(uint32(block.timestamp) - lien.last);
+    function _getInterest(Lien memory lien, uint256 timestamp)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 delta_t = uint256(uint32(timestamp) - lien.last);
         return (delta_t * uint256(lien.rate) * lien.amount);
     }
 
@@ -179,7 +184,7 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         for (uint256 i = 0; i < lienIds.length; ++i) {
             ILienToken.Lien storage lien = lienData[lienIds[i]];
             unchecked {
-                lien.amount += _getInterest(lien);
+                lien.amount += _getInterest(lien, block.timestamp);
                 reserve += lien.amount;
             }
             amounts[i] = lien.amount;
@@ -351,6 +356,30 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         emit RemovedLiens(collateralVault);
     }
 
+    function isValidatorAsset(address incomingAsset) public returns (bool) {
+        return validatorAssets[incomingAsset];
+    }
+
+    //    function onERC1155Received(
+    //        address operator,
+    //        address from,
+    //        uint256 id,
+    //        uint256 value,
+    //        bytes calldata data
+    //    ) external returns (bytes4) {
+    //        require(
+    //            isValidatorAsset(msg.sender),
+    //            "address must be from a validator contract we care about"
+    //        );
+    //        require(
+    //            WETH.balanceOf(address(this) >= value),
+    //            "not enough balance to make this payment"
+    //        );
+    //        makePayment(id, value);
+    //
+    //        return IERC1155Receiver.onERC1155Received.selector;
+    //    }
+
     function getLiens(uint256 collateralVault)
         public
         view
@@ -387,7 +416,7 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     }
 
     function makePayment(uint256 collateralVault, uint256 paymentAmount)
-        external
+        public
     {
         uint256[] memory openLiens = liens[collateralVault];
         for (uint256 i = 0; i < openLiens.length; ++i) {
@@ -415,6 +444,17 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         }
     }
 
+    function getTotalDebtForCollateralVault(
+        uint256 collateralVault,
+        uint256 timestamp
+    ) public view returns (uint256 totalDebt) {
+        uint256[] memory liens = getLiens(collateralVault);
+
+        for (uint256 i = 0; i < liens.length; ++i) {
+            totalDebt += _getOwed(lienData[liens[i]], timestamp);
+        }
+    }
+
     function getImpliedRate(uint256 collateralVault)
         public
         view
@@ -430,7 +470,15 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     }
 
     function _getOwed(Lien memory lien) internal view returns (uint256) {
-        return lien.amount += _getInterest(lien);
+        return lien.amount += _getInterest(lien, block.timestamp);
+    }
+
+    function _getOwed(Lien memory lien, uint256 timestamp)
+        internal
+        view
+        returns (uint256)
+    {
+        return lien.amount += _getInterest(lien, timestamp);
     }
 
     function _getRemainingInterest(Lien memory lien)

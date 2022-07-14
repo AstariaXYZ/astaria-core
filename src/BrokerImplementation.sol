@@ -154,6 +154,10 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
             owed //amount
         );
 
+        ERC20(asset()).safeApprove(
+            address(IBrokerRouter(router()).TRANSFER_PROXY()),
+            owed
+        );
         IBrokerRouter(router()).LIEN_TOKEN().buyoutLien(
             ILienToken.LienActionBuyout(incomingTerms, position, recipient())
         );

@@ -159,6 +159,19 @@ contract TestHelpers is Test {
 
         COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
         COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
+        bool seaportActive;
+        address seaport = address(0x00000000006c3852cbEf3e08E8dF289169EdE581);
+        bytes32 codeHash;
+        assembly {
+            codeHash := extcodehash(seaport)
+        }
+
+        if (codeHash != 0x0) {
+            COLLATERAL_VAULT.setupSeaport(
+                address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
+            );
+        }
+
         LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
         LIEN_TOKEN.setCollateralVault(address(COLLATERAL_VAULT));
         _setupRolesAndCapabilities();
@@ -311,7 +324,7 @@ contract TestHelpers is Test {
                 appraiser,
                 _rootHash,
                 expiration,
-                BOND_CONTROLLER.brokerNonce(),
+                BOND_CONTROLLER.appraiserNonce(appraiser),
                 deadline,
                 buyout
             )

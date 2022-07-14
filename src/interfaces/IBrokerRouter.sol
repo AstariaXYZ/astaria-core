@@ -2,6 +2,7 @@ pragma solidity ^0.8.0;
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ILienToken} from "./ILienToken.sol";
 import {ICollateralVault} from "./ICollateralVault.sol";
+import {ITransferProxy} from "./ITransferProxy.sol";
 
 interface IBrokerRouter {
     struct Terms {
@@ -75,6 +76,8 @@ interface IBrokerRouter {
         returns (bool);
 
     function LIEN_TOKEN() external returns (ILienToken);
+
+    function TRANSFER_PROXY() external returns (ITransferProxy);
 
     function COLLATERAL_VAULT() external returns (ICollateralVault);
 

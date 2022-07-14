@@ -92,4 +92,17 @@ interface ILienToken is IERC721 {
     ) external view returns (bytes memory);
 
     function buyoutLien(LienActionBuyout calldata params) external;
+
+    function makePayment(uint256 collateralVault, uint256 paymentAmount)
+        external;
+
+    function getTotalDebtForCollateralVault(uint256 collateralVault)
+        external
+        view
+        returns (uint256 totalDebt);
+
+    function getTotalDebtForCollateralVault(
+        uint256 collateralVault,
+        uint256 timestamp
+    ) external view returns (uint256 totalDebt);
 }

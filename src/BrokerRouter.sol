@@ -42,7 +42,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
     mapping(bytes32 => BondVault) public bondVaults;
     mapping(address => bytes32) public brokerHashes;
     mapping(address => bool) public appraisers;
-    uint256 public brokerNonce;
+    mapping(address => uint256) public appraiserNonce;
 
     // See https://eips.ethereum.org/EIPS/eip-191
     string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA =
@@ -375,7 +375,7 @@ contract BrokerRouter is IBrokerRouter, Auth {
                 params.appraiser,
                 params.root,
                 params.expiration,
-                brokerNonce++,
+                appraiserNonce[params.appraiser]++,
                 params.deadline,
                 params.buyout
             )

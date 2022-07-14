@@ -22,8 +22,13 @@ import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
-
+import {SeaportInterface, Order} from "seaport/interfaces/SeaportInterface.sol";
 import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.sol";
+import {Consideration} from "seaport/lib/Consideration.sol";
+import {OfferItem, ConsiderationItem, OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
+import {OrderType, ItemType} from "seaport/lib/ConsiderationEnums.sol";
+import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
+import "../ValidatorAsset.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -55,6 +60,111 @@ contract ForkedTest is TestHelpers {
         uint256 indexed amount,
         uint256 timestamp
     );
+
+    function testListUnderlying() public {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+
+        uint256 listingPrice = uint256(5 ether);
+        uint256 listingFee = ((listingPrice * 2e5) / 100e5);
+        uint256 minListingPrice = listingPrice + (listingFee * 2);
+        //        vm.expectEmit(true, true, false, true);
+        //        emit DepositERC721(address(this), tokenContract, tokenId);
+        (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            defaultTerms
+        );
+        uint256 collateralVault = uint256(
+            keccak256(abi.encodePacked(tokenContract, tokenId))
+        );
+        //struct OrderParameters {
+        //    address offerer; // 0x00
+        //    address zone; // 0x20
+        //    OfferItem[] offer; // 0x40
+        //    ConsiderationItem[] consideration; // 0x60
+        //    OrderType orderType; // 0x80
+        //    uint256 startTime; // 0xa0
+        //    uint256 endTime; // 0xc0
+        //    bytes32 zoneHash; // 0xe0
+        //    uint256 salt; // 0x100
+        //    bytes32 conduitKey; // 0x120
+        //    uint256 totalOriginalConsiderationItems; // 0x140
+        //    // offer.length                          // 0x160
+        //}
+
+        OfferItem[] memory offer = new OfferItem[](1);
+        offer[0] = OfferItem(
+            ItemType.ERC721,
+            tokenContract,
+            tokenId,
+            minListingPrice,
+            minListingPrice
+        );
+        ConsiderationItem[] memory considerationItems = new ConsiderationItem[](
+            3
+        );
+
+        //setup validator asset
+        ValidatorAsset validator = new ValidatorAsset(
+            address(COLLATERAL_VAULT)
+        );
+
+        //ItemType itemType;
+        //    address token;
+        //    uint256 identifierOrCriteria;
+        //    uint256 startAmount;
+        //    uint256 endAmount;
+        //    address payable recipient;
+
+        //TODO: compute listing fee for opensea
+        //compute royalty fee for the asset if it exists
+        //validator
+        considerationItems[0] = ConsiderationItem(
+            ItemType.ERC20,
+            address(WETH9),
+            uint256(0),
+            listingFee,
+            listingFee,
+            payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //opensea fees
+        );
+        considerationItems[1] = ConsiderationItem(
+            ItemType.ERC20,
+            address(WETH9),
+            uint256(0),
+            minListingPrice,
+            minListingPrice,
+            payable(address(COLLATERAL_VAULT))
+        );
+        considerationItems[1] = ConsiderationItem(
+            ItemType.ERC1155,
+            address(validator),
+            collateralVault,
+            minListingPrice,
+            minListingPrice,
+            payable(address(COLLATERAL_VAULT))
+        );
+
+        Order memory listingOffer = Order(
+            OrderParameters(
+                address(COLLATERAL_VAULT),
+                address(COLLATERAL_VAULT), // 0x20
+                offer,
+                considerationItems,
+                OrderType.FULL_OPEN,
+                uint256(block.timestamp),
+                uint256(block.timestamp),
+                bytes32(0),
+                uint256(blockhash(block.number)),
+                Bytes32AddressLib.fillLast12Bytes(address(COLLATERAL_VAULT)), // 0x120
+                3
+            ),
+            bytes("")
+        );
+
+        COLLATERAL_VAULT.listUnderlyingOnSeaport(collateralVault, listingOffer);
+    }
 
     function testFlashApeClaim() public {
         uint256 tokenId = uint256(10);

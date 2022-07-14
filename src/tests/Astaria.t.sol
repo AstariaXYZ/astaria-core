@@ -117,7 +117,10 @@ contract AstariaTest is TestHelpers {
         );
 
         //assert weth balance is before + 1 ether
-        //        assert(WETH9.balanceOf(address(this)) == balanceBefore + 2 ether);
+        assert(
+            WETH9.balanceOf(address(this)) ==
+                balanceBefore + defaultTerms.amount
+        );
     }
 
     function testSoloLend() public {
