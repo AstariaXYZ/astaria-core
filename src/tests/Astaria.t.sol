@@ -292,6 +292,68 @@ contract AstariaTest is TestHelpers {
         COLLATERAL_VAULT.endAuction(response.collateralVault);
     }
 
+    function testBrokerRouterFileSetup() public {
+        bytes memory newLiquidationFeePercent = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(bytes32("LIQUIDATION_FEE_PERCENT"), newLiquidationFeePercent);
+        assert(BOND_CONTROLLER.LIQUIDATION_FEE_PERCENT() == uint256(0));
+
+        bytes memory newMinInterestBps = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(bytes32("MIN_INTEREST_BPS"), newMinInterestBps);
+        assert(BOND_CONTROLLER.MIN_INTEREST_BPS() == uint256(0));
+
+        bytes memory appraiserNumerator = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(bytes32("APPRAISER_NUMERATOR"), appraiserNumerator);
+        assert(BOND_CONTROLLER.APPRAISER_ORIGINATION_FEE_NUMERATOR() == uint256(0));
+
+        bytes memory appraiserOriginationFeeBase = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(bytes32("APPRAISER_ORIGINATION_FEE_BASE"), appraiserOriginationFeeBase);
+        assert(BOND_CONTROLLER.APPRAISER_ORIGINATION_FEE_BASE() == uint256(0));
+
+        bytes memory minDurationIncrease = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(bytes32("MIN_DURATION_INCREASE"), minDurationIncrease);
+        assert(BOND_CONTROLLER.MIN_DURATION_INCREASE() == uint256(0));
+
+        bytes memory feeTo = abi.encode(address(0));
+        BOND_CONTROLLER.file(bytes32("feeTo"), feeTo);
+        assert(BOND_CONTROLLER.feeTo() == address(0));
+
+        bytes memory soloImplementation = abi.encode(address(0));
+        BOND_CONTROLLER.file(bytes32("SOLO_IMPLEMENTATION"), soloImplementation);
+        assert(BOND_CONTROLLER.SOLO_IMPLEMENTATION() == address(0));
+
+        bytes memory vaultImplementation = abi.encode(address(0));
+        BOND_CONTROLLER.file(bytes32("VAULT_IMPLEMENTATION"), vaultImplementation);
+        assert(BOND_CONTROLLER.VAULT_IMPLEMENTATION() == address(0));
+
+        bytes memory setAppraiser = abi.encode(address(0));
+        BOND_CONTROLLER.file(bytes32("setAppraiser"), setAppraiser);
+        assert(BOND_CONTROLLER.appraisers(address(0)));
+
+        bytes memory revokeAppraiser = abi.encode(address(0));
+        BOND_CONTROLLER.file(bytes32("revokeAppraiser"), revokeAppraiser);
+        assert(!BOND_CONTROLLER.appraisers(address(0)));
+
+        vm.expectRevert("unsupported/file");
+        BOND_CONTROLLER.file(bytes32("Joseph Delong"), "");
+    }
+
+    function testCollateralVaultFileSetup() public {
+        // bytes memory supportedAssetsRoot = abi.encode(bytes32(0));
+        // COLLATERAL_VAULT.file(bytes32("SUPPORTED_ASSETS_ROOT"), supportedAssetsRoot);
+        // assert(COLLATERAL_VAULT.SUPPORTED_ASSETS_ROOT(), bytes32(0));
+
+        bytes memory conduit = abi.encode(address(0));
+        COLLATERAL_VAULT.file(bytes32("CONDUIT"), conduit);
+        assert(COLLATERAL_VAULT.CONDUIT() == address(0));
+
+        bytes memory conduitKey = abi.encode(bytes32(0));
+        COLLATERAL_VAULT.file(bytes32("CONDUIT_KEY"), conduitKey);
+        assert(COLLATERAL_VAULT.CONDUIT_KEY() == bytes32(0));
+
+        vm.expectRevert("unsupported/file");
+        COLLATERAL_VAULT.file(bytes32("Andrew Redden"), "");
+    }
+
     function testRefinanceLoan() public {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);

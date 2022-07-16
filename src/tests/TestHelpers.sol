@@ -118,7 +118,9 @@ contract TestHelpers is Test {
         address indexed redeemer
     );
 
-    function setUp() public {
+    
+
+    function setUp() public virtual {
         WETH9 = IWETH9(deployCode(weth9Artifact));
 
         MRA = new MultiRolesAuthority(address(this), Authority(address(0)));

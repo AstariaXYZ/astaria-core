@@ -83,6 +83,22 @@ contract CollateralVault is
         LIEN_TOKEN = ILienToken(LIEN_TOKEN_);
     }
 
+    function file(bytes32 what, bytes calldata data) external requiresAuth {
+        // if (what == "SUPPORTED_ASSETS_ROOT") {
+        //     bytes32 value = abi.decode(data, (bytes32));
+        //     SUPPORTED_ASSETS_ROOT = value;
+        // } else
+        if (what == "CONDUIT") {
+            address addr = abi.decode(data, (address));
+            CONDUIT = addr;
+        } else if (what == "CONDUIT_KEY") {
+            bytes32 value = abi.decode(data, (bytes32));
+            CONDUIT_KEY = value;
+        } else {
+            revert("unsupported/file");
+        }
+    }
+
     function setupSeaport(address SEAPORT_) external requiresAuth {
         SEAPORT = SeaportInterface(SEAPORT_);
         (, , address conduitController) = SEAPORT.information();
