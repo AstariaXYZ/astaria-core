@@ -2,6 +2,7 @@ pragma solidity ^0.8.0;
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 
 interface ICollateralVault is IERC721 {
+
     function auctionVault(
         uint256 collateralVault,
         address initiator,

@@ -79,9 +79,9 @@ contract AstariaDeploy {
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
-        COLLATERAL_VAULT.setBondController(address(BROKER_ROUTER));
-        COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
-        LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
+        COLLATERAL_VAULT.file(bytes32("setBondController"), abi.encode(address(BROKER_ROUTER)));
+        COLLATERAL_VAULT.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_VAULT),
             AuctionHouse.createAuction.selector,

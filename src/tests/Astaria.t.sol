@@ -15,6 +15,7 @@ import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation.sol";
 import {BrokerVault} from "../BrokerVault.sol";
@@ -333,6 +334,11 @@ contract AstariaTest is TestHelpers {
         BOND_CONTROLLER.file(bytes32("revokeAppraiser"), revokeAppraiser);
         assert(!BOND_CONTROLLER.appraisers(address(0)));
 
+        address[] memory vaultAppraisers = new address[](1);
+        vaultAppraisers[0] = address(0);
+        BOND_CONTROLLER.file(bytes32("setAppraisers"), abi.encode(vaultAppraisers));
+        assert(BOND_CONTROLLER.appraisers(address(0)));
+
         vm.expectRevert("unsupported/file");
         BOND_CONTROLLER.file(bytes32("Joseph Delong"), "");
     }
@@ -350,8 +356,40 @@ contract AstariaTest is TestHelpers {
         COLLATERAL_VAULT.file(bytes32("CONDUIT_KEY"), conduitKey);
         assert(COLLATERAL_VAULT.CONDUIT_KEY() == bytes32(0));
 
+        // setupSeaport fails at SEAPORT.information() in non-forked tests
+        // bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
+        // COLLATERAL_VAULT.file(bytes32("setupSeaport"), seaportAddr);
+        
+        bytes memory brokerRouterAddr = abi.encode(address(0));
+        COLLATERAL_VAULT.file(bytes32("setBondController"), brokerRouterAddr);
+        assert(COLLATERAL_VAULT.BROKER_ROUTER() == IBrokerRouter(address(0)));
+
+        bytes memory supportedAssetsRoot = abi.encode(bytes32(0));
+        COLLATERAL_VAULT.file(bytes32("setSupportedRoot"), supportedAssetsRoot); // SUPPORTED_ASSETS_ROOT not public, not tested
+
+        bytes memory auctionHouseAddr = abi.encode(address(0));
+        COLLATERAL_VAULT.file(bytes32("setAuctionHouse"), auctionHouseAddr);
+        assert(COLLATERAL_VAULT.AUCTION_HOUSE() == IAuctionHouse(address(0)));
+
+        bytes memory securityHook = abi.encode(address(0), address(0));
+        COLLATERAL_VAULT.file(bytes32("setSecurityHook"), securityHook);
+        assert(COLLATERAL_VAULT.securityHooks(address(0)) == address(0));
+
         vm.expectRevert("unsupported/file");
         COLLATERAL_VAULT.file(bytes32("Andrew Redden"), "");
+    }
+
+    function testLienTokenFileSetup() public {
+        bytes memory auctionHouseAddr = abi.encode(address(0));
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), auctionHouseAddr);
+        assert(LIEN_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
+
+        bytes memory collateralVaultAddr = abi.encode(address(0));
+        LIEN_TOKEN.file(bytes32("setCollateralVault"), collateralVaultAddr);
+        assert(LIEN_TOKEN.COLLATERAL_VAULT() == ICollateralVault(address(0)));
+
+        vm.expectRevert("unsupported/file");
+        COLLATERAL_VAULT.file(bytes32("Justin Bram"), "");
     }
 
     function testRefinanceLoan() public {

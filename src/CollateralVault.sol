@@ -94,17 +94,35 @@ contract CollateralVault is
         } else if (what == "CONDUIT_KEY") {
             bytes32 value = abi.decode(data, (bytes32));
             CONDUIT_KEY = value;
+        } else if (what == "setupSeaport") {
+            // or SEAPORT
+            address addr = abi.decode(data, (address));
+            SEAPORT = SeaportInterface(addr);
+            (, , address conduitController) = SEAPORT.information();
+            CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
+            CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
+            CONDUIT = CONDUIT_CONTROLLER.createConduit(
+                CONDUIT_KEY,
+                address(this)
+            );
+        } else if (what == "setBondController") {
+            address addr = abi.decode(data, (address));
+            BROKER_ROUTER = IBrokerRouter(addr);
+        } else if (what == "setSupportedRoot") {
+            bytes32 value = abi.decode(data, (bytes32));
+            SUPPORTED_ASSETS_ROOT = value;
+        } else if (what == "setAuctionHouse") {
+            address addr = abi.decode(data, (address));
+            AUCTION_HOUSE = IAuctionHouse(addr);
+        } else if (what == "setSecurityHook") {
+            (address target, address hook) = abi.decode(
+                data,
+                (address, address)
+            );
+            securityHooks[target] = hook;
         } else {
             revert("unsupported/file");
         }
-    }
-
-    function setupSeaport(address SEAPORT_) external requiresAuth {
-        SEAPORT = SeaportInterface(SEAPORT_);
-        (, , address conduitController) = SEAPORT.information();
-        CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
-        CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
-        CONDUIT = CONDUIT_CONTROLLER.createConduit(CONDUIT_KEY, address(this));
     }
 
     modifier releaseCheck(uint256 collateralVault) {
@@ -263,28 +281,6 @@ contract CollateralVault is
             nft.ownerOf(tokenId) == address(this),
             "flashAction: NFT not returned"
         );
-    }
-
-    function setBondController(address _brokerRouter) external requiresAuth {
-        BROKER_ROUTER = IBrokerRouter(_brokerRouter);
-    }
-
-    function setSupportedRoot(bytes32 _supportedAssetsRoot)
-        external
-        requiresAuth
-    {
-        SUPPORTED_ASSETS_ROOT = _supportedAssetsRoot;
-    }
-
-    function setAuctionHouse(address _AUCTION_HOUSE) external requiresAuth {
-        AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
-    }
-
-    function setSecurityHook(address _hookTarget, address _securityHook)
-        external
-        requiresAuth
-    {
-        securityHooks[_hookTarget] = _securityHook;
     }
 
     function isValidatorAsset(address incomingAsset)

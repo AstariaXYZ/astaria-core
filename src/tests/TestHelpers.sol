@@ -159,8 +159,16 @@ contract TestHelpers is Test {
             address(TRANSFER_PROXY)
         );
 
-        COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
-        COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
+
+        COLLATERAL_VAULT.file(bytes32("setBondController"), abi.encode(address(BOND_CONTROLLER)));
+        COLLATERAL_VAULT.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+
+        // COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
+        // COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
+
+
+
+
         bool seaportActive;
         address seaport = address(0x00000000006c3852cbEf3e08E8dF289169EdE581);
         bytes32 codeHash;
@@ -169,13 +177,18 @@ contract TestHelpers is Test {
         }
 
         if (codeHash != 0x0) {
-            COLLATERAL_VAULT.setupSeaport(
-                address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
-            );
+            bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
+            COLLATERAL_VAULT.file(bytes32("setupSeaport"), seaportAddr);
+            // COLLATERAL_VAULT.setupSeaport(
+            //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
+            // );
         }
 
-        LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
-        LIEN_TOKEN.setCollateralVault(address(COLLATERAL_VAULT));
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        LIEN_TOKEN.file(bytes32("setCollateralVault"), abi.encode(address(COLLATERAL_VAULT)));
+        
+        // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
+        // LIEN_TOKEN.setCollateralVault(address(COLLATERAL_VAULT));
         _setupRolesAndCapabilities();
         _setupAppraisers();
     }
@@ -185,7 +198,9 @@ contract TestHelpers is Test {
         appraisers[0] = appraiserOne;
         appraisers[1] = appraiserTwo;
 
-        BOND_CONTROLLER.setAppraisers(appraisers);
+        BOND_CONTROLLER.file(bytes32("setAppraisers"), abi.encode(appraisers));
+
+        // BOND_CONTROLLER.setAppraisers(appraisers);
     }
 
     function _setupRolesAndCapabilities() internal {
@@ -277,7 +292,7 @@ contract TestHelpers is Test {
         (bytes32 root, bytes32[] memory proof) = _createWhitelist(
             tokenContract
         );
-        COLLATERAL_VAULT.setSupportedRoot(root);
+        COLLATERAL_VAULT.file(bytes32("setSupportedRoot"), abi.encode(root));
         COLLATERAL_VAULT.depositERC721(
             address(this),
             address(tokenContract),

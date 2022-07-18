@@ -82,15 +82,16 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         );
     }
 
-    function setAuctionHouse(address _AUCTION_HOUSE) external requiresAuth {
-        AUCTION_HOUSE = IAuctionHouse(_AUCTION_HOUSE);
-    }
-
-    function setCollateralVault(address _COLLATERAL_VAULT)
-        external
-        requiresAuth
-    {
-        COLLATERAL_VAULT = ICollateralVault(_COLLATERAL_VAULT);
+    function file(bytes32 what, bytes calldata data) external requiresAuth {
+        if (what == "setAuctionHouse") {
+            address addr = abi.decode(data, (address));
+            AUCTION_HOUSE = IAuctionHouse(addr);
+        } else if (what == "setCollateralVault") {
+            address addr = abi.decode(data, (address));
+            COLLATERAL_VAULT = ICollateralVault(addr);
+        } else {
+            revert("unsupported/file");
+        }
     }
 
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
