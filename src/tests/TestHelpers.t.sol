@@ -63,7 +63,7 @@ contract TestHelpers is Test {
         });
 
     // modifier validateLoanTerms(LoanTerms memory terms) {
-        
+
     // }
 
     event Dummy();
@@ -122,8 +122,6 @@ contract TestHelpers is Test {
         address indexed redeemer
     );
 
-    
-
     function setUp() public virtual {
         WETH9 = IWETH9(deployCode(weth9Artifact));
 
@@ -163,15 +161,17 @@ contract TestHelpers is Test {
             address(TRANSFER_PROXY)
         );
 
-
-        COLLATERAL_VAULT.file(bytes32("setBondController"), abi.encode(address(BOND_CONTROLLER)));
-        COLLATERAL_VAULT.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        COLLATERAL_VAULT.file(
+            bytes32("setBondController"),
+            abi.encode(address(BOND_CONTROLLER))
+        );
+        COLLATERAL_VAULT.file(
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
+        );
 
         // COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
         // COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
-
-
-
 
         bool seaportActive;
         address seaport = address(0x00000000006c3852cbEf3e08E8dF289169EdE581);
@@ -181,16 +181,24 @@ contract TestHelpers is Test {
         }
 
         if (codeHash != 0x0) {
-            bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
+            bytes memory seaportAddr = abi.encode(
+                address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
+            );
             COLLATERAL_VAULT.file(bytes32("setupSeaport"), seaportAddr);
             // COLLATERAL_VAULT.setupSeaport(
             //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
             // );
         }
 
-        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
-        LIEN_TOKEN.file(bytes32("setCollateralVault"), abi.encode(address(COLLATERAL_VAULT)));
-        
+        LIEN_TOKEN.file(
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
+        );
+        LIEN_TOKEN.file(
+            bytes32("setCollateralVault"),
+            abi.encode(address(COLLATERAL_VAULT))
+        );
+
         // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
         // LIEN_TOKEN.setCollateralVault(address(COLLATERAL_VAULT));
         _setupRolesAndCapabilities();
@@ -378,15 +386,16 @@ contract TestHelpers is Test {
         uint256 _collateralVault,
         LoanTerms memory terms
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
-        return _generateLoanProof(
-            _collateralVault,
-            terms.maxAmount,
-            terms.maxDebt,
-            terms.interestRate,
-            terms.maxInterestRate,
-            terms.duration,
-            terms.schedule
-        );
+        return
+            _generateLoanProof(
+                _collateralVault,
+                terms.maxAmount,
+                terms.maxDebt,
+                terms.interestRate,
+                terms.maxInterestRate,
+                terms.duration,
+                terms.schedule
+            );
     }
 
     function _generateLoanProof(
@@ -473,7 +482,6 @@ contract TestHelpers is Test {
         // emit NewTermCommitment(vaultHash, collateralVault, amount);
         BrokerImplementation(broker).commitToLoan(terms, amount, address(this));
         // BrokerVault(broker).withdraw(0 ether);
-
 
         return (vaultHash, terms);
     }
@@ -669,11 +677,13 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-    function _withdraw(bytes32 vaultHash, uint256 amount, address lendAs) internal {
+    function _withdraw(
+        bytes32 vaultHash,
+        uint256 amount,
+        address lendAs
+    ) internal {
         vm.startPrank(lendAs);
-        
-        
+
         vm.stopPrank();
     }
-
 }
