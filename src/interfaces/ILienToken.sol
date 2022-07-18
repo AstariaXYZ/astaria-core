@@ -76,8 +76,6 @@ interface ILienToken is IERC721 {
         view
         returns (Lien memory);
 
-    function setAuctionHouse(address) external;
-
     function createLien(LienActionEncumber calldata params)
         external
         returns (uint256 lienId);

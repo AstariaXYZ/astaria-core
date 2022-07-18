@@ -23,11 +23,16 @@ import {TransferProxy} from "../TransferProxy.sol";
 import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 import {SeaportInterface, Order} from "seaport/interfaces/SeaportInterface.sol";
+import {ConsiderationInterface} from "seaport/interfaces/ConsiderationInterface.sol";
 import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.sol";
 import {Consideration} from "seaport/lib/Consideration.sol";
-import {OfferItem, ConsiderationItem, OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
-import {OrderType, ItemType} from "seaport/lib/ConsiderationEnums.sol";
+import {OfferItem, ConsiderationItem, OrderParameters, OrderComponents} from "seaport/lib/ConsiderationStructs.sol";
+import {OrderType, ItemType, BasicOrderType} from "seaport/lib/ConsiderationEnums.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
+import {FulfillBasicOrderTest} from "../../lib/seaport/test/foundry/FulfillBasicOrderTest.t.sol";
+import {BaseOrderTest} from "../../lib/seaport/test/foundry/utils/BaseOrderTest.sol";
+
+
 import "../ValidatorAsset.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
@@ -53,7 +58,13 @@ contract ApeCoinClaim is IFlashAction {
     }
 }
 
-contract ForkedTest is TestHelpers {
+contract ForkedTest is TestHelpers, BaseOrderTest {
+
+    function setUp() override(TestHelpers, BaseOrderTest) public {
+        TestHelpers.setUp();
+        // BaseOrderTest.setUp();
+    }
+
     // 10,094 tokens
     event AirDrop(
         address indexed account,
@@ -146,59 +157,132 @@ contract ForkedTest is TestHelpers {
             payable(address(COLLATERAL_VAULT))
         );
 
-        Order memory listingOffer = Order(
-            OrderParameters(
-                address(COLLATERAL_VAULT),
-                address(COLLATERAL_VAULT), // 0x20
-                offer,
-                considerationItems,
-                OrderType.FULL_OPEN,
-                uint256(block.timestamp),
-                uint256(block.timestamp),
-                bytes32(0),
-                uint256(blockhash(block.number)),
-                Bytes32AddressLib.fillLast12Bytes(address(COLLATERAL_VAULT)), // 0x120
-                3
-            ),
-            bytes("")
+        emit Dummy();
+
+        // OrderParameters(
+        //         offerer,
+        //         address(0),
+        //         offerItems,
+        //         considerationItems,
+        //         orderType,
+        //         block.timestamp,
+        //         block.timestamp + 1,
+        //         bytes32(0),
+        //         globalSalt++,
+        //         bytes32(0),
+        //         considerationItems.length
+        //     );
+
+
+    // old andrew
+    //     OrderParameters({
+    //             offerer: address(COLLATERAL_VAULT),
+    //             zone: address(COLLATERAL_VAULT), // 0x20
+    //             offer: offer,
+    //             consideration: considerationItems,
+    //             orderType: OrderType.FULL_OPEN,
+    //             startTime: uint256(block.timestamp),
+    //             endTime: uint256(block.timestamp + 10 minutes),
+    //             zoneHash: bytes32(0),
+    //             salt: uint256(blockhash(block.number)),
+    //             conduitKey: Bytes32AddressLib.fillLast12Bytes(address(COLLATERAL_VAULT)), // 0x120
+    //             totalOriginalConsiderationItems: uint256(3)
+    // }),
+
+        Consideration consideration = new Consideration(address(COLLATERAL_VAULT));
+
+        OrderParameters memory orderParameters = OrderParameters({
+                offerer: address(COLLATERAL_VAULT),
+                zone: address(0), // 0x20
+                offer: offer,
+                consideration: considerationItems,
+                orderType: OrderType.FULL_OPEN,
+                startTime: uint256(block.timestamp),
+                endTime: uint256(block.timestamp + 10 minutes),
+                zoneHash: bytes32(0),
+                salt: uint256(blockhash(block.number)),
+                conduitKey: bytes32(0), // 0x120
+                totalOriginalConsiderationItems: uint256(3)
+    });
+
+        uint256 nonce = consideration.getCounter(address(COLLATERAL_VAULT));
+        OrderComponents memory orderComponents = OrderComponents(
+            orderParameters.offerer,
+            orderParameters.zone,
+            orderParameters.offer,
+            orderParameters.consideration,
+            orderParameters.orderType,
+            orderParameters.startTime,
+            orderParameters.endTime,
+            orderParameters.zoneHash,
+            orderParameters.salt,
+            orderParameters.conduitKey,
+            nonce
         );
+
+        bytes32 orderHash = consideration.getOrderHash(orderComponents);
+
+        bytes memory signature = signOrder(consideration, appraiserTwoPK, orderHash);
+
+        // signOrder(consideration, alicePk, orderHash);
+
+        Order memory listingOffer = Order(
+            orderParameters,
+            signature
+        );
+
+        // (Order memory listingOffer, , ) = _prepareOrder(tokenId, uint256(3));
 
         COLLATERAL_VAULT.listUnderlyingOnSeaport(collateralVault, listingOffer);
     }
 
-    function testFlashApeClaim() public {
-        uint256 tokenId = uint256(10);
+    // from seaport
+    // function signOrder(
+    //     ConsiderationInterface _consideration,
+    //     uint256 _pkOfSigner,
+    //     bytes32 _orderHash
+    // ) internal returns (bytes memory) {
+    //     (bytes32 r, bytes32 s, uint8 v) = getSignatureComponents(
+    //         _consideration,
+    //         _pkOfSigner,
+    //         _orderHash
+    //     );
+    //     return abi.encodePacked(r, s, v);
+    // }
 
-        _hijackNFT(APE_ADDRESS, tokenId);
+    // function testFlashApeClaim() public {
+    //     uint256 tokenId = uint256(10);
 
-        vm.roll(9699885); // March 18, 2020
-        // vm.roll(14404760);
+    //     _hijackNFT(APE_ADDRESS, tokenId);
 
-        address tokenContract = APE_ADDRESS;
+    //     vm.roll(9699885); // March 18, 2020
+    //     // vm.roll(14404760);
 
-        // uint256 maxAmount = uint256(100000000000000000000);
-        // uint256 interestRate = uint256(50000000000000000000);
-        // uint256 duration = uint256(block.timestamp + 10 minutes);
-        // uint256 amount = uint256(1 ether);
-        // uint8 lienPosition = uint8(0);
-        // uint256 schedule = uint256(50);
+    //     address tokenContract = APE_ADDRESS;
 
-        //balance of WETH before loan
+    //     // uint256 maxAmount = uint256(100000000000000000000);
+    //     // uint256 interestRate = uint256(50000000000000000000);
+    //     // uint256 duration = uint256(block.timestamp + 10 minutes);
+    //     // uint256 amount = uint256(1 ether);
+    //     // uint8 lienPosition = uint8(0);
+    //     // uint256 schedule = uint256(50);
 
-        (bytes32 vaultHash, ) = _commitToLoan(
-            APE_ADDRESS,
-            tokenId,
-            defaultTerms
-        );
+    //     //balance of WETH before loan
 
-        uint256 collateralVault = uint256(
-            keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
-        );
+    //     (bytes32 vaultHash, ) = _commitToLoan(
+    //         APE_ADDRESS,
+    //         tokenId,
+    //         defaultTerms
+    //     );
 
-        IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_VAULT));
+    //     uint256 collateralVault = uint256(
+    //         keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
+    //     );
 
-        // vm.expectEmit(false, false, false, false);
-        // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
-        COLLATERAL_VAULT.flashAction(apeCoinClaim, collateralVault, "");
-    }
+    //     IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_VAULT));
+
+    //     // vm.expectEmit(false, false, false, false);
+    //     // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
+    //     COLLATERAL_VAULT.flashAction(apeCoinClaim, collateralVault, "");
+    // }
 }

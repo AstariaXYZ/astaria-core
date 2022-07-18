@@ -156,6 +156,11 @@ contract BrokerRouter is Auth, IBrokerRouter {
         } else if (what == "revokeAppraiser") {
             address addr = abi.decode(data, (address));
             appraisers[addr] = false;
+        } else if (what == "setAppraisers") {
+            address[] memory vaultAppraisers = abi.decode(data, (address[]));
+            for (uint256 i = 0; i < vaultAppraisers.length; ++i) {
+                appraisers[vaultAppraisers[i]] = true;
+            }
         } else {
             revert("unsupported/file");
         }
@@ -233,15 +238,6 @@ contract BrokerRouter is Auth, IBrokerRouter {
     function newSoloVault(BrokerParams memory params) external {
         require(params.appraiser == msg.sender);
         _newBondVault(params, false);
-    }
-
-    function setAppraisers(address[] memory vaultAppraisers)
-        external
-        requiresAuth
-    {
-        for (uint256 i = 0; i < vaultAppraisers.length; ++i) {
-            appraisers[vaultAppraisers[i]] = true;
-        }
     }
 
     function newBondVault(BrokerParams memory params)
