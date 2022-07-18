@@ -62,11 +62,11 @@ keccack256('loan, 'collateral)
   struct Loan {
     uint256 collateralVault; // ERC721, 1155 will be wrapped to create a singular tokenId
     uint256 amount; // loans are only in wETH
-    uint256 interestRate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
-    uint256 start; // epoch time of last interest accrual
-    uint256 end; // epoch time at which the loan must be repaid
+    uint32 interestRate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
+    uint32 start; // epoch time of last interest accrual
+    uint32 end; // epoch time at which the loan must be repaid
     uint8 lienPosition; // position of repayment, borrower can take out multiple loans on the same NFT, if the NFT becomes liquidated the lowest lien psoition is repaid first
-    uint256 schedule; // percentage margin before the borrower needs to repay 
+    uint32 schedule; // percentage margin before the borrower needs to repay 
   }
 ```
 
