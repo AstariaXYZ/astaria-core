@@ -11,7 +11,8 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {SoloBroker} from "./BrokerImplementation.sol";
 import {BrokerVault} from "./BrokerVault.sol";
 import {TransferProxy} from "./TransferProxy.sol";
-import "../lib/foundry_eip-4626/src/WEth.sol";
+import {WEth} from "foundry_eip-4626/WEth.sol";
+// import {WEth} from "./WEth.sol";
 
 interface IWETH9 is IERC20 {
     function deposit() external payable;

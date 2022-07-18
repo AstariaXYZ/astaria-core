@@ -1,0 +1,2923 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/AstariaDeploy.sol": {
+      "lastModificationDate": 1658165619925,
+      "contentHash": "2312b5e4bd2d742b3eaabf1a74c8134c",
+      "sourceName": "src/AstariaDeploy.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/solmate/src/auth/authorities/MultiRolesAuthority.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
+        "./CollateralVault.sol",
+        "./LienToken.sol",
+        "./BrokerRouter.sol",
+        "lib/gpl/src/AuctionHouse.sol",
+        "./BrokerImplementation.sol",
+        "./BrokerVault.sol",
+        "./TransferProxy.sol",
+        "lib/foundry_eip-4626/src/WEth.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "AstariaDeploy",
+        "IWETH9"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/solmate/src/auth/Auth.sol": {
+      "lastModificationDate": 1656072328945,
+      "contentHash": "e387b738470c503e71574555281a56f8",
+      "sourceName": "lib/solmate/src/auth/Auth.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "Auth",
+        "Authority"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/solmate/src/auth/authorities/MultiRolesAuthority.sol": {
+      "lastModificationDate": 1656072328946,
+      "contentHash": "faa75c9721f7f8cbf2297b57a0ed1063",
+      "sourceName": "lib/solmate/src/auth/authorities/MultiRolesAuthority.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../Auth.sol"
+      ],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "MultiRolesAuthority"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol": {
+      "lastModificationDate": 1656072328676,
+      "contentHash": "ad7c2d0af148c8f9f097d65deeb4da6b",
+      "sourceName": "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC20"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol": {
+      "lastModificationDate": 1656072537829,
+      "contentHash": "91523426b4187e051d6dfd6916690358",
+      "sourceName": "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "./IERC721.sol",
+        "./IERC721Receiver.sol",
+        "./extensions/IERC721Metadata.sol",
+        "../../utils/Address.sol",
+        "../../utils/Context.sol",
+        "../../utils/Strings.sol",
+        "../../utils/introspection/ERC165.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ERC721"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/CollateralVault.sol": {
+      "lastModificationDate": 1658154300970,
+      "contentHash": "464792e54ca7e7c8e70857076ed1154a",
+      "sourceName": "src/CollateralVault.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
+        "lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol",
+        "lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol",
+        "lib/gpl/src/interfaces/IAuctionHouse.sol",
+        "lib/gpl/src/interfaces/ITransferProxy.sol",
+        "./interfaces/ICollateralVault.sol",
+        "./interfaces/IBrokerRouter.sol",
+        "./interfaces/ILienToken.sol",
+        "./BrokerImplementation.sol",
+        "lib/seaport/contracts/interfaces/SeaportInterface.sol",
+        "lib/seaport/contracts/interfaces/ConduitControllerInterface.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol",
+        "lib/solmate/src/tokens/ERC20.sol",
+        "lib/solmate/src/utils/SafeTransferLib.sol",
+        "lib/solmate/src/utils/Bytes32AddressLib.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "CollateralVault",
+        "IFlashAction",
+        "ISecurityHook"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/LienToken.sol": {
+      "lastModificationDate": 1658164010129,
+      "contentHash": "c9b8f26eda29f4cad073152f6c5538df",
+      "sourceName": "src/LienToken.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol",
+        "lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol",
+        "lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol",
+        "lib/gpl/src/interfaces/IAuctionHouse.sol",
+        "lib/gpl/src/interfaces/ITransferProxy.sol",
+        "./interfaces/ILienToken.sol",
+        "./interfaces/ICollateralVault.sol",
+        "./interfaces/IBrokerRouter.sol",
+        "./BrokerImplementation.sol",
+        "./libraries/ValidateTerms.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "LienToken",
+        "TransferAgent"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/BrokerRouter.sol": {
+      "lastModificationDate": 1658159327640,
+      "contentHash": "57d15e12e7b4eca7a0017d2b9334731b",
+      "sourceName": "src/BrokerRouter.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/solmate/src/utils/SafeTransferLib.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
+        "lib/gpl/src/interfaces/IAuctionHouse.sol",
+        "lib/clones-with-immutable-args/src/ClonesWithImmutableArgs.sol",
+        "./interfaces/ICollateralVault.sol",
+        "./interfaces/ILienToken.sol",
+        "./interfaces/ITransferProxy.sol",
+        "./interfaces/IBrokerRouter.sol",
+        "./BrokerImplementation.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "BrokerRouter",
+        "IInvoker"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/gpl/src/AuctionHouse.sol": {
+      "lastModificationDate": 1657217310983,
+      "contentHash": "65fbd10e70f33eb0860a1b7f99d10b40",
+      "sourceName": "lib/gpl/src/AuctionHouse.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol",
+        "./interfaces/IAuctionHouse.sol",
+        "./interfaces/ITransferProxy.sol",
+        "./interfaces/IWETH9.sol",
+        "../../../src/interfaces/ILienToken.sol",
+        "../../../src/interfaces/ICollateralVault.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "AuctionHouse"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/BrokerImplementation.sol": {
+      "lastModificationDate": 1658159327639,
+      "contentHash": "f798a4b0d10cadc9b2b45af3ae9a5dd7",
+      "sourceName": "src/BrokerImplementation.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol",
+        "./interfaces/ICollateralVault.sol",
+        "./interfaces/ILienToken.sol",
+        "./interfaces/IBrokerRouter.sol",
+        "lib/gpl/src/interfaces/IAuctionHouse.sol",
+        "lib/solmate/src/tokens/ERC20.sol",
+        "lib/gpl/src/ERC4626-Cloned.sol",
+        "lib/solmate/src/utils/SafeTransferLib.sol",
+        "lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol",
+        "./libraries/ValidateTerms.sol",
+        "lib/solmate/src/utils/FixedPointMathLib.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "BrokerImplementation",
+        "IBroker",
+        "SoloBroker"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/BrokerVault.sol": {
+      "lastModificationDate": 1657808855570,
+      "contentHash": "5a3bc89e6ca3bce65884cae71d2db319",
+      "sourceName": "src/BrokerVault.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "./BrokerImplementation.sol",
+        "lib/gpl/src/ERC4626-Cloned.sol",
+        "lib/solmate/src/tokens/ERC20.sol",
+        "./interfaces/IBrokerRouter.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "BrokerVault"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/TransferProxy.sol": {
+      "lastModificationDate": 1657808855571,
+      "contentHash": "3a98587d0338af0567581b73f7491199",
+      "sourceName": "src/TransferProxy.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/solmate/src/utils/SafeTransferLib.sol",
+        "lib/gpl/src/interfaces/ITransferProxy.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "TransferProxy"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol": {
+      "lastModificationDate": 1656072537830,
+      "contentHash": "1551e6cba65c061bb93d057a5f000fd7",
+      "sourceName": "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../utils/introspection/IERC165.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC721"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol": {
+      "lastModificationDate": 1656072328679,
+      "contentHash": "c22d4395e33763de693fd440c6fd10e1",
+      "sourceName": "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC721Receiver"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/token/ERC721/extensions/IERC721Metadata.sol": {
+      "lastModificationDate": 1656072328680,
+      "contentHash": "efbc0d15b80a74e34dbe8da0f3e879bb",
+      "sourceName": "lib/openzeppelin-contracts/contracts/token/ERC721/extensions/IERC721Metadata.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../IERC721.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC721Metadata"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/utils/Address.sol": {
+      "lastModificationDate": 1656072537830,
+      "contentHash": "1907721a20f3940c8c10d080893ced64",
+      "sourceName": "lib/openzeppelin-contracts/contracts/utils/Address.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.1"
+      ],
+      "artifacts": [
+        "Address"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/utils/Context.sol": {
+      "lastModificationDate": 1656072328682,
+      "contentHash": "5f2c5c4b6af2dd4551027144797bc8be",
+      "sourceName": "lib/openzeppelin-contracts/contracts/utils/Context.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Context"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/utils/Strings.sol": {
+      "lastModificationDate": 1656072537830,
+      "contentHash": "9ba0bb93454a1ab7b6824f59ead41f42",
+      "sourceName": "lib/openzeppelin-contracts/contracts/utils/Strings.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Strings"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol": {
+      "lastModificationDate": 1656072328684,
+      "contentHash": "0e7db055ce108f9da7bb6686a00287c0",
+      "sourceName": "lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "./IERC165.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ERC165"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol": {
+      "lastModificationDate": 1656072328685,
+      "contentHash": "03e6768535ac4da0e9756f1d8a4a018a",
+      "sourceName": "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC165"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol": {
+      "lastModificationDate": 1656072537831,
+      "contentHash": "275c08f388c3ac64a0ffed62b277f79f",
+      "sourceName": "lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "MerkleProof"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol": {
+      "lastModificationDate": 1656072328659,
+      "contentHash": "8fe867b95c856b204f954a1910e28a1e",
+      "sourceName": "lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC1271"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/gpl/src/interfaces/IAuctionHouse.sol": {
+      "lastModificationDate": 1657217310984,
+      "contentHash": "b41757dc1a6a0785322839616cdbad0e",
+      "sourceName": "lib/gpl/src/interfaces/IAuctionHouse.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "IAuctionHouse"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/gpl/src/interfaces/ITransferProxy.sol": {
+      "lastModificationDate": 1656072508517,
+      "contentHash": "4bc3d35e6bc2b9147f31779bdc1bc692",
+      "sourceName": "lib/gpl/src/interfaces/ITransferProxy.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "ITransferProxy"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/interfaces/ICollateralVault.sol": {
+      "lastModificationDate": 1658159327643,
+      "contentHash": "a0beb0b92c59557988841b4e96f8dfd6",
+      "sourceName": "src/interfaces/ICollateralVault.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "ICollateralVault"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/interfaces/IBrokerRouter.sol": {
+      "lastModificationDate": 1658159327642,
+      "contentHash": "68e41310b7389ea821f307a9341460b5",
+      "sourceName": "src/interfaces/IBrokerRouter.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
+        "./ILienToken.sol",
+        "./ICollateralVault.sol",
+        "./ITransferProxy.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "IBrokerRouter"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/interfaces/ILienToken.sol": {
+      "lastModificationDate": 1658159327644,
+      "contentHash": "88844ca73b544cc4483fe9a70d580cb1",
+      "sourceName": "src/interfaces/ILienToken.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
+        "./IBrokerRouter.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "ILienToken"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/seaport/contracts/interfaces/SeaportInterface.sol": {
+      "lastModificationDate": 1657817890681,
+      "contentHash": "1fd0e72e58feb3f5fae89ea04b6a44ae",
+      "sourceName": "lib/seaport/contracts/interfaces/SeaportInterface.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../lib/ConsiderationStructs.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.7"
+      ],
+      "artifacts": [
+        "SeaportInterface"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/seaport/contracts/interfaces/ConduitControllerInterface.sol": {
+      "lastModificationDate": 1657817890680,
+      "contentHash": "efa5c6870e37d21a403a3d165671ed2c",
+      "sourceName": "lib/seaport/contracts/interfaces/ConduitControllerInterface.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.7"
+      ],
+      "artifacts": [
+        "ConduitControllerInterface"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol": {
+      "lastModificationDate": 1656072328674,
+      "contentHash": "9f8822b72fe2702979e40160cb6d9636",
+      "sourceName": "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../utils/introspection/IERC165.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC1155Receiver"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/solmate/src/tokens/ERC20.sol": {
+      "lastModificationDate": 1656072328954,
+      "contentHash": "a0b1801a2ffe030a0f4ff4d508ceb74f",
+      "sourceName": "lib/solmate/src/tokens/ERC20.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "ERC20"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/solmate/src/utils/SafeTransferLib.sol": {
+      "lastModificationDate": 1656072537909,
+      "contentHash": "2de39f553e7ea0899eb4c6fa167f4083",
+      "sourceName": "lib/solmate/src/utils/SafeTransferLib.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../tokens/ERC20.sol"
+      ],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "SafeTransferLib"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/solmate/src/utils/Bytes32AddressLib.sol": {
+      "lastModificationDate": 1656072328955,
+      "contentHash": "ddd87074ddd1ee3170894b8db65f7709",
+      "sourceName": "lib/solmate/src/utils/Bytes32AddressLib.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "Bytes32AddressLib"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/interfaces/ITransferProxy.sol": {
+      "lastModificationDate": 1657808855572,
+      "contentHash": "4bc3d35e6bc2b9147f31779bdc1bc692",
+      "sourceName": "src/interfaces/ITransferProxy.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "ITransferProxy"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/gpl/src/ERC4626-Cloned.sol": {
+      "lastModificationDate": 1657217310983,
+      "contentHash": "8b39c99f5e3225be54070eb774132a0b",
+      "sourceName": "lib/gpl/src/ERC4626-Cloned.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/solmate/src/utils/SafeTransferLib.sol",
+        "lib/solmate/src/utils/FixedPointMathLib.sol",
+        "lib/clones-with-immutable-args/src/Clone.sol",
+        "lib/solmate/src/tokens/ERC20.sol"
+      ],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "Base",
+        "ERC20Cloned",
+        "ERC4626Cloned"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/libraries/ValidateTerms.sol": {
+      "lastModificationDate": 1657808855573,
+      "contentHash": "deed63ffa85a9e92cdf4949bf0d83336",
+      "sourceName": "src/libraries/ValidateTerms.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol",
+        "../interfaces/IBrokerRouter.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "ValidateTerms"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/solmate/src/utils/FixedPointMathLib.sol": {
+      "lastModificationDate": 1656072328955,
+      "contentHash": "7632bbc2b75ea340edf63e6fd99362a2",
+      "sourceName": "lib/solmate/src/utils/FixedPointMathLib.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "FixedPointMathLib"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/clones-with-immutable-args/src/Clone.sol": {
+      "lastModificationDate": 1656072492348,
+      "contentHash": "81b2aa906ceb38c83eeb38d7f1a02d02",
+      "sourceName": "lib/clones-with-immutable-args/src/Clone.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.4"
+      ],
+      "artifacts": [
+        "Clone"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/seaport/contracts/lib/ConsiderationStructs.sol": {
+      "lastModificationDate": 1657817890683,
+      "contentHash": "8b97b3a6aa88fc446a260c6ee410fa23",
+      "sourceName": "lib/seaport/contracts/lib/ConsiderationStructs.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "./ConsiderationEnums.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.7"
+      ],
+      "artifacts": []
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/seaport/contracts/lib/ConsiderationEnums.sol": {
+      "lastModificationDate": 1657817890682,
+      "contentHash": "759343974462fa5bd1860c994c71178b",
+      "sourceName": "lib/seaport/contracts/lib/ConsiderationEnums.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.7"
+      ],
+      "artifacts": []
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/clones-with-immutable-args/src/ClonesWithImmutableArgs.sol": {
+      "lastModificationDate": 1656072492348,
+      "contentHash": "ba9c18f533d36a0aa9107bd7cc932830",
+      "sourceName": "lib/clones-with-immutable-args/src/ClonesWithImmutableArgs.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.4"
+      ],
+      "artifacts": [
+        "ClonesWithImmutableArgs"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol": {
+      "lastModificationDate": 1656072328678,
+      "contentHash": "76814c83c32552ed2b521c816b4d801a",
+      "sourceName": "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../IERC20.sol",
+        "../../../utils/Address.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "SafeERC20"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/gpl/src/interfaces/IWETH9.sol": {
+      "lastModificationDate": 1656072508517,
+      "contentHash": "063a73095a737ec24d506a6769ee32fd",
+      "sourceName": "lib/gpl/src/interfaces/IWETH9.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "IWETH9"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/tests/Fuzzers.t.sol": {
+      "lastModificationDate": 1657817825475,
+      "contentHash": "ee5aad0f5f8e3f2a98e3891298bd2b46",
+      "sourceName": "src/tests/Fuzzers.t.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/forge-std/src/Test.sol",
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/solmate/src/auth/authorities/MultiRolesAuthority.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
+        "lib/openzeppelin-contracts/contracts/utils/Strings.sol",
+        "../CollateralVault.sol",
+        "../LienToken.sol",
+        "../interfaces/ILienToken.sol",
+        "../interfaces/ICollateralVault.sol",
+        "lib/solmate/src/test/utils/mocks/MockERC721.sol",
+        "../BrokerRouter.sol",
+        "lib/gpl/src/AuctionHouse.sol",
+        "./utils/Strings2.sol",
+        "../BrokerImplementation.sol",
+        "../BrokerVault.sol",
+        "../TransferProxy.sol",
+        "./TestHelpers.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "Fuzzers"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/forge-std/src/Test.sol": {
+      "lastModificationDate": 1656072494693,
+      "contentHash": "3ab3e2a89fcd9904cfb30134627ea48c",
+      "sourceName": "lib/forge-std/src/Test.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "./Script.sol",
+        "lib/ds-test/src/test.sol"
+      ],
+      "versionPragmas": [
+        ">=0.6.0 <0.9.0"
+      ],
+      "artifacts": [
+        "Test",
+        "stdError",
+        "stdMath",
+        "stdStorage"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/solmate/src/test/utils/mocks/MockERC721.sol": {
+      "lastModificationDate": 1656072328953,
+      "contentHash": "f8515741f4deb2aca669adad254532f3",
+      "sourceName": "lib/solmate/src/test/utils/mocks/MockERC721.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../../tokens/ERC721.sol"
+      ],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "MockERC721"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/tests/utils/Strings2.sol": {
+      "lastModificationDate": 1656072212246,
+      "contentHash": "f52f53aa713c8456f90ced14408ea945",
+      "sourceName": "src/tests/utils/Strings2.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "Strings2"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/tests/TestHelpers.sol": {
+      "lastModificationDate": 1658154411260,
+      "contentHash": "4820f2842a9904cf0cf1655d6db115f3",
+      "sourceName": "src/tests/TestHelpers.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/forge-std/src/Test.sol",
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/solmate/src/auth/authorities/MultiRolesAuthority.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
+        "lib/openzeppelin-contracts/contracts/utils/Strings.sol",
+        "../CollateralVault.sol",
+        "../LienToken.sol",
+        "../interfaces/ICollateralVault.sol",
+        "../interfaces/ILienToken.sol",
+        "lib/solmate/src/test/utils/mocks/MockERC721.sol",
+        "../BrokerRouter.sol",
+        "lib/gpl/src/AuctionHouse.sol",
+        "./utils/Strings2.sol",
+        "../BrokerImplementation.sol",
+        "../BrokerImplementation.sol",
+        "../BrokerVault.sol",
+        "../TransferProxy.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "Dummy721",
+        "IWETH9",
+        "TestHelpers"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/forge-std/src/Script.sol": {
+      "lastModificationDate": 1656072494693,
+      "contentHash": "3acd67e1ab7b1ccf0a734f0c64d40f99",
+      "sourceName": "lib/forge-std/src/Script.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "./Vm.sol",
+        "./console.sol",
+        "./console2.sol"
+      ],
+      "versionPragmas": [
+        ">=0.6.0 <0.9.0"
+      ],
+      "artifacts": [
+        "Script"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/ds-test/src/test.sol": {
+      "lastModificationDate": 1656072328021,
+      "contentHash": "82a8604fe648c30a9bd56444368704f0",
+      "sourceName": "lib/ds-test/src/test.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.5.0"
+      ],
+      "artifacts": [
+        "DSTest"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/forge-std/src/Vm.sol": {
+      "lastModificationDate": 1656072494693,
+      "contentHash": "a86a0ba62f0e0d55ead679a4a83e66f8",
+      "sourceName": "lib/forge-std/src/Vm.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.6.0"
+      ],
+      "artifacts": [
+        "Vm"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/forge-std/src/console.sol": {
+      "lastModificationDate": 1656072494694,
+      "contentHash": "100b8a33b917da1147740d7ab8b0ded3",
+      "sourceName": "lib/forge-std/src/console.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.22 <0.9.0"
+      ],
+      "artifacts": [
+        "console"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/forge-std/src/console2.sol": {
+      "lastModificationDate": 1656072494694,
+      "contentHash": "5df91f8e93efbfcccf68973dc1b74a70",
+      "sourceName": "lib/forge-std/src/console2.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.22 <0.9.0"
+      ],
+      "artifacts": [
+        "console2"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/solmate/src/tokens/ERC721.sol": {
+      "lastModificationDate": 1656072328954,
+      "contentHash": "224006de5bf59fbbf155dcaac8c3a955",
+      "sourceName": "lib/solmate/src/tokens/ERC721.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.0"
+      ],
+      "artifacts": [
+        "ERC721",
+        "ERC721TokenReceiver"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/tests/Astaria.t.sol": {
+      "lastModificationDate": 1658154832384,
+      "contentHash": "0c18246255da80747f715634263e7c7d",
+      "sourceName": "src/tests/Astaria.t.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/forge-std/src/Test.sol",
+        "lib/solmate/src/auth/Auth.sol",
+        "lib/solmate/src/auth/authorities/MultiRolesAuthority.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
+        "lib/openzeppelin-contracts/contracts/utils/Strings.sol",
+        "../CollateralVault.sol",
+        "../LienToken.sol",
+        "../interfaces/ILienToken.sol",
+        "../interfaces/ICollateralVault.sol",
+        "lib/solmate/src/test/utils/mocks/MockERC721.sol",
+        "../BrokerRouter.sol",
+        "lib/gpl/src/AuctionHouse.sol",
+        "lib/gpl/src/interfaces/IAuctionHouse.sol",
+        "./utils/Strings2.sol",
+        "../BrokerImplementation.sol",
+        "../BrokerVault.sol",
+        "../TransferProxy.sol",
+        "lib/openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol",
+        "lib/openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol",
+        "./TestHelpers.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "AstariaTest",
+        "BorrowAndRedeposit"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol": {
+      "lastModificationDate": 1656072537828,
+      "contentHash": "27680f9a795dfe820437590a82c16f26",
+      "sourceName": "lib/openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "./IBeacon.sol",
+        "../Proxy.sol",
+        "../ERC1967/ERC1967Upgrade.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "BeaconProxy"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol": {
+      "lastModificationDate": 1656072328673,
+      "contentHash": "8ffefb755605824cf730ce4092b2f581",
+      "sourceName": "lib/openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "./IBeacon.sol",
+        "../../access/Ownable.sol",
+        "../../utils/Address.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "UpgradeableBeacon"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol": {
+      "lastModificationDate": 1656072328672,
+      "contentHash": "b6bd23bf19e90b771337037706470933",
+      "sourceName": "lib/openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IBeacon"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/proxy/Proxy.sol": {
+      "lastModificationDate": 1656072328672,
+      "contentHash": "40b3d81a836d50ff47e03893dcaaf204",
+      "sourceName": "lib/openzeppelin-contracts/contracts/proxy/Proxy.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Proxy"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Upgrade.sol": {
+      "lastModificationDate": 1656072328672,
+      "contentHash": "6baa887a798e95b14f34e093f117e9b2",
+      "sourceName": "lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Upgrade.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../beacon/IBeacon.sol",
+        "../../interfaces/draft-IERC1822.sol",
+        "../../utils/Address.sol",
+        "../../utils/StorageSlot.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.2"
+      ],
+      "artifacts": [
+        "ERC1967Upgrade"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC1822.sol": {
+      "lastModificationDate": 1656072328660,
+      "contentHash": "2858d98e74e67987ec81b39605230b74",
+      "sourceName": "lib/openzeppelin-contracts/contracts/interfaces/draft-IERC1822.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC1822Proxiable"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol": {
+      "lastModificationDate": 1656072537830,
+      "contentHash": "c9f7c6d2f963f3675e70a7298b3453bf",
+      "sourceName": "lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "StorageSlot"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/access/Ownable.sol": {
+      "lastModificationDate": 1656072328654,
+      "contentHash": "8398972af73b4e9e5ff3b31cad86234f",
+      "sourceName": "lib/openzeppelin-contracts/contracts/access/Ownable.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Ownable"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/ValidatorAsset.sol": {
+      "lastModificationDate": 1657817825473,
+      "contentHash": "9a342b4be18cf594b487b2c51e0ada0b",
+      "sourceName": "src/ValidatorAsset.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol",
+        "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol"
+      ],
+      "versionPragmas": [],
+      "artifacts": [
+        "ValidatorAsset"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol": {
+      "lastModificationDate": 1656072537829,
+      "contentHash": "1467f47443f26a409b19a20edf870916",
+      "sourceName": "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../utils/introspection/IERC165.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC1155"
+      ]
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/tests/ForkedTest.t.sol": {
+      "lastModificationDate": 1658163973206,
+      "contentHash": "9f2306664067d0b3cad01a617b610e0d",
+      "sourceName": "src/tests/ForkedTest.t.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [],
+      "artifacts": []
+    },
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/lib/foundry_eip-4626/src/WEth.sol": {
+      "lastModificationDate": 1658165499292,
+      "contentHash": "9dd813fec0860e69dcf470c795918f8b",
+      "sourceName": "lib/foundry_eip-4626/src/WEth.sol",
+      "solcConfig": {
+        "version": "0.8.13",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "libraries": {
+            "": {
+              "__CACHE_BREAKER__": "0x0000000000000031363538313635363234303734"
+            }
+          }
+        }
+      },
+      "imports": [
+        "lib/solmate/src/tokens/ERC20.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.13"
+      ],
+      "artifacts": [
+        "WEth"
+      ]
+    }
+  }
+}
