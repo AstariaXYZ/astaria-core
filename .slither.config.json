@@ -4,6 +4,7 @@
     "ds-test/=./lib/ds-test/src/",
     "openzeppelin/=./lib/openzeppelin-contracts/contracts/",
     "clones-with-immutable-args/=./lib/clones-with-immutable-args/src/",
-    "gpl/=./lib/gpl/src/"
+    "gpl/=./lib/gpl/src/",
+    "seaport/=./lib/seaport/contracts/"
   ]
 }

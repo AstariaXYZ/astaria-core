@@ -12,9 +12,10 @@ library ValidateTerms {
             abi.encode(
                 bytes32(params.collateralVault),
                 params.maxAmount,
+                params.maxDebt,
                 params.rate,
+                params.maxRate,
                 params.duration,
-                params.position,
                 params.schedule
             )
         );

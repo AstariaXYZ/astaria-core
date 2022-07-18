@@ -23,3 +23,6 @@
 [submodule "lib/assets"]
 	path = lib/assets
 	url = https://github.com/AstariaXYZ/assets
+[submodule "lib/seaport"]
+	path = lib/seaport
+	url = https://github.com/ProjectOpenSea/seaport

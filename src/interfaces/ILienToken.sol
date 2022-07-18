@@ -1,14 +1,16 @@
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.13;
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
-import {IBrokerRouter} from "../BrokerRouter.sol";
+import {IBrokerRouter} from "./IBrokerRouter.sol";
 
 interface ILienToken is IERC721 {
     struct Lien {
         uint256 amount; //32
-        //        address token; // 20
-        address broker; // 20
+        //        uint256 maxDebt; //32
+        address token; // 20
+        //        address broker; // 20
         bool active; // 1
         uint32 rate; // 4
+        //        uint32 maxRate; // 4
         uint32 duration; //4
         uint32 last; // 4
         uint32 start; // 4
@@ -22,6 +24,7 @@ interface ILienToken is IERC721 {
 
     struct LienActionBuyout {
         IBrokerRouter.Terms incoming;
+        uint256 position;
         address receiver;
     }
 
@@ -32,6 +35,7 @@ interface ILienToken is IERC721 {
         uint256 lowestPosition;
         uint256 price;
         uint256 deadline;
+        address token;
         uint8 v;
         bytes32 r;
         bytes32 s;
@@ -72,8 +76,6 @@ interface ILienToken is IERC721 {
         view
         returns (Lien memory);
 
-    function setAuctionHouse(address) external;
-
     function createLien(LienActionEncumber calldata params)
         external
         returns (uint256 lienId);
@@ -89,8 +91,16 @@ interface ILienToken is IERC721 {
 
     function buyoutLien(LienActionBuyout calldata params) external;
 
-    function validateTerms(IBrokerRouter.Terms memory params)
+    function makePayment(uint256 collateralVault, uint256 paymentAmount)
+        external;
+
+    function getTotalDebtForCollateralVault(uint256 collateralVault)
         external
         view
-        returns (bool);
+        returns (uint256 totalDebt);
+
+    function getTotalDebtForCollateralVault(
+        uint256 collateralVault,
+        uint256 timestamp
+    ) external view returns (uint256 totalDebt);
 }

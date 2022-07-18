@@ -20,8 +20,6 @@ import {BrokerImplementation} from "../BrokerImplementation.sol";
 import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation.sol";
 import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
-import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
-import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -45,25 +43,27 @@ interface IWETH9 is IERC20 {
 contract TestHelpers is Test {
     struct LoanTerms {
         uint256 maxAmount;
+        uint256 maxDebt;
         uint256 interestRate;
+        uint256 maxInterestRate;
         uint256 duration;
         uint256 amount;
-        uint256 lienPosition;
         uint256 schedule;
     }
 
     LoanTerms defaultTerms =
         LoanTerms({
             maxAmount: uint256(100000000000000000000),
+            maxDebt: uint256(10000000000000000000),
             interestRate: uint256(50000000000000000000),
+            maxInterestRate: uint256(500000000000000000000),
             duration: uint256(block.timestamp + 10 minutes),
             amount: uint256(1 ether),
-            lienPosition: uint256(0),
             schedule: uint256(50 ether)
         });
 
     // modifier validateLoanTerms(LoanTerms memory terms) {
-        
+
     // }
 
     event Dummy();
@@ -122,7 +122,7 @@ contract TestHelpers is Test {
         address indexed redeemer
     );
 
-    function setUp() public {
+    function setUp() public virtual {
         WETH9 = IWETH9(deployCode(weth9Artifact));
 
         MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
@@ -161,9 +161,46 @@ contract TestHelpers is Test {
             address(TRANSFER_PROXY)
         );
 
-        COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
-        COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
-        LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
+        COLLATERAL_VAULT.file(
+            bytes32("setBondController"),
+            abi.encode(address(BOND_CONTROLLER))
+        );
+        COLLATERAL_VAULT.file(
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
+        );
+
+        // COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
+        // COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
+
+        bool seaportActive;
+        address seaport = address(0x00000000006c3852cbEf3e08E8dF289169EdE581);
+        bytes32 codeHash;
+        assembly {
+            codeHash := extcodehash(seaport)
+        }
+
+        if (codeHash != 0x0) {
+            bytes memory seaportAddr = abi.encode(
+                address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
+            );
+            COLLATERAL_VAULT.file(bytes32("setupSeaport"), seaportAddr);
+            // COLLATERAL_VAULT.setupSeaport(
+            //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
+            // );
+        }
+
+        LIEN_TOKEN.file(
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
+        );
+        LIEN_TOKEN.file(
+            bytes32("setCollateralVault"),
+            abi.encode(address(COLLATERAL_VAULT))
+        );
+
+        // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
+        // LIEN_TOKEN.setCollateralVault(address(COLLATERAL_VAULT));
         _setupRolesAndCapabilities();
         _setupAppraisers();
     }
@@ -173,7 +210,9 @@ contract TestHelpers is Test {
         appraisers[0] = appraiserOne;
         appraisers[1] = appraiserTwo;
 
-        BOND_CONTROLLER.setAppraisers(appraisers);
+        BOND_CONTROLLER.file(bytes32("setAppraisers"), abi.encode(appraisers));
+
+        // BOND_CONTROLLER.setAppraisers(appraisers);
     }
 
     function _setupRolesAndCapabilities() internal {
@@ -265,7 +304,7 @@ contract TestHelpers is Test {
         (bytes32 root, bytes32[] memory proof) = _createWhitelist(
             tokenContract
         );
-        COLLATERAL_VAULT.setSupportedRoot(root);
+        COLLATERAL_VAULT.file(bytes32("setSupportedRoot"), abi.encode(root));
         COLLATERAL_VAULT.depositERC721(
             address(this),
             address(tokenContract),
@@ -314,7 +353,7 @@ contract TestHelpers is Test {
                 appraiser,
                 _rootHash,
                 expiration,
-                BOND_CONTROLLER.appraiserNonces(appraiser),
+                BOND_CONTROLLER.appraiserNonce(appraiser),
                 deadline,
                 buyout
             )
@@ -347,27 +386,30 @@ contract TestHelpers is Test {
         uint256 _collateralVault,
         LoanTerms memory terms
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
-        return _generateLoanProof(
-            _collateralVault,
-            terms.maxAmount,
-            terms.interestRate,
-            terms.duration,
-            terms.lienPosition,
-            terms.schedule
-        );
+        return
+            _generateLoanProof(
+                _collateralVault,
+                terms.maxAmount,
+                terms.maxDebt,
+                terms.interestRate,
+                terms.maxInterestRate,
+                terms.duration,
+                terms.schedule
+            );
     }
 
     function _generateLoanProof(
         uint256 _collateralVault,
         uint256 maxAmount,
+        uint256 maxDebt,
         uint256 interest,
+        uint256 maxInterest,
         uint256 duration,
-        uint256 lienPosition,
         uint256 schedule
     ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
         (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
             .getUnderlying(_collateralVault);
-        string[] memory inputs = new string[](9);
+        string[] memory inputs = new string[](10);
         //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
 
         inputs[0] = "node";
@@ -375,10 +417,11 @@ contract TestHelpers is Test {
         inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
         inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
         inputs[4] = abi.encodePacked(maxAmount).toHexString(); //valuation
-        inputs[5] = abi.encodePacked(interest).toHexString(); //interest
-        inputs[6] = abi.encodePacked(duration).toHexString(); //stop
-        inputs[7] = abi.encodePacked(lienPosition).toHexString(); //lienPosition
-        inputs[8] = abi.encodePacked(schedule).toHexString(); //schedule
+        inputs[5] = abi.encodePacked(maxDebt).toHexString(); //valuation
+        inputs[6] = abi.encodePacked(interest).toHexString(); //interest
+        inputs[7] = abi.encodePacked(maxInterest).toHexString(); //interest
+        inputs[8] = abi.encodePacked(duration).toHexString(); //stop
+        inputs[9] = abi.encodePacked(schedule).toHexString(); //schedule
 
         bytes memory res = vm.ffi(inputs);
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
@@ -397,10 +440,11 @@ contract TestHelpers is Test {
         address tokenContract,
         uint256 tokenId,
         uint256 maxAmount,
+        uint256 maxDebt,
         uint256 interestRate,
+        uint256 maxInterestRate,
         uint256 duration,
         uint256 amount,
-        uint256 lienPosition,
         uint256 schedule
     ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory terms) {
         _depositNFTs(
@@ -426,10 +470,11 @@ contract TestHelpers is Test {
             tokenContract,
             tokenId,
             maxAmount,
+            maxDebt,
             interestRate,
+            maxInterestRate,
             duration,
             amount,
-            lienPosition,
             schedule
         );
 
@@ -437,7 +482,6 @@ contract TestHelpers is Test {
         // emit NewTermCommitment(vaultHash, collateralVault, amount);
         BrokerImplementation(broker).commitToLoan(terms, amount, address(this));
         // BrokerVault(broker).withdraw(0 ether);
-
 
         return (vaultHash, terms);
     }
@@ -458,10 +502,11 @@ contract TestHelpers is Test {
             tokenContract,
             tokenId,
             loanTerms.maxAmount,
+            loanTerms.maxDebt,
             loanTerms.interestRate,
+            loanTerms.maxInterestRate,
             loanTerms.duration,
             loanTerms.amount,
-            loanTerms.lienPosition,
             loanTerms.schedule
         );
         BrokerImplementation(broker).commitToLoan(
@@ -490,10 +535,11 @@ contract TestHelpers is Test {
                 tokenContract,
                 tokenId,
                 loanTerms.maxAmount,
+                loanTerms.maxDebt,
                 loanTerms.interestRate,
+                loanTerms.maxInterestRate,
                 loanTerms.duration,
                 loanTerms.amount,
-                loanTerms.lienPosition,
                 loanTerms.schedule
             );
     }
@@ -503,10 +549,11 @@ contract TestHelpers is Test {
         address tokenContract,
         uint256 tokenId,
         uint256 maxAmount,
+        uint256 maxDebt,
         uint256 interestRate,
+        uint256 maxInterestRate,
         uint256 duration,
         uint256 amount,
-        uint256 lienPosition,
         uint256 schedule
     )
         internal
@@ -529,9 +576,10 @@ contract TestHelpers is Test {
         (vaultHash, proof) = _generateLoanProof(
             collateralVault,
             maxAmount,
+            maxDebt,
             interestRate,
+            maxInterestRate,
             duration,
-            lienPosition,
             schedule
         );
 
@@ -542,12 +590,14 @@ contract TestHelpers is Test {
         address broker = BOND_CONTROLLER.getBroker(vaultHash);
         IBrokerRouter.Terms memory terms = IBrokerRouter.Terms(
             broker,
+            address(WETH9),
             proof,
             collateralVault,
             maxAmount,
+            maxDebt,
             interestRate,
+            maxInterestRate,
             duration,
-            lienPosition,
             schedule
         );
 
@@ -627,11 +677,13 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-    function _withdraw(bytes32 vaultHash, uint256 amount, address lendAs) internal {
+    function _withdraw(
+        bytes32 vaultHash,
+        uint256 amount,
+        address lendAs
+    ) internal {
         vm.startPrank(lendAs);
-        
-        
+
         vm.stopPrank();
     }
-
 }

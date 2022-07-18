@@ -11,7 +11,8 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {SoloBroker} from "./BrokerImplementation.sol";
 import {BrokerVault} from "./BrokerVault.sol";
 import {TransferProxy} from "./TransferProxy.sol";
-import "../lib/foundry_eip-4626/src/WEth.sol";
+import {WEth} from "foundry_eip-4626/WEth.sol";
+// import {WEth} from "./WEth.sol";
 
 interface IWETH9 is IERC20 {
     function deposit() external payable;
@@ -79,9 +80,9 @@ contract AstariaDeploy {
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
-        COLLATERAL_VAULT.setBondController(address(BROKER_ROUTER));
-        COLLATERAL_VAULT.setAuctionHouse(address(AUCTION_HOUSE));
-        LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
+        COLLATERAL_VAULT.file(bytes32("setBondController"), abi.encode(address(BROKER_ROUTER)));
+        COLLATERAL_VAULT.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_VAULT),
             AuctionHouse.createAuction.selector,

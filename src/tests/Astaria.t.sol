@@ -15,6 +15,7 @@ import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation.sol";
 import {BrokerVault} from "../BrokerVault.sol";
@@ -23,7 +24,6 @@ import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 
 import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
-
 string constant weth9Artifact = "src/tests/WETH9.json";
 
 contract BorrowAndRedeposit is IFlashAction, TestHelpers {
@@ -119,7 +119,10 @@ contract AstariaTest is TestHelpers {
         // BrokerVault(BOND_CONTROLLER.getBroker(testBondVaultHash)).withdraw(50 ether);
 
         //assert weth balance is before + 1 ether
-        assert(WETH9.balanceOf(address(this)) == balanceBefore + 1 ether);
+        assert(
+            WETH9.balanceOf(address(this)) ==
+                balanceBefore + defaultTerms.amount
+        );
     }
 
     function testSoloLend() public {
@@ -232,11 +235,11 @@ contract AstariaTest is TestHelpers {
 
         vm.expectEmit(false, false, false, false);
 
-        emit Liquidation(terms.collateralVault, terms.position, uint256(0)); // not calculating/checking reserve
+        emit Liquidation(terms.collateralVault, uint256(0), uint256(0)); // not calculating/checking reserve
 
         uint256 reserve = BOND_CONTROLLER.liquidate(
             terms.collateralVault,
-            terms.position
+            uint256(0)
         );
 
         //        return (vaultHash, starId, reserve);
@@ -297,6 +300,128 @@ contract AstariaTest is TestHelpers {
         COLLATERAL_VAULT.endAuction(response.collateralVault);
     }
 
+    function testBrokerRouterFileSetup() public {
+        bytes memory newLiquidationFeePercent = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(
+            bytes32("LIQUIDATION_FEE_PERCENT"),
+            newLiquidationFeePercent
+        );
+        assert(BOND_CONTROLLER.LIQUIDATION_FEE_PERCENT() == uint256(0));
+
+        bytes memory newMinInterestBps = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(bytes32("MIN_INTEREST_BPS"), newMinInterestBps);
+        assert(BOND_CONTROLLER.MIN_INTEREST_BPS() == uint256(0));
+
+        bytes memory appraiserNumerator = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(
+            bytes32("APPRAISER_NUMERATOR"),
+            appraiserNumerator
+        );
+        assert(
+            BOND_CONTROLLER.APPRAISER_ORIGINATION_FEE_NUMERATOR() == uint256(0)
+        );
+
+        bytes memory appraiserOriginationFeeBase = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(
+            bytes32("APPRAISER_ORIGINATION_FEE_BASE"),
+            appraiserOriginationFeeBase
+        );
+        assert(BOND_CONTROLLER.APPRAISER_ORIGINATION_FEE_BASE() == uint256(0));
+
+        bytes memory minDurationIncrease = abi.encode(uint256(0));
+        BOND_CONTROLLER.file(
+            bytes32("MIN_DURATION_INCREASE"),
+            minDurationIncrease
+        );
+        assert(BOND_CONTROLLER.MIN_DURATION_INCREASE() == uint256(0));
+
+        bytes memory feeTo = abi.encode(address(0));
+        BOND_CONTROLLER.file(bytes32("feeTo"), feeTo);
+        assert(BOND_CONTROLLER.feeTo() == address(0));
+
+        bytes memory soloImplementation = abi.encode(address(0));
+        BOND_CONTROLLER.file(
+            bytes32("SOLO_IMPLEMENTATION"),
+            soloImplementation
+        );
+        assert(BOND_CONTROLLER.SOLO_IMPLEMENTATION() == address(0));
+
+        bytes memory vaultImplementation = abi.encode(address(0));
+        BOND_CONTROLLER.file(
+            bytes32("VAULT_IMPLEMENTATION"),
+            vaultImplementation
+        );
+        assert(BOND_CONTROLLER.VAULT_IMPLEMENTATION() == address(0));
+
+        bytes memory setAppraiser = abi.encode(address(0));
+        BOND_CONTROLLER.file(bytes32("setAppraiser"), setAppraiser);
+        assert(BOND_CONTROLLER.appraisers(address(0)));
+
+        bytes memory revokeAppraiser = abi.encode(address(0));
+        BOND_CONTROLLER.file(bytes32("revokeAppraiser"), revokeAppraiser);
+        assert(!BOND_CONTROLLER.appraisers(address(0)));
+
+        address[] memory vaultAppraisers = new address[](1);
+        vaultAppraisers[0] = address(0);
+        BOND_CONTROLLER.file(
+            bytes32("setAppraisers"),
+            abi.encode(vaultAppraisers)
+        );
+        assert(BOND_CONTROLLER.appraisers(address(0)));
+
+        vm.expectRevert("unsupported/file");
+        BOND_CONTROLLER.file(bytes32("Joseph Delong"), "");
+    }
+
+    function testCollateralVaultFileSetup() public {
+        // bytes memory supportedAssetsRoot = abi.encode(bytes32(0));
+        // COLLATERAL_VAULT.file(bytes32("SUPPORTED_ASSETS_ROOT"), supportedAssetsRoot);
+        // assert(COLLATERAL_VAULT.SUPPORTED_ASSETS_ROOT(), bytes32(0));
+
+        bytes memory conduit = abi.encode(address(0));
+        COLLATERAL_VAULT.file(bytes32("CONDUIT"), conduit);
+        assert(COLLATERAL_VAULT.CONDUIT() == address(0));
+
+        bytes memory conduitKey = abi.encode(bytes32(0));
+        COLLATERAL_VAULT.file(bytes32("CONDUIT_KEY"), conduitKey);
+        assert(COLLATERAL_VAULT.CONDUIT_KEY() == bytes32(0));
+
+        // setupSeaport fails at SEAPORT.information() in non-forked tests
+        // bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
+        // COLLATERAL_VAULT.file(bytes32("setupSeaport"), seaportAddr);
+
+        bytes memory brokerRouterAddr = abi.encode(address(0));
+        COLLATERAL_VAULT.file(bytes32("setBondController"), brokerRouterAddr);
+        assert(COLLATERAL_VAULT.BROKER_ROUTER() == IBrokerRouter(address(0)));
+
+        bytes memory supportedAssetsRoot = abi.encode(bytes32(0));
+        COLLATERAL_VAULT.file(bytes32("setSupportedRoot"), supportedAssetsRoot); // SUPPORTED_ASSETS_ROOT not public, not tested
+
+        bytes memory auctionHouseAddr = abi.encode(address(0));
+        COLLATERAL_VAULT.file(bytes32("setAuctionHouse"), auctionHouseAddr);
+        assert(COLLATERAL_VAULT.AUCTION_HOUSE() == IAuctionHouse(address(0)));
+
+        bytes memory securityHook = abi.encode(address(0), address(0));
+        COLLATERAL_VAULT.file(bytes32("setSecurityHook"), securityHook);
+        assert(COLLATERAL_VAULT.securityHooks(address(0)) == address(0));
+
+        vm.expectRevert("unsupported/file");
+        COLLATERAL_VAULT.file(bytes32("Andrew Redden"), "");
+    }
+
+    function testLienTokenFileSetup() public {
+        bytes memory auctionHouseAddr = abi.encode(address(0));
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), auctionHouseAddr);
+        assert(LIEN_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
+
+        bytes memory collateralVaultAddr = abi.encode(address(0));
+        LIEN_TOKEN.file(bytes32("setCollateralVault"), collateralVaultAddr);
+        assert(LIEN_TOKEN.COLLATERAL_VAULT() == ICollateralVault(address(0)));
+
+        vm.expectRevert("unsupported/file");
+        COLLATERAL_VAULT.file(bytes32("Justin Bram"), "");
+    }
+
     function testRefinanceLoan() public {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
@@ -317,48 +442,53 @@ contract AstariaTest is TestHelpers {
         // TODO check
         uint256 reserve = BOND_CONTROLLER.liquidate(
             terms.collateralVault,
-            terms.position
+            uint256(0)
         );
 
         LoanTerms memory newTerms = LoanTerms({
             maxAmount: uint256(100000000000000000000),
-            interestRate: uint256(100), // interest rate decreased
-            duration: uint256(block.timestamp + 10 minutes + 14 days), // duration doubled
+            maxDebt: uint256(10000000000000000000),
+            interestRate: uint256(10000000000000000000), // interest rate decreased
+            maxInterestRate: uint256(10000000000000000000), // interest rate decreased
+            duration: uint256(block.timestamp + 10 minutes * 2), // duration doubled
             amount: uint256(1 ether),
-            lienPosition: uint256(0),
             schedule: uint256(50 ether)
         });
 
+        // TODO fix
         IBrokerRouter.Terms memory outgoing = IBrokerRouter.Terms({
             broker: broker, // broker
+            token: address(WETH9),
             proof: terms.proof, // proof
             collateralVault: terms.collateralVault, // collateralVault
             maxAmount: defaultTerms.maxAmount,
+            maxDebt: defaultTerms.maxDebt,
             rate: defaultTerms.interestRate, // rate
+            maxRate: defaultTerms.maxInterestRate, // rate
             duration: defaultTerms.duration,
-            position: defaultTerms.lienPosition, // position
             schedule: defaultTerms.schedule
         });
 
         IBrokerRouter.Terms memory incoming = IBrokerRouter.Terms({
             broker: broker, // broker
+            token: address(WETH9),
             proof: terms.proof, // proof
             collateralVault: terms.collateralVault, // collateralVault
             maxAmount: newTerms.maxAmount,
+            maxDebt: newTerms.maxDebt,
             rate: newTerms.interestRate, // rate
+            maxRate: newTerms.maxInterestRate, // rate
             duration: newTerms.duration,
-            position: newTerms.lienPosition, // position
             schedule: newTerms.schedule
         });
 
         IBrokerRouter.RefinanceCheckParams
             memory refinanceCheckParams = IBrokerRouter.RefinanceCheckParams(
-                terms,
+                uint256(0),
                 incoming
             );
 
-        assert(BOND_CONTROLLER.isValidRefinance(refinanceCheckParams));
-
+        assert(!BOND_CONTROLLER.isValidRefinance(refinanceCheckParams));
         _commitWithoutDeposit(tokenContract, tokenId, newTerms); // refinances loan
     }
 
