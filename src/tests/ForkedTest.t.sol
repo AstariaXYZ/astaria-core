@@ -24,7 +24,7 @@ import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 import {SeaportInterface, Order} from "seaport/interfaces/SeaportInterface.sol";
 import {ConsiderationInterface} from "seaport/interfaces/ConsiderationInterface.sol";
-import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.sol";
+import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
 import {Consideration} from "seaport/lib/Consideration.sol";
 import {OfferItem, ConsiderationItem, OrderParameters, OrderComponents} from "seaport/lib/ConsiderationStructs.sol";
 import {OrderType, ItemType, BasicOrderType} from "seaport/lib/ConsiderationEnums.sol";

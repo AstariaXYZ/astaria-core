@@ -24,7 +24,6 @@ import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 
 import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
-
 string constant weth9Artifact = "src/tests/WETH9.json";
 
 contract BorrowAndRedeposit is IFlashAction, TestHelpers {
@@ -443,7 +442,7 @@ contract AstariaTest is TestHelpers {
         // TODO check
         uint256 reserve = BOND_CONTROLLER.liquidate(
             terms.collateralVault,
-            terms.position
+            uint256(0)
         );
 
         LoanTerms memory newTerms = LoanTerms({
@@ -458,34 +457,37 @@ contract AstariaTest is TestHelpers {
 
         IBrokerRouter.Terms memory outgoing = IBrokerRouter.Terms({
             broker: broker, // broker
+            token: address(WETH9),
             proof: terms.proof, // proof
             collateralVault: terms.collateralVault, // collateralVault
             maxAmount: defaultTerms.maxAmount,
+            maxDebt: defaultTerms.maxDebt,
             rate: defaultTerms.interestRate, // rate
+            maxRate: defaultTerms.maxInterestRate, // rate
             duration: defaultTerms.duration,
-            position: defaultTerms.lienPosition, // position
             schedule: defaultTerms.schedule
         });
 
         IBrokerRouter.Terms memory incoming = IBrokerRouter.Terms({
             broker: broker, // broker
+            token: address(WETH9),
             proof: terms.proof, // proof
             collateralVault: terms.collateralVault, // collateralVault
             maxAmount: newTerms.maxAmount,
+            maxDebt: newTerms.maxDebt,
             rate: newTerms.interestRate, // rate
+            maxRate: newTerms.maxInterestRate, // rate
             duration: newTerms.duration,
-            position: newTerms.lienPosition, // position
             schedule: newTerms.schedule
         });
 
         IBrokerRouter.RefinanceCheckParams
             memory refinanceCheckParams = IBrokerRouter.RefinanceCheckParams(
-                terms,
+                uint256(0),
                 incoming
             );
 
         assert(BOND_CONTROLLER.isValidRefinance(refinanceCheckParams));
-
         _commitWithoutDeposit(tokenContract, tokenId, newTerms); // refinances loan
     }
 
