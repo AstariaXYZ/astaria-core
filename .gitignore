@@ -9,3 +9,5 @@ cache
 artifacts
 
 out
+
+lcov.info
