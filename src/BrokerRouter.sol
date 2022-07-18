@@ -21,7 +21,7 @@ interface IInvoker {
     ) external returns (bool);
 }
 
-contract BrokerRouter is IBrokerRouter, Auth {
+contract BrokerRouter is Auth, IBrokerRouter {
     bytes32 public immutable DOMAIN_SEPARATOR;
     using SafeERC20 for IERC20;
     IERC20 public immutable WETH;
@@ -90,6 +90,41 @@ contract BrokerRouter is IBrokerRouter, Auth {
         );
     }
 
+    //    function file(bytes32 what, bytes calldata data) external requiresAuth {
+    //        if (what == "liqFeePercent") {
+    //            uint256 value = abi.decode(data, (uint256));
+    //            LIQUIDATION_FEE_PERCENT = value;
+    //        } else if (what == "minInterestBps") {
+    //            uint256 value = abi.decode(data, (uint256));
+    //            MIN_INTEREST_BPS = uint64(value);
+    //        } else if (what == "originationFeeNumerator") {
+    //            uint256 value = abi.decode(data, (uint256));
+    //            APPRAISER_ORIGINATION_FEE_NUMERATOR = value;
+    //        } else if (what == "originationFeeNumerator") {
+    //            uint256 value = abi.decode(data, (uint256));
+    //            APPRAISER_ORIGINATION_FEE_BASE = value;
+    //        } else if (what == "minDurationIncrease") {
+    //            uint256 value = abi.decode(data, (uint256));
+    //            MIN_DURATION_INCREASE = uint64(value);
+    //        } else if (what == "feeTo") {
+    //            address addr = abi.decode(data, (address));
+    //            feeTo = addr;
+    //        } else if (what == "privateImpl") {
+    //            address addr = abi.decode(data, (address));
+    //            SOLO_IMPLEMENTATION = addr;
+    //        } else if (what == "publicImpl") {
+    //            address addr = abi.decode(data, (address));
+    //            VAULT_IMPLEMENTATION = addr;
+    //        } else if (what == "relyStrategist") {
+    //            address addr = abi.decode(data, (address));
+    //            appraisers[addr] = true;
+    //        } else if (what == "denyStrategist") {
+    //            address addr = abi.decode(data, (address));
+    //            appraisers[addr] = false;
+    //        } else {
+    //            revert("unsupported/file");
+    //        }
+    //    }
     function file(bytes32 what, bytes calldata data) external requiresAuth {
         if (what == "LIQUIDATION_FEE_PERCENT") {
             uint256 value = abi.decode(data, (uint256));
@@ -158,7 +193,13 @@ contract BrokerRouter is IBrokerRouter, Auth {
                 address(msg.sender)
             );
         }
-        WETH.safeTransfer(address(msg.sender), totalBorrowed);
+        WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(this),
+            address(msg.sender),
+            totalBorrowed
+        );
     }
 
     function encodeBondVaultHash(

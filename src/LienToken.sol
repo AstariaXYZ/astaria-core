@@ -437,10 +437,10 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         view
         returns (uint256 totalDebt)
     {
-        uint256[] memory liens = getLiens(collateralVault);
+        uint256[] memory openLiens = getLiens(collateralVault);
 
-        for (uint256 i = 0; i < liens.length; ++i) {
-            totalDebt += _getOwed(lienData[liens[i]]);
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            totalDebt += _getOwed(lienData[openLiens[i]]);
         }
     }
 
@@ -448,10 +448,10 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 collateralVault,
         uint256 timestamp
     ) public view returns (uint256 totalDebt) {
-        uint256[] memory liens = getLiens(collateralVault);
+        uint256[] memory openLiens = getLiens(collateralVault);
 
-        for (uint256 i = 0; i < liens.length; ++i) {
-            totalDebt += _getOwed(lienData[liens[i]], timestamp);
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            totalDebt += _getOwed(lienData[openLiens[i]], timestamp);
         }
     }
 
@@ -461,10 +461,10 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         returns (uint256 impliedRate)
     {
         uint256 totalDebt = getTotalDebtForCollateralVault(collateralVault);
-        uint256[] memory liens = getLiens(collateralVault);
+        uint256[] memory openLiens = getLiens(collateralVault);
 
-        for (uint256 i = 0; i < liens.length; ++i) {
-            Lien storage lien = lienData[liens[i]];
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            Lien storage lien = lienData[openLiens[i]];
             impliedRate += (lien.amount / totalDebt) * lien.rate;
         }
     }

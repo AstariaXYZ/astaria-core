@@ -10,6 +10,7 @@ import {Base} from "gpl/ERC4626-Cloned.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 abstract contract BrokerImplementation is IERC721Receiver, Base {
     using SafeTransferLib for ERC20;
@@ -119,26 +120,10 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         return IBrokerRouter(router()).canLiquidate(collateralVault, position);
     }
 
-    modifier checkSender(
-        IBrokerRouter.Terms memory outgoingTerms,
-        IBrokerRouter.Terms memory incomingTerms
-    ) {
-        if (outgoingTerms.collateralVault != incomingTerms.collateralVault) {
-            require(
-                address(msg.sender) ==
-                    ICollateralVault(COLLATERAL_VAULT()).ownerOf(
-                        incomingTerms.collateralVault
-                    ),
-                "Only the holder of the token can encumber it"
-            );
-        }
-        _;
-    }
-
     function buyoutLien(
         uint256 collateralVault,
         uint256 position,
-        IBrokerRouter.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
+        IBrokerRouter.Terms memory incomingTerms
     ) external {
         (uint256 owed, uint256 buyout) = IBrokerRouter(router())
             .LIEN_TOKEN()
@@ -173,7 +158,7 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
 
     function _requestLienAndIssuePayout(
         IBrokerRouter.Terms memory params,
-        address recipient,
+        address receiver,
         uint256 amount
     ) internal {
         require(
@@ -191,7 +176,7 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
                 amount -= rake;
             }
         }
-        ERC20(asset()).safeTransfer(recipient, amount);
+        ERC20(asset()).safeTransfer(receiver, amount);
     }
 }
 
