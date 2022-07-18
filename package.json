@@ -6,7 +6,6 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0",
     "@rari-capital/solmate": "^6.2.0",
-    "fs": "^0.0.1-security",
     "global": "^4.4.0",
     "hardhat": "^2.9.3",
     "hardhat-preprocessor": "^0.1.4",
