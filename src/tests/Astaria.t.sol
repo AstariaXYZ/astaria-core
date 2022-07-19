@@ -448,9 +448,9 @@ contract AstariaTest is TestHelpers {
         LoanTerms memory newTerms = LoanTerms({
             maxAmount: uint256(100000000000000000000),
             maxDebt: uint256(10000000000000000000),
-            interestRate: uint256(10000000000000000000), // interest rate decreased
+            interestRate: uint256(10000000000000), // interest rate decreased
             maxInterestRate: uint256(10000000000000000000), // interest rate decreased
-            duration: uint256(block.timestamp + 10 minutes * 2), // duration doubled
+            duration: uint256(block.timestamp + 1000000000 minutes), // duration doubled
             amount: uint256(1 ether),
             schedule: uint256(50 ether)
         });
@@ -476,7 +476,7 @@ contract AstariaTest is TestHelpers {
             collateralVault: terms.collateralVault, // collateralVault
             maxAmount: newTerms.maxAmount,
             maxDebt: newTerms.maxDebt,
-            rate: newTerms.interestRate, // rate
+            rate: uint256(0), // used to be newTerms.rate
             maxRate: newTerms.maxInterestRate, // rate
             duration: newTerms.duration,
             schedule: newTerms.schedule
