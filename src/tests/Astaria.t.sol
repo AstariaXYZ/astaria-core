@@ -488,7 +488,7 @@ contract AstariaTest is TestHelpers {
                 incoming
             );
 
-        assert(!BOND_CONTROLLER.isValidRefinance(refinanceCheckParams));
+        assert(BOND_CONTROLLER.isValidRefinance(refinanceCheckParams));
         _commitWithoutDeposit(tokenContract, tokenId, newTerms); // refinances loan
     }
 
