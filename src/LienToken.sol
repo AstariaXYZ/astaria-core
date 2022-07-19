@@ -16,6 +16,7 @@ import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 contract TransferAgent {
     address public immutable WETH;
@@ -29,6 +30,7 @@ contract TransferAgent {
 
 contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     using ValidateTerms for IBrokerRouter.Terms;
+    using FixedPointMathLib for uint256;
 
     IAuctionHouse public AUCTION_HOUSE;
     ICollateralVault public COLLATERAL_VAULT;
@@ -168,7 +170,10 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         returns (uint256)
     {
         uint256 delta_t = uint256(uint32(timestamp) - lien.last);
-        return (delta_t * uint256(lien.rate) * lien.amount);
+
+        // return (delta_t * uint256(lien.rate) * lien.amount);
+
+        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, 1);
     }
 
     function stopLiens(uint256 collateralVault)
@@ -413,7 +418,8 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 remainingInterest = _getRemainingInterest(lien);
         return (
             owed,
-            owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
+            // owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
+            owed + remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
         );
     }
 
@@ -467,7 +473,10 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
 
         for (uint256 i = 0; i < openLiens.length; ++i) {
             Lien storage lien = lienData[openLiens[i]];
-            impliedRate += (lien.amount / totalDebt) * lien.rate;
+            
+            // impliedRate += (lien.amount / totalDebt) * lien.rate;
+
+            impliedRate += uint256(lien.rate).mulDivDown(lien.amount, totalDebt);
         }
     }
 
@@ -491,7 +500,11 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 delta_t = uint256(
             uint32(lien.start + lien.duration) - lien.last
         );
-        return (delta_t * uint256(lien.rate) * lien.amount);
+
+        // return (delta_t * uint256(lien.rate) * lien.amount);
+
+        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, 1);
+        
     }
 
     function _payment(

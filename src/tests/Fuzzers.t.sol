@@ -25,48 +25,151 @@ import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
 string constant weth9Artifact = "src/tests/WETH9.json";
 
 contract Fuzzers is TestHelpers {
-    function testFuzzPermit(uint256 deadline) public {
-        vm.assume(deadline > block.timestamp);
-
-        // BOND_CONTROLLER.permit()
-
-        // assertGt(deadline, block.timestamp); // delete
+    struct FuzzInputs {
+        uint256 amount;
+        uint256 interestRate;
+        uint256 maxInterestRate;
+        uint256 duration;
     }
 
-    function testFuzzCommitToLoan(
-        uint256 interestRate,
-        uint256 duration,
-        uint256 amount
-    ) public {
-        interestRate = bound(interestRate, 1e10, 1e12); // is this reasonable? (original tests were 1e20)
-        uint256 maxInterestRate = bound(interestRate, 1e10, 1e12); // is this reasonable? (original tests were 1e20)
-        duration = bound(
-            duration,
-            uint256(block.timestamp + 1 minutes),
-            uint256(block.timestamp + 10 minutes)
+    modifier validateInputs(FuzzInputs memory args) {
+        args.amount = bound(args.amount, 1 ether, 100000000000000000000);
+        args.interestRate = bound(args.interestRate, 1e10, 1e12);
+        args.maxInterestRate = bound(args.maxInterestRate, 1e10, 1e12);
+        args.duration = bound(
+            args.duration,
+            block.timestamp + 1 minutes,
+            block.timestamp + 10 minutes
+        );
+        _;
+    }
+
+    function _commitToLoan(
+        address tokenContract,
+        uint256 tokenId,
+        FuzzInputs memory args
+    ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory terms) {
+        LoanTerms memory loanTerms = LoanTerms({
+            maxAmount: defaultTerms.maxAmount,
+            maxDebt: defaultTerms.maxDebt,
+            interestRate: args.interestRate,
+            maxInterestRate: args.maxInterestRate,
+            duration: args.duration,
+            amount: args.amount,
+            schedule: defaultTerms.amount
+        });
+        return _commitToLoan(tokenContract, tokenId, loanTerms);
+    }
+
+    function testFuzzCommitToLoan(FuzzInputs memory args)
+        public
+        validateInputs(args)
+    {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+
+        _commitToLoan(tokenContract, tokenId, args);
+    }
+
+    // lien testing
+    function testFuzzLienGetInterest(FuzzInputs memory args)
+        public
+        validateInputs(args)
+    {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+        (, IBrokerRouter.Terms memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            args
         );
 
-        uint256 maxAmount = uint256(100000000000000000000);
-        uint256 maxDebt = uint256(10000000000000000000);
+        uint256 starId = uint256(
+            keccak256(abi.encodePacked(tokenContract, tokenId))
+        );
 
-        // reverts with "Attempting to borrow more than available in the specified vault" starting at an upper bound of ~100 ether
-        amount = bound(amount, 1 ether, 10 ether);
+        uint256 interest = LIEN_TOKEN.getInterest(
+            terms.collateralVault,
+            uint256(0)
+        );
+        assertEq(interest, uint256(0));
+
+        // TODO calcs, waiting on better math for now
+        // _warpToMaturity(starId, uint256(0));
+        // interest = LIEN_TOKEN.getInterest(terms.collateralVault, uint256(0));
+    }
+
+    function testFuzzLienGetTotalDebtForCollateralVault(FuzzInputs memory args)
+        public
+        validateInputs(args)
+    {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+        (, IBrokerRouter.Terms memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            args
+        );
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
+            terms.collateralVault
+        );
+        // TODO calcs
+        assert(args.amount <= totalDebt);
+    }
+
+    function testFuzzLienGetBuyout(FuzzInputs memory args)
+        public
+        validateInputs(args)
+    {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+        (, IBrokerRouter.Terms memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            args
+        );
+
+        (uint256 owed, uint256 owedPlus) = LIEN_TOKEN.getBuyout(
+            terms.collateralVault,
+            uint256(0)
+        );
+
+        assertLt(owed, owedPlus);
+    }
+
+    // TODO once isValidRefinance() hooked in, vm.assume better terms
+    function testFuzzRefinanceLoan(
+        FuzzInputs memory args,
+        uint256 newInterestRate,
+        uint256 newDuration
+    ) public validateInputs(args) {
+        newInterestRate = bound(newInterestRate, 1e10, 1e12);
+        newDuration = bound(
+            newDuration,
+            block.timestamp + 1 minutes,
+            block.timestamp + 10 minutes
+        );
 
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        (bytes32 vaultHash, ) = _commitToLoan(
-            tokenContract,
-            tokenId,
-            maxAmount,
-            maxDebt,
-            interestRate,
-            maxInterestRate,
-            duration,
-            amount,
-            uint256(50 ether)
-        );
+        LoanTerms memory newTerms = LoanTerms({
+            maxAmount: defaultTerms.maxAmount,
+            maxDebt: defaultTerms.maxDebt,
+            interestRate: newInterestRate,
+            maxInterestRate: args.maxInterestRate,
+            duration: newDuration,
+            amount: args.amount,
+            schedule: defaultTerms.amount
+        });
+
+        _commitToLoan(tokenContract, tokenId, args);
+        _commitWithoutDeposit(tokenContract, tokenId, newTerms);
     }
 
     //    function testFuzzLendToVault(uint256 amount) public {
@@ -92,15 +195,9 @@ contract Fuzzers is TestHelpers {
     //        vm.stopPrank();
     //    }
 
-    function testFuzzManageLiens(uint256 amount) public {}
-
     function testFuzzCreateAuction(uint256 reservePrice) public {}
 
     function testFuzzCreateBid(uint256 amount) public {}
 
     // TODO repayLoan() test(s)
-
-    function testFuzzRefinanceLoan(uint256 newInterestRate, uint256 newDuration)
-        public
-    {}
 }

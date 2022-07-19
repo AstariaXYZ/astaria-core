@@ -74,7 +74,8 @@ contract TestHelpers is Test {
         BOND_CONTROLLER,
         WRAPPER,
         AUCTION_HOUSE,
-        TRANSFER_PROXY
+        TRANSFER_PROXY,
+        LIEN_TOKEN
     }
 
     using Strings2 for bytes;
@@ -276,6 +277,14 @@ contract TestHelpers is Test {
             uint8(UserRoles.AUCTION_HOUSE),
             true
         );
+
+        // TODO add to AstariaDeploy(?)
+        MRA.setRoleCapability(
+            uint8(UserRoles.LIEN_TOKEN),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
     }
 
     function _createWhitelist(address newNFT)
@@ -425,6 +434,27 @@ contract TestHelpers is Test {
 
         bytes memory res = vm.ffi(inputs);
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
+    }
+
+    function _generateDefaultCollateralVault()
+        internal
+        returns (uint256 collateralVault, uint256 starId)
+    {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+
+        (, IBrokerRouter.Terms memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            defaultTerms
+        );
+
+        uint256 starId = uint256(
+            keccak256(abi.encodePacked(tokenContract, tokenId))
+        );
+
+        return (terms.collateralVault, starId);
     }
 
     function _hijackNFT(address tokenContract, uint256 tokenId) internal {

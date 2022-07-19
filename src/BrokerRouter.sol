@@ -11,6 +11,7 @@ import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {IBroker, BrokerImplementation} from "./BrokerImplementation.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 interface IInvoker {
     function onBorrowAndBuy(
@@ -22,8 +23,10 @@ interface IInvoker {
 }
 
 contract BrokerRouter is Auth, IBrokerRouter {
-    bytes32 public immutable DOMAIN_SEPARATOR;
     using SafeERC20 for IERC20;
+    using FixedPointMathLib for uint256;
+
+    bytes32 public immutable DOMAIN_SEPARATOR;
     IERC20 public immutable WETH;
     ICollateralVault public immutable COLLATERAL_VAULT;
     ILienToken public immutable LIEN_TOKEN;
@@ -336,7 +339,8 @@ contract BrokerRouter is Auth, IBrokerRouter {
             collateralVault,
             position
         );
-        uint256 maxInterest = (lien.amount * lien.schedule) / 100;
+        // uint256 maxInterest = (lien.amount * lien.schedule) / 100;
+        uint256 maxInterest = uint256(lien.amount).mulDivDown(lien.schedule, 100);
 
         return
             maxInterest > interestAccrued ||
@@ -378,7 +382,8 @@ contract BrokerRouter is Auth, IBrokerRouter {
             params.incoming.collateralVault,
             params.position
         );
-        uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
+        // uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
+        uint256 minNewRate = uint256(lien.rate).mulDivDown(MIN_INTEREST_BPS, 1000);
 
         if (params.incoming.rate > minNewRate)
             revert InvalidRefinanceRate(params.incoming.rate);

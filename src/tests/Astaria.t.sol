@@ -22,6 +22,8 @@ import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+
 
 import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
 string constant weth9Artifact = "src/tests/WETH9.json";
@@ -44,6 +46,8 @@ contract BorrowAndRedeposit is IFlashAction, TestHelpers {
 // - test auction flow
 // - create/cancel/end
 contract AstariaTest is TestHelpers {
+    using FixedPointMathLib for uint256;
+
     event DepositERC721(
         address indexed from,
         address indexed tokenContract,
@@ -86,6 +90,13 @@ contract AstariaTest is TestHelpers {
         bytes32 contentHash,
         uint256 expiration
     );
+
+    event Result(uint256 result);
+    function testMath() public {
+        uint256 x = uint256(3);
+        x = x.mulDivDown(4, 1);
+        emit Result(x);
+    }
 
     /**
        Ensure that we can borrow capital from the bond controller
@@ -578,6 +589,99 @@ contract AstariaTest is TestHelpers {
     //     loanDetails2[5] //schedule
     // );
     // }
+
+    // lienToken testing
+
+    function testBuyoutLien() public {
+        Dummy721 buyoutTest = new Dummy721();
+        address tokenContract = address(buyoutTest);
+        uint256 tokenId = uint256(1);
+
+        LoanTerms memory loanTerms = LoanTerms({
+            maxAmount: 10 ether,
+            maxDebt: 20 ether, //used to be uint256(10000000000000000000)
+            interestRate: uint256(0),
+            maxInterestRate: uint256(500000000000000000000),
+            duration: 730 days,
+            amount: uint256(10 ether),
+            schedule: uint256(50 ether)
+        });
+
+
+       (bytes32 vaultHash, IBrokerRouter.Terms memory terms)  = _commitToLoan(tokenContract, tokenId, loanTerms);
+
+        uint256 starId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
+
+        _warpToMaturity(starId, uint256(0));
+
+        address broker = BOND_CONTROLLER.getBroker(vaultHash);
+
+        WETH9.deposit{value: 20 ether}();
+        WETH9.transfer(broker, 20 ether);
+        BrokerImplementation(broker).buyoutLien(terms.collateralVault, uint256(0), terms);
+    }
+
+
+    event INTEREST(uint256 interest);
+    // TODO update once better math implemented
+    function testLienGetInterest() public {
+        (
+            uint256 collateralVault,
+            uint256 starId
+        ) = _generateDefaultCollateralVault();
+
+        // interest rate of uint256(50000000000000000000)
+        // duration of 10 minutes
+        uint256 interest = LIEN_TOKEN.getInterest(collateralVault, uint256(0));
+        assertEq(interest, uint256(0));
+
+        _warpToMaturity(starId, uint256(0));
+
+        interest = LIEN_TOKEN.getInterest(collateralVault, uint256(0));
+        emit INTEREST(interest);
+        assertEq(interest, uint256(516474411155456000000000000000000)); // just pasting current output, will change later
+    }
+
+    // for now basically redundant since just adding to lien getInterest, should set up test flow for multiple liens later
+    function testLienGetTotalDebtForCollateralVault() public {
+        (uint256 collateralVault, ) = _generateDefaultCollateralVault();
+
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
+            collateralVault
+        );
+
+        assertEq(totalDebt, uint256(1000000000000000000));
+    }
+
+    function testLienGetBuyout() public {
+        (uint256 collateralVault, ) = _generateDefaultCollateralVault();
+
+        (uint256 owed, uint256 owedPlus) = LIEN_TOKEN.getBuyout(
+            collateralVault,
+            uint256(0)
+        );
+
+        assertEq(owed, uint256(1000000000000000000));
+        assertEq(owedPlus, uint256(179006655693800000000000000000));
+    }
+
+
+    // TODO add after _generateDefaultCollateralVault()
+    function testLienMakePayment() public {
+        (uint256 collateralVault, ) = _generateDefaultCollateralVault();
+
+        // TODO fix
+        LIEN_TOKEN.makePayment(collateralVault, uint256(0), uint256(0));
+    }
+
+    function testLienGetImpliedRate() public {
+        (uint256 collateralVault, ) = _generateDefaultCollateralVault();
+
+        uint256 impliedRate = LIEN_TOKEN.getImpliedRate(collateralVault);
+        assertEq(impliedRate, uint256(2978480128));
+    }
+
+
 
     // flashAction testing
 

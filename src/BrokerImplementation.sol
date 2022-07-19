@@ -15,6 +15,8 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 abstract contract BrokerImplementation is IERC721Receiver, Base {
     using SafeTransferLib for ERC20;
     using ValidateTerms for IBrokerRouter.Terms;
+    using FixedPointMathLib for uint256;
+
     event NewTermCommitment(
         bytes32 bondVault,
         uint256 collateralVault,
@@ -170,7 +172,8 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         address feeTo = IBrokerRouter(router()).feeTo();
         bool feeOn = feeTo != address(0);
         if (feeOn) {
-            uint256 rake = (amount * 997) / 1000;
+            // uint256 rake = (amount * 997) / 1000;
+            uint256 rake = amount.mulDivDown(997, 1000);
             ERC20(asset()).safeTransfer(feeTo, rake);
             unchecked {
                 amount -= rake;
