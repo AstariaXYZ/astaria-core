@@ -44,10 +44,6 @@ jobs:
                 "title": "Slither Analysis"
               }
             ]
-  gist-sync:
-    name: gist-sync
-    runs-on: ubuntu-latest
-    steps:
       - name: Checkout
         uses: actions/checkout@v2
       - uses: popsiclestick/gist-sync-action@v1.2.0
