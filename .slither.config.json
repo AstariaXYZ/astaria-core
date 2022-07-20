@@ -6,6 +6,6 @@
     "clones-with-immutable-args/=./lib/clones-with-immutable-args/src/",
     "gpl/=./lib/gpl/src/",
     "seaport/=./lib/seaport/contracts/",
-    "foundry_eip-4626/=./lib/foundry_eip-4626/src"
+    "foundry_eip-4626/=./lib/foundry_eip-4626/src/"
   ]
 }
