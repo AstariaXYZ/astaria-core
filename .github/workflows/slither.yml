@@ -4,6 +4,8 @@ name: slither-analysis
 on:
   pull_request:
     branches: [ master, develop, release/* ]
+  push:
+    branches: [ develop ]
 
 jobs:
   analyze:
