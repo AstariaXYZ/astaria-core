@@ -37,7 +37,7 @@ jobs:
       - uses: popsiclestick/gist-sync-action@v1.2.0
         id: sync
         with:
-          auth: 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
+          auth: ${{ secrets.SLITHER_GIST_TOKEN }}
           gist_url: https://gist.github.com/SantiagoGregory/4a2d82e7fc788d8696fe13a5106a67e4
           gist_title: astaria_slither.md
           gist_description: Hosted slither output logs
