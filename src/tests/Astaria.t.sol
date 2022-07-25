@@ -91,13 +91,6 @@ contract AstariaTest is TestHelpers {
         uint256 expiration
     );
 
-    event Result(uint256 result);
-    function testMath() public {
-        uint256 x = uint256(3);
-        x = x.mulDivDown(4, 1);
-        emit Result(x);
-    }
-
     /**
        Ensure that we can borrow capital from the bond controller
        ensure that we're emitting the correct events
@@ -680,8 +673,6 @@ contract AstariaTest is TestHelpers {
         uint256 impliedRate = LIEN_TOKEN.getImpliedRate(collateralVault);
         assertEq(impliedRate, uint256(2978480128));
     }
-
-
 
     // flashAction testing
 

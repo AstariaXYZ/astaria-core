@@ -4,6 +4,8 @@ name: slither-analysis
 on:
   pull_request:
     branches: [ master, develop, release/* ]
+  push:
+    branches: [ develop ]
 
 jobs:
   analyze:
@@ -28,9 +30,18 @@ jobs:
           target: './src'
           node-version: 16
           slither-config: '.slither.config.json'
-          slither-args: '--checklist'
+          slither-args: '--checklist --markdown-root "https://github.com/astariaxyz/nft-bond-vault/blob/$(git rev-parse HEAD)" --filter-paths "lib"'
           markdown: results.md
-
+      # - name: Checkout
+        # uses: actions/checkout@v2
+      - uses: popsiclestick/gist-sync-action@v1.2.0
+        id: sync
+        with:
+          auth: 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
+          gist_url: https://gist.github.com/SantiagoGregory/4a2d82e7fc788d8696fe13a5106a67e4
+          gist_title: astaria_slither.md
+          gist_description: Hosted slither output logs
+          github_file: results.md
       - name: "Post to PR"
         uses: EliLillyCo/github-actions-post-to-pr@main
         with:
@@ -42,3 +53,4 @@ jobs:
                 "title": "Slither Analysis"
               }
             ]
+      
