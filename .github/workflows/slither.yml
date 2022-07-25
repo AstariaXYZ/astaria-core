@@ -30,7 +30,7 @@ jobs:
           target: './src'
           node-version: 16
           slither-config: '.slither.config.json'
-          slither-args: '--checklist'
+          slither-args: '--checklist --markdown-root "https://github.com/astariaxyz/nft-bond-vault/blob/$(git rev-parse HEAD)" --filter-paths "lib"'
           markdown: results.md
       # - name: Checkout
         # uses: actions/checkout@v2
