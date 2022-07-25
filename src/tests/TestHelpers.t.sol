@@ -41,6 +41,12 @@ interface IWETH9 is IERC20 {
 // - setup helpers to pay loans at their schedule
 // - test for interest
 contract TestHelpers is Test {
+    enum StrategyTypes {
+        STANDARD,
+        COLLECTION,
+        BORROWER
+    }
+
     struct LoanTerms {
         uint256 maxAmount;
         uint256 maxDebt;
@@ -431,6 +437,82 @@ contract TestHelpers is Test {
         inputs[7] = abi.encodePacked(maxInterest).toHexString(); //interest
         inputs[8] = abi.encodePacked(duration).toHexString(); //stop
         inputs[9] = abi.encodePacked(schedule).toHexString(); //schedule
+
+        bytes memory res = vm.ffi(inputs);
+        (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
+    }
+
+    struct LoanProofGeneratorParams {
+        address tokenContract;
+        uint256 tokenId;
+        uint8 generationType;
+        bytes calldata data;
+    }
+
+    function _generateInputs(uint8 generationType, bytes calldata data)
+        internal
+        returns (string[] memory inputs)
+    {
+        if (generationType == StrategyTypes.STANDARD) {
+            inputs = new string[](10);
+            (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
+                .getUnderlying(_collateralVault);
+            string[] memory inputs = new string[](10);
+            //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
+
+            IBrokerRouter.Terms memory terms = abi.decode(
+                data,
+                IBrokerRouter.Terms
+            );
+            inputs[0] = "node";
+            inputs[1] = "scripts/loanProofGenerator.js";
+            inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
+            inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
+            inputs[4] = abi.encodePacked(terms.maxAmount).toHexString(); //valuation
+            inputs[5] = abi.encodePacked(terms.maxDebt).toHexString(); //valuation
+            inputs[6] = abi.encodePacked(terms.interest).toHexString(); //interest
+            inputs[7] = abi.encodePacked(terms.maxInterest).toHexString(); //interest
+            inputs[8] = abi.encodePacked(terms.duration).toHexString(); //stop
+            inputs[9] = abi.encodePacked(terms.schedule).toHexString(); //schedule
+        } else if (generationType == StrategyTypes.BORROWER) {
+            inputs = new string[](10);
+            (address tokenContract, uint256 tokenId) = COLLATERAL_VAULT
+                .getUnderlying(_collateralVault);
+            string[] memory inputs = new string[](11);
+            //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
+
+            IBrokerRouter.Terms memory terms = abi.decode(
+                data,
+                IBrokerRouter.Terms
+            );
+            inputs[0] = "node";
+            inputs[1] = "scripts/loanProofGenerator.js";
+            inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
+            inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
+            inputs[4] = abi.encodePacked(terms.maxAmount).toHexString(); //valuation
+            inputs[5] = abi.encodePacked(terms.maxDebt).toHexString(); //valuation
+            inputs[6] = abi.encodePacked(terms.interest).toHexString(); //interest
+            inputs[7] = abi.encodePacked(terms.maxInterest).toHexString(); //interest
+            inputs[8] = abi.encodePacked(terms.duration).toHexString(); //stop
+            inputs[9] = abi.encodePacked(terms.schedule).toHexString(); //schedule
+            inputs[10] = abi.encodePacked(terms.schedule).toHexString(); //schedule
+        } else if (generationType == StrategyTypes.COLLECTION) {} else {}
+        revert("unsupported/type");
+
+        inputs[0] = "node";
+        inputs[1] = "scripts/loanProofGenerator.js";
+        inputs[2] = abi.encodePacked(generationType, data).toHexString();
+        return inputs;
+    }
+
+    function _generateLoanProof(LoanProofGeneratorParams calldata params)
+        internal
+        returns (bytes32 rootHash, bytes32[] memory proof)
+    {
+        string[] memory inputs = _generateInputs(
+            params.generationType,
+            params.data
+        );
 
         bytes memory res = vm.ffi(inputs);
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
