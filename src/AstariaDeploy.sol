@@ -1,4 +1,4 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
@@ -12,6 +12,7 @@ import {SoloBroker} from "./BrokerImplementation.sol";
 import {BrokerVault} from "./BrokerVault.sol";
 import {TransferProxy} from "./TransferProxy.sol";
 import {WEth} from "foundry_eip-4626/WEth.sol";
+
 // import {WEth} from "./WEth.sol";
 
 interface IWETH9 is IERC20 {
@@ -80,9 +81,18 @@ contract AstariaDeploy {
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
-        COLLATERAL_VAULT.file(bytes32("setBondController"), abi.encode(address(BROKER_ROUTER)));
-        COLLATERAL_VAULT.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
-        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        COLLATERAL_VAULT.file(
+            bytes32("setBondController"),
+            abi.encode(address(BROKER_ROUTER))
+        );
+        COLLATERAL_VAULT.file(
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
+        );
+        LIEN_TOKEN.file(
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
+        );
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_VAULT),
             AuctionHouse.createAuction.selector,

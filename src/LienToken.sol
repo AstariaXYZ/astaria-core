@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
-import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
-import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
-import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
@@ -28,7 +25,7 @@ contract TransferAgent {
     }
 }
 
-contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
+contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     using ValidateTerms for IBrokerRouter.Terms;
     using FixedPointMathLib for uint256;
 
@@ -97,6 +94,18 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         }
     }
 
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override
+        returns (bool)
+    {
+        return
+            interfaceId == type(ERC721).interfaceId ||
+            interfaceId == type(ILienToken).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
         (uint256 owed, uint256 buyout) = getBuyout(
             params.incoming.collateralVault,
@@ -127,7 +136,11 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         //        lienData[lienId].broker = params.incoming.broker;
 
         //TODO: emit event, should we send to sender or broker on buyout?
-        _transfer(ownerOf(lienId), address(params.receiver), lienId);
+        super.safeTransferFrom(
+            ownerOf(lienId),
+            address(params.receiver),
+            lienId
+        );
     }
 
     //    function validateTerms(IBrokerRouter.Terms memory params)
@@ -142,6 +155,23 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
     //                BrokerImplementation(lienData[lienId].broker).vaultHash()
     //            );
     //    }
+
+    function tokenURI(uint256 id)
+        public
+        view
+        virtual
+        override
+        returns (string memory)
+    {
+        //generate an svg with a loop of the liens
+        string memory svg = "";
+        for (uint256 i = 0; i < liens[id].length; i++) {
+            svg += string(
+                '<circle cx="' + (i * 100) + '" cy="100" r="50" fill="red" />'
+            );
+        }
+        return svg;
+    }
 
     function validateBuyoutTerms(IBrokerRouter.Terms memory params)
         public

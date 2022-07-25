@@ -1,8 +1,8 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IBrokerRouter} from "./IBrokerRouter.sol";
 
-interface ILienToken is IERC721 {
+interface ILienToken {
     struct Lien {
         uint256 amount; //32
         //        uint256 maxDebt; //32
@@ -104,3 +104,5 @@ interface ILienToken is IERC721 {
         uint256 timestamp
     ) external view returns (uint256 totalDebt);
 }
+
+interface ILienTokenFull is ILienToken, IERC721 {}

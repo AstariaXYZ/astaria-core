@@ -1,4 +1,4 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ILienToken} from "./ILienToken.sol";
 import {ICollateralVault} from "./ICollateralVault.sol";
@@ -17,6 +17,87 @@ interface IBrokerRouter {
         uint256 duration;
         uint256 schedule;
     }
+
+    struct LienDetails {
+        uint256 maxAmount;
+        uint256 maxSeniorDebt;
+        uint256 rate;
+        uint256 duration;
+        uint256 schedule;
+    }
+
+    //struct from this data {
+    //    "uint8": "type",
+    //    "address": "token",
+    //    "uint256": "tokenId",
+    //    "address": "borrower",
+    //    "LienDetails": "lien"
+    //}
+
+    //struct from this data {
+    //    "uint8": "type",
+    //    "address": "token",
+    //    "uint256": "tokenId",
+    //    "address": "borrower",
+    //    "LienDetails": "lien"
+    //}
+
+    struct CollectionDetails {
+        uint8 collectionType;
+        address token;
+        address borrower;
+        LienDetails lien;
+    }
+
+    struct CollateralDetails {
+        uint8 collateralType;
+        address token;
+        uint256 tokenId;
+        address borrower;
+        LienDetails lien;
+    }
+
+    struct VaultDetails {
+        uint8 vaultType;
+        uint8 version;
+        address strategist;
+        address delegate;
+        uint256 expiration;
+        uint256 nonce;
+        address vault;
+    }
+
+    struct CommitParams {
+        VaultDetails vault;
+        uint8 commitmentType;
+        bytes calldata termDetails;
+    }
+
+    function commitTerms(CommitParams calldata params) external {
+        VaultDetails memory vd = abi.decode(params.termDetails, (VaultDetails));
+        _validateVaultTerms(vd);
+
+        //check vault data
+        require(
+            vd.vault == address(this),
+            "BrokerRouter.commitTerms(): Attempting to commit to a vault that is not this broker's"
+        );
+
+        if (params.commitmentType == uint256(0)) {
+            CollectionDetails memory cd = abi.decode(
+                params.termDetails,
+                (CollectionDetails)
+            );
+            _validateCollectionTerms(cd);
+        } else if (params.commitmentType == CommitmentType.Collateral) {
+            CollateralDetails memory cd = abi.decode(
+                params.termDetails,
+                (CollateralDetails)
+            );
+            _validateCollateralTerms(cd);
+        } else {}
+    }
+
     struct Commitment {
         address tokenContract;
         uint256 tokenId;

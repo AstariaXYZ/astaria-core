@@ -1,4 +1,4 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 
 library Strings2 {
     function toHexString(bytes memory input)

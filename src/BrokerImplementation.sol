@@ -1,6 +1,5 @@
-pragma solidity ^0.8.13;
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
-import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
+pragma solidity ^0.8.15;
+import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
@@ -12,7 +11,7 @@ import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-abstract contract BrokerImplementation is IERC721Receiver, Base {
+abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
     using SafeTransferLib for ERC20;
     using ValidateTerms for IBrokerRouter.Terms;
     using FixedPointMathLib for uint256;
@@ -49,7 +48,7 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         uint256 tokenId_,
         bytes calldata data_
     ) external pure override returns (bytes4) {
-        return IERC721Receiver.onERC721Received.selector;
+        return ERC721TokenReceiver.onERC721Received.selector;
     }
 
     function _handleAppraiserReward(uint256) internal virtual {}
@@ -91,10 +90,10 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         uint256 amount,
         address receiver
     ) public {
-        address operator = IERC721(COLLATERAL_VAULT()).getApproved(
+        address operator = ERC721(COLLATERAL_VAULT()).getApproved(
             params.collateralVault
         );
-        address owner = IERC721(COLLATERAL_VAULT()).ownerOf(
+        address owner = ERC721(COLLATERAL_VAULT()).ownerOf(
             params.collateralVault
         );
         if (msg.sender != owner) {
