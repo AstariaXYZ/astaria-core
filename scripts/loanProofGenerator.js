@@ -1,5 +1,5 @@
 const { MerkleTree } = require("merkletreejs");
-// const keccak256 = require("keccak256");
+const keccak256 = require("keccak256");
 const { utils, BigNumber } = require("ethers");
 const {
   getAddress,
@@ -10,7 +10,7 @@ const {
   hexZeroPad,
 } = utils;
 const args = process.argv.slice(2);
-const keccak256 = solidityKeccak256;
+// const keccak256 = solidityKeccak256;
 // console.log(args);
 // List of 7 public Ethereum addresses
 
@@ -21,59 +21,49 @@ const keccak256 = solidityKeccak256;
 // get list of
 // address, tokenId, maxAmount, maxDebt, interest, maxInterest, duration, schedule
 const leaves = [];
+const tokenAddress = args.shift();
+const tokenId = BigNumber.from(args.shift()).toString();
+const strategyData = [
+  BigNumber.from(0).toString(), // type
+  BigNumber.from(0).toString(), // version
+  getAddress(args.shift()), // strategist
+  getAddress(args.shift()), // delegate
+  BigNumber.from(args.shift()).toString(), // public
+  BigNumber.from(0).toString(), // nonce
+  getAddress(args.shift()), // vault
+];
 
-const tokenAddress = args[0];
-const tokenId = BigNumber.from(args[1]).toString();
-const collateral = keccak256(["address", "uint256"], [tokenAddress, tokenId]);
+//TODO why cant we generate a merkle tree with more than one leaf
 
 const strategyDetails = keccak256(
-  [
-    "uint8",
-    "uint8",
-    "address",
-    "address",
-    "bool",
-    "uint256",
-    "uint256",
-    "address",
-  ],
-  [
-    BigNumber.from(0), // type
-    BigNumber.from(0), // version
-    getAddress(args[2]), // strategist
-    getAddress(args[3]), // delegate
-    BigNumber.from(args[4]), // public
-    BigNumber.from(args[5]), // expiration
-    BigNumber.from(args[6]), // nonce
-    getAddress(args[7]), // vault
-  ]
+  // ["uint8", "uint8", "address", "address", "bool", "uint256", "address"],
+  strategyData
 );
-
-const detailsType = args[8];
+const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
-if (detailsType === 1) {
+if (detailsType === 0) {
   details = keccak256(
-    ["uint8", "address", "uint256", "address", "bytes"],
+    // ["uint8", "address", "uint256", "address", "bytes"],
     [
-      BigNumber.from(1), // type
-      getAddress(args[9]), // token
-      BigNumber.from(args[10]), // tokenId
-      getAddress(args[11]), // borrower
-      solidityPack(["bytes"], [args[12]]), // lien
+      BigNumber.from(1).toString(), // type
+      getAddress(tokenAddress), // token
+      BigNumber.from(tokenId).toString(), // tokenId
+      getAddress(args.shift()), // borrower
+      solidityPack(["bytes"], [args.shift()]), // lien
     ]
   );
-} else if (detailsType === 2) {
+} else if (detailsType === 1) {
   details = keccak256(
-    ["uint8", "address", "address", "bytes"],
+    // ["uint8", "address", "address", "bytes"],
     [
-      BigNumber.from(2), // type
-      getAddress(args[9]), // token
-      getAddress(args[10]), // borrower
-      solidityPack(["bytes"], [args[11]]), // lien
+      BigNumber.from(2).toString(), // type
+      getAddress(args.shift()), // token
+      getAddress(args.shift()), // borrower
+      solidityPack(["bytes"], [args.shift()]), // lien
     ]
   );
 }
-
+// console.log(details);
 // struct Terms {
 //     strategyType: uint8;
 //     strategyVersion: uint8;
@@ -85,12 +75,15 @@ if (detailsType === 1) {
 //     loanType: uint8;
 //     loanData: bytes;
 // }
-
+// console.log(strategyDetails);
 leaves.push(strategyDetails);
-
-leaves.push(keccak256([collateral, details]));
+// leaves.push(strategyDetails2);
+leaves.push(details);
+// leaves.push(details);
+// leaves.push(details);
 // Create tree
-const merkleTree = new MerkleTree(leaves, keccak256, { sort: true });
+
+const merkleTree = new MerkleTree(leaves, keccak256);
 // Get root
 const rootHash = merkleTree.getRoot();
 // Pretty-print tree

@@ -1,15 +1,15 @@
 pragma solidity ^0.8.15;
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
+import {IERC721, IERC165} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IBrokerRouter} from "./IBrokerRouter.sol";
 
-interface ILienToken {
+interface ILienToken is IERC721 {
     struct Lien {
         uint256 amount; //32
-        //        uint256 maxDebt; //32
+        uint256 maxSeniorDebt; //32
         address token; // 20
-        //        address broker; // 20
+        address vault; // 20
         bool active; // 1
-        uint32 rate; // 4
+        uint32 rate;
         //        uint32 maxRate; // 4
         uint32 duration; //4
         uint32 last; // 4
@@ -18,12 +18,17 @@ interface ILienToken {
     }
 
     struct LienActionEncumber {
-        IBrokerRouter.Terms terms;
+        address tokenContract;
+        uint256 tokenId;
+        IBrokerRouter.LienDetails terms;
+        bytes32 obligationRoot;
         uint256 amount;
+        address vault;
+        bool borrowAndBuy;
     }
 
     struct LienActionBuyout {
-        IBrokerRouter.Terms incoming;
+        IBrokerRouter.Commitment incoming;
         uint256 position;
         address receiver;
     }
@@ -104,5 +109,3 @@ interface ILienToken {
         uint256 timestamp
     ) external view returns (uint256 totalDebt);
 }
-
-interface ILienTokenFull is ILienToken, IERC721 {}

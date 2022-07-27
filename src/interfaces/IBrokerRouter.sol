@@ -19,6 +19,7 @@ interface IBrokerRouter {
     }
 
     struct LienDetails {
+        address token;
         uint256 maxAmount;
         uint256 maxSeniorDebt;
         uint256 rate;
@@ -26,91 +27,59 @@ interface IBrokerRouter {
         uint256 schedule;
     }
 
-    //struct from this data {
-    //    "uint8": "type",
-    //    "address": "token",
-    //    "uint256": "tokenId",
-    //    "address": "borrower",
-    //    "LienDetails": "lien"
-    //}
-
-    //struct from this data {
-    //    "uint8": "type",
-    //    "address": "token",
-    //    "uint256": "tokenId",
-    //    "address": "borrower",
-    //    "LienDetails": "lien"
-    //}
+    enum ObligationType {
+        COLLECTION,
+        STANDARD
+    }
 
     struct CollectionDetails {
-        uint8 collectionType;
+        uint8 version;
         address token;
         address borrower;
         LienDetails lien;
     }
 
     struct CollateralDetails {
-        uint8 collateralType;
+        uint8 version;
         address token;
         uint256 tokenId;
         address borrower;
         LienDetails lien;
     }
 
-    struct VaultDetails {
-        uint8 vaultType;
+    struct StrategyDetails {
         uint8 version;
         address strategist;
         address delegate;
-        uint256 expiration;
+        //        uint256 expiration;
         uint256 nonce;
         address vault;
     }
 
-    struct CommitParams {
-        VaultDetails vault;
-        uint8 commitmentType;
-        bytes calldata termDetails;
-    }
-
-    function commitTerms(CommitParams calldata params) external {
-        VaultDetails memory vd = abi.decode(params.termDetails, (VaultDetails));
-        _validateVaultTerms(vd);
-
-        //check vault data
-        require(
-            vd.vault == address(this),
-            "BrokerRouter.commitTerms(): Attempting to commit to a vault that is not this broker's"
-        );
-
-        if (params.commitmentType == uint256(0)) {
-            CollectionDetails memory cd = abi.decode(
-                params.termDetails,
-                (CollectionDetails)
-            );
-            _validateCollectionTerms(cd);
-        } else if (params.commitmentType == CommitmentType.Collateral) {
-            CollateralDetails memory cd = abi.decode(
-                params.termDetails,
-                (CollateralDetails)
-            );
-            _validateCollateralTerms(cd);
-        } else {}
+    struct NewObligationRequest {
+        StrategyDetails strategy;
+        uint8 obligationType;
+        bytes obligationDetails;
+        bytes32 obligationRoot;
+        bytes32[] obligationProof;
+        uint256 amount;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     struct Commitment {
         address tokenContract;
         uint256 tokenId;
         bytes32[] depositProof;
-        ILienToken.LienActionEncumber action;
+        NewObligationRequest nor;
     }
     struct BrokerParams {
         address appraiser;
-        bytes32 root;
-        uint256 expiration;
+        address delegate;
+        //        uint256 expiration;
         uint256 deadline;
         uint256 buyout;
-        bytes32 contentHash;
         uint8 v;
         bytes32 r;
         bytes32 s;
@@ -122,7 +91,7 @@ interface IBrokerRouter {
     }
 
     struct BorrowAndBuyParams {
-        ILienToken.LienActionEncumber[] commitments;
+        Commitment[] commitments;
         address invoker;
         uint256 purchasePrice;
         bytes purchaseData;
@@ -135,20 +104,22 @@ interface IBrokerRouter {
         address broker; //cloned proxy
     }
 
-    function newBondVault(BrokerParams memory params) external;
+    function newBondVault(BrokerParams memory params)
+        external
+        returns (address);
 
     function feeTo() external returns (address);
 
     function encodeBondVaultHash(
         address appraiser,
-        bytes32 root,
-        uint256 expiration,
+        address delegate,
+        //        uint256 expiration,
         uint256 appraiserNonce,
         uint256 deadline,
         uint256 buyout
     ) external view returns (bytes memory);
 
-    function commitToLoans(Commitment[] calldata commitments)
+    function commitToLoans(Commitment[] calldata)
         external
         returns (uint256 totalBorrowed);
 
@@ -156,11 +127,11 @@ interface IBrokerRouter {
         external
         returns (bool);
 
-    function LIEN_TOKEN() external returns (ILienToken);
+    function LIEN_TOKEN() external view returns (ILienToken);
 
-    function TRANSFER_PROXY() external returns (ITransferProxy);
+    function TRANSFER_PROXY() external view returns (ITransferProxy);
 
-    function COLLATERAL_VAULT() external returns (ICollateralVault);
+    function COLLATERAL_VAULT() external view returns (ICollateralVault);
 
     function getAppraiserFee() external view returns (uint256, uint256);
 

@@ -20,22 +20,19 @@ import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation
 import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 
-import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
-
-string constant weth9Artifact = "src/tests/WETH9.json";
+import "./TestHelpers.t.sol";
 
 contract Fuzzers is TestHelpers {
+    using CollateralLookup for address;
     struct FuzzInputs {
         uint256 amount;
         uint256 interestRate;
-        uint256 maxInterestRate;
         uint256 duration;
     }
 
     modifier validateInputs(FuzzInputs memory args) {
         args.amount = bound(args.amount, 1 ether, 100000000000000000000);
         args.interestRate = bound(args.interestRate, 1e10, 1e12);
-        args.maxInterestRate = bound(args.maxInterestRate, 1e10, 1e12);
         args.duration = bound(
             args.duration,
             block.timestamp + 1 minutes,
@@ -48,12 +45,19 @@ contract Fuzzers is TestHelpers {
         address tokenContract,
         uint256 tokenId,
         FuzzInputs memory args
-    ) internal returns (bytes32 vaultHash, IBrokerRouter.Terms memory terms) {
+    )
+        internal
+        returns (
+            bytes32 vaultHash,
+            address vault,
+            IBrokerRouter.Commitment memory terms
+        )
+    {
         LoanTerms memory loanTerms = LoanTerms({
+            token: address(WETH9),
             maxAmount: defaultTerms.maxAmount,
             maxDebt: defaultTerms.maxDebt,
             interestRate: args.interestRate,
-            maxInterestRate: args.maxInterestRate,
             duration: args.duration,
             amount: args.amount,
             schedule: defaultTerms.amount
@@ -80,20 +84,15 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (, IBrokerRouter.Terms memory terms) = _commitToLoan(
+        (, , IBrokerRouter.Commitment memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             args
         );
 
-        uint256 starId = uint256(
-            keccak256(abi.encodePacked(tokenContract, tokenId))
-        );
+        uint256 collateralVault = tokenContract.computeId(tokenId);
 
-        uint256 interest = LIEN_TOKEN.getInterest(
-            terms.collateralVault,
-            uint256(0)
-        );
+        uint256 interest = LIEN_TOKEN.getInterest(collateralVault, uint256(0));
         assertEq(interest, uint256(0));
 
         // TODO calcs, waiting on better math for now
@@ -108,13 +107,13 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (, IBrokerRouter.Terms memory terms) = _commitToLoan(
+        (, , IBrokerRouter.Commitment memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             args
         );
         uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
-            terms.collateralVault
+            tokenContract.computeId(tokenId)
         );
         // TODO calcs
         assert(args.amount <= totalDebt);
@@ -127,14 +126,14 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (, IBrokerRouter.Terms memory terms) = _commitToLoan(
+        (, , IBrokerRouter.Commitment memory terms) = _commitToLoan(
             tokenContract,
             tokenId,
             args
         );
 
         (uint256 owed, uint256 owedPlus) = LIEN_TOKEN.getBuyout(
-            terms.collateralVault,
+            tokenContract.computeId(tokenId),
             uint256(0)
         );
 
@@ -159,10 +158,10 @@ contract Fuzzers is TestHelpers {
         uint256 tokenId = uint256(1);
 
         LoanTerms memory newTerms = LoanTerms({
+            token: address(WETH9),
             maxAmount: defaultTerms.maxAmount,
             maxDebt: defaultTerms.maxDebt,
             interestRate: newInterestRate,
-            maxInterestRate: args.maxInterestRate,
             duration: newDuration,
             amount: args.amount,
             schedule: defaultTerms.amount
