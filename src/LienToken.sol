@@ -437,8 +437,29 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 paymentAmount,
         uint256 index
     ) external {
+        address lienOwner = ownerOf(liens[collateralVault][index]);
+        if(lienOwner.supportsInterface(PublicVault)) {
+            lienOwner.beforePayment(paymentAmount);
+        }
         _payment(collateralVault, index, paymentAmount);
     }
+
+    function calculateSlope(uint256 lienId) public returns(uint256) {
+        Lien memory lien = lienData[lienId];
+        uint256 end = (lien.start + lien.duration);
+        return end - lien.last / (lien.amount * lien.rate * end) - lien.amount;
+    }
+
+    function changeInSlope(uint256 lienId, uint256 paymentAmount) public view returns(uint256 slope) {
+        Lien memory lien = lienData[lienId];
+        uint256 end = (lien.start + lien.duration);
+        uin256 oldSlope = calculateSlope(lienId);
+        uint256 newAmount = (lien.amount - paymentAmount);
+        uint256 newSlope = (end - block.timestamp) / (newAmount * lien.rate * end) - newAmount;
+        slope = oldSlope - newSlope;
+    }
+
+    function _afterPayment(uint256 lienId, uint256 amount) internal virtual {}
 
     function getTotalDebtForCollateralVault(uint256 collateralVault)
         public

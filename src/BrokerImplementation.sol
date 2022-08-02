@@ -90,7 +90,7 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         IBrokerRouter.Terms memory params,
         uint256 amount,
         address receiver
-    ) public {
+    ) public virtual {
         address operator = IERC721(COLLATERAL_VAULT()).getApproved(
             params.collateralVault
         );
@@ -109,10 +109,14 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
 
         _validateTerms(params, amount);
 
-        _requestLienAndIssuePayout(params, receiver, amount);
+        uint256 lienId = _requestLienAndIssuePayout(params, receiver, amount);
         _handleAppraiserReward(amount);
+        
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
+        _afterCommitToLoan(lienId, amount);
     }
+    
+    function _afterCommitToLoan(uint256 lienId, uint256 amount) internal virtual {}
 
     function canLiquidate(uint256 collateralVault, uint256 position)
         public
