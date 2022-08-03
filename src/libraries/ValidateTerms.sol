@@ -22,19 +22,17 @@ library ValidateTerms {
 
             leaf = keccak256(
                 abi.encodePacked(
-                    uint256(0),
-                    cd.token,
-                    cd.tokenId,
-                    cd.borrower,
-                    abi.encode(
-                        cd.lien.token,
-                        cd.lien.maxAmount,
-                        cd.lien.maxSeniorDebt,
-                        cd.lien.rate,
-                        cd.lien.duration,
-                        cd.lien.schedule
-                    )
+                    uint8(1), // 1 is the version of the structure
+                    cd.token, // token address
+                    cd.tokenId, // token id
+                    cd.borrower, // borrower address
+                    cd.lien.maxAmount, // max amount
+                    cd.lien.maxSeniorDebt, // max senior debt
+                    cd.lien.rate, // rate
+                    cd.lien.duration, // duration
+                    cd.lien.schedule // schedule
                 )
+                //                abi.encode(cd)
             );
             ld = cd.lien;
         } else if (
@@ -45,10 +43,6 @@ library ValidateTerms {
                 params.obligationDetails,
                 (IBrokerRouter.CollectionDetails)
             );
-            // borrower based so check on msg sender
-            bytes memory collateral = cd.borrower != address(0)
-                ? abi.encodePacked(cd.token, cd.borrower)
-                : abi.encodePacked(cd.token);
 
             //[
             //      BigNumber.from(1).toString(), // type

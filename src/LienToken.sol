@@ -350,16 +350,14 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
             params.terms.maxSeniorDebt >= totalDebt,
             "too much debt to take this loan"
         );
-        if (params.terms.token == address(0)) {
-            params.terms.token = WETH;
-        }
+
         lienId = uint256(
             keccak256(
                 abi.encodePacked(
                     abi.encode(
                         bytes32(collateralVault),
                         params.vault,
-                        params.terms.token,
+                        WETH,
                         params.terms.maxAmount,
                         params.terms.maxSeniorDebt,
                         params.terms.duration,
@@ -372,7 +370,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
         _mint(BrokerImplementation(params.vault).recipient(), lienId);
         lienData[lienId] = Lien({
-            token: params.terms.token,
+            token: WETH,
             amount: params.amount,
             maxSeniorDebt: params.terms.maxSeniorDebt,
             active: true,

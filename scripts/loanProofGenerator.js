@@ -1,5 +1,5 @@
 const { MerkleTree } = require("merkletreejs");
-const keccak256 = require("keccak256");
+// const keccak256 = require("keccak256");
 const { utils, BigNumber } = require("ethers");
 const {
   getAddress,
@@ -10,7 +10,7 @@ const {
   hexZeroPad,
 } = utils;
 const args = process.argv.slice(2);
-// const keccak256 = solidityKeccak256;
+const keccak256 = solidityKeccak256;
 // console.log(args);
 // List of 7 public Ethereum addresses
 
@@ -20,48 +20,74 @@ const args = process.argv.slice(2);
 
 // get list of
 // address, tokenId, maxAmount, maxDebt, interest, maxInterest, duration, schedule
+// const loanDetails = defaultAbiCoder
+//   .decode(["uint256", "uint256", "uint256", "uint256", "uint256"], args[8])
+//   .map((x) => BigNumber.from(x).toString());
 const leaves = [];
 const tokenAddress = args.shift();
 const tokenId = BigNumber.from(args.shift()).toString();
 const strategyData = [
-  BigNumber.from(0).toString(), // type
-  BigNumber.from(0).toString(), // version
+  // BigNumber.from(0).toString(), // type
+  parseInt(BigNumber.from(0).toString()), // version
   getAddress(args.shift()), // strategist
   getAddress(args.shift()), // delegate
-  BigNumber.from(args.shift()).toString(), // public
-  BigNumber.from(0).toString(), // nonce
+  parseInt(BigNumber.from(args.shift()).toString()), // public
+  parseInt(BigNumber.from(0).toString()), // nonce
   getAddress(args.shift()), // vault
 ];
 
-//TODO why cant we generate a merkle tree with more than one leaf
+const strategyDetails = [
+  ["uint8", "address", "address", "bool", "uint256", "address"],
+  strategyData,
+];
 
-const strategyDetails = keccak256(
-  // ["uint8", "uint8", "address", "address", "bool", "uint256", "address"],
-  strategyData
-);
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
 if (detailsType === 0) {
-  details = keccak256(
-    // ["uint8", "address", "uint256", "address", "bytes"],
+  details = [
     [
-      BigNumber.from(1).toString(), // type
+      "uint8",
+      "address",
+      "uint256",
+      "address",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+    ],
+    [
+      BigNumber.from(1).toString(), // version
       getAddress(tokenAddress), // token
       BigNumber.from(tokenId).toString(), // tokenId
       getAddress(args.shift()), // borrower
-      solidityPack(["bytes"], [args.shift()]), // lien
-    ]
-  );
+      // ...defaultAbiCoder.decode(
+      ...defaultAbiCoder
+        .decode(
+          ["uint256", "uint256", "uint256", "uint256", "uint256"],
+          args.shift()
+        )
+        .map((x) => {
+          // const { fs } = require("fs");
+          // await fs.writeFile("./output.txt", BigNumber.from(x).toString(), {
+          //   flag: "a+",
+          // });
+          return BigNumber.from(x).toString();
+        }),
+      // defaultAbiCoder.decode(["uint256", "uint256"], args.shift()), // loanDetails
+      // solidityPack(["bytes"], [args.shift()]), // lien
+    ],
+  ];
 } else if (detailsType === 1) {
-  details = keccak256(
-    // ["uint8", "address", "address", "bytes"],
+  details = [
+    ["uint8", "address", "address", "bytes"],
     [
       BigNumber.from(2).toString(), // type
       getAddress(args.shift()), // token
       getAddress(args.shift()), // borrower
       solidityPack(["bytes"], [args.shift()]), // lien
-    ]
-  );
+    ],
+  ];
 }
 // console.log(details);
 // struct Terms {
@@ -75,19 +101,21 @@ if (detailsType === 0) {
 //     loanType: uint8;
 //     loanData: bytes;
 // }
-// console.log(strategyDetails);
 leaves.push(strategyDetails);
 // leaves.push(strategyDetails2);
+// leaves.push(strategyDetails2);
+// leaves.push(details);
+// leaves.push(details);
 leaves.push(details);
 // leaves.push(details);
 // leaves.push(details);
 // Create tree
 
-const merkleTree = new MerkleTree(leaves, keccak256);
+const merkleTree = new MerkleTree(leaves.map((x) => keccak256(x[0], x[1])));
 // Get root
 const rootHash = merkleTree.getRoot();
 // Pretty-print tree
-const proof = merkleTree.getHexProof(merkleTree.getLeaves()[0]);
+const proof = merkleTree.getHexProof(merkleTree.getLeaves()[1]);
 console.log(
   defaultAbiCoder.encode(["bytes32", "bytes32[]"], [rootHash, proof])
 );

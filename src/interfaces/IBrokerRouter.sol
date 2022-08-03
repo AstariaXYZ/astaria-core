@@ -19,7 +19,6 @@ interface IBrokerRouter {
     }
 
     struct LienDetails {
-        address token;
         uint256 maxAmount;
         uint256 maxSeniorDebt;
         uint256 rate;

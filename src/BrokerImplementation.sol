@@ -111,7 +111,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
                 params.tokenContract.computeId(params.tokenId)
             );
         require(
-            ld.maxSeniorDebt <= seniorDebt,
+            seniorDebt <= ld.maxSeniorDebt,
             "Broker._validateTerms(): too much debt already for this loan"
         );
         require(

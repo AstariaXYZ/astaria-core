@@ -696,12 +696,11 @@ contract TestHelpers is Test {
                 uint8(0),
                 abi.encode(
                     IBrokerRouter.CollateralDetails(
-                        uint8(0),
+                        uint8(1),
                         tokenContract,
                         tokenId,
                         address(0),
                         IBrokerRouter.LienDetails(
-                            address(WETH9),
                             maxAmount,
                             maxDebt,
                             interestRate,
@@ -841,12 +840,11 @@ contract TestHelpers is Test {
                     uint8(0), //obligationType
                     abi.encode(
                         IBrokerRouter.CollateralDetails(
-                            uint8(0),
-                            params.tokenContract,
-                            params.tokenId,
-                            address(0),
+                            uint8(1), //version
+                            params.tokenContract, // tokenContract
+                            params.tokenId, //tokenId
+                            address(0), // borrwer
                             IBrokerRouter.LienDetails(
-                                address(WETH9),
                                 params.maxAmount,
                                 params.maxDebt,
                                 params.interestRate,

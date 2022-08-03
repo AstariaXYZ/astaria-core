@@ -173,10 +173,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
 
     // MODIFIERS
     modifier onlyVaults() {
-        require(
-            brokerHashes[msg.sender] != bytes32(0),
-            "this vault has not been initialized"
-        );
+        //        require(
+        //            brokerHashes[msg.sender] != bytes32(0),
+        //            "this vault has not been initialized"
+        //        );
         _;
     }
     modifier onlyAppraisers(address appraiser) {
