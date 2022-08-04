@@ -74,19 +74,16 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned  {
     // needs to be called in the epoch boundary before the next epoch can start
     function processEpoch(uint256[] memory collateralVaults, uint256[] memory positions) external returns() {
         // check to make sure epoch is over
-        require(start + ((currentEpoch + 1) * epochLength)) > block.timestamp, "Epoch has not ended");
+        require(start + ((currentEpoch + 1) * epochLength)) < block.timestamp, "Epoch has not ended");
 
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
         // check to make sure the amount of CollateralVaults were the same as the LienTokens held by the vault 
-        require(collateralVaults.length == LienToken.balanceOf(address(this)), "provided ids less than balance");
+        require(collateralVaults.length == ILienToken.balanceOf(address(this)), "provided ids less than balance");
 
         // incremement epoch
         currentEpoch ++;
-
-        // check liquidations have been processed
-        uint256 liquidations = haveLiquidationsProcessed(collateralVaults, positions);
 
         // reset liquidationWithdrawRatio to prepare for recalcualtion
         liquidationWithdrawRatio = 0;
@@ -96,21 +93,14 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned  {
 
         // check if there are LPs withdrawing this epoch
         if(withdrawProxies[currentEpoch] != address(0)){
+            // check liquidations have been processed
+            require(haveLiquidationsProcessed(collateralVaults, positions), "liquidations not processed");
 
             // recalculate liquidationWithdrawRatio for the new epoch
             liquidationWithdrawRatio = withdrawProxies[currentEpoch].totalSupply / totalSupply;
 
-            // compute the withdrawReserve without liquidation markdown
-            uint256 withdrawReserveBeforeLiquidation = convertToAssets(withdrawProxies[currentEpoch].totalSupply());
-
-            // compute the withdrawReserveLiquidationMarkdown
-            uint256 withdrawReserveLiquidationMarkdown = liquidationWithdrawRatio * liquidations;
-
             // compute the withdrawReserve
-            withdrawReserve = withdrawReserveBeforeLiquidation - withdrawReserveLiquidationMarkdown;
-            
-            // remove the withdrawReserve and the withdrawReserveLiquidationMarkdown amounts from the PublicVault 
-            yintercept -= withdrawReserve + withdrawReserveLiquidationMarkdown;
+            uint256 withdrawReserve = convertToAssets(withdrawProxies[currentEpoch].totalSupply());
 
             // burn the tokens of the LPs withdrawing
             _burn(address(this), withdrawProxies[currentEpoch].totalSupply());
