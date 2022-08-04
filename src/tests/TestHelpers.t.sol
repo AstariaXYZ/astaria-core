@@ -50,24 +50,22 @@ contract TestHelpers is Test {
     }
 
     struct LoanTerms {
-        address token;
         uint256 maxAmount;
         uint256 maxDebt;
         uint256 interestRate;
+        uint256 maxInterestRate;
         uint256 duration;
         uint256 amount;
-        uint256 schedule;
     }
 
     LoanTerms defaultTerms =
         LoanTerms({
-            token: address(WETH9),
-            maxAmount: uint256(100000000000000000000),
-            maxDebt: uint256(10000000000000000000),
-            interestRate: uint256(50000000000000000000),
+            maxAmount: uint256(10 ether),
+            maxDebt: uint256(1 ether),
+            interestRate: uint256(50_000 gwei),
+            maxInterestRate: uint256(75_000 gwei),
             duration: uint256(block.timestamp + 10 minutes),
-            amount: uint256(1 ether),
-            schedule: uint256(50 ether)
+            amount: uint256(0.5 ether)
         });
 
     // modifier validateLoanTerms(LoanTerms memory terms) {
@@ -389,7 +387,6 @@ contract TestHelpers is Test {
         IBrokerRouter.BrokerParams memory params = IBrokerRouter.BrokerParams(
             appraiser,
             delegate,
-            //            expiration,
             deadline,
             buyout,
             v,
@@ -535,6 +532,8 @@ contract TestHelpers is Test {
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
     }
 
+    event LoanObligationProof(bytes32[]);
+
     function _generateDefaultCollateralVault()
         internal
         returns (uint256 collateralVault)
@@ -571,9 +570,9 @@ contract TestHelpers is Test {
         uint256 maxAmount,
         uint256 maxDebt,
         uint256 interestRate,
+        uint256 maxInterestRate,
         uint256 duration,
-        uint256 amount,
-        uint256 schedule
+        uint256 amount
     )
         internal
         returns (bytes32 vaultHash, IBrokerRouter.Commitment memory terms)
@@ -604,9 +603,9 @@ contract TestHelpers is Test {
                 maxAmount,
                 maxDebt,
                 interestRate,
+                maxInterestRate,
                 duration,
-                amount,
-                schedule
+                amount
             )
         );
 
@@ -630,11 +629,8 @@ contract TestHelpers is Test {
             IBrokerRouter.Commitment memory terms
         )
     {
-        _depositNFTs(
-            tokenContract, //based ghoul
-            tokenId
-        );
-
+        _depositNFTs(tokenContract, tokenId);
+        emit LogTerms(loanTerms);
         (vaultHash, terms, vault) = _commitWithoutDeposit(
             CommitWithoutDeposit(
                 tokenContract,
@@ -642,15 +638,19 @@ contract TestHelpers is Test {
                 loanTerms.maxAmount,
                 loanTerms.maxDebt,
                 loanTerms.interestRate,
+                loanTerms.maxInterestRate,
                 loanTerms.duration,
-                loanTerms.amount,
-                loanTerms.schedule
+                loanTerms.amount
             )
         );
+        emit LogCommitment(terms);
+
         BrokerImplementation(vault).commitToLoan(terms, address(this));
 
         return (vaultHash, vault, terms);
     }
+
+    event LogTerms(LoanTerms);
 
     function _commitWithoutDeposit(
         address tokenContract,
@@ -672,9 +672,9 @@ contract TestHelpers is Test {
                     loanTerms.maxAmount,
                     loanTerms.maxDebt,
                     loanTerms.interestRate,
+                    loanTerms.maxInterestRate,
                     loanTerms.duration,
-                    loanTerms.amount,
-                    loanTerms.schedule
+                    loanTerms.amount
                 )
             );
     }
@@ -685,9 +685,9 @@ contract TestHelpers is Test {
         uint256 maxAmount,
         uint256 maxDebt,
         uint256 interestRate,
+        uint256 maxInterestRate,
         uint256 duration,
-        uint256 amount,
-        uint256 schedule
+        uint256 amount
     ) internal returns (LoanProofGeneratorParams memory) {
         return
             LoanProofGeneratorParams(
@@ -704,8 +704,8 @@ contract TestHelpers is Test {
                             maxAmount,
                             maxDebt,
                             interestRate,
-                            duration,
-                            schedule
+                            maxInterestRate,
+                            duration
                         )
                     )
                 )
@@ -720,10 +720,12 @@ contract TestHelpers is Test {
         uint256 maxAmount;
         uint256 maxDebt;
         uint256 interestRate;
+        uint256 maxInterestRate;
         uint256 duration;
         uint256 amount;
-        uint256 schedule;
     }
+
+    event LogCommitWithoutDeposit(CommitWithoutDeposit);
 
     function _commitWithoutDeposit(CommitWithoutDeposit memory params)
         internal
@@ -738,7 +740,6 @@ contract TestHelpers is Test {
         );
 
         bytes32[] memory obligationProof;
-
         LoanProofGeneratorParams
             memory proofParams = _generateLoanGeneratorParams(
                 params.tokenContract,
@@ -746,57 +747,15 @@ contract TestHelpers is Test {
                 params.maxAmount,
                 params.maxDebt,
                 params.interestRate,
+                params.maxInterestRate,
                 params.duration,
-                params.amount,
-                params.schedule
+                params.amount
             );
         (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
 
         vault = _createBondVault(obligationRoot, true);
 
         _lendToVault(vault, uint256(500 ether), appraiserTwo);
-
-        //        address broker = BOND_CONTROLLER.getBroker(vaultHash);
-
-        //struct StrategyDetails {
-        //        uint8 version;
-        //        address strategist;
-        //        address delegate;
-        //        uint256 expiration;
-        //        uint256 nonce;
-        //        address vault;
-        //    }
-        //
-        //    struct NewObligationRequest {
-        //        StrategyDetails strategy;
-        //        uint8 obligationType;
-        //        bytes obligationDetails;
-        //        bytes32 obligationRoot;
-        //        bytes32[] obligationProof;
-        //        uint256 amount;
-        //        uint8 v;
-        //        bytes32 r;
-        //        bytes32 s;
-        //    }
-        //
-        //    struct Commitment {
-        //        address tokenContract;
-        //        uint256 tokenId;
-        //        bytes32[] depositProof;
-        //        NewObligationRequest nor;
-        //    }
-
-        //struct NewObligationRequest {
-        //        StrategyDetails strategy;
-        //        uint8 obligationType;
-        //        bytes obligationDetails;
-        //        bytes32 obligationRoot;
-        //        bytes32[] obligationProof;
-        //        uint256 amount;
-        //        uint8 v;
-        //        bytes32 r;
-        //        bytes32 s;
-        //    }
 
         uint8 v;
         bytes32 r;
@@ -811,9 +770,10 @@ contract TestHelpers is Test {
             r,
             s
         );
-
         return (obligationRoot, terms, vault);
     }
+
+    event LogCommitment(IBrokerRouter.Commitment);
 
     function _generateCommitment(
         CommitWithoutDeposit memory params,
@@ -824,6 +784,7 @@ contract TestHelpers is Test {
         bytes32 r,
         bytes32 s
     ) internal returns (IBrokerRouter.Commitment memory) {
+        emit LogCommitWithoutDeposit(params);
         return
             IBrokerRouter.Commitment(
                 params.tokenContract,
@@ -837,20 +798,20 @@ contract TestHelpers is Test {
                         BOND_CONTROLLER.appraiserNonce(appraiserOne), //nonce
                         vault
                     ),
-                    uint8(0), //obligationType
+                    uint8(StrategyTypes.STANDARD), //obligationType
                     abi.encode(
                         IBrokerRouter.CollateralDetails(
                             uint8(1), //version
                             params.tokenContract, // tokenContract
                             params.tokenId, //tokenId
                             address(0), // borrwer
-                            IBrokerRouter.LienDetails(
-                                params.maxAmount,
-                                params.maxDebt,
-                                params.interestRate,
-                                params.duration,
-                                params.schedule
-                            )
+                            IBrokerRouter.LienDetails({
+                                maxAmount: params.maxAmount,
+                                maxSeniorDebt: params.maxDebt,
+                                rate: params.interestRate,
+                                maxInterestRate: params.maxInterestRate,
+                                duration: params.duration //lienDetails
+                            })
                         )
                     ), //obligationDetails
                     obligationRoot, //obligationRoot

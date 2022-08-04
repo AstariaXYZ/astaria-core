@@ -3,9 +3,14 @@ import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IBrokerRouter} from "../interfaces/IBrokerRouter.sol";
 
 library ValidateTerms {
+    event LogCollateral(IBrokerRouter.CollateralDetails);
+    event LogCollection(IBrokerRouter.CollectionDetails);
+    event LogBytes32(bytes32);
+
+    event LogNOR(IBrokerRouter.NewObligationRequest);
+
     function validateTerms(IBrokerRouter.NewObligationRequest memory params)
         internal
-        pure
         returns (bool, IBrokerRouter.LienDetails memory ld)
     {
         bytes32 leaf;
@@ -19,21 +24,43 @@ library ValidateTerms {
             );
             // borrower based so check on msg sender
             //new structure, of borrower based
+            emit LogCollateral(cd);
+            emit LogNOR(params);
+
+            //[
+            //    'uint8',   'address',
+            //    'uint256', 'address',
+            //    'uint256', 'uint256',
+            //    'uint256', 'uint256',
+            //    'uint256'
+            //  ],
+            //  [
+            //    '1',
+            //    '0xCC61bD887b6695f0C65390931e3e641406dCBb67',
+            //    '1',
+            //    '0x0000000000000000000000000000000000000000',
+            //    '10000000000000000000',
+            //    '1000000000000000000',
+            //    '50000000000000',
+            //    '75000000000000',
+            //    '601'
+            //  ]
 
             leaf = keccak256(
                 abi.encodePacked(
-                    uint8(1), // 1 is the version of the structure
-                    cd.token, // token address
-                    cd.tokenId, // token id
-                    cd.borrower, // borrower address
-                    cd.lien.maxAmount, // max amount
-                    cd.lien.maxSeniorDebt, // max senior debt
-                    cd.lien.rate, // rate
-                    cd.lien.duration, // duration
-                    cd.lien.schedule // schedule
+                    cd.version,
+                    cd.token,
+                    cd.tokenId,
+                    cd.borrower,
+                    cd.lien.maxAmount,
+                    cd.lien.maxSeniorDebt,
+                    cd.lien.rate,
+                    cd.lien.maxInterestRate,
+                    cd.lien.duration
                 )
-                //                abi.encode(cd)
             );
+
+            emit LogBytes32(leaf);
             ld = cd.lien;
         } else if (
             params.obligationType ==
@@ -44,15 +71,18 @@ library ValidateTerms {
                 (IBrokerRouter.CollectionDetails)
             );
 
-            //[
-            //      BigNumber.from(1).toString(), // type
-            //      getAddress(tokenAddress), // token
-            //      BigNumber.from(tokenId).toString(), // tokenId
-            //      getAddress(args.shift()), // borrower
-            //      solidityPack(["bytes"], [args.shift()]), // lien
-            //    ]
-
-            leaf = keccak256(abi.encode(cd));
+            leaf = keccak256(
+                abi.encode(
+                    cd.version, // 1 is the version of the structure
+                    cd.token, // token address
+                    cd.borrower, // borrower address
+                    cd.lien.maxAmount, // max amount
+                    cd.lien.maxSeniorDebt, // max senior debt
+                    cd.lien.rate, // rate
+                    cd.lien.maxInterestRate, // max implied rate
+                    cd.lien.duration // duration
+                )
+            );
             ld = cd.lien;
         }
 

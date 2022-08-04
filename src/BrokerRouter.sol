@@ -304,10 +304,9 @@ contract BrokerRouter is Auth, IBrokerRouter {
     function requestLienPosition(ILienToken.LienActionEncumber calldata params)
         external
         onlyVaults
-        returns (bool)
+        returns (uint256)
     {
-        LIEN_TOKEN.createLien(params);
-        return true;
+        return LIEN_TOKEN.createLien(params);
     }
 
     function lendToVault(bytes32 bondVault, uint256 amount) external {
@@ -350,15 +349,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
             collateralVault,
             position
         );
-        // uint256 maxInterest = (lien.amount * lien.schedule) / 100;
-        uint256 maxInterest = uint256(lien.amount).mulDivDown(
-            lien.schedule,
-            100
-        );
+        // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
-        return
-            maxInterest > interestAccrued ||
-            (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
+        return (lien.start + lien.duration <= block.timestamp &&
+            lien.amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
@@ -370,6 +364,8 @@ contract BrokerRouter is Auth, IBrokerRouter {
             canLiquidate(collateralVault, position),
             "liquidate: borrow is healthy"
         );
+
+        // 0x
 
         reserve = COLLATERAL_VAULT.auctionVault(
             collateralVault,
@@ -463,7 +459,7 @@ contract BrokerRouter is Auth, IBrokerRouter {
             brokerType = 2;
         }
 
-        address broker = ClonesWithImmutableArgs.clone(
+        address vaultAddr = ClonesWithImmutableArgs.clone(
             implementation,
             abi.encodePacked(
                 address(COLLATERAL_VAULT),
@@ -483,9 +479,9 @@ contract BrokerRouter is Auth, IBrokerRouter {
 
         //        brokerHashes[broker] = params.root;
 
-        //        emit NewBondVault(params.appraiser, broker, params.expiration);
+        emit NewVault(params.appraiser, vaultAddr);
 
-        return broker;
+        return vaultAddr;
     }
 
     function _executeCommitment(IBrokerRouter.Commitment memory c)

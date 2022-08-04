@@ -5,16 +5,13 @@ import {IBrokerRouter} from "./IBrokerRouter.sol";
 interface ILienToken is IERC721 {
     struct Lien {
         uint256 amount; //32
-        uint256 maxSeniorDebt; //32
         address token; // 20
         address vault; // 20
         bool active; // 1
         uint32 rate;
-        //        uint32 maxRate; // 4
         uint32 duration; //4
         uint32 last; // 4
         uint32 start; // 4
-        uint32 schedule; // 4
     }
 
     struct LienActionEncumber {
@@ -24,7 +21,7 @@ interface ILienToken is IERC721 {
         bytes32 obligationRoot;
         uint256 amount;
         address vault;
-        bool borrowAndBuy;
+        bool validateEscrow;
     }
 
     struct LienActionBuyout {

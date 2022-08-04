@@ -79,9 +79,11 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         }
     }
 
+    event LogNor(IBrokerRouter.NewObligationRequest);
+    event LogLien(IBrokerRouter.LienDetails);
+
     function _validateCommitment(IBrokerRouter.Commitment memory params)
         internal
-        view
     {
         require(
             appraiser() != address(0),
@@ -91,6 +93,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         (bool valid, IBrokerRouter.LienDetails memory ld) = params
             .nor
             .validateTerms();
+
         require(
             valid,
             "Broker._validateTerms(): Verification of provided merkle branch failed for the bondVault and parameters"
@@ -218,19 +221,16 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
             c.nor.obligationType,
             c.nor.obligationDetails
         );
-        require(
-            IBrokerRouter(router()).requestLienPosition(
-                ILienToken.LienActionEncumber(
-                    c.tokenContract,
-                    c.tokenId,
-                    terms,
-                    c.nor.obligationRoot,
-                    c.nor.amount,
-                    c.nor.strategy.vault,
-                    false
-                )
-            ),
-            "lien position not available"
+        uint256 newLienId = IBrokerRouter(router()).requestLienPosition(
+            ILienToken.LienActionEncumber(
+                c.tokenContract,
+                c.tokenId,
+                terms,
+                c.nor.obligationRoot,
+                c.nor.amount,
+                c.nor.strategy.vault,
+                true
+            )
         );
         address feeTo = IBrokerRouter(router()).feeTo();
         bool feeOn = feeTo != address(0);

@@ -22,13 +22,13 @@ interface IBrokerRouter {
         uint256 maxAmount;
         uint256 maxSeniorDebt;
         uint256 rate;
+        uint256 maxInterestRate; //max at origination
         uint256 duration;
-        uint256 schedule;
     }
 
     enum ObligationType {
-        COLLECTION,
-        STANDARD
+        STANDARD,
+        COLLECTION
     }
 
     struct CollectionDetails {
@@ -124,7 +124,7 @@ interface IBrokerRouter {
 
     function requestLienPosition(ILienToken.LienActionEncumber calldata params)
         external
-        returns (bool);
+        returns (uint256);
 
     function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -157,13 +157,7 @@ interface IBrokerRouter {
         uint256 position,
         uint256 reserve
     );
-    event NewBondVault(
-        address appraiser,
-        address broker,
-        bytes32 bondVault,
-        bytes32 contentHash,
-        uint256 expiration
-    );
+    event NewVault(address appraiser, address vault);
 
     error InvalidAddress(address);
     error InvalidRefinanceRate(uint256);

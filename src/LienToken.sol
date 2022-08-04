@@ -14,6 +14,7 @@ import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
+import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 contract TransferAgent {
@@ -29,7 +30,7 @@ contract TransferAgent {
 contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     using ValidateTerms for IBrokerRouter.NewObligationRequest;
     using FixedPointMathLib for uint256;
-
+    using CollateralLookup for address;
     IAuctionHouse public AUCTION_HOUSE;
     ICollateralVault public COLLATERAL_VAULT;
 
@@ -108,14 +109,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     }
 
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
-        uint256 collateralVault = uint256(
-            keccak256(
-                abi.encode(
-                    params.incoming.tokenContract,
-                    params.incoming.tokenId
-                )
-            )
-        );
+        uint256 collateralVault = params.incoming.tokenContract.computeId(params.incoming.tokenId);
         (uint256 owed, uint256 buyout) = getBuyout(
             collateralVault,
             params.position
@@ -134,18 +128,13 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
             .nor
             .validateTerms();
 
-        //todo: ensure rates and duration is better;
-
-        uint256 currentRate = lienData[lienId].rate == uint256(0)
-            ? BrokerImplementation(lienData[lienId].vault).getRate()
-            : lienData[lienId].rate;
-
-        uint256 incomingRate = ld.rate == uint256(0)
-            ? BrokerImplementation(lienData[lienId].vault).getRate()
-            : ld.rate;
-        require(incomingRate <= currentRate, "Invalid Rate");
+        if (!valid) {
+            revert("invalid incoming terms");
+        }
+        require(ld.rate <= lienData[lienId].rate, "Invalid Rate");
         require(ld.duration <= type(uint256).max, "Invalid Duration"); //TODO: set this check to be proper with a min DURATION
         lienData[lienId].last = uint32(block.timestamp);
+        lienData[lienId].start = uint32(block.timestamp);
         lienData[lienId].rate = uint32(ld.rate);
         lienData[lienId].duration = uint32(ld.duration);
         //so, something about brokers
@@ -322,22 +311,17 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     {
         // require that the auction is not under way
 
-        uint256 collateralVault = uint256(
-            bytes32(
-                keccak256(
-                    abi.encodePacked(params.tokenContract, params.tokenId)
-                )
-            )
-        );
+        uint256 collateralVault = params.tokenContract.computeId(params.tokenId);
+
         require(
             !AUCTION_HOUSE.auctionExists(collateralVault),
             "collateralVault is being liquidated, cannot open new liens"
         );
-        (address tokenContract, ) = COLLATERAL_VAULT.getUnderlying(
-            collateralVault
-        );
 
-        if (params.borrowAndBuy != true) {
+        if (params.validateEscrow == true) {
+            (address tokenContract, ) = COLLATERAL_VAULT.getUnderlying(
+                collateralVault
+            );
             require(
                 tokenContract != address(0),
                 "Collateral must be deposited before you can request a lien"
@@ -361,7 +345,8 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
                         params.terms.maxAmount,
                         params.terms.maxSeniorDebt,
                         params.terms.duration,
-                        params.terms.schedule
+                        params.terms.rate,
+                        params.terms.maxInterestRate
                     ),
                     params.obligationRoot
                 )
@@ -372,19 +357,20 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         lienData[lienId] = Lien({
             token: WETH,
             amount: params.amount,
-            maxSeniorDebt: params.terms.maxSeniorDebt,
+//            maxSeniorDebt: params.terms.maxSeniorDebt,
             active: true,
             rate: uint32(params.terms.rate),
             vault: params.vault,
             last: uint32(block.timestamp),
             start: uint32(block.timestamp),
-            duration: uint32(params.terms.duration),
-            schedule: uint32(params.terms.schedule)
+            duration: uint32(params.terms.duration)
+//            schedule: uint32(params.terms.schedule)
         });
 
         liens[collateralVault].push(lienId);
 
         emit NewLien(lienId, params.obligationRoot);
+
     }
 
     function removeLiens(uint256 collateralVault) external requiresAuth {

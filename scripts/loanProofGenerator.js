@@ -40,7 +40,6 @@ const strategyDetails = [
   ["uint8", "address", "address", "bool", "uint256", "address"],
   strategyData,
 ];
-
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
 if (detailsType === 0) {
@@ -57,38 +56,34 @@ if (detailsType === 0) {
       "uint256",
     ],
     [
-      BigNumber.from(1).toString(), // version
+      "1", // version
       getAddress(tokenAddress), // token
-      BigNumber.from(tokenId).toString(), // tokenId
+      tokenId, // tokenId
       getAddress(args.shift()), // borrower
-      // ...defaultAbiCoder.decode(
       ...defaultAbiCoder
         .decode(
           ["uint256", "uint256", "uint256", "uint256", "uint256"],
           args.shift()
         )
-        .map((x) => {
-          // const { fs } = require("fs");
-          // await fs.writeFile("./output.txt", BigNumber.from(x).toString(), {
-          //   flag: "a+",
-          // });
-          return BigNumber.from(x).toString();
-        }),
-      // defaultAbiCoder.decode(["uint256", "uint256"], args.shift()), // loanDetails
-      // solidityPack(["bytes"], [args.shift()]), // lien
+        .map((x) => BigNumber.from(x).toString()),
     ],
   ];
-} else if (detailsType === 1) {
-  details = [
-    ["uint8", "address", "address", "bytes"],
-    [
-      BigNumber.from(2).toString(), // type
-      getAddress(args.shift()), // token
-      getAddress(args.shift()), // borrower
-      solidityPack(["bytes"], [args.shift()]), // lien
-    ],
-  ];
-}
+} // else if (detailsType === 1) {
+//   details = [
+//     ["uint8", "address", "address", "bytes"],
+//     [
+//       BigNumber.from(2).toString(), // type
+//       getAddress(args.shift()), // token
+//       getAddress(args.shift()), // borrower
+//       ...defaultAbiCoder
+//         .decode(
+//           ["uint256", "uint256", "uint256", "uint256", "uint256"],
+//           args.shift()
+//         )
+//         .map((x) => BigNumber.from(x).toString()),
+//     ],
+//   ];
+// }
 // console.log(details);
 // struct Terms {
 //     strategyType: uint8;
@@ -102,20 +97,20 @@ if (detailsType === 0) {
 //     loanData: bytes;
 // }
 leaves.push(strategyDetails);
-// leaves.push(strategyDetails2);
-// leaves.push(strategyDetails2);
 // leaves.push(details);
 // leaves.push(details);
 leaves.push(details);
-// leaves.push(details);
-// leaves.push(details);
 // Create tree
+// console.log(details);
 
-const merkleTree = new MerkleTree(leaves.map((x) => keccak256(x[0], x[1])));
+const merkleTree = new MerkleTree(leaves.map((x) => keccak256(...x)));
 // Get root
-const rootHash = merkleTree.getRoot();
+const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
-const proof = merkleTree.getHexProof(merkleTree.getLeaves()[1]);
+const treeLeaves = merkleTree.getHexLeaves();
+// const proof = merkleTree.getHexProof(treeLeaves[1]);
+console.log(treeLeaves);
+const proof = merkleTree.getHexProof(treeLeaves[1]);
 console.log(
   defaultAbiCoder.encode(["bytes32", "bytes32[]"], [rootHash, proof])
 );

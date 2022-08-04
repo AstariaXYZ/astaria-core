@@ -27,12 +27,14 @@ contract Fuzzers is TestHelpers {
     struct FuzzInputs {
         uint256 amount;
         uint256 interestRate;
+        uint256 maxInterestRate;
         uint256 duration;
     }
 
     modifier validateInputs(FuzzInputs memory args) {
         args.amount = bound(args.amount, 1 ether, 100000000000000000000);
         args.interestRate = bound(args.interestRate, 1e10, 1e12);
+        args.maxInterestRate = bound(args.maxInterestRate * 2, 1e10, 1e12);
         args.duration = bound(
             args.duration,
             block.timestamp + 1 minutes,
@@ -54,13 +56,12 @@ contract Fuzzers is TestHelpers {
         )
     {
         LoanTerms memory loanTerms = LoanTerms({
-            token: address(WETH9),
             maxAmount: defaultTerms.maxAmount,
             maxDebt: defaultTerms.maxDebt,
             interestRate: args.interestRate,
+            maxInterestRate: args.maxInterestRate,
             duration: args.duration,
-            amount: args.amount,
-            schedule: defaultTerms.amount
+            amount: args.amount
         });
         return _commitToLoan(tokenContract, tokenId, loanTerms);
     }
@@ -158,13 +159,12 @@ contract Fuzzers is TestHelpers {
         uint256 tokenId = uint256(1);
 
         LoanTerms memory newTerms = LoanTerms({
-            token: address(WETH9),
             maxAmount: defaultTerms.maxAmount,
             maxDebt: defaultTerms.maxDebt,
             interestRate: newInterestRate,
+            maxInterestRate: newInterestRate * 2,
             duration: newDuration,
-            amount: args.amount,
-            schedule: defaultTerms.amount
+            amount: args.amount
         });
 
         _commitToLoan(tokenContract, tokenId, args);
