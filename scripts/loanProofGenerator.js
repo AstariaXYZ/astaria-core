@@ -100,7 +100,12 @@ leaves.push(strategyDetails);
 // leaves.push(details);
 // leaves.push(details);
 leaves.push(details);
+const clone = details.map((x) => x.map((y) => y));
+clone[1][8] = "1000";
+leaves.push(clone);
 // Create tree
+// console.error(details);
+// console.error(clone);
 // console.log(details);
 
 const merkleTree = new MerkleTree(leaves.map((x) => keccak256(...x)));
@@ -109,8 +114,10 @@ const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
 const treeLeaves = merkleTree.getHexLeaves();
 // const proof = merkleTree.getHexProof(treeLeaves[1]);
-console.log(treeLeaves);
+console.error(treeLeaves);
 const proof = merkleTree.getHexProof(treeLeaves[1]);
+console.error(proof);
+console.error(merkleTree.toString());
 console.log(
   defaultAbiCoder.encode(["bytes32", "bytes32[]"], [rootHash, proof])
 );
