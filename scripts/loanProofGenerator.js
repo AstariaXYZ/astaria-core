@@ -1,5 +1,5 @@
 const { MerkleTree } = require("merkletreejs");
-// const keccak256 = require("keccak256");
+const keccak256 = require("keccak256");
 const { utils, BigNumber } = require("ethers");
 const {
   getAddress,
@@ -10,7 +10,7 @@ const {
   hexZeroPad,
 } = utils;
 const args = process.argv.slice(2);
-const keccak256 = solidityKeccak256;
+// const keccak256 = solidityKeccak256;
 // console.log(args);
 // List of 7 public Ethereum addresses
 
@@ -108,13 +108,15 @@ leaves.push(clone);
 // console.error(clone);
 // console.log(details);
 
-const merkleTree = new MerkleTree(leaves.map((x) => keccak256(...x)));
+const merkleTree = new MerkleTree(
+  leaves.map((x) => solidityKeccak256(...x)),
+  keccak256
+);
 // Get root
 const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
 const treeLeaves = merkleTree.getHexLeaves();
 // const proof = merkleTree.getHexProof(treeLeaves[1]);
-console.error(treeLeaves);
 const proof = merkleTree.getHexProof(treeLeaves[1]);
 console.error(proof);
 console.error(merkleTree.toString());
