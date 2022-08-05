@@ -40,6 +40,7 @@ const strategyDetails = [
   ["uint8", "address", "address", "bool", "uint256", "address"],
   strategyData,
 ];
+leaves.push(solidityKeccak256(...strategyDetails));
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
 if (detailsType === 0) {
@@ -68,55 +69,52 @@ if (detailsType === 0) {
         .map((x) => BigNumber.from(x).toString()),
     ],
   ];
-} // else if (detailsType === 1) {
-//   details = [
-//     ["uint8", "address", "address", "bytes"],
-//     [
-//       BigNumber.from(2).toString(), // type
-//       getAddress(args.shift()), // token
-//       getAddress(args.shift()), // borrower
-//       ...defaultAbiCoder
-//         .decode(
-//           ["uint256", "uint256", "uint256", "uint256", "uint256"],
-//           args.shift()
-//         )
-//         .map((x) => BigNumber.from(x).toString()),
-//     ],
-//   ];
-// }
-// console.log(details);
-// struct Terms {
-//     strategyType: uint8;
-//     strategyVersion: uint8;
-//     expiration: uint256;
-//     nonce: uint256;
-//     vault: address;
-//     strategy: address;
-//
-//     loanType: uint8;
-//     loanData: bytes;
-// }
-leaves.push(strategyDetails);
-// leaves.push(details);
-// leaves.push(details);
-leaves.push(details);
-const clone = details.map((x) => x.map((y) => y));
-clone[1][8] = "1000";
-leaves.push(clone);
+  const digest = solidityKeccak256(...details);
+  const clone = details.map((x) => x.map((y) => y));
+  clone[1][8] = "1000";
+
+  const digest2 = solidityKeccak256(...clone);
+
+  leaves.push(digest);
+  leaves.push(digest2);
+} else if (detailsType === 1) {
+  details = [
+    [
+      "uint8",
+      "address",
+      "address",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+    ],
+    [
+      "2", // type
+      getAddress(args.shift()), // token
+      getAddress(args.shift()), // borrower
+      ...defaultAbiCoder
+        .decode(
+          ["uint256", "uint256", "uint256", "uint256", "uint256"],
+          args.shift()
+        )
+        .map((x) => BigNumber.from(x).toString()),
+    ],
+  ];
+  leaves.push(solidityKeccak256(...details));
+}
+
 // Create tree
-// console.error(details);
-// console.error(clone);
-// console.log(details);
 
 const merkleTree = new MerkleTree(
-  leaves.map((x) => solidityKeccak256(...x)),
+  leaves.map((x) => x),
   keccak256
 );
 // Get root
 const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
 const treeLeaves = merkleTree.getHexLeaves();
-// const proof = merkleTree.getHexProof(treeLeaves[1]);
+console.error(treeLeaves);
 const proof = merkleTree.getHexProof(treeLeaves[1]);
 console.error(proof);
 console.error(merkleTree.toString());

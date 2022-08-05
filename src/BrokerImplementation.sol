@@ -96,7 +96,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
 
         require(
             valid,
-            "Broker._validateTerms(): Verification of provided merkle branch failed for the bondVault and parameters"
+            "Vault._validateTerms(): Verification of provided merkle branch failed for the vault and parameters"
         );
 
         //        IBrokerRouter.LienDetails memory ld = _decodeObligationData(
@@ -105,7 +105,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         //        );
         require(
             ld.maxAmount >= params.nor.amount,
-            "Broker._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
+            "Vault._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
         );
 
         uint256 seniorDebt = IBrokerRouter(router())
@@ -115,11 +115,11 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
             );
         require(
             seniorDebt <= ld.maxSeniorDebt,
-            "Broker._validateTerms(): too much debt already for this loan"
+            "Vault._validateTerms(): too much debt already for this loan"
         );
         require(
             params.nor.amount <= ERC20(asset()).balanceOf(address(this)),
-            "Broker._validateTerms():  Attempting to borrow more than available in the specified vault"
+            "Vault._validateTerms():  Attempting to borrow more than available in the specified vault"
         );
 
         //check that we aren't paused from reserves being too low
@@ -150,6 +150,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
 
         _requestLienAndIssuePayout(params, receiver);
         _handleAppraiserReward(params.nor.amount);
+
         emit NewObligation(
             params.nor.obligationRoot,
             collateralVault,
@@ -191,12 +192,6 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         );
     }
 
-    function getRate() public view returns (uint256) {
-        //TODO set this to be algorithmically determined
-
-        return uint256(50);
-    }
-
     function recipient() public view returns (address) {
         if (BROKER_TYPE() == uint256(1)) {
             return address(this);
@@ -217,10 +212,11 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         //        address vault;
         //        bool borrowAndBuy;
 
-        IBrokerRouter.LienDetails memory terms = _decodeObligationData(
+        IBrokerRouter.LienDetails memory terms = ValidateTerms.getLienDetails(
             c.nor.obligationType,
             c.nor.obligationDetails
         );
+
         uint256 newLienId = IBrokerRouter(router()).requestLienPosition(
             ILienToken.LienActionEncumber(
                 c.tokenContract,
