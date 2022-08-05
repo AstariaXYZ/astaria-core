@@ -82,15 +82,6 @@ interface ILienToken is IERC721 {
         external
         returns (uint256 lienId);
 
-    function encodeSubjugationOffer(
-        uint256 collateralVault,
-        uint256 lien,
-        uint256 currentPosition,
-        uint256 lowestPosition,
-        uint256 price,
-        uint256 deadline
-    ) external view returns (bytes memory);
-
     function buyoutLien(LienActionBuyout calldata params) external;
 
     function makePayment(uint256 collateralVault, uint256 paymentAmount)

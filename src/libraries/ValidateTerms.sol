@@ -95,4 +95,60 @@ library ValidateTerms {
             ld
         );
     }
+
+    //decode obligationData into structs
+    function getLienDetails(uint8 obligationType, bytes memory obligationData)
+        internal
+        view
+        returns (IBrokerRouter.LienDetails memory)
+    {
+        if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
+            IBrokerRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollateralDetails)
+            );
+            return (cd.lien);
+        } else if (
+            obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)
+        ) {
+            IBrokerRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollectionDetails)
+            );
+            return (cd.lien);
+        } else {
+            revert("unknown obligation type");
+        }
+    }
+
+    //decode obligationData into structs
+    function getCollateralDetails(
+        uint8 obligationType,
+        bytes memory obligationData
+    ) internal view returns (IBrokerRouter.CollateralDetails memory) {
+        if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
+            IBrokerRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollateralDetails)
+            );
+            return (cd);
+        } else {
+            revert("unknown obligation type");
+        }
+    }
+
+    function getCollectionDetails(
+        uint8 obligationType,
+        bytes memory obligationData
+    ) internal view returns (IBrokerRouter.CollectionDetails memory) {
+        if (obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)) {
+            IBrokerRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollectionDetails)
+            );
+            return (cd);
+        } else {
+            revert("unknown obligation type");
+        }
+    }
 }

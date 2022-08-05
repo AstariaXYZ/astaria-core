@@ -178,11 +178,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     {
         uint256 delta_t = uint256(uint32(timestamp) - lien.last);
 
-        // return (delta_t * uint256(lien.rate) * lien.amount);
-        uint256 rate = lien.rate == uint32(0)
-            ? BrokerImplementation(lien.vault).getRate()
-            : lien.rate;
-        return delta_t.mulDivDown(rate, 1).mulDivDown(lien.amount, 1);
+        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, 1);
     }
 
     function stopLiens(uint256 collateralVault)
