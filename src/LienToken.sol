@@ -419,7 +419,8 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         return (
             owed,
             // owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
-            owed + remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
+            owed +
+                remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
         );
     }
 
@@ -438,24 +439,43 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 index
     ) external {
         address lienOwner = ownerOf(liens[collateralVault][index]);
-        if(lienOwner.supportsInterface(PublicVault)) {
-            lienOwner.beforePayment(paymentAmount);
+        if (supportsInterface(lienOwner, collateralVault)) {
+            // was lienOwner.supportsinterface(PublicVault)
+            beforePayment(lienOwner, paymentAmount); // was lienOwner.beforePayment(paymentAmount)
         }
         _payment(collateralVault, index, paymentAmount);
     }
 
-    function calculateSlope(uint256 lienId) public returns(uint256) {
-        Lien memory lien = lienData[lienId];
-        uint256 end = (lien.start + lien.duration);
-        return end - lien.last / (lien.amount * lien.rate * end) - lien.amount;
+    function supportsInterface(address lienOwner, uint256 collateralVault)
+        internal
+        returns (bool)
+    {
+        return true;
     }
 
-    function changeInSlope(uint256 lienId, uint256 paymentAmount) public view returns(uint256 slope) {
+    function beforePayment(address lienOwner, uint256 paymentAmount) internal {}
+
+    // TODO change to (aggregate) rate?
+
+    function calculateSlope(uint256 lienId) public returns (uint256) {
         Lien memory lien = lienData[lienId];
         uint256 end = (lien.start + lien.duration);
-        uin256 oldSlope = calculateSlope(lienId);
+        return
+            (end - lien.last) / (lien.amount * lien.rate * end - lien.amount); // TODO check
+    }
+
+    function changeInSlope(uint256 lienId, uint256 paymentAmount)
+        public
+        // view
+        returns (uint256 slope)
+    {
+        Lien memory lien = lienData[lienId];
+        uint256 end = (lien.start + lien.duration);
+        uint256 oldSlope = calculateSlope(lienId);
         uint256 newAmount = (lien.amount - paymentAmount);
-        uint256 newSlope = (end - block.timestamp) / (newAmount * lien.rate * end) - newAmount;
+        uint256 newSlope = (end - block.timestamp) /
+            (newAmount * lien.rate * end) -
+            newAmount;
         slope = oldSlope - newSlope;
     }
 
@@ -494,10 +514,13 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
 
         for (uint256 i = 0; i < openLiens.length; ++i) {
             Lien storage lien = lienData[openLiens[i]];
-            
+
             // impliedRate += (lien.amount / totalDebt) * lien.rate;
 
-            impliedRate += uint256(lien.rate).mulDivDown(lien.amount, totalDebt);
+            impliedRate += uint256(lien.rate).mulDivDown(
+                lien.amount,
+                totalDebt
+            );
         }
     }
 
@@ -525,7 +548,6 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         // return (delta_t * uint256(lien.rate) * lien.amount);
 
         return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, 1);
-        
     }
 
     function _payment(

@@ -18,7 +18,6 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation.sol";
-import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {BeaconProxy} from "openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin/proxy/beacon/UpgradeableBeacon.sol";

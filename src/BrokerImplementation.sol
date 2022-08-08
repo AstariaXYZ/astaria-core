@@ -109,7 +109,10 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
 
         _validateTerms(params, amount);
 
-        uint256 lienId = _requestLienAndIssuePayout(params, receiver, amount);
+        // uint256 lienId = _requestLienAndIssuePayout(params, receiver, amount); // TODO fix
+
+        uint256 lienId = 0;
+
         _handleAppraiserReward(amount);
         
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);

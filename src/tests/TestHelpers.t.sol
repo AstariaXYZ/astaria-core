@@ -18,8 +18,8 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {BrokerImplementation} from "../BrokerImplementation.sol";
 import {IBroker, SoloBroker, BrokerImplementation} from "../BrokerImplementation.sol";
-import {BrokerVault} from "../BrokerVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
+import {PublicVault} from "../PublicVault.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -142,7 +142,8 @@ contract TestHelpers is Test {
             address(LIEN_TOKEN)
         );
         SoloBroker soloImpl = new SoloBroker();
-        BrokerVault vaultImpl = new BrokerVault();
+        // BrokerVault vaultImpl = new BrokerVault();
+        PublicVault vaultImpl = new PublicVault(5, address(LIEN_TOKEN), address(WETH9));
 
         BOND_CONTROLLER = new BrokerRouter(
             MRA,

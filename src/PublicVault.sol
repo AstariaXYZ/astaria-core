@@ -1,13 +1,19 @@
 pragma solidity ^0.8.13;
 import {BrokerImplementation} from "./BrokerImplementation.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
+import {LienToken} from "./LienToken.sol";
+import {WithdrawProxy} from "./WithdrawProxy.sol";
 
-contract PublicVault is BrokerImplementation, ERC4626Cloned  {
+contract PublicVault is BrokerImplementation, ERC4626Cloned {
     using FixedPointMathLib for uint256;
+
+    IERC20 public immutable WETH;
+
     address immutable lienToken;
 
     // epoch seconds when yintercept was calculated last
@@ -18,33 +24,34 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned  {
     uint256 slope;
 
     // block.timestamp of first epoch
-    uin256 immutable start;
+    uint256 immutable start;
     uint256 immutable epochLength; // in epoch seconds
     uint64 currentEpoch = 0;
     uint256 withdrawReserve = 0;
     uint256 liquidationWithdrawRatio = 0;
 
-    mapping(uint64 => address) withdrawProxies;
+    mapping(uint64 => WithdrawProxy) withdrawProxies; // TODO go back to uint64 => address
 
-    constructor(uint256 _epochLength, address _lienToken){
+    constructor(uint256 _epochLength, address _lienToken, address _WETH) {
         start = block.timestamp;
         epochLength = _epochLength;
         lienToken = _lienToken;
+        WETH = IERC20(_WETH);
     }
 
     function redeem(
-    uint256 shares,
-    address receiver,
-    address owner
+        uint256 shares,
+        address receiver,
+        address owner
     ) public virtual override returns (uint256 assets) {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
     }
 
     function redeemFutureEpoch(
-    uint256 shares,
-    address receiver,
-    address owner,
-    uint64 epoch
+        uint256 shares,
+        address receiver,
+        address owner,
+        uint64 epoch
     ) public virtual returns (uint256 assets) {
         if (msg.sender != owner) {
             uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
@@ -63,27 +70,38 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned  {
 
         transferFrom(owner, address(this), shares);
         // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
-        if(withdrawProxies[epoch] == address(0)) withdrawProxies[epoch] = new WithdrawProxy();
+        if (address(withdrawProxies[epoch]) == address(0))
+            withdrawProxies[epoch] = new WithdrawProxy();
 
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
         // WithdrawProxy shares are minted 1:1 with PublicVault shares
-        withdrawProxies[withdrawEpoch].mint(receiver, shares);
+        withdrawProxies[epoch].mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
     }
 
     // needs to be called in the epoch boundary before the next epoch can start
-    function processEpoch(uint256[] memory collateralVaults, uint256[] memory positions) external returns() {
+    function processEpoch(
+        uint256[] memory collateralVaults,
+        uint256[] memory positions
+    ) external {
         // check to make sure epoch is over
-        require(start + ((currentEpoch + 1) * epochLength)) < block.timestamp, "Epoch has not ended");
+        require(
+            start + ((currentEpoch + 1) * epochLength) < block.timestamp,
+            "Epoch has not ended"
+        );
 
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
-        // check to make sure the amount of CollateralVaults were the same as the LienTokens held by the vault 
-        require(collateralVaults.length == ILienToken.balanceOf(address(this)), "provided ids less than balance");
+        // check to make sure the amount of CollateralVaults were the same as the LienTokens held by the vault
+        // TODO fix
+        // require(
+        //     collateralVaults.length == ILienToken.balanceOf(address(this)),
+        //     "provided ids less than balance"
+        // );
 
         // incremement epoch
-        currentEpoch ++;
+        currentEpoch++;
 
         // reset liquidationWithdrawRatio to prepare for recalcualtion
         liquidationWithdrawRatio = 0;
@@ -92,87 +110,121 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned  {
         withdrawReserve = 0;
 
         // check if there are LPs withdrawing this epoch
-        if(withdrawProxies[currentEpoch] != address(0)){
+        if (address(withdrawProxies[currentEpoch]) != address(0)) {
             // check liquidations have been processed
-            require(haveLiquidationsProcessed(collateralVaults, positions), "liquidations not processed");
+            require(
+                haveLiquidationsProcessed(collateralVaults, positions),
+                "liquidations not processed"
+            );
 
             // recalculate liquidationWithdrawRatio for the new epoch
-            liquidationWithdrawRatio = withdrawProxies[currentEpoch].totalSupply / totalSupply;
+            liquidationWithdrawRatio =
+                withdrawProxies[currentEpoch].totalSupply() /
+                totalSupply;
 
             // compute the withdrawReserve
-            uint256 withdrawReserve = convertToAssets(withdrawProxies[currentEpoch].totalSupply());
+            uint256 withdrawReserve = convertToAssets(
+                withdrawProxies[currentEpoch].totalSupply()
+            );
 
             // burn the tokens of the LPs withdrawing
             _burn(address(this), withdrawProxies[currentEpoch].totalSupply());
         }
     }
 
-    function transferWithdrawReserve() public returns() {
+    function transferWithdrawReserve() public {
         // check the available balance to be withdrawn
         uint256 withdraw = ERC20(asset()).balanceOf(address(this));
 
-        // prevent transfer of more assets then are available 
-        if(withdrawReserve <= withdraw)withdraw = withdrawReserve;
+        // prevent transfer of more assets then are available
+        if (withdrawReserve <= withdraw) withdraw = withdrawReserve;
+
+        // prevents transfer to a non-existent WithdrawProxy
+        if (address(withdrawProxies[currentEpoch]) != address(0))
+            ERC20(asset()).transfer(address(withdrawProxies[currentEpoch]), withdraw);
 
         // decrement the withdraw from the withdraw reserve
         withdrawReserve -= withdraw;
-
-        // prevents transfer to a non-existent WithdrawProxy
-        if(withdrawProxies[currentEpoch] != address(0)) ERC20(asset()).transfer(withdrawProxies[currentEpoch], withdraw);
-
     }
 
     function _afterCommitToLoan(uint256 lienId, uint256 amount)
-        internal virtual override {
+        internal
+        virtual
+        override
+    {
         // increment slope for the new lien
-        slope += ILienToken.calculateSlope(lienId);
+        slope += LienToken(lienToken).calculateSlope(lienId);
     }
 
-    function haveLiquidationsProcessed(uint256[] memory collateralVaults, uint256[] memory positions) public virtual returns (uint256 balance) {
-        for(uint256 i = 0; i < collateralVaults.length; i++){
+    function haveLiquidationsProcessed(
+        uint256[] memory collateralVaults,
+        uint256[] memory positions
+    ) public virtual returns (bool) { // was returns (uint256 balance)
+        for (uint256 i = 0; i < collateralVaults.length; i++) {
             // get lienId from LienToken
-            uint256 lienId = ILienToken.liens[collateralVaults[i]][positions[i]];
+            
+            // uint256 lienId = LienToken.liens[collateralVaults[i]][
+            //     positions[i]
+            // ];
+
+            uint256 lienId = LienToken(lienToken).liens(collateralVaults[i], positions[i]);
 
             // check that the lien is owned by the vault, this check prevents the msg.sender from presenting an incorrect lien set
-            require(ILienToken.ownerOf(lienId) == address(this), "lien not owned by vault");
+            // require(
+            //     ILienToken.ownerOf(lienId) == address(this),
+            //     "lien not owned by vault"
+            // );
 
             // check that the lien cannot be liquidated
-            if(IBrokerRouter(router()).canLiquidate(collateralVaults[i], positions[i])) return false;
+            if (
+                IBrokerRouter(router()).canLiquidate(
+                    collateralVaults[i],
+                    positions[i]
+                )
+            ) return false;
         }
         return true;
     }
 
-    function completeLiqudiation(uint256 lienId, uint256 amount) {
+    function completeLiquidation(uint256 lienId, uint256 amount) public {
         // get the lien amount the vault expected to get before liquidation
-        uint256 expected = LienToken.getLien(lienId).amount;
+        uint256 expected = LienToken(lienToken).getLien(lienId).amount; // was LienToken.getLien
 
         // compute the amount owed to the WithdrawProxy for the currentEpoch
         uint256 withdraw = amount * liquidationWithdrawRatio;
 
         // check to ensure that the WithdrawProxy was instantiated
-        if(withdrawProxies[currentEpoch] != address(0)) ERC20(asset()).transfer(withdrawProxies[currentEpoch], withdraw);
+        if (address(withdrawProxies[currentEpoch]) != address(0))
+            ERC20(asset()).transfer(address(withdrawProxies[currentEpoch]), withdraw);
 
         // decrement the yintercept for the amount received on liquidatation vs the expected
         yintercept -= (expected - amount) * (1 - liquidationWithdrawRatio);
     }
 
-    function totalAssets() public view override virtual returns (uint256){
+    function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
-        return (slope * delta_t) + principle;
+        return (slope * delta_t) + yintercept; // TODO error
     }
 
-    function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken returns() {
-        principle = totalAssets() - amount;
-        slope -= ILienToken.changeInSlope(lienId, amount);
+    function beforePayment(uint256 lienId, uint256 amount)
+        public
+        onlyLienToken
+    {
+        yintercept = totalAssets() - amount;
+        slope -= LienToken(lienToken).changeInSlope(lienId, amount);
         last = block.timestamp;
     }
 
-    modifier onlyLienToken() public returns(bool) {
+    modifier onlyLienToken() {
         require(msg.sender == lienToken);
         _;
     }
 
-    function afterDeposit(uint256 assets, uint256 shares) internal override virtual {
+    function afterDeposit(uint256 assets, uint256 shares)
+        internal
+        virtual
+        override
+    {
         // increase yintercept for assets held
         yintercept += assets;
         _handleAppraiserReward(shares);
