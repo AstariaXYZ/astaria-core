@@ -1,4 +1,5 @@
 pragma solidity ^0.8.13;
+
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IBrokerRouter} from "./IBrokerRouter.sol";
 
@@ -67,7 +68,10 @@ interface ILienToken is IERC721 {
         view
         returns (uint256);
 
-    function getLiens(uint256 _starId) external view returns (uint256[] memory);
+    function getLiens(uint256 _starId)
+        external
+        view
+        returns (uint256[] memory);
 
     function getLien(uint256 lienId) external view returns (Lien memory);
 
@@ -87,12 +91,21 @@ interface ILienToken is IERC721 {
         uint256 lowestPosition,
         uint256 price,
         uint256 deadline
-    ) external view returns (bytes memory);
+    )
+        external
+        view
+        returns (bytes memory);
 
     function buyoutLien(LienActionBuyout calldata params) external;
 
     function makePayment(uint256 collateralVault, uint256 paymentAmount)
         external;
+
+    function calculateSlope(uint256 lienId) external returns (uint256 slope);
+
+    function changeInSlope(uint256 lienId, uint256 paymentAmount)
+        external
+        returns (uint256 slope);
 
     function getTotalDebtForCollateralVault(uint256 collateralVault)
         external
@@ -102,5 +115,8 @@ interface ILienToken is IERC721 {
     function getTotalDebtForCollateralVault(
         uint256 collateralVault,
         uint256 timestamp
-    ) external view returns (uint256 totalDebt);
+    )
+        external
+        view
+        returns (uint256 totalDebt);
 }

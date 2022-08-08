@@ -86,7 +86,9 @@ contract ValidatorAsset is IERC1155 {
         uint256 collateralVault,
         uint256 amountMinusFees,
         bytes calldata data //empty from seaport
-    ) public {
+    )
+        public
+    {
         require(to == address(COLLATERAL_VAULT));
         IERC1155Receiver(to).onERC1155Received(
             msg.sender, //seaport
@@ -114,7 +116,9 @@ contract ValidatorAsset is IERC1155 {
         uint256[] calldata ids,
         uint256[] calldata amounts,
         bytes calldata data
-    ) public {
+    )
+        public
+    {
         for (uint256 i = 0; i < ids.length; ++i) {
             safeTransferFrom(from, to, ids[i], amounts[i], data);
         }

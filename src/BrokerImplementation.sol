@@ -1,4 +1,5 @@
 pragma solidity ^0.8.13;
+
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
@@ -18,9 +19,7 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
     using FixedPointMathLib for uint256;
 
     event NewTermCommitment(
-        bytes32 bondVault,
-        uint256 collateralVault,
-        uint256 amount
+        bytes32 bondVault, uint256 collateralVault, uint256 amount
     );
 
     event Payment(uint256 collateralVault, uint256 index, uint256 amount);
@@ -38,9 +37,7 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         uint256 expiration
     );
     event RedeemBond(
-        bytes32 bondVault,
-        uint256 amount,
-        address indexed redeemer
+        bytes32 bondVault, uint256 amount, address indexed redeemer
     );
 
     function onERC721Received(
@@ -48,7 +45,12 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         address from_,
         uint256 tokenId_,
         bytes calldata data_
-    ) external pure override returns (bytes4) {
+    )
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC721Receiver.onERC721Received.selector;
     }
 
@@ -90,13 +92,14 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         IBrokerRouter.Terms memory params,
         uint256 amount,
         address receiver
-    ) public virtual {
-        address operator = IERC721(COLLATERAL_VAULT()).getApproved(
-            params.collateralVault
-        );
-        address owner = IERC721(COLLATERAL_VAULT()).ownerOf(
-            params.collateralVault
-        );
+    )
+        public
+        virtual
+    {
+        address operator =
+            IERC721(COLLATERAL_VAULT()).getApproved(params.collateralVault);
+        address owner =
+            IERC721(COLLATERAL_VAULT()).ownerOf(params.collateralVault);
         if (msg.sender != owner) {
             require(msg.sender == operator, "invalid request");
         }
@@ -114,12 +117,15 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         uint256 lienId = 0;
 
         _handleAppraiserReward(amount);
-        
+
         emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
         _afterCommitToLoan(lienId, amount);
     }
-    
-    function _afterCommitToLoan(uint256 lienId, uint256 amount) internal virtual {}
+
+    function _afterCommitToLoan(uint256 lienId, uint256 amount)
+        internal
+        virtual
+    {}
 
     function canLiquidate(uint256 collateralVault, uint256 position)
         public
@@ -133,9 +139,10 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         uint256 collateralVault,
         uint256 position,
         IBrokerRouter.Terms memory incomingTerms
-    ) external {
-        (uint256 owed, uint256 buyout) = IBrokerRouter(router())
-            .LIEN_TOKEN()
+    )
+        external
+    {
+        (uint256 owed, uint256 buyout) = IBrokerRouter(router()).LIEN_TOKEN()
             .getBuyout(collateralVault, position);
 
         require(
@@ -149,8 +156,7 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         );
 
         ERC20(asset()).safeApprove(
-            address(IBrokerRouter(router()).TRANSFER_PROXY()),
-            owed
+            address(IBrokerRouter(router()).TRANSFER_PROXY()), owed
         );
         IBrokerRouter(router()).LIEN_TOKEN().buyoutLien(
             ILienToken.LienActionBuyout(incomingTerms, position, recipient())
@@ -169,7 +175,9 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         IBrokerRouter.Terms memory params,
         address receiver,
         uint256 amount
-    ) internal {
+    )
+        internal
+    {
         require(
             IBrokerRouter(router()).requestLienPosition(
                 ILienToken.LienActionEncumber(params, amount)
@@ -208,26 +216,20 @@ contract SoloBroker is BrokerImplementation, IBroker {
         returns (uint256)
     {
         require(
-            msg.sender == appraiser(),
-            "only the appraiser can fund this vault"
+            msg.sender == appraiser(), "only the appraiser can fund this vault"
         );
         ERC20(asset()).safeTransferFrom(
-            address(msg.sender),
-            address(this),
-            amount
+            address(msg.sender), address(this), amount
         );
         return amount;
     }
 
     function withdraw(uint256 amount) external {
         require(
-            msg.sender == appraiser(),
-            "only the appraiser can exit this vault"
+            msg.sender == appraiser(), "only the appraiser can exit this vault"
         );
         ERC20(asset()).safeTransferFrom(
-            address(this),
-            address(msg.sender),
-            amount
+            address(this), address(msg.sender), amount
         );
     }
 }
