@@ -551,7 +551,7 @@ contract AstariaTest is TestHelpers {
         LoanTerms memory loanTerms = LoanTerms({
             maxAmount: 10 ether,
             maxDebt: 20 ether, //used to be uint256(10000000000000000000)
-            interestRate: uint256(0),
+            interestRate: uint256(10),
             maxInterestRate: uint256(500000000000000000000),
             duration: 730 days,
             amount: uint256(10 ether),
@@ -568,8 +568,8 @@ contract AstariaTest is TestHelpers {
 
         address broker = BOND_CONTROLLER.getBroker(vaultHash);
 
-        WETH9.deposit{value: 20 ether}();
-        WETH9.transfer(broker, 20 ether);
+        WETH9.deposit{value: 1000000000 ether}();
+        WETH9.transfer(broker, 1000000000 ether);
         BrokerImplementation(broker).buyoutLien(
             terms.collateralVault, uint256(0), terms
         );

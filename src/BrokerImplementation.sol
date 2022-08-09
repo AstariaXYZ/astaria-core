@@ -112,9 +112,9 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
 
         _validateTerms(params, amount);
 
-        // uint256 lienId = _requestLienAndIssuePayout(params, receiver, amount); // TODO fix
+        uint256 lienId = _requestLienAndIssuePayout(params, receiver, amount); // TODO fix
 
-        uint256 lienId = 0;
+        // uint256 lienId = 0;
 
         _handleAppraiserReward(amount);
 
@@ -177,13 +177,21 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         uint256 amount
     )
         internal
+        returns (uint256 lienId)
     {
-        require(
-            IBrokerRouter(router()).requestLienPosition(
-                ILienToken.LienActionEncumber(params, amount)
-            ),
-            "lien position not available"
+        lienId = IBrokerRouter(router()).requestLienPosition(
+            ILienToken.LienActionEncumber(params, amount)
         );
+
+        // require(
+        //     IBrokerRouter(router()).requestLienPosition(
+        //         ILienToken.LienActionEncumber(params, amount)
+        //     ),
+        //     "lien position not available"
+        // );
+
+        require(lienId != 0, "lien position not available");
+
         address feeTo = IBrokerRouter(router()).feeTo();
         bool feeOn = feeTo != address(0);
         if (feeOn) {

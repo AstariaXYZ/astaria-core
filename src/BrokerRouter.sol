@@ -292,10 +292,9 @@ contract BrokerRouter is Auth, IBrokerRouter {
     function requestLienPosition(ILienToken.LienActionEncumber calldata params)
         external
         onlyVaults
-        returns (bool)
+        returns (uint256 lienId)
     {
-        _addLien(ILienToken.LienActionEncumber(params.terms, params.amount));
-        return true;
+        return _addLien(ILienToken.LienActionEncumber(params.terms, params.amount));
     }
 
     function lendToVault(bytes32 bondVault, uint256 amount) external {
@@ -513,7 +512,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
         COLLATERAL_VAULT.transferFrom(address(this), receiver, collateralVault);
     }
 
-    function _addLien(ILienToken.LienActionEncumber memory params) internal {
-        LIEN_TOKEN.createLien(params);
+    function _addLien(ILienToken.LienActionEncumber memory params)
+        internal
+        returns (uint256 lienId)
+    {
+        return LIEN_TOKEN.createLien(params);
     }
 }

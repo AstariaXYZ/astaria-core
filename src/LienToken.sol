@@ -441,7 +441,9 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 end = (lien.start + lien.duration);
         // return (end - lien.last) / (lien.amount * lien.rate * end - lien.amount); // TODO check
 
-        return (end - lien.last).mulDivDown(1, lien.amount * lien.rate * end - lien.amount);
+        return (end - lien.last).mulDivDown(
+            1, lien.amount * lien.rate * end - lien.amount
+        );
     }
 
     function changeInSlope(uint256 lienId, uint256 paymentAmount)
@@ -457,7 +459,9 @@ contract LienToken is Auth, TransferAgent, ERC721, ILienToken {
         uint256 newAmount = (lien.amount - paymentAmount);
         // uint256 newSlope =
         //     (end - block.timestamp) / ((newAmount * lien.rate * end) - newAmount);
-        uint256 newSlope = (end - block.timestamp).mulDivDown(1, (newAmount * lien.rate * end) - newAmount);
+        uint256 newSlope = (end - block.timestamp).mulDivDown(
+            1, (newAmount * lien.rate * end) - newAmount
+        );
 
         slope = oldSlope - newSlope;
     }

@@ -79,7 +79,7 @@ interface IBrokerRouter {
 
     function requestLienPosition(ILienToken.LienActionEncumber calldata params)
         external
-        returns (bool);
+        returns (uint256 lienId);
 
     function LIEN_TOKEN() external returns (ILienToken);
 

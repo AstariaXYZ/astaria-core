@@ -133,7 +133,7 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned {
                 WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
             // recalculate liquidationWithdrawRatio for the new epoch
-            liquidationWithdrawRatio = proxySupply / totalSupply;
+            liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply);
 
             // compute the withdrawReserve
             uint256 withdrawReserve = convertToAssets(proxySupply);
@@ -223,7 +223,8 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned {
         }
 
         // decrement the yintercept for the amount received on liquidatation vs the expected
-        yintercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
+        yintercept -=
+            (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
