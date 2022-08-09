@@ -215,7 +215,7 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned {
         uint256 expected = LIEN_TOKEN.getLien(lienId).amount; // was LienToken.getLien
 
         // compute the amount owed to the WithdrawProxy for the currentEpoch
-        uint256 withdraw = amount * liquidationWithdrawRatio;
+        uint256 withdraw = amount.mulDivDown(liquidationWithdrawRatio, 1);
 
         // check to ensure that the WithdrawProxy was instantiated
         if (withdrawProxies[currentEpoch] != address(0)) {
@@ -223,12 +223,12 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned {
         }
 
         // decrement the yintercept for the amount received on liquidatation vs the expected
-        yintercept -= (expected - amount) * (1 - liquidationWithdrawRatio);
+        yintercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
-        return (slope * delta_t) + yintercept;
+        return slope.mulDivDown(delta_t, 1) + yintercept;
     }
 
     function beforePayment(uint256 lienId, uint256 amount)
