@@ -192,11 +192,14 @@ contract PublicVault is BrokerImplementation, ERC4626Cloned {
             uint256 lienId =
                 LIEN_TOKEN.getLiens(collateralVaults[i])[positions[i]];
 
+            // TODO implement
             // check that the lien is owned by the vault, this check prevents the msg.sender from presenting an incorrect lien set
             // require(
             //     ILienToken.ownerOf(lienId) == address(this),
             //     "lien not owned by vault"
             // );
+
+            require(LIEN_TOKEN.ownerOf(lienId) == address(this), "lien not owned by vault");
 
             // check that the lien cannot be liquidated
             if (

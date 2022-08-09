@@ -35,15 +35,6 @@ contract WithdrawProxy is ERC20Cloned {
         virtual
         returns (uint256 assets)
     {
-        // assets = previewMint(shares); // No need to check for rounding error, previewMint rounds up.
-
-        // // Need to transfer before minting or ERC777s could reenter.
-        // ERC20(asset()).safeTransferFrom(msg.sender, address(this), assets);
-
         _mint(receiver, shares);
-
-        // emit Deposit(msg.sender, receiver, assets, shares);
-
-        // afterDeposit(assets, shares);
     }
 }
