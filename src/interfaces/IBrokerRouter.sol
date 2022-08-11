@@ -1,4 +1,5 @@
 pragma solidity ^0.8.15;
+
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ILienToken} from "./ILienToken.sol";
 import {ICollateralVault} from "./ICollateralVault.sol";
@@ -73,6 +74,7 @@ interface IBrokerRouter {
         bytes32[] depositProof;
         NewObligationRequest nor;
     }
+
     struct BrokerParams {
         address appraiser;
         address delegate;
@@ -115,7 +117,10 @@ interface IBrokerRouter {
         uint256 appraiserNonce,
         uint256 deadline,
         uint256 buyout
-    ) external view returns (bytes memory);
+    )
+        external
+        view
+        returns (bytes memory);
 
     function commitToLoans(Commitment[] calldata)
         external
@@ -152,9 +157,7 @@ interface IBrokerRouter {
         returns (bool);
 
     event Liquidation(
-        uint256 collateralVault,
-        uint256 position,
-        uint256 reserve
+        uint256 collateralVault, uint256 position, uint256 reserve
     );
     event NewVault(address appraiser, address vault);
 

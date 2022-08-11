@@ -7,7 +7,9 @@ interface ICollateralVault is IERC721 {
         uint256 collateralVault,
         address initiator,
         uint256 initiatorFee
-    ) external returns (uint256);
+    )
+        external
+        returns (uint256);
 
     function getUnderlying(uint256) external view returns (address, uint256);
 
@@ -16,5 +18,6 @@ interface ICollateralVault is IERC721 {
         address tokenContract_,
         uint256 tokenId_,
         bytes32[] calldata proof_
-    ) external;
+    )
+        external;
 }

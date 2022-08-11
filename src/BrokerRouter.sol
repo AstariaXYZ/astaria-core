@@ -1,10 +1,12 @@
 pragma solidity ^0.8.15;
+
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+import {ClonesWithImmutableArgs} from
+    "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
@@ -20,7 +22,9 @@ interface IInvoker {
         address token,
         uint256 amount,
         address payable recipient
-    ) external returns (bool);
+    )
+        external
+        returns (bool);
 }
 
 contract BrokerRouter is Auth, IBrokerRouter {
@@ -52,10 +56,9 @@ contract BrokerRouter is Auth, IBrokerRouter {
     string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA =
         "\x19\x01";
 
-    bytes32 private constant NEW_VAULT_SIGNATURE_HASH =
-        keccak256(
-            "NewBondVault(address appraiser,address delegate,uint256 expiration,uint256 nonce,uint256 deadline)"
-        );
+    bytes32 private constant NEW_VAULT_SIGNATURE_HASH = keccak256(
+        "NewBondVault(address appraiser,address delegate,uint256 expiration,uint256 nonce,uint256 deadline)"
+    );
 
     constructor(
         Authority _AUTHORITY,
@@ -65,7 +68,9 @@ contract BrokerRouter is Auth, IBrokerRouter {
         address _TRANSFER_PROXY,
         address _VAULT_IMPL,
         address _SOLO_IMPL
-    ) Auth(address(msg.sender), _AUTHORITY) {
+    )
+        Auth(address(msg.sender), _AUTHORITY)
+    {
         WETH = IERC20(_WETH);
         COLLATERAL_VAULT = ICollateralVault(_COLLATERAL_VAULT);
         LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
@@ -178,6 +183,7 @@ contract BrokerRouter is Auth, IBrokerRouter {
         //        );
         _;
     }
+
     modifier onlyAppraisers(address appraiser) {
         require(appraisers[appraiser] == true, "sender is not an appraiser");
         _;
@@ -202,17 +208,13 @@ contract BrokerRouter is Auth, IBrokerRouter {
             );
             totalBorrowed += _executeCommitment(commitments[i]);
 
-            uint256 collateralVault = commitments[i].tokenContract.computeId(
-                commitments[i].tokenId
-            );
+            uint256 collateralVault =
+                commitments[i].tokenContract.computeId(commitments[i].tokenId);
             _returnCollateral(collateralVault, address(msg.sender));
         }
         WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
         TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(this),
-            address(msg.sender),
-            totalBorrowed
+            address(WETH), address(this), address(msg.sender), totalBorrowed
         );
     }
 
@@ -222,21 +224,18 @@ contract BrokerRouter is Auth, IBrokerRouter {
         uint256 nonce,
         uint256 deadline,
         uint256 buyout
-    ) public view returns (bytes memory) {
-        return
-            abi.encode(
-                EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-                DOMAIN_SEPARATOR,
-                keccak256(
-                    abi.encode(
-                        NEW_VAULT_SIGNATURE_HASH,
-                        appraiser,
-                        delegate,
-                        nonce,
-                        deadline
-                    )
-                )
-            );
+    )
+        public
+        view
+        returns (bytes memory)
+    {
+        return abi.encode(
+            EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
+            DOMAIN_SEPARATOR,
+            keccak256(
+                abi.encode(NEW_VAULT_SIGNATURE_HASH, appraiser, delegate, nonce, deadline)
+            )
+        );
     }
 
     // verifies the signature on the root of the merkle tree to be the appraiser
@@ -290,7 +289,9 @@ contract BrokerRouter is Auth, IBrokerRouter {
     function buyoutLien(
         uint256 position,
         IBrokerRouter.Commitment memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
-    ) external {
+    )
+        external
+    {
         BrokerImplementation(incomingTerms.nor.strategy.vault).buyoutLien(
             incomingTerms.tokenContract.computeId(incomingTerms.tokenId),
             position,
@@ -308,10 +309,7 @@ contract BrokerRouter is Auth, IBrokerRouter {
 
     function lendToVault(address vault, uint256 amount) external {
         TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(msg.sender),
-            address(this),
-            amount
+            address(WETH), address(msg.sender), address(this), amount
         );
 
         require(
@@ -327,19 +325,14 @@ contract BrokerRouter is Auth, IBrokerRouter {
         view
         returns (bool)
     {
-        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
-            collateralVault,
-            position
-        );
+        ILienToken.Lien memory lien =
+            LIEN_TOKEN.getLien(collateralVault, position);
 
-        uint256 interestAccrued = LIEN_TOKEN.getInterest(
-            collateralVault,
-            position
-        );
+        uint256 interestAccrued =
+            LIEN_TOKEN.getInterest(collateralVault, position);
         // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
-        return (lien.start + lien.duration <= block.timestamp &&
-            lien.amount > 0);
+        return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
@@ -355,19 +348,14 @@ contract BrokerRouter is Auth, IBrokerRouter {
         // 0x
 
         reserve = COLLATERAL_VAULT.auctionVault(
-            collateralVault,
-            address(msg.sender),
-            LIQUIDATION_FEE_PERCENT
+            collateralVault, address(msg.sender), LIQUIDATION_FEE_PERCENT
         );
 
         emit Liquidation(collateralVault, position, reserve);
     }
 
     function getAppraiserFee() external view returns (uint256, uint256) {
-        return (
-            APPRAISER_ORIGINATION_FEE_NUMERATOR,
-            APPRAISER_ORIGINATION_FEE_BASE
-        );
+        return (APPRAISER_ORIGINATION_FEE_NUMERATOR, APPRAISER_ORIGINATION_FEE_BASE);
     }
 
     function isValidVault(address vault) external view returns (bool) {
@@ -379,24 +367,22 @@ contract BrokerRouter is Auth, IBrokerRouter {
         view
         returns (bool)
     {
-        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
-            params.incoming.collateralVault,
-            params.position
-        );
+        ILienToken.Lien memory lien =
+            LIEN_TOKEN.getLien(params.incoming.collateralVault, params.position);
         // uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
-        uint256 minNewRate = uint256(lien.rate).mulDivDown(
-            MIN_INTEREST_BPS,
-            1000
-        );
+        uint256 minNewRate =
+            uint256(lien.rate).mulDivDown(MIN_INTEREST_BPS, 1000);
 
-        if (params.incoming.rate > minNewRate)
+        if (params.incoming.rate > minNewRate) {
             revert InvalidRefinanceRate(params.incoming.rate);
+        }
 
         if (
-            (block.timestamp + params.incoming.duration) -
-                (lien.start + lien.duration) <
-            MIN_DURATION_INCREASE
-        ) revert InvalidRefinanceDuration(params.incoming.duration);
+            (block.timestamp + params.incoming.duration)
+                - (lien.start + lien.duration) < MIN_DURATION_INCREASE
+        ) {
+            revert InvalidRefinanceDuration(params.incoming.duration);
+        }
 
         return true;
     }
@@ -430,12 +416,8 @@ contract BrokerRouter is Auth, IBrokerRouter {
             )
         );
 
-        address recoveredAddress = ecrecover(
-            digest,
-            params.v,
-            params.r,
-            params.s
-        );
+        address recoveredAddress =
+            ecrecover(digest, params.v, params.r, params.s);
         require(
             recoveredAddress == params.appraiser,
             "newBondVault: Invalid Signature"
@@ -493,7 +475,9 @@ contract BrokerRouter is Auth, IBrokerRouter {
     {
         //router must be approved for the star nft to take a loan,
         BrokerImplementation(c.nor.strategy.vault).commitToLoan(c, receiver);
-        if (receiver == address(this)) return c.nor.amount;
+        if (receiver == address(this)) {
+            return c.nor.amount;
+        }
         return uint256(0);
     }
 
@@ -501,20 +485,17 @@ contract BrokerRouter is Auth, IBrokerRouter {
         address tokenContract,
         uint256 tokenId,
         bytes32[] memory depositProof
-    ) internal {
+    )
+        internal
+    {
         IERC721(tokenContract).transferFrom(
-            address(msg.sender),
-            address(this),
-            tokenId
+            address(msg.sender), address(this), tokenId
         );
 
         IERC721(tokenContract).approve(address(COLLATERAL_VAULT), tokenId);
 
         COLLATERAL_VAULT.depositERC721(
-            address(this),
-            tokenContract,
-            tokenId,
-            depositProof
+            address(this), tokenContract, tokenId, depositProof
         );
     }
 

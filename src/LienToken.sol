@@ -31,6 +31,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     using ValidateTerms for IBrokerRouter.NewObligationRequest;
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
+
     IAuctionHouse public AUCTION_HOUSE;
     ICollateralVault public COLLATERAL_VAULT;
 
@@ -50,11 +51,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     event RemovedLiens(uint256 lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
 
-    constructor(
-        Authority _AUTHORITY,
-        address _TRANSFER_PROXY,
-        address _WETH
-    )
+    constructor(Authority _AUTHORITY, address _TRANSFER_PROXY, address _WETH)
         Auth(address(msg.sender), _AUTHORITY)
         TransferAgent(_TRANSFER_PROXY, _WETH)
         ERC721("Astaria Lien Token", "Lien")
@@ -94,23 +91,19 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, IERC165)
+        override (ERC721, IERC165)
         returns (bool)
     {
-        return
-            interfaceId == type(IERC721).interfaceId ||
-            interfaceId == type(ILienToken).interfaceId ||
-            super.supportsInterface(interfaceId);
+        return interfaceId == type(IERC721).interfaceId
+            || interfaceId == type(ILienToken).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
-        uint256 collateralVault = params.incoming.tokenContract.computeId(
-            params.incoming.tokenId
-        );
-        (uint256 owed, uint256 buyout) = getBuyout(
-            collateralVault,
-            params.position
-        );
+        uint256 collateralVault =
+            params.incoming.tokenContract.computeId(params.incoming.tokenId);
+        (uint256 owed, uint256 buyout) =
+            getBuyout(collateralVault, params.position);
 
         uint256 lienId = liens[collateralVault][params.position];
         TRANSFER_PROXY.tokenTransferFrom(
@@ -139,9 +132,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
         //TODO: emit event, should we send to sender or broker on buyout?
         super.safeTransferFrom(
-            ownerOf(lienId),
-            address(params.receiver),
-            lienId
+            ownerOf(lienId), address(params.receiver), lienId
         );
     }
 
@@ -164,7 +155,9 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         returns (uint256)
     {
         uint256 lien = liens[collateralVault][position];
-        if (!lienData[lien].active) return uint256(0);
+        if (!lienData[lien].active) {
+            return uint256(0);
+        }
         return _getInterest(lienData[lien], block.timestamp);
     }
 
@@ -304,9 +297,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     {
         // require that the auction is not under way
 
-        uint256 collateralVault = params.tokenContract.computeId(
-            params.tokenId
-        );
+        uint256 collateralVault = params.tokenContract.computeId(params.tokenId);
 
         require(
             !AUCTION_HOUSE.auctionExists(collateralVault),
@@ -314,9 +305,8 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         );
 
         if (params.validateEscrow == true) {
-            (address tokenContract, ) = COLLATERAL_VAULT.getUnderlying(
-                collateralVault
-            );
+            (address tokenContract,) =
+                COLLATERAL_VAULT.getUnderlying(collateralVault);
             require(
                 tokenContract != address(0),
                 "Collateral must be deposited before you can request a lien"
@@ -373,11 +363,8 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         liens[collateralVault].push(lienId);
 
         emit NewLien(
-            lienId,
-            collateralVault,
-            newPosition,
-            params.obligationRoot
-        );
+            lienId, collateralVault, newPosition, params.obligationRoot
+            );
     }
 
     function removeLiens(uint256 collateralVault) external requiresAuth {
@@ -417,8 +404,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         return (
             owed,
             // owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
-            owed +
-                remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
+            owed + remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
         );
     }
 
@@ -435,7 +421,9 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         uint256 collateralVault,
         uint256 paymentAmount,
         uint256 index
-    ) external {
+    )
+        external
+    {
         _payment(collateralVault, index, paymentAmount);
     }
 
@@ -454,7 +442,11 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     function getTotalDebtForCollateralVault(
         uint256 collateralVault,
         uint256 timestamp
-    ) public view returns (uint256 totalDebt) {
+    )
+        public
+        view
+        returns (uint256 totalDebt)
+    {
         uint256[] memory openLiens = getLiens(collateralVault);
         totalDebt = 0;
 
@@ -476,10 +468,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
             // impliedRate += (lien.amount / totalDebt) * lien.rate;
 
-            impliedRate += uint256(lien.rate).mulDivDown(
-                lien.amount,
-                totalDebt
-            );
+            impliedRate += uint256(lien.rate).mulDivDown(lien.amount, totalDebt);
         }
     }
 
@@ -500,9 +489,8 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         pure
         returns (uint256)
     {
-        uint256 delta_t = uint256(
-            uint32(lien.start + lien.duration) - lien.last
-        );
+        uint256 delta_t =
+            uint256(uint32(lien.start + lien.duration) - lien.last);
 
         // return (delta_t * uint256(lien.rate) * lien.amount);
 
@@ -513,8 +501,13 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         uint256 collateralVault,
         uint256 position,
         uint256 paymentAmount
-    ) internal returns (uint256) {
-        if (paymentAmount == uint256(0)) return uint256(0);
+    )
+        internal
+        returns (uint256)
+    {
+        if (paymentAmount == uint256(0)) {
+            return uint256(0);
+        }
         Lien storage lien = lienData[liens[collateralVault][position]];
         uint256 maxPayment = _getOwed(lien);
         address owner = ownerOf(liens[collateralVault][position]);
@@ -527,10 +520,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
             delete liens[collateralVault][position];
         }
         TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(msg.sender),
-            owner,
-            paymentAmount
+            address(WETH), address(msg.sender), owner, paymentAmount
         );
 
         return paymentAmount;

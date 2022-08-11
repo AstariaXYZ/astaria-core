@@ -6,5 +6,6 @@ interface ITransferProxy {
         address from,
         address to,
         uint256 amount
-    ) external;
+    )
+        external;
 }

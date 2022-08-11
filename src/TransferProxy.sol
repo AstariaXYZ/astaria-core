@@ -14,7 +14,10 @@ contract TransferProxy is Auth, ITransferProxy {
         address from,
         address to,
         uint256 amount
-    ) external requiresAuth {
+    )
+        external
+        requiresAuth
+    {
         ERC20(token).safeTransferFrom(from, to, amount);
     }
 }

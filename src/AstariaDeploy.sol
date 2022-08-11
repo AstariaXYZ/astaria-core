@@ -1,7 +1,8 @@
 pragma solidity ^0.8.15;
 
 import {Authority} from "solmate/auth/Auth.sol";
-import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from
+    "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {CollateralVault} from "./CollateralVault.sol";
@@ -37,6 +38,7 @@ contract AstariaDeploy {
         AUCTION_HOUSE,
         TRANSFER_PROXY
     }
+
     event Deployed(address);
 
     constructor() {
@@ -82,16 +84,13 @@ contract AstariaDeploy {
             address(TRANSFER_PROXY)
         );
         COLLATERAL_VAULT.file(
-            bytes32("setBondController"),
-            abi.encode(address(BROKER_ROUTER))
+            bytes32("setBondController"), abi.encode(address(BROKER_ROUTER))
         );
         COLLATERAL_VAULT.file(
-            bytes32("setAuctionHouse"),
-            abi.encode(address(AUCTION_HOUSE))
+            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
         );
         LIEN_TOKEN.file(
-            bytes32("setAuctionHouse"),
-            abi.encode(address(AUCTION_HOUSE))
+            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
         );
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_VAULT),
@@ -129,24 +128,16 @@ contract AstariaDeploy {
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE),
-            LienToken.stopLiens.selector,
-            true
+            uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true
         );
         MRA.setUserRole(
-            address(BROKER_ROUTER),
-            uint8(UserRoles.BROKER_ROUTER),
-            true
+            address(BROKER_ROUTER), uint8(UserRoles.BROKER_ROUTER), true
         );
         MRA.setUserRole(
-            address(COLLATERAL_VAULT),
-            uint8(UserRoles.COLLATERAL_VAULT),
-            true
+            address(COLLATERAL_VAULT), uint8(UserRoles.COLLATERAL_VAULT), true
         );
         MRA.setUserRole(
-            address(AUCTION_HOUSE),
-            uint8(UserRoles.AUCTION_HOUSE),
-            true
+            address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true
         );
 
         MRA.setOwner(address(msg.sender));
