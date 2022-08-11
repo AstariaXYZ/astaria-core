@@ -13,16 +13,15 @@ library ValidateTerms {
     function validateTerms(
         IBrokerRouter.NewObligationRequest memory params,
         address borrower
-    )
-        internal
-        returns (bool, IBrokerRouter.LienDetails memory ld)
-    {
+    ) internal returns (bool, IBrokerRouter.LienDetails memory ld) {
         bytes32 leaf;
         if (
-            params.obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)
+            params.obligationType ==
+            uint8(IBrokerRouter.ObligationType.STANDARD)
         ) {
             IBrokerRouter.CollateralDetails memory cd = abi.decode(
-                params.obligationDetails, (IBrokerRouter.CollateralDetails)
+                params.obligationDetails,
+                (IBrokerRouter.CollateralDetails)
             );
             // borrower based so check on msg sender
             //new structure, of borrower based
@@ -72,10 +71,12 @@ library ValidateTerms {
             emit LogBytes32(leaf);
             ld = cd.lien;
         } else if (
-            params.obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)
+            params.obligationType ==
+            uint8(IBrokerRouter.ObligationType.COLLECTION)
         ) {
             IBrokerRouter.CollectionDetails memory cd = abi.decode(
-                params.obligationDetails, (IBrokerRouter.CollectionDetails)
+                params.obligationDetails,
+                (IBrokerRouter.CollectionDetails)
             );
 
             if (cd.borrower != address(0)) {
@@ -86,7 +87,7 @@ library ValidateTerms {
             }
 
             leaf = keccak256(
-                abi.encode(
+                abi.encodePacked(
                     cd.version, // 1 is the version of the structure
                     cd.token, // token address
                     cd.borrower, // borrower address
@@ -101,7 +102,11 @@ library ValidateTerms {
         }
 
         return (
-            MerkleProof.verify(params.obligationProof, params.obligationRoot, leaf),
+            MerkleProof.verify(
+                params.obligationProof,
+                params.obligationRoot,
+                leaf
+            ),
             ld
         );
     }
@@ -113,14 +118,18 @@ library ValidateTerms {
         returns (IBrokerRouter.LienDetails memory)
     {
         if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
-            IBrokerRouter.CollateralDetails memory cd =
-                abi.decode(obligationData, (IBrokerRouter.CollateralDetails));
+            IBrokerRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollateralDetails)
+            );
             return (cd.lien);
         } else if (
             obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)
         ) {
-            IBrokerRouter.CollectionDetails memory cd =
-                abi.decode(obligationData, (IBrokerRouter.CollectionDetails));
+            IBrokerRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollectionDetails)
+            );
             return (cd.lien);
         } else {
             revert("unknown obligation type");
@@ -131,14 +140,12 @@ library ValidateTerms {
     function getCollateralDetails(
         uint8 obligationType,
         bytes memory obligationData
-    )
-        internal
-        view
-        returns (IBrokerRouter.CollateralDetails memory)
-    {
+    ) internal view returns (IBrokerRouter.CollateralDetails memory) {
         if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
-            IBrokerRouter.CollateralDetails memory cd =
-                abi.decode(obligationData, (IBrokerRouter.CollateralDetails));
+            IBrokerRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollateralDetails)
+            );
             return (cd);
         } else {
             revert("unknown obligation type");
@@ -148,14 +155,12 @@ library ValidateTerms {
     function getCollectionDetails(
         uint8 obligationType,
         bytes memory obligationData
-    )
-        internal
-        view
-        returns (IBrokerRouter.CollectionDetails memory)
-    {
+    ) internal view returns (IBrokerRouter.CollectionDetails memory) {
         if (obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)) {
-            IBrokerRouter.CollectionDetails memory cd =
-                abi.decode(obligationData, (IBrokerRouter.CollectionDetails));
+            IBrokerRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollectionDetails)
+            );
             return (cd);
         } else {
             revert("unknown obligation type");

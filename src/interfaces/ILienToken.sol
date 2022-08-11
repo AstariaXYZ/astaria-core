@@ -52,6 +52,12 @@ interface ILienToken is IERC721 {
     //        uint256 replacementPosition;
     //    }
 
+    function calculateSlope(uint256 lienId) external returns (uint256 slope);
+
+    function changeInSlope(uint256 lienId, uint256 paymentAmount)
+        external
+        returns (uint256 slope);
+
     function stopLiens(uint256 collateralVault)
         external
         returns (
@@ -72,10 +78,7 @@ interface ILienToken is IERC721 {
         view
         returns (uint256);
 
-    function getLiens(uint256 _starId)
-        external
-        view
-        returns (uint256[] memory);
+    function getLiens(uint256 _starId) external view returns (uint256[] memory);
 
     function getLien(uint256 lienId) external view returns (Lien memory);
 
@@ -101,8 +104,5 @@ interface ILienToken is IERC721 {
     function getTotalDebtForCollateralVault(
         uint256 collateralVault,
         uint256 timestamp
-    )
-        external
-        view
-        returns (uint256 totalDebt);
+    ) external view returns (uint256 totalDebt);
 }

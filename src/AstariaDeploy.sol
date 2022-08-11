@@ -1,16 +1,15 @@
 pragma solidity ^0.8.15;
 
 import {Authority} from "solmate/auth/Auth.sol";
-import {MultiRolesAuthority} from
-    "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {CollateralVault} from "./CollateralVault.sol";
 import {LienToken} from "./LienToken.sol";
 import {BrokerRouter} from "./BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
-import {SoloBroker} from "./BrokerImplementation.sol";
-import {BrokerVault} from "./BrokerVault.sol";
+//import {SoloBroker} from "./BrokerImplementation.sol";
+import {PublicVault} from "./PublicVault.sol";
 import {TransferProxy} from "./TransferProxy.sol";
 import {WEth} from "foundry_eip-4626/WEth.sol";
 
@@ -64,16 +63,16 @@ contract AstariaDeploy {
         );
         emit Deployed(address(COLLATERAL_VAULT));
 
-        SoloBroker soloImpl = new SoloBroker();
-        BrokerVault vaultImpl = new BrokerVault();
+        //        SoloBroker soloImpl = new SoloBroker();
+        PublicVault vaultImpl = new PublicVault();
         BrokerRouter BROKER_ROUTER = new BrokerRouter(
             MRA,
             address(WETH9),
             address(COLLATERAL_VAULT),
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY),
-            address(vaultImpl),
-            address(soloImpl)
+            address(vaultImpl)
+            //            address(soloImpl)
         );
         //
         AuctionHouse AUCTION_HOUSE = new AuctionHouse(
@@ -84,13 +83,16 @@ contract AstariaDeploy {
             address(TRANSFER_PROXY)
         );
         COLLATERAL_VAULT.file(
-            bytes32("setBondController"), abi.encode(address(BROKER_ROUTER))
+            bytes32("setBondController"),
+            abi.encode(address(BROKER_ROUTER))
         );
         COLLATERAL_VAULT.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
         );
         LIEN_TOKEN.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
         );
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_VAULT),
@@ -128,16 +130,24 @@ contract AstariaDeploy {
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true
+            uint8(UserRoles.AUCTION_HOUSE),
+            LienToken.stopLiens.selector,
+            true
         );
         MRA.setUserRole(
-            address(BROKER_ROUTER), uint8(UserRoles.BROKER_ROUTER), true
+            address(BROKER_ROUTER),
+            uint8(UserRoles.BROKER_ROUTER),
+            true
         );
         MRA.setUserRole(
-            address(COLLATERAL_VAULT), uint8(UserRoles.COLLATERAL_VAULT), true
+            address(COLLATERAL_VAULT),
+            uint8(UserRoles.COLLATERAL_VAULT),
+            true
         );
         MRA.setUserRole(
-            address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true
+            address(AUCTION_HOUSE),
+            uint8(UserRoles.AUCTION_HOUSE),
+            true
         );
 
         MRA.setOwner(address(msg.sender));

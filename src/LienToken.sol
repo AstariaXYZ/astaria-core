@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-//import {ERC721} from "solmate/tokens/ERC721.sol";
+import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
@@ -51,7 +51,11 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     event RemovedLiens(uint256 lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
 
-    constructor(Authority _AUTHORITY, address _TRANSFER_PROXY, address _WETH)
+    constructor(
+        Authority _AUTHORITY,
+        address _TRANSFER_PROXY,
+        address _WETH
+    )
         Auth(address(msg.sender), _AUTHORITY)
         TransferAgent(_TRANSFER_PROXY, _WETH)
         ERC721("Astaria Lien Token", "Lien")
@@ -91,19 +95,23 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override (ERC721, IERC165)
+        override(ERC721, IERC165)
         returns (bool)
     {
-        return interfaceId == type(IERC721).interfaceId
-            || interfaceId == type(ILienToken).interfaceId
-            || super.supportsInterface(interfaceId);
+        return
+            interfaceId == type(IERC721).interfaceId ||
+            interfaceId == type(ILienToken).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
-        uint256 collateralVault =
-            params.incoming.tokenContract.computeId(params.incoming.tokenId);
-        (uint256 owed, uint256 buyout) =
-            getBuyout(collateralVault, params.position);
+        uint256 collateralVault = params.incoming.tokenContract.computeId(
+            params.incoming.tokenId
+        );
+        (uint256 owed, uint256 buyout) = getBuyout(
+            collateralVault,
+            params.position
+        );
 
         uint256 lienId = liens[collateralVault][params.position];
         TRANSFER_PROXY.tokenTransferFrom(
@@ -131,9 +139,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         lienData[lienId].vault = params.incoming.nor.strategy.vault;
 
         //TODO: emit event, should we send to sender or broker on buyout?
-        super.safeTransferFrom(
-            ownerOf(lienId), address(params.receiver), lienId
-        );
+        safeTransferFrom(ownerOf(lienId), address(params.receiver), lienId);
     }
 
     //    function validateTerms(IBrokerRouter.Terms memory params)
@@ -200,96 +206,6 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         return "";
     }
 
-    //    function encodeSubjugationOffer(
-    //        uint256 collateralVault,
-    //        uint256 lien,
-    //        uint256 currentPosition,
-    //        uint256 lowestPosition,
-    //        uint256 price,
-    //        uint256 deadline
-    //    ) public view returns (bytes memory) {
-    //        return
-    //            abi.encodePacked(
-    //                EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-    //                DOMAIN_SEPARATOR,
-    //                keccak256(
-    //                    abi.encode(
-    //                        NEW_SUBJUGATION_OFFER,
-    //                        collateralVault,
-    //                        lien,
-    //                        currentPosition,
-    //                        lowestPosition,
-    //                        price,
-    //                        deadline
-    //                    )
-    //                )
-    //            );
-    //    }
-
-    //    function takeSubjugationOffer(ILienToken.LienActionSwap calldata params)
-    //        external
-    //    {
-    //        require(block.timestamp <= params.offer.deadline, "offer has expired");
-    //        require(
-    //            msg.sender == ownerOf(params.replacementLien),
-    //            "only the holder of the replacement lien can call this"
-    //        );
-    //        require(
-    //            liens[params.offer.collateralVault][params.replacementPosition] ==
-    //                params.replacementLien,
-    //            "invalid swap criteria"
-    //        );
-    //        require(
-    //            params.replacementPosition <= params.offer.lowestPosition,
-    //            "your lien is too low to swap with this holder"
-    //        );
-    //        //validate signer of the swap terms is the holder of the lien you are swapping
-    //
-    //        bytes32 digest = keccak256(
-    //            encodeSubjugationOffer(
-    //                params.offer.collateralVault,
-    //                params.offer.lien,
-    //                params.offer.currentPosition,
-    //                params.offer.lowestPosition,
-    //                params.offer.price,
-    //                params.offer.deadline
-    //            )
-    //        );
-    //
-    //        address recoveredAddress = ecrecover(
-    //            digest,
-    //            params.offer.v,
-    //            params.offer.r,
-    //            params.offer.s
-    //        );
-    //
-    //        require(
-    //            recoveredAddress ==
-    //                ownerOf(
-    //                    liens[params.offer.collateralVault][
-    //                        params.offer.currentPosition
-    //                    ]
-    //                ),
-    //            "invalid owner sig for lien"
-    //        );
-    //
-    //        TRANSFER_PROXY.tokenTransferFrom(
-    //            params.offer.token,
-    //            address(msg.sender),
-    //            ownerOf(params.offer.lien),
-    //            params.offer.price
-    //        );
-    //
-    //        //swap positions in the queue
-    //        liens[params.offer.collateralVault][
-    //            params.offer.currentPosition
-    //        ] = params.replacementLien;
-    //
-    //        liens[params.offer.collateralVault][params.replacementPosition] = params
-    //            .offer
-    //            .lien;
-    //    }
-
     function createLien(ILienToken.LienActionEncumber memory params)
         external
         requiresAuth
@@ -297,7 +213,9 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     {
         // require that the auction is not under way
 
-        uint256 collateralVault = params.tokenContract.computeId(params.tokenId);
+        uint256 collateralVault = params.tokenContract.computeId(
+            params.tokenId
+        );
 
         require(
             !AUCTION_HOUSE.auctionExists(collateralVault),
@@ -305,8 +223,9 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         );
 
         if (params.validateEscrow == true) {
-            (address tokenContract,) =
-                COLLATERAL_VAULT.getUnderlying(collateralVault);
+            (address tokenContract, ) = COLLATERAL_VAULT.getUnderlying(
+                collateralVault
+            );
             require(
                 tokenContract != address(0),
                 "Collateral must be deposited before you can request a lien"
@@ -363,8 +282,11 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         liens[collateralVault].push(lienId);
 
         emit NewLien(
-            lienId, collateralVault, newPosition, params.obligationRoot
-            );
+            lienId,
+            collateralVault,
+            newPosition,
+            params.obligationRoot
+        );
     }
 
     function removeLiens(uint256 collateralVault) external requiresAuth {
@@ -404,7 +326,8 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         return (
             owed,
             // owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
-            owed + remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
+            owed +
+                remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
         );
     }
 
@@ -421,11 +344,59 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         uint256 collateralVault,
         uint256 paymentAmount,
         uint256 index
-    )
-        external
-    {
+    ) external {
+        address lienOwner = ownerOf(liens[collateralVault][index]);
+        if (supportsInterface(lienOwner, collateralVault)) {
+            // was lienOwner.supportsinterface(PublicVault)
+            beforePayment(lienOwner, paymentAmount); // was lienOwner.beforePayment(paymentAmount)
+        }
         _payment(collateralVault, index, paymentAmount);
     }
+
+    function supportsInterface(address lienOwner, uint256 collateralVault)
+        internal
+        returns (bool)
+    {
+        return true;
+    }
+
+    function beforePayment(address lienOwner, uint256 paymentAmount) internal {}
+
+    // TODO change to (aggregate) rate?
+
+    function calculateSlope(uint256 lienId) public returns (uint256) {
+        Lien memory lien = lienData[lienId];
+        uint256 end = (lien.start + lien.duration);
+        // return (end - lien.last) / (lien.amount * lien.rate * end - lien.amount); // TODO check
+
+        return
+            (lien.amount * lien.rate * end - lien.amount).mulDivDown(
+                1,
+                end - lien.last
+            );
+    }
+
+    function changeInSlope(uint256 lienId, uint256 paymentAmount)
+        public
+        returns (
+            // view
+            uint256 slope
+        )
+    {
+        Lien memory lien = lienData[lienId];
+        uint256 end = (lien.start + lien.duration);
+        uint256 oldSlope = calculateSlope(lienId);
+        uint256 newAmount = (lien.amount - paymentAmount);
+        // uint256 newSlope =
+        //     (end - block.timestamp) / ((newAmount * lien.rate * end) - newAmount);
+
+        uint256 newSlope = ((newAmount * lien.rate * end) - newAmount)
+            .mulDivDown(1, end - block.timestamp);
+
+        slope = oldSlope - newSlope;
+    }
+
+    function _afterPayment(uint256 lienId, uint256 amount) internal virtual {}
 
     function getTotalDebtForCollateralVault(uint256 collateralVault)
         public
@@ -442,11 +413,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     function getTotalDebtForCollateralVault(
         uint256 collateralVault,
         uint256 timestamp
-    )
-        public
-        view
-        returns (uint256 totalDebt)
-    {
+    ) public view returns (uint256 totalDebt) {
         uint256[] memory openLiens = getLiens(collateralVault);
         totalDebt = 0;
 
@@ -468,7 +435,10 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
             // impliedRate += (lien.amount / totalDebt) * lien.rate;
 
-            impliedRate += uint256(lien.rate).mulDivDown(lien.amount, totalDebt);
+            impliedRate += uint256(lien.rate).mulDivDown(
+                lien.amount,
+                totalDebt
+            );
         }
     }
 
@@ -489,8 +459,9 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         pure
         returns (uint256)
     {
-        uint256 delta_t =
-            uint256(uint32(lien.start + lien.duration) - lien.last);
+        uint256 delta_t = uint256(
+            uint32(lien.start + lien.duration) - lien.last
+        );
 
         // return (delta_t * uint256(lien.rate) * lien.amount);
 
@@ -501,10 +472,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         uint256 collateralVault,
         uint256 position,
         uint256 paymentAmount
-    )
-        internal
-        returns (uint256)
-    {
+    ) internal returns (uint256) {
         if (paymentAmount == uint256(0)) {
             return uint256(0);
         }
@@ -520,7 +488,10 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
             delete liens[collateralVault][position];
         }
         TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH), address(msg.sender), owner, paymentAmount
+            address(WETH),
+            address(msg.sender),
+            owner,
+            paymentAmount
         );
 
         return paymentAmount;
