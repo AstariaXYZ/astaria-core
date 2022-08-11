@@ -1,4 +1,4 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
@@ -7,6 +7,7 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
+import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {IBroker, BrokerImplementation} from "./BrokerImplementation.sol";
@@ -24,6 +25,7 @@ interface IInvoker {
 
 contract BrokerRouter is Auth, IBrokerRouter {
     using SafeERC20 for IERC20;
+    using CollateralLookup for address;
     using FixedPointMathLib for uint256;
 
     bytes32 public immutable DOMAIN_SEPARATOR;
@@ -42,8 +44,7 @@ contract BrokerRouter is Auth, IBrokerRouter {
     uint64 public MIN_INTEREST_BPS;
     uint64 public MIN_DURATION_INCREASE;
 
-    mapping(bytes32 => BondVault) public bondVaults;
-    mapping(address => bytes32) public brokerHashes;
+    mapping(address => BondVault) public vaults;
     mapping(address => bool) public appraisers;
     mapping(address => uint256) public appraiserNonce;
 
@@ -53,7 +54,7 @@ contract BrokerRouter is Auth, IBrokerRouter {
 
     bytes32 private constant NEW_VAULT_SIGNATURE_HASH =
         keccak256(
-            "NewBondVault(address appraiser,bytes32 root,uint256 expiration,uint256 nonce,uint256 deadline)"
+            "NewBondVault(address appraiser,address delegate,uint256 expiration,uint256 nonce,uint256 deadline)"
         );
 
     constructor(
@@ -171,10 +172,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
 
     // MODIFIERS
     modifier onlyVaults() {
-        require(
-            brokerHashes[msg.sender] != bytes32(0),
-            "this vault has not been initialized"
-        );
+        //        require(
+        //            brokerHashes[msg.sender] != bytes32(0),
+        //            "this vault has not been initialized"
+        //        );
         _;
     }
     modifier onlyAppraisers(address appraiser) {
@@ -184,6 +185,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
 
     //PUBLIC
 
+    //todo: check all incoming obligations for validity
+    // execute the borrows
+    //transfer the vaulted nfts to the sender
+    // transfer the collateral to the sender
     function commitToLoans(IBrokerRouter.Commitment[] calldata commitments)
         external
         returns (uint256 totalBorrowed)
@@ -195,11 +200,12 @@ contract BrokerRouter is Auth, IBrokerRouter {
                 commitments[i].tokenId,
                 commitments[i].depositProof
             );
-            totalBorrowed += _executeCommitment(commitments[i].action);
-            _returnCollateral(
-                commitments[i].action.terms.collateralVault,
-                address(msg.sender)
+            totalBorrowed += _executeCommitment(commitments[i]);
+
+            uint256 collateralVault = commitments[i].tokenContract.computeId(
+                commitments[i].tokenId
             );
+            _returnCollateral(collateralVault, address(msg.sender));
         }
         WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
         TRANSFER_PROXY.tokenTransferFrom(
@@ -212,22 +218,20 @@ contract BrokerRouter is Auth, IBrokerRouter {
 
     function encodeBondVaultHash(
         address appraiser,
-        bytes32 root,
-        uint256 expiration,
+        address delegate,
         uint256 nonce,
         uint256 deadline,
         uint256 buyout
     ) public view returns (bytes memory) {
         return
-            abi.encodePacked(
+            abi.encode(
                 EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
                 DOMAIN_SEPARATOR,
                 keccak256(
                     abi.encode(
                         NEW_VAULT_SIGNATURE_HASH,
                         appraiser,
-                        root,
-                        expiration,
+                        delegate,
                         nonce,
                         deadline
                     )
@@ -238,53 +242,57 @@ contract BrokerRouter is Auth, IBrokerRouter {
     // verifies the signature on the root of the merkle tree to be the appraiser
     // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
 
-    function newSoloVault(BrokerParams memory params) external {
+    function newSoloVault(BrokerParams memory params)
+        external
+        returns (address)
+    {
         require(params.appraiser == msg.sender);
-        _newBondVault(params, false);
+        return _newBondVault(params, false);
     }
 
     function newBondVault(BrokerParams memory params)
         external
         onlyAppraisers(params.appraiser)
+        returns (address)
     {
-        _newBondVault(params, true);
+        return _newBondVault(params, true);
     }
 
-    function borrowAndBuy(BorrowAndBuyParams calldata params) external {
-        uint256 spendableBalance;
-        for (uint256 i = 0; i < params.commitments.length; ++i) {
-            _executeCommitment(params.commitments[i]);
-            spendableBalance += params.commitments[i].amount; //amount borrowed
-        }
-        require(
-            params.purchasePrice <= spendableBalance,
-            "purchase price cannot be for more than your aggregate loan"
-        );
-
-        WETH.safeApprove(params.invoker, params.purchasePrice);
-        require(
-            IInvoker(params.invoker).onBorrowAndBuy(
-                params.purchaseData, // calldata for the invoker
-                address(WETH), // token
-                params.purchasePrice, //max approval
-                payable(msg.sender) // recipient
-            ),
-            "borrow and buy failed"
-        );
-        if (spendableBalance - params.purchasePrice > uint256(0)) {
-            WETH.safeTransfer(
-                msg.sender,
-                spendableBalance - params.purchasePrice
-            );
-        }
-    }
+    //    function borrowAndBuy(BorrowAndBuyParams memory params) external {
+    //        uint256 spendableBalance;
+    //        for (uint256 i = 0; i < params.commitments.length; ++i) {
+    //            _executeCommitment(params.commitments[i]);
+    //            spendableBalance += params.commitments[i].amount; //amount borrowed
+    //        }
+    //        require(
+    //            params.purchasePrice <= spendableBalance,
+    //            "purchase price cannot be for more than your aggregate loan"
+    //        );
+    //
+    //        WETH.safeApprove(params.invoker, params.purchasePrice);
+    //        require(
+    //            IInvoker(params.invoker).onBorrowAndBuy(
+    //                params.purchaseData, // calldata for the invoker
+    //                address(WETH), // token
+    //                params.purchasePrice, //max approval
+    //                payable(msg.sender) // recipient
+    //            ),
+    //            "borrow and buy failed"
+    //        );
+    //        if (spendableBalance - params.purchasePrice > uint256(0)) {
+    //            WETH.safeTransfer(
+    //                msg.sender,
+    //                spendableBalance - params.purchasePrice
+    //            );
+    //        }
+    //    }
 
     function buyoutLien(
         uint256 position,
-        IBrokerRouter.Terms memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
+        IBrokerRouter.Commitment memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
     ) external {
-        BrokerImplementation(incomingTerms.broker).buyoutLien(
-            incomingTerms.collateralVault,
+        BrokerImplementation(incomingTerms.nor.strategy.vault).buyoutLien(
+            incomingTerms.tokenContract.computeId(incomingTerms.tokenId),
             position,
             incomingTerms
         );
@@ -293,36 +301,25 @@ contract BrokerRouter is Auth, IBrokerRouter {
     function requestLienPosition(ILienToken.LienActionEncumber calldata params)
         external
         onlyVaults
-        returns (bool)
+        returns (uint256)
     {
-        _addLien(ILienToken.LienActionEncumber(params.terms, params.amount));
-        return true;
+        return LIEN_TOKEN.createLien(params);
     }
 
-    function lendToVault(bytes32 bondVault, uint256 amount) external {
+    function lendToVault(address vault, uint256 amount) external {
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
             address(msg.sender),
             address(this),
             amount
         );
-        WETH.safeApprove(bondVaults[bondVault].broker, amount);
+
         require(
-            bondVaults[bondVault].broker != address(0),
+            vaults[vault].appraiser != address(0),
             "lendToVault: vault doesn't exist"
         );
-        IBroker(bondVaults[bondVault].broker).deposit(
-            amount,
-            address(msg.sender)
-        );
-    }
-
-    function getBrokerHash(address broker) external view returns (bytes32) {
-        return brokerHashes[broker];
-    }
-
-    function getBroker(bytes32 bondVault) external view returns (address) {
-        return bondVaults[bondVault].broker;
+        WETH.safeApprove(vault, amount);
+        IBroker(vault).deposit(amount, address(msg.sender));
     }
 
     function canLiquidate(uint256 collateralVault, uint256 position)
@@ -339,12 +336,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
             collateralVault,
             position
         );
-        // uint256 maxInterest = (lien.amount * lien.schedule) / 100;
-        uint256 maxInterest = uint256(lien.amount).mulDivDown(lien.schedule, 100);
+        // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
-        return
-            maxInterest > interestAccrued ||
-            (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
+        return (lien.start + lien.duration <= block.timestamp &&
+            lien.amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
@@ -356,6 +351,8 @@ contract BrokerRouter is Auth, IBrokerRouter {
             canLiquidate(collateralVault, position),
             "liquidate: borrow is healthy"
         );
+
+        // 0x
 
         reserve = COLLATERAL_VAULT.auctionVault(
             collateralVault,
@@ -373,6 +370,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
         );
     }
 
+    function isValidVault(address vault) external view returns (bool) {
+        return vaults[vault].appraiser != address(0);
+    }
+
     function isValidRefinance(IBrokerRouter.RefinanceCheckParams memory params)
         external
         view
@@ -383,7 +384,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
             params.position
         );
         // uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
-        uint256 minNewRate = uint256(lien.rate).mulDivDown(MIN_INTEREST_BPS, 1000);
+        uint256 minNewRate = uint256(lien.rate).mulDivDown(
+            MIN_INTEREST_BPS,
+            1000
+        );
 
         if (params.incoming.rate > minNewRate)
             revert InvalidRefinanceRate(params.incoming.rate);
@@ -399,15 +403,18 @@ contract BrokerRouter is Auth, IBrokerRouter {
 
     //INTERNAL FUNCS
 
-    function _newBondVault(BrokerParams memory params, bool vault) internal {
+    function _newBondVault(BrokerParams memory params, bool vault)
+        internal
+        returns (address)
+    {
         require(
             params.appraiser != address(0),
             "BrokerRouter.newBondVault(): Appraiser address cannot be zero"
         );
-        require(
-            bondVaults[params.root].appraiser == address(0),
-            "BrokerRouter.newBondVault(): Root of BondVault already instantiated"
-        );
+        //        require(
+        //            bondVaults[params.root].appraiser == address(0),
+        //            "BrokerRouter.newBondVault(): Root of BondVault already instantiated"
+        //        );
         require(
             block.timestamp < params.deadline,
             "BrokerRouter.newBondVault(): Expired"
@@ -415,8 +422,8 @@ contract BrokerRouter is Auth, IBrokerRouter {
         bytes32 digest = keccak256(
             encodeBondVaultHash(
                 params.appraiser,
-                params.root,
-                params.expiration,
+                address(0),
+                //                params.expiration,
                 appraiserNonce[params.appraiser]++,
                 params.deadline,
                 params.buyout
@@ -443,65 +450,50 @@ contract BrokerRouter is Auth, IBrokerRouter {
             brokerType = 2;
         }
 
-        address broker = ClonesWithImmutableArgs.clone(
+        address vaultAddr = ClonesWithImmutableArgs.clone(
             implementation,
             abi.encodePacked(
                 address(COLLATERAL_VAULT),
                 address(WETH),
                 address(this),
-                params.root,
-                params.expiration,
+                bytes32(0), //todo remove the vaulthash from storage
+                uint256(0),
                 params.buyout,
                 recoveredAddress,
                 brokerType
             )
         );
-        BondVault storage bondVault = bondVaults[params.root];
-        bondVault.appraiser = params.appraiser;
-        bondVault.expiration = params.expiration;
-        bondVault.broker = broker;
+        //        BondVault storage bondVault = bondVaults[params.root];
+        //        bondVault.appraiser = params.appraiser;
+        //        bondVault.expiration = params.expiration;
+        //        bondVault.broker = broker;
 
-        brokerHashes[broker] = params.root;
+        //        brokerHashes[broker] = params.root;
 
-        emit NewBondVault(
-            params.appraiser,
-            broker,
-            params.root,
-            params.contentHash,
-            params.expiration
-        );
+        emit NewVault(params.appraiser, vaultAddr);
+
+        return vaultAddr;
     }
 
-    function _validateCommitment(ILienToken.LienActionEncumber calldata c)
-        internal
-        view
-    {
-        require(
-            msg.sender == COLLATERAL_VAULT.ownerOf(c.terms.collateralVault),
-            "invalid sender for collateralVault"
-        );
-    }
-
-    function _executeCommitment(ILienToken.LienActionEncumber calldata c)
+    function _executeCommitment(IBrokerRouter.Commitment memory c)
         internal
         returns (uint256)
     {
-        _validateCommitment(c);
-        return _borrow(c.terms, c.amount, address(this));
+        uint256 collateralVault = c.tokenContract.computeId(c.tokenId);
+        require(
+            msg.sender == COLLATERAL_VAULT.ownerOf(collateralVault),
+            "invalid sender for collateralVault"
+        );
+        return _borrow(c, address(this));
     }
 
-    function _borrow(
-        IBrokerRouter.Terms memory terms,
-        uint256 amount,
-        address receiver
-    ) internal returns (uint256) {
+    function _borrow(IBrokerRouter.Commitment memory c, address receiver)
+        internal
+        returns (uint256)
+    {
         //router must be approved for the star nft to take a loan,
-        BrokerImplementation(terms.broker).commitToLoan(
-            terms,
-            amount,
-            receiver
-        );
-        if (receiver == address(this)) return amount;
+        BrokerImplementation(c.nor.strategy.vault).commitToLoan(c, receiver);
+        if (receiver == address(this)) return c.nor.amount;
         return uint256(0);
     }
 

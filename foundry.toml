@@ -5,7 +5,7 @@ libs = ['lib']
 remappings = [
     'solmate/=lib/solmate/src/',
     'openzeppelin/=lib/openzeppelin-contracts/contracts/',
-    'auction/=lib/auction-house/src/',
+    'gpl/=lib/gpl/src/',
     'clones-with-immutable-args/=lib/clones-with-immutable-args/src/',
     'seaport/=lib/seaport/contracts'
 ]

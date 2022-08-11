@@ -1,24 +1,168 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IBrokerRouter} from "../interfaces/IBrokerRouter.sol";
 
 library ValidateTerms {
-    function validateTerms(IBrokerRouter.Terms memory params, bytes32 root)
-        internal
-        pure
-        returns (bool)
-    {
-        bytes32 leaf = keccak256(
-            abi.encode(
-                bytes32(params.collateralVault),
-                params.maxAmount,
-                params.maxDebt,
-                params.rate,
-                params.maxRate,
-                params.duration,
-                params.schedule
-            )
+    event LogCollateral(IBrokerRouter.CollateralDetails);
+    event LogCollection(IBrokerRouter.CollectionDetails);
+    event LogBytes32(bytes32);
+
+    event LogNOR(IBrokerRouter.NewObligationRequest);
+
+    function validateTerms(
+        IBrokerRouter.NewObligationRequest memory params,
+        address borrower
+    ) internal returns (bool, IBrokerRouter.LienDetails memory ld) {
+        bytes32 leaf;
+        if (
+            params.obligationType ==
+            uint8(IBrokerRouter.ObligationType.STANDARD)
+        ) {
+            IBrokerRouter.CollateralDetails memory cd = abi.decode(
+                params.obligationDetails,
+                (IBrokerRouter.CollateralDetails)
+            );
+            // borrower based so check on msg sender
+            //new structure, of borrower based
+            emit LogCollateral(cd);
+            emit LogNOR(params);
+
+            //[
+            //    'uint8',   'address',
+            //    'uint256', 'address',
+            //    'uint256', 'uint256',
+            //    'uint256', 'uint256',
+            //    'uint256'
+            //  ],
+            //  [
+            //    '1',
+            //    '0xCC61bD887b6695f0C65390931e3e641406dCBb67',
+            //    '1',
+            //    '0x0000000000000000000000000000000000000000',
+            //    '10000000000000000000',
+            //    '1000000000000000000',
+            //    '50000000000000',
+            //    '75000000000000',
+            //    '601'
+            //  ]
+
+            if (cd.borrower != address(0)) {
+                require(
+                    borrower == cd.borrower,
+                    "invalid borrower requesting commitment"
+                );
+            }
+
+            leaf = keccak256(
+                abi.encodePacked(
+                    cd.version,
+                    cd.token,
+                    cd.tokenId,
+                    cd.borrower,
+                    cd.lien.maxAmount,
+                    cd.lien.maxSeniorDebt,
+                    cd.lien.rate,
+                    cd.lien.maxInterestRate,
+                    cd.lien.duration
+                )
+            );
+
+            emit LogBytes32(leaf);
+            ld = cd.lien;
+        } else if (
+            params.obligationType ==
+            uint8(IBrokerRouter.ObligationType.COLLECTION)
+        ) {
+            IBrokerRouter.CollectionDetails memory cd = abi.decode(
+                params.obligationDetails,
+                (IBrokerRouter.CollectionDetails)
+            );
+
+            if (cd.borrower != address(0)) {
+                require(
+                    borrower == cd.borrower,
+                    "invalid borrower requesting commitment"
+                );
+            }
+
+            leaf = keccak256(
+                abi.encode(
+                    cd.version, // 1 is the version of the structure
+                    cd.token, // token address
+                    cd.borrower, // borrower address
+                    cd.lien.maxAmount, // max amount
+                    cd.lien.maxSeniorDebt, // max senior debt
+                    cd.lien.rate, // rate
+                    cd.lien.maxInterestRate, // max implied rate
+                    cd.lien.duration // duration
+                )
+            );
+            ld = cd.lien;
+        }
+
+        return (
+            MerkleProof.verify(
+                params.obligationProof,
+                params.obligationRoot,
+                leaf
+            ),
+            ld
         );
-        return MerkleProof.verify(params.proof, root, leaf);
+    }
+
+    //decode obligationData into structs
+    function getLienDetails(uint8 obligationType, bytes memory obligationData)
+        internal
+        view
+        returns (IBrokerRouter.LienDetails memory)
+    {
+        if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
+            IBrokerRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollateralDetails)
+            );
+            return (cd.lien);
+        } else if (
+            obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)
+        ) {
+            IBrokerRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollectionDetails)
+            );
+            return (cd.lien);
+        } else {
+            revert("unknown obligation type");
+        }
+    }
+
+    //decode obligationData into structs
+    function getCollateralDetails(
+        uint8 obligationType,
+        bytes memory obligationData
+    ) internal view returns (IBrokerRouter.CollateralDetails memory) {
+        if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
+            IBrokerRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollateralDetails)
+            );
+            return (cd);
+        } else {
+            revert("unknown obligation type");
+        }
+    }
+
+    function getCollectionDetails(
+        uint8 obligationType,
+        bytes memory obligationData
+    ) internal view returns (IBrokerRouter.CollectionDetails memory) {
+        if (obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)) {
+            IBrokerRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollectionDetails)
+            );
+            return (cd);
+        } else {
+            revert("unknown obligation type");
+        }
     }
 }

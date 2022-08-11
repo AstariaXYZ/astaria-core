@@ -1,51 +1,55 @@
-pragma solidity ^0.8.13;
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
+pragma solidity ^0.8.15;
+import {IERC721, IERC165} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IBrokerRouter} from "./IBrokerRouter.sol";
 
 interface ILienToken is IERC721 {
     struct Lien {
         uint256 amount; //32
-        //        uint256 maxDebt; //32
+        uint256 collateralVault; //32
         address token; // 20
-        //        address broker; // 20
-        bool active; // 1
         uint32 rate; // 4
-        //        uint32 maxRate; // 4
-        uint32 duration; //4
-        uint32 last; // 4
         uint32 start; // 4
-        uint32 schedule; // 4
+        uint32 last; // 4
+        address vault; // 20
+        uint32 duration; // 4
+        uint8 position; // 1
+        bool active; // 1
     }
 
     struct LienActionEncumber {
-        IBrokerRouter.Terms terms;
+        address tokenContract;
+        uint256 tokenId;
+        IBrokerRouter.LienDetails terms;
+        bytes32 obligationRoot;
         uint256 amount;
+        address vault;
+        bool validateEscrow;
     }
 
     struct LienActionBuyout {
-        IBrokerRouter.Terms incoming;
+        IBrokerRouter.Commitment incoming;
         uint256 position;
         address receiver;
     }
 
-    struct SubjugationOffer {
-        uint256 collateralVault;
-        uint256 lien;
-        uint256 currentPosition;
-        uint256 lowestPosition;
-        uint256 price;
-        uint256 deadline;
-        address token;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
+    //    struct SubjugationOffer {
+    //        uint256 collateralVault;
+    //        uint256 lien;
+    //        uint256 currentPosition;
+    //        uint256 lowestPosition;
+    //        uint256 price;
+    //        uint256 deadline;
+    //        address token;
+    //        uint8 v;
+    //        bytes32 r;
+    //        bytes32 s;
+    //    }
 
-    struct LienActionSwap {
-        SubjugationOffer offer;
-        uint256 replacementLien;
-        uint256 replacementPosition;
-    }
+    //    struct LienActionSwap {
+    //        SubjugationOffer offer;
+    //        uint256 replacementLien;
+    //        uint256 replacementPosition;
+    //    }
 
     function stopLiens(uint256 collateralVault)
         external
@@ -79,15 +83,6 @@ interface ILienToken is IERC721 {
     function createLien(LienActionEncumber calldata params)
         external
         returns (uint256 lienId);
-
-    function encodeSubjugationOffer(
-        uint256 collateralVault,
-        uint256 lien,
-        uint256 currentPosition,
-        uint256 lowestPosition,
-        uint256 price,
-        uint256 deadline
-    ) external view returns (bytes memory);
 
     function buyoutLien(LienActionBuyout calldata params) external;
 

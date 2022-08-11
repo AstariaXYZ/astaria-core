@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
@@ -36,12 +36,12 @@ contract CollateralVault is
     ICollateralVault,
     IERC1155Receiver
 {
+    using SafeTransferLib for ERC20;
+
     struct Asset {
         address tokenContract;
         uint256 tokenId;
     }
-
-    using SafeTransferLib for ERC20;
 
     mapping(uint256 => Asset) idToUnderlying;
     mapping(address => address) public securityHooks;
@@ -84,10 +84,6 @@ contract CollateralVault is
     }
 
     function file(bytes32 what, bytes calldata data) external requiresAuth {
-        // if (what == "SUPPORTED_ASSETS_ROOT") {
-        //     bytes32 value = abi.decode(data, (bytes32));
-        //     SUPPORTED_ASSETS_ROOT = value;
-        // } else
         if (what == "CONDUIT") {
             address addr = abi.decode(data, (address));
             CONDUIT = addr;
@@ -384,14 +380,16 @@ contract CollateralVault is
         return (underlying.tokenContract, underlying.tokenId);
     }
 
-    function tokenURI(uint256 starTokenId)
+    function tokenURI(uint256 collateralVault)
         public
         view
         virtual
         override
         returns (string memory)
     {
-        (address underlyingAsset, uint256 assetId) = getUnderlying(starTokenId);
+        (address underlyingAsset, uint256 assetId) = getUnderlying(
+            collateralVault
+        );
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 

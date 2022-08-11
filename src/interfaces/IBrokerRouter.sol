@@ -1,4 +1,4 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.15;
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ILienToken} from "./ILienToken.sol";
 import {ICollateralVault} from "./ICollateralVault.sol";
@@ -17,19 +17,68 @@ interface IBrokerRouter {
         uint256 duration;
         uint256 schedule;
     }
+
+    struct LienDetails {
+        uint256 maxAmount;
+        uint256 maxSeniorDebt;
+        uint256 rate;
+        uint256 maxInterestRate; //max at origination
+        uint256 duration;
+    }
+
+    enum ObligationType {
+        STANDARD,
+        COLLECTION
+    }
+
+    struct CollectionDetails {
+        uint8 version;
+        address token;
+        address borrower;
+        LienDetails lien;
+    }
+
+    struct CollateralDetails {
+        uint8 version;
+        address token;
+        uint256 tokenId;
+        address borrower;
+        LienDetails lien;
+    }
+
+    struct StrategyDetails {
+        uint8 version;
+        address strategist;
+        address delegate;
+        //        uint256 expiration;
+        uint256 nonce;
+        address vault;
+    }
+
+    struct NewObligationRequest {
+        StrategyDetails strategy;
+        uint8 obligationType;
+        bytes obligationDetails;
+        bytes32 obligationRoot;
+        bytes32[] obligationProof;
+        uint256 amount;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
     struct Commitment {
         address tokenContract;
         uint256 tokenId;
         bytes32[] depositProof;
-        ILienToken.LienActionEncumber action;
+        NewObligationRequest nor;
     }
     struct BrokerParams {
         address appraiser;
-        bytes32 root;
-        uint256 expiration;
+        address delegate;
+        //        uint256 expiration;
         uint256 deadline;
         uint256 buyout;
-        bytes32 contentHash;
         uint8 v;
         bytes32 r;
         bytes32 s;
@@ -41,7 +90,7 @@ interface IBrokerRouter {
     }
 
     struct BorrowAndBuyParams {
-        ILienToken.LienActionEncumber[] commitments;
+        Commitment[] commitments;
         address invoker;
         uint256 purchasePrice;
         bytes purchaseData;
@@ -51,41 +100,40 @@ interface IBrokerRouter {
     struct BondVault {
         address appraiser; // address of the appraiser for the BondVault
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
-        address broker; //cloned proxy
     }
 
-    function newBondVault(BrokerParams memory params) external;
+    function newBondVault(BrokerParams memory params)
+        external
+        returns (address);
 
     function feeTo() external returns (address);
 
     function encodeBondVaultHash(
         address appraiser,
-        bytes32 root,
-        uint256 expiration,
+        address delegate,
+        //        uint256 expiration,
         uint256 appraiserNonce,
         uint256 deadline,
         uint256 buyout
     ) external view returns (bytes memory);
 
-    function commitToLoans(Commitment[] calldata commitments)
+    function commitToLoans(Commitment[] calldata)
         external
         returns (uint256 totalBorrowed);
 
     function requestLienPosition(ILienToken.LienActionEncumber calldata params)
         external
-        returns (bool);
+        returns (uint256);
 
-    function LIEN_TOKEN() external returns (ILienToken);
+    function LIEN_TOKEN() external view returns (ILienToken);
 
-    function TRANSFER_PROXY() external returns (ITransferProxy);
+    function TRANSFER_PROXY() external view returns (ITransferProxy);
 
-    function COLLATERAL_VAULT() external returns (ICollateralVault);
+    function COLLATERAL_VAULT() external view returns (ICollateralVault);
 
     function getAppraiserFee() external view returns (uint256, uint256);
 
-    function lendToVault(bytes32 bondVault, uint256 amount) external;
-
-    function getBroker(bytes32 bondVault) external view returns (address);
+    function lendToVault(address vault, uint256 amount) external;
 
     function liquidate(uint256 collateralVault, uint256 position)
         external
@@ -95,6 +143,8 @@ interface IBrokerRouter {
         external
         view
         returns (bool);
+
+    function isValidVault(address) external view returns (bool);
 
     function isValidRefinance(RefinanceCheckParams memory params)
         external
@@ -106,13 +156,7 @@ interface IBrokerRouter {
         uint256 position,
         uint256 reserve
     );
-    event NewBondVault(
-        address appraiser,
-        address broker,
-        bytes32 bondVault,
-        bytes32 contentHash,
-        uint256 expiration
-    );
+    event NewVault(address appraiser, address vault);
 
     error InvalidAddress(address);
     error InvalidRefinanceRate(uint256);

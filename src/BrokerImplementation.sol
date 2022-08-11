@@ -1,6 +1,5 @@
-pragma solidity ^0.8.13;
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
-import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
+pragma solidity ^0.8.15;
+import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
@@ -11,15 +10,18 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 
-abstract contract BrokerImplementation is IERC721Receiver, Base {
+abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
     using SafeTransferLib for ERC20;
-    using ValidateTerms for IBrokerRouter.Terms;
+    using CollateralLookup for address;
+    using ValidateTerms for IBrokerRouter.NewObligationRequest;
     using FixedPointMathLib for uint256;
 
-    event NewTermCommitment(
+    event NewObligation(
         bytes32 bondVault,
-        uint256 collateralVault,
+        address tokenContract,
+        uint256 tokenId,
         uint256 amount
     );
 
@@ -49,69 +51,118 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
         uint256 tokenId_,
         bytes calldata data_
     ) external pure override returns (bytes4) {
-        return IERC721Receiver.onERC721Received.selector;
+        return ERC721TokenReceiver.onERC721Received.selector;
     }
 
     function _handleAppraiserReward(uint256) internal virtual {}
 
-    function _validateTerms(IBrokerRouter.Terms memory params, uint256 amount)
-        internal
-        view
-    {
-        require(
-            appraiser() != address(0),
-            "BrokerImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
-        );
-        require(
-            params.maxAmount >= amount,
-            "Broker._validateTerms(): Attempting to borrow more than maxAmount"
-        );
-        require(
-            amount <= ERC20(asset()).balanceOf(address(this)),
-            "Broker._validateTerms():  Attempting to borrow more than available in the specified vault"
-        );
-
-        require(
-            params.validateTerms(vaultHash()),
-            "Broker._validateTerms(): Verification of provided merkle branch failed for the bondVault and parameters"
-        );
+    //decode obligationData into structs
+    function _decodeObligationData(
+        uint8 obligationType,
+        bytes memory obligationData
+    ) internal view returns (IBrokerRouter.LienDetails memory) {
+        if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
+            IBrokerRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollateralDetails)
+            );
+            return (cd.lien);
+        } else if (
+            obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)
+        ) {
+            IBrokerRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IBrokerRouter.CollectionDetails)
+            );
+            return (cd.lien);
+        } else {
+            revert("unknown obligation type");
+        }
     }
 
-    //move this to a lib so we can reuse on star nft
-    function validateTerms(IBrokerRouter.Terms memory params)
-        public
-        pure
-        returns (bool)
-    {
-        return params.validateTerms(vaultHash());
-    }
+    event LogNor(IBrokerRouter.NewObligationRequest);
+    event LogLien(IBrokerRouter.LienDetails);
 
-    function commitToLoan(
-        IBrokerRouter.Terms memory params,
-        uint256 amount,
+    function _validateCommitment(
+        IBrokerRouter.Commitment memory params,
         address receiver
-    ) public {
-        address operator = IERC721(COLLATERAL_VAULT()).getApproved(
-            params.collateralVault
+    ) internal {
+        uint256 collateralVault = params.tokenContract.computeId(
+            params.tokenId
         );
-        address owner = IERC721(COLLATERAL_VAULT()).ownerOf(
-            params.collateralVault
+
+        address operator = ERC721(COLLATERAL_VAULT()).getApproved(
+            collateralVault
         );
+
+        address owner = ERC721(COLLATERAL_VAULT()).ownerOf(collateralVault);
+
         if (msg.sender != owner) {
             require(msg.sender == operator, "invalid request");
         }
+
         if (receiver != owner) {
             require(
-                receiver == operator,
+                receiver == operator ||
+                    IBrokerRouter(router()).isValidVault(receiver),
                 "can only issue funds to an operator that is approved by the owner"
             );
         }
 
-        _validateTerms(params, amount);
+        require(
+            appraiser() != address(0),
+            "BrokerImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
+        );
 
-        _requestLienAndIssuePayout(params, receiver, amount);
-        _handleAppraiserReward(amount);
-        emit NewTermCommitment(vaultHash(), params.collateralVault, amount);
+        (bool valid, IBrokerRouter.LienDetails memory ld) = params
+            .nor
+            .validateTerms(owner);
+
+        require(
+            valid,
+            "Vault._validateTerms(): Verification of provided merkle branch failed for the vault and parameters"
+        );
+
+        //        IBrokerRouter.LienDetails memory ld = _decodeObligationData(
+        //            params.nor.obligationType,
+        //            params.nor.obligationDetails
+        //        );
+        require(
+            ld.maxAmount >= params.nor.amount,
+            "Vault._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
+        );
+
+        uint256 seniorDebt = IBrokerRouter(router())
+            .LIEN_TOKEN()
+            .getTotalDebtForCollateralVault(
+                params.tokenContract.computeId(params.tokenId)
+            );
+        require(
+            seniorDebt <= ld.maxSeniorDebt,
+            "Vault._validateTerms(): too much debt already for this loan"
+        );
+        require(
+            params.nor.amount <= ERC20(asset()).balanceOf(address(this)),
+            "Vault._validateTerms():  Attempting to borrow more than available in the specified vault"
+        );
+
+        //check that we aren't paused from reserves being too low
+    }
+
+    function commitToLoan(
+        IBrokerRouter.Commitment memory params,
+        address receiver
+    ) external {
+        _validateCommitment(params, receiver);
+        _requestLienAndIssuePayout(params, receiver);
+        _handleAppraiserReward(params.nor.amount);
+
+        emit NewObligation(
+            params.nor.obligationRoot,
+            params.tokenContract,
+            params.tokenId,
+            params.nor.amount
+        );
     }
 
     function canLiquidate(uint256 collateralVault, uint256 position)
@@ -125,7 +176,7 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
     function buyoutLien(
         uint256 collateralVault,
         uint256 position,
-        IBrokerRouter.Terms memory incomingTerms
+        IBrokerRouter.Commitment memory incomingTerms
     ) external {
         (uint256 owed, uint256 buyout) = IBrokerRouter(router())
             .LIEN_TOKEN()
@@ -135,11 +186,9 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
             buyout <= ERC20(asset()).balanceOf(address(this)),
             "not enough balance to buy out loan"
         );
+        incomingTerms.nor.amount = owed;
 
-        _validateTerms(
-            incomingTerms,
-            owed //amount
-        );
+        _validateCommitment(incomingTerms, recipient());
 
         ERC20(asset()).safeApprove(
             address(IBrokerRouter(router()).TRANSFER_PROXY()),
@@ -159,27 +208,44 @@ abstract contract BrokerImplementation is IERC721Receiver, Base {
     }
 
     function _requestLienAndIssuePayout(
-        IBrokerRouter.Terms memory params,
-        address receiver,
-        uint256 amount
+        IBrokerRouter.Commitment memory c,
+        address receiver
     ) internal {
-        require(
-            IBrokerRouter(router()).requestLienPosition(
-                ILienToken.LienActionEncumber(params, amount)
-            ),
-            "lien position not available"
+        //address tokenContract;
+        //        uint256 tokenId;
+        //        IBrokerRouter.LienDetails terms;
+        //        bytes32 obligationRoot;
+        //        uint256 amount;
+        //        address vault;
+        //        bool borrowAndBuy;
+
+        IBrokerRouter.LienDetails memory terms = ValidateTerms.getLienDetails(
+            c.nor.obligationType,
+            c.nor.obligationDetails
+        );
+
+        uint256 newLienId = IBrokerRouter(router()).requestLienPosition(
+            ILienToken.LienActionEncumber(
+                c.tokenContract,
+                c.tokenId,
+                terms,
+                c.nor.obligationRoot,
+                c.nor.amount,
+                c.nor.strategy.vault,
+                true
+            )
         );
         address feeTo = IBrokerRouter(router()).feeTo();
         bool feeOn = feeTo != address(0);
         if (feeOn) {
             // uint256 rake = (amount * 997) / 1000;
-            uint256 rake = amount.mulDivDown(997, 1000);
+            uint256 rake = c.nor.amount.mulDivDown(997, 1000);
             ERC20(asset()).safeTransfer(feeTo, rake);
             unchecked {
-                amount -= rake;
+                c.nor.amount -= rake;
             }
         }
-        ERC20(asset()).safeTransfer(receiver, amount);
+        ERC20(asset()).safeTransfer(receiver, c.nor.amount);
     }
 }
 
