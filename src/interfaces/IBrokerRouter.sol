@@ -100,7 +100,6 @@ interface IBrokerRouter {
     struct BondVault {
         address appraiser; // address of the appraiser for the BondVault
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
-        address broker; //cloned proxy
     }
 
     function newBondVault(BrokerParams memory params)
@@ -134,9 +133,7 @@ interface IBrokerRouter {
 
     function getAppraiserFee() external view returns (uint256, uint256);
 
-    function lendToVault(bytes32 bondVault, uint256 amount) external;
-
-    function getBroker(bytes32 bondVault) external view returns (address);
+    function lendToVault(address vault, uint256 amount) external;
 
     function liquidate(uint256 collateralVault, uint256 position)
         external
@@ -146,6 +143,8 @@ interface IBrokerRouter {
         external
         view
         returns (bool);
+
+    function isValidVault(address) external view returns (bool);
 
     function isValidRefinance(RefinanceCheckParams memory params)
         external

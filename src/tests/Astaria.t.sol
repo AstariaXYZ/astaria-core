@@ -130,26 +130,18 @@ contract AstariaTest is TestHelpers {
 
     function testSoloLend() public {
         vm.startPrank(appraiserOne);
-        _createBondVault(testBondVaultHash, false);
+        address vault = _createBondVault(testBondVaultHash, false);
 
         vm.deal(appraiserOne, 1000 ether);
         WETH9.deposit{value: 50 ether}();
-        WETH9.approve(
-            address(BOND_CONTROLLER.getBroker(testBondVaultHash)),
-            type(uint256).max
-        );
+        WETH9.approve(vault, type(uint256).max);
 
         vm.warp(block.timestamp + 10000 days); // forward past expiration date
 
         //        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
-        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
-            50 ether,
-            address(this)
-        );
+        IBroker(vault).deposit(50 ether, address(this));
 
-        SoloBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).withdraw(
-            50 ether
-        );
+        SoloBroker(vault).withdraw(50 ether);
         vm.stopPrank();
     }
 
@@ -700,39 +692,31 @@ contract AstariaTest is TestHelpers {
 
     // failure testing
     function testFailLendWithoutTransfer() public {
+        address vault = _createBondVault(testBondVaultHash, true);
+
         WETH9.transfer(address(BOND_CONTROLLER), uint256(1));
-        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
-            uint256(1),
-            address(this)
-        );
+        IBroker(vault).deposit(uint256(1), address(this));
     }
 
     function testFailLendWithNonexistentVault() public {
+        address vault = _createBondVault(testBondVaultHash, true);
+
         BrokerRouter emptyController;
         //        emptyController.lendToVault(testBondVaultHash, uint256(1));
-        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
-            uint256(1),
-            address(this)
-        );
+        IBroker(vault).deposit(uint256(1), address(this));
     }
 
     function testFailLendPastExpiration() public {
-        _createBondVault(testBondVaultHash, true);
+        address vault = _createBondVault(testBondVaultHash, true);
         vm.deal(lender, 1000 ether);
         vm.startPrank(lender);
         WETH9.deposit{value: 50 ether}();
-        WETH9.approve(
-            address(BOND_CONTROLLER.getBroker(testBondVaultHash)),
-            type(uint256).max
-        );
+        WETH9.approve(vault, type(uint256).max);
 
         vm.warp(block.timestamp + 10000 days); // forward past expiration date
 
         //        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
-        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
-            50 ether,
-            address(this)
-        );
+        IBroker(vault).deposit(50 ether, address(this));
         vm.stopPrank();
     }
 
@@ -750,26 +734,20 @@ contract AstariaTest is TestHelpers {
 
     function testFailSoloLendNotAppraiser() public {
         vm.startPrank(appraiserOne);
-        _createBondVault(testBondVaultHash, false);
+        address vault = _createBondVault(testBondVaultHash, false);
         vm.stopPrank();
 
         vm.deal(lender, 1000 ether);
         vm.startPrank(lender);
         WETH9.deposit{value: 50 ether}();
-        WETH9.approve(
-            address(BOND_CONTROLLER.getBroker(testBondVaultHash)),
-            type(uint256).max
-        );
+        WETH9.approve(vault, type(uint256).max);
 
         vm.warp(block.timestamp + 10000 days); // forward past expiration date
 
         // delete?
-        BOND_CONTROLLER.lendToVault(testBondVaultHash, 50 ether);
+        BOND_CONTROLLER.lendToVault(vault, 50 ether);
 
-        IBroker(BOND_CONTROLLER.getBroker(testBondVaultHash)).deposit(
-            50 ether,
-            address(this)
-        );
+        IBroker(vault).deposit(50 ether, address(this));
         vm.stopPrank();
     }
 }

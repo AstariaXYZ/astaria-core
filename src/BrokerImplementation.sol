@@ -20,7 +20,8 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
 
     event NewObligation(
         bytes32 bondVault,
-        uint256 collateralVault,
+        address tokenContract,
+        uint256 tokenId,
         uint256 amount
     );
 
@@ -82,9 +83,32 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
     event LogNor(IBrokerRouter.NewObligationRequest);
     event LogLien(IBrokerRouter.LienDetails);
 
-    function _validateCommitment(IBrokerRouter.Commitment memory params)
-        internal
-    {
+    function _validateCommitment(
+        IBrokerRouter.Commitment memory params,
+        address receiver
+    ) internal {
+        uint256 collateralVault = params.tokenContract.computeId(
+            params.tokenId
+        );
+
+        address operator = ERC721(COLLATERAL_VAULT()).getApproved(
+            collateralVault
+        );
+
+        address owner = ERC721(COLLATERAL_VAULT()).ownerOf(collateralVault);
+
+        if (msg.sender != owner) {
+            require(msg.sender == operator, "invalid request");
+        }
+
+        if (receiver != owner) {
+            require(
+                receiver == operator ||
+                    IBrokerRouter(router()).isValidVault(receiver),
+                "can only issue funds to an operator that is approved by the owner"
+            );
+        }
+
         require(
             appraiser() != address(0),
             "BrokerImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
@@ -92,7 +116,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
 
         (bool valid, IBrokerRouter.LienDetails memory ld) = params
             .nor
-            .validateTerms();
+            .validateTerms(owner);
 
         require(
             valid,
@@ -128,32 +152,15 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
     function commitToLoan(
         IBrokerRouter.Commitment memory params,
         address receiver
-    ) public {
-        uint256 collateralVault = params.tokenContract.computeId(
-            params.tokenId
-        );
-        address operator = ERC721(COLLATERAL_VAULT()).getApproved(
-            collateralVault
-        );
-        address owner = ERC721(COLLATERAL_VAULT()).ownerOf(collateralVault);
-        if (msg.sender != owner) {
-            require(msg.sender == operator, "invalid request");
-        }
-        if (receiver != owner) {
-            require(
-                receiver == operator,
-                "can only issue funds to an operator that is approved by the owner"
-            );
-        }
-
-        _validateCommitment(params);
-
+    ) external {
+        _validateCommitment(params, receiver);
         _requestLienAndIssuePayout(params, receiver);
         _handleAppraiserReward(params.nor.amount);
 
         emit NewObligation(
             params.nor.obligationRoot,
-            collateralVault,
+            params.tokenContract,
+            params.tokenId,
             params.nor.amount
         );
     }
@@ -181,7 +188,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         );
         incomingTerms.nor.amount = owed;
 
-        _validateCommitment(incomingTerms);
+        _validateCommitment(incomingTerms, recipient());
 
         ERC20(asset()).safeApprove(
             address(IBrokerRouter(router()).TRANSFER_PROXY()),

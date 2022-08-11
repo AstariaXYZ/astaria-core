@@ -9,10 +9,10 @@ library ValidateTerms {
 
     event LogNOR(IBrokerRouter.NewObligationRequest);
 
-    function validateTerms(IBrokerRouter.NewObligationRequest memory params)
-        internal
-        returns (bool, IBrokerRouter.LienDetails memory ld)
-    {
+    function validateTerms(
+        IBrokerRouter.NewObligationRequest memory params,
+        address borrower
+    ) internal returns (bool, IBrokerRouter.LienDetails memory ld) {
         bytes32 leaf;
         if (
             params.obligationType ==
@@ -46,6 +46,13 @@ library ValidateTerms {
             //    '601'
             //  ]
 
+            if (cd.borrower != address(0)) {
+                require(
+                    borrower == cd.borrower,
+                    "invalid borrower requesting commitment"
+                );
+            }
+
             leaf = keccak256(
                 abi.encodePacked(
                     cd.version,
@@ -70,6 +77,13 @@ library ValidateTerms {
                 params.obligationDetails,
                 (IBrokerRouter.CollectionDetails)
             );
+
+            if (cd.borrower != address(0)) {
+                require(
+                    borrower == cd.borrower,
+                    "invalid borrower requesting commitment"
+                );
+            }
 
             leaf = keccak256(
                 abi.encode(

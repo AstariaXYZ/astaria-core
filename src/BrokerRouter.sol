@@ -44,8 +44,7 @@ contract BrokerRouter is Auth, IBrokerRouter {
     uint64 public MIN_INTEREST_BPS;
     uint64 public MIN_DURATION_INCREASE;
 
-    mapping(bytes32 => BondVault) public bondVaults;
-    mapping(address => bytes32) public brokerHashes;
+    mapping(address => BondVault) public vaults;
     mapping(address => bool) public appraisers;
     mapping(address => uint256) public appraiserNonce;
 
@@ -220,13 +219,12 @@ contract BrokerRouter is Auth, IBrokerRouter {
     function encodeBondVaultHash(
         address appraiser,
         address delegate,
-        //        uint256 expiration,
         uint256 nonce,
         uint256 deadline,
         uint256 buyout
     ) public view returns (bytes memory) {
         return
-            abi.encodePacked(
+            abi.encode(
                 EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
                 DOMAIN_SEPARATOR,
                 keccak256(
@@ -234,7 +232,6 @@ contract BrokerRouter is Auth, IBrokerRouter {
                         NEW_VAULT_SIGNATURE_HASH,
                         appraiser,
                         delegate,
-                        //                        expiration,
                         nonce,
                         deadline
                     )
@@ -309,30 +306,20 @@ contract BrokerRouter is Auth, IBrokerRouter {
         return LIEN_TOKEN.createLien(params);
     }
 
-    function lendToVault(bytes32 bondVault, uint256 amount) external {
+    function lendToVault(address vault, uint256 amount) external {
         TRANSFER_PROXY.tokenTransferFrom(
             address(WETH),
             address(msg.sender),
             address(this),
             amount
         );
-        WETH.safeApprove(bondVaults[bondVault].broker, amount);
+
         require(
-            bondVaults[bondVault].broker != address(0),
+            vaults[vault].appraiser != address(0),
             "lendToVault: vault doesn't exist"
         );
-        IBroker(bondVaults[bondVault].broker).deposit(
-            amount,
-            address(msg.sender)
-        );
-    }
-
-    function getBrokerHash(address broker) external view returns (bytes32) {
-        return brokerHashes[broker];
-    }
-
-    function getBroker(bytes32 bondVault) external view returns (address) {
-        return bondVaults[bondVault].broker;
+        WETH.safeApprove(vault, amount);
+        IBroker(vault).deposit(amount, address(msg.sender));
     }
 
     function canLiquidate(uint256 collateralVault, uint256 position)
@@ -381,6 +368,10 @@ contract BrokerRouter is Auth, IBrokerRouter {
             APPRAISER_ORIGINATION_FEE_NUMERATOR,
             APPRAISER_ORIGINATION_FEE_BASE
         );
+    }
+
+    function isValidVault(address vault) external view returns (bool) {
+        return vaults[vault].appraiser != address(0);
     }
 
     function isValidRefinance(IBrokerRouter.RefinanceCheckParams memory params)

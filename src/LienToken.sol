@@ -38,20 +38,15 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
     string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA =
         "\x19\x01";
-    bytes32 private constant NEW_SUBJUGATION_OFFER =
-        keccak256(
-            "NewSubjugationOffer(uint256 collateralVault,uint256 lienId,uint256 currentPosition,uint256 lowestPosition,uint256 price,uint256 deadline)"
-        );
 
     uint256 public lienCounter;
     uint256 public buyoutNumerator;
     uint256 public buyoutDenominator;
 
-    //    mapping(address => bool) public validatorAssets;
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
 
-    event NewLien(uint256 lienId, bytes32 rootHash);
+    event NewLien(uint256 lienId, uint256, uint8, bytes32 rootHash);
     event RemovedLiens(uint256 lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
 
@@ -109,7 +104,9 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     }
 
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
-        uint256 collateralVault = params.incoming.tokenContract.computeId(params.incoming.tokenId);
+        uint256 collateralVault = params.incoming.tokenContract.computeId(
+            params.incoming.tokenId
+        );
         (uint256 owed, uint256 buyout) = getBuyout(
             collateralVault,
             params.position
@@ -126,7 +123,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         (bool valid, IBrokerRouter.LienDetails memory ld) = params
             .incoming
             .nor
-            .validateTerms();
+            .validateTerms(COLLATERAL_VAULT.ownerOf(collateralVault));
 
         if (!valid) {
             revert("invalid incoming terms");
@@ -210,31 +207,31 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         return "";
     }
 
-    function encodeSubjugationOffer(
-        uint256 collateralVault,
-        uint256 lien,
-        uint256 currentPosition,
-        uint256 lowestPosition,
-        uint256 price,
-        uint256 deadline
-    ) public view returns (bytes memory) {
-        return
-            abi.encodePacked(
-                EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-                DOMAIN_SEPARATOR,
-                keccak256(
-                    abi.encode(
-                        NEW_SUBJUGATION_OFFER,
-                        collateralVault,
-                        lien,
-                        currentPosition,
-                        lowestPosition,
-                        price,
-                        deadline
-                    )
-                )
-            );
-    }
+    //    function encodeSubjugationOffer(
+    //        uint256 collateralVault,
+    //        uint256 lien,
+    //        uint256 currentPosition,
+    //        uint256 lowestPosition,
+    //        uint256 price,
+    //        uint256 deadline
+    //    ) public view returns (bytes memory) {
+    //        return
+    //            abi.encodePacked(
+    //                EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
+    //                DOMAIN_SEPARATOR,
+    //                keccak256(
+    //                    abi.encode(
+    //                        NEW_SUBJUGATION_OFFER,
+    //                        collateralVault,
+    //                        lien,
+    //                        currentPosition,
+    //                        lowestPosition,
+    //                        price,
+    //                        deadline
+    //                    )
+    //                )
+    //            );
+    //    }
 
     //    function takeSubjugationOffer(ILienToken.LienActionSwap calldata params)
     //        external
@@ -307,7 +304,9 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     {
         // require that the auction is not under way
 
-        uint256 collateralVault = params.tokenContract.computeId(params.tokenId);
+        uint256 collateralVault = params.tokenContract.computeId(
+            params.tokenId
+        );
 
         require(
             !AUCTION_HOUSE.auctionExists(collateralVault),
@@ -325,10 +324,16 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         }
 
         uint256 totalDebt = getTotalDebtForCollateralVault(collateralVault);
+        uint256 impliedRate = getImpliedRate(collateralVault);
 
         require(
             params.terms.maxSeniorDebt >= totalDebt,
             "too much debt to take this loan"
+        );
+
+        require(
+            params.terms.maxInterestRate >= impliedRate,
+            "current implied rate is too high"
         );
 
         lienId = uint256(
@@ -340,63 +345,45 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
                         WETH,
                         params.terms.maxAmount,
                         params.terms.maxSeniorDebt,
-                        params.terms.duration,
                         params.terms.rate,
-                        params.terms.maxInterestRate
+                        params.terms.maxInterestRate,
+                        params.terms.duration
                     ),
                     params.obligationRoot
                 )
             )
         );
 
+        uint8 newPosition = uint8(liens[collateralVault].length);
+
         _mint(BrokerImplementation(params.vault).recipient(), lienId);
         lienData[lienId] = Lien({
             token: WETH,
+            collateralVault: collateralVault,
+            position: newPosition,
             amount: params.amount,
-//            maxSeniorDebt: params.terms.maxSeniorDebt,
             active: true,
             rate: uint32(params.terms.rate),
             vault: params.vault,
             last: uint32(block.timestamp),
             start: uint32(block.timestamp),
             duration: uint32(params.terms.duration)
-//            schedule: uint32(params.terms.schedule)
         });
 
         liens[collateralVault].push(lienId);
 
-        emit NewLien(lienId, params.obligationRoot);
-
+        emit NewLien(
+            lienId,
+            collateralVault,
+            newPosition,
+            params.obligationRoot
+        );
     }
 
     function removeLiens(uint256 collateralVault) external requiresAuth {
         delete liens[collateralVault];
         emit RemovedLiens(collateralVault);
     }
-
-    //    function isValidatorAsset(address incomingAsset) public returns (bool) {
-    //        return validatorAssets[incomingAsset];
-    //    }
-
-    //    function onERC1155Received(
-    //        address operator,
-    //        address from,
-    //        uint256 id,
-    //        uint256 value,
-    //        bytes calldata data
-    //    ) external returns (bytes4) {
-    //        require(
-    //            isValidatorAsset(msg.sender),
-    //            "address must be from a validator contract we care about"
-    //        );
-    //        require(
-    //            WETH.balanceOf(address(this) >= value),
-    //            "not enough balance to make this payment"
-    //        );
-    //        makePayment(id, value);
-    //
-    //        return IERC1155Receiver.onERC1155Received.selector;
-    //    }
 
     function getLiens(uint256 collateralVault)
         public
@@ -458,7 +445,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         returns (uint256 totalDebt)
     {
         uint256[] memory openLiens = getLiens(collateralVault);
-
+        totalDebt = 0;
         for (uint256 i = 0; i < openLiens.length; ++i) {
             totalDebt += _getOwed(lienData[openLiens[i]]);
         }
@@ -469,6 +456,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         uint256 timestamp
     ) public view returns (uint256 totalDebt) {
         uint256[] memory openLiens = getLiens(collateralVault);
+        totalDebt = 0;
 
         for (uint256 i = 0; i < openLiens.length; ++i) {
             totalDebt += _getOwed(lienData[openLiens[i]], timestamp);
@@ -482,7 +470,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     {
         uint256 totalDebt = getTotalDebtForCollateralVault(collateralVault);
         uint256[] memory openLiens = getLiens(collateralVault);
-
+        impliedRate = 0;
         for (uint256 i = 0; i < openLiens.length; ++i) {
             Lien storage lien = lienData[openLiens[i]];
 
