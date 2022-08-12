@@ -43,11 +43,12 @@ contract PublicVault is Vault, ERC4626Cloned {
     //        WETH = IERC20(_WETH);
     //    }
 
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public virtual override returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address owner)
+        public
+        virtual
+        override
+        returns (uint256 assets)
+    {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
     }
 
@@ -56,7 +57,11 @@ contract PublicVault is Vault, ERC4626Cloned {
         address receiver,
         address owner,
         uint64 epoch
-    ) public virtual returns (uint256 assets) {
+    )
+        public
+        virtual
+        returns (uint256 assets)
+    {
         if (msg.sender != owner) {
             uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
 
@@ -90,7 +95,9 @@ contract PublicVault is Vault, ERC4626Cloned {
     function processEpoch(
         uint256[] memory collateralVaults,
         uint256[] memory positions
-    ) external {
+    )
+        external
+    {
         // check to make sure epoch is over
         require(
             start() + ((currentEpoch + 1) * epoch_length()) < block.timestamp,
@@ -123,8 +130,8 @@ contract PublicVault is Vault, ERC4626Cloned {
                 "liquidations not processed"
             );
 
-            uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
-                .totalSupply();
+            uint256 proxySupply =
+                WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
             // recalculate liquidationWithdrawRatio for the new epoch
             liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply);
@@ -167,7 +174,11 @@ contract PublicVault is Vault, ERC4626Cloned {
     function haveLiquidationsProcessed(
         uint256[] memory collateralVaults,
         uint256[] memory positions
-    ) public virtual returns (bool) {
+    )
+        public
+        virtual
+        returns (bool)
+    {
         // was returns (uint256 balance)
         for (uint256 i = 0; i < collateralVaults.length; i++) {
             // get lienId from LienToken
@@ -179,9 +190,8 @@ contract PublicVault is Vault, ERC4626Cloned {
             // uint256 lienId =
             //     LIEN_TOKEN().liens(collateralVaults[i], positions[i]);
 
-            uint256 lienId = LIEN_TOKEN().getLiens(collateralVaults[i])[
-                positions[i]
-            ];
+            uint256 lienId =
+                LIEN_TOKEN().getLiens(collateralVaults[i])[positions[i]];
 
             // TODO implement
             // check that the lien is owned by the vault, this check prevents the msg.sender from presenting an incorrect lien set
@@ -198,8 +208,7 @@ contract PublicVault is Vault, ERC4626Cloned {
             // check that the lien cannot be liquidated
             if (
                 IBrokerRouter(router()).canLiquidate(
-                    collateralVaults[i],
-                    positions[i]
+                    collateralVaults[i], positions[i]
                 )
             ) {
                 return false;
@@ -225,10 +234,8 @@ contract PublicVault is Vault, ERC4626Cloned {
         }
 
         // decrement the yintercept for the amount received on liquidatation vs the expected
-        yintercept -= (expected - amount).mulDivDown(
-            1 - liquidationWithdrawRatio,
-            1
-        );
+        yintercept -=
+            (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
@@ -261,8 +268,8 @@ contract PublicVault is Vault, ERC4626Cloned {
     }
 
     function _handleAppraiserReward(uint256 amount) internal virtual override {
-        (uint256 appraiserRate, uint256 appraiserBase) = IBrokerRouter(router())
-            .getAppraiserFee();
+        (uint256 appraiserRate, uint256 appraiserBase) =
+            IBrokerRouter(router()).getAppraiserFee();
         _mint(
             appraiser(),
             // ((convertToShares(amount) * appraiserRate) / appraiserBase)

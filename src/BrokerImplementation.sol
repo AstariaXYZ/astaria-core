@@ -41,9 +41,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         uint256 expiration
     );
     event RedeemBond(
-        bytes32 bondVault,
-        uint256 amount,
-        address indexed redeemer
+        bytes32 bondVault, uint256 amount, address indexed redeemer
     );
 
     function onERC721Received(
@@ -51,7 +49,12 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         address from_,
         uint256 tokenId_,
         bytes calldata data_
-    ) external pure override returns (bytes4) {
+    )
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return ERC721TokenReceiver.onERC721Received.selector;
     }
 
@@ -61,20 +64,20 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
     function _decodeObligationData(
         uint8 obligationType,
         bytes memory obligationData
-    ) internal view returns (IBrokerRouter.LienDetails memory) {
+    )
+        internal
+        view
+        returns (IBrokerRouter.LienDetails memory)
+    {
         if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
-            IBrokerRouter.CollateralDetails memory cd = abi.decode(
-                obligationData,
-                (IBrokerRouter.CollateralDetails)
-            );
+            IBrokerRouter.CollateralDetails memory cd =
+                abi.decode(obligationData, (IBrokerRouter.CollateralDetails));
             return (cd.lien);
         } else if (
             obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)
         ) {
-            IBrokerRouter.CollectionDetails memory cd = abi.decode(
-                obligationData,
-                (IBrokerRouter.CollectionDetails)
-            );
+            IBrokerRouter.CollectionDetails memory cd =
+                abi.decode(obligationData, (IBrokerRouter.CollectionDetails));
             return (cd.lien);
         } else {
             revert("unknown obligation type");
@@ -87,14 +90,13 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
     function _validateCommitment(
         IBrokerRouter.Commitment memory params,
         address receiver
-    ) internal {
-        uint256 collateralVault = params.tokenContract.computeId(
-            params.tokenId
-        );
+    )
+        internal
+    {
+        uint256 collateralVault = params.tokenContract.computeId(params.tokenId);
 
-        address operator = ERC721(COLLATERAL_VAULT()).getApproved(
-            collateralVault
-        );
+        address operator =
+            ERC721(COLLATERAL_VAULT()).getApproved(collateralVault);
 
         address owner = ERC721(COLLATERAL_VAULT()).ownerOf(collateralVault);
 
@@ -104,8 +106,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
 
         if (receiver != owner) {
             require(
-                receiver == operator ||
-                    IBrokerRouter(router()).isValidVault(receiver),
+                receiver == operator || IBrokerRouter(router()).isValidVault(receiver),
                 "can only issue funds to an operator that is approved by the owner"
             );
         }
@@ -115,9 +116,8 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
             "BrokerImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
         );
 
-        (bool valid, IBrokerRouter.LienDetails memory ld) = params
-            .nor
-            .validateTerms(owner);
+        (bool valid, IBrokerRouter.LienDetails memory ld) =
+            params.nor.validateTerms(owner);
 
         require(
             valid,
@@ -133,11 +133,10 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
             "Vault._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
         );
 
-        uint256 seniorDebt = IBrokerRouter(router())
-            .LIEN_TOKEN()
+        uint256 seniorDebt = IBrokerRouter(router()).LIEN_TOKEN()
             .getTotalDebtForCollateralVault(
-                params.tokenContract.computeId(params.tokenId)
-            );
+            params.tokenContract.computeId(params.tokenId)
+        );
         require(
             seniorDebt <= ld.maxSeniorDebt,
             "Vault._validateTerms(): too much debt already for this loan"
@@ -158,7 +157,9 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
     function commitToLoan(
         IBrokerRouter.Commitment memory params,
         address receiver
-    ) external {
+    )
+        external
+    {
         _validateCommitment(params, receiver);
         uint256 lienId = _requestLienAndIssuePayout(params, receiver);
         _handleAppraiserReward(params.nor.amount);
@@ -168,7 +169,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
             params.tokenContract,
             params.tokenId,
             params.nor.amount
-        );
+            );
     }
 
     function canLiquidate(uint256 collateralVault, uint256 position)
@@ -183,9 +184,10 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         uint256 collateralVault,
         uint256 position,
         IBrokerRouter.Commitment memory incomingTerms
-    ) external {
-        (uint256 owed, uint256 buyout) = IBrokerRouter(router())
-            .LIEN_TOKEN()
+    )
+        external
+    {
+        (uint256 owed, uint256 buyout) = IBrokerRouter(router()).LIEN_TOKEN()
             .getBuyout(collateralVault, position);
 
         require(
@@ -197,8 +199,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         _validateCommitment(incomingTerms, recipient());
 
         ERC20(asset()).safeApprove(
-            address(IBrokerRouter(router()).TRANSFER_PROXY()),
-            owed
+            address(IBrokerRouter(router()).TRANSFER_PROXY()), owed
         );
         IBrokerRouter(router()).LIEN_TOKEN().buyoutLien(
             ILienToken.LienActionBuyout(incomingTerms, position, recipient())
@@ -216,7 +217,10 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
     function _requestLienAndIssuePayout(
         IBrokerRouter.Commitment memory c,
         address receiver
-    ) internal returns (uint256) {
+    )
+        internal
+        returns (uint256)
+    {
         //address tokenContract;
         //        uint256 tokenId;
         //        IBrokerRouter.LienDetails terms;
@@ -226,8 +230,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, Base {
         //        bool borrowAndBuy;
 
         IBrokerRouter.LienDetails memory terms = ValidateTerms.getLienDetails(
-            c.nor.obligationType,
-            c.nor.obligationDetails
+            c.nor.obligationType, c.nor.obligationDetails
         );
 
         uint256 newLienId = IBrokerRouter(router()).requestLienPosition(
@@ -262,7 +265,6 @@ interface IBroker {
         virtual
         returns (uint256 shares);
 }
-
 //contract SoloBroker is BrokerImplementation, IBroker {
 //    using SafeTransferLib for ERC20;
 //
