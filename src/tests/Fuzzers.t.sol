@@ -3,8 +3,7 @@ pragma solidity ^0.8.15;
 import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
-import {MultiRolesAuthority} from
-    "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
@@ -86,8 +85,11 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (,, IBrokerRouter.Commitment memory terms) =
-            _commitToLoan(tokenContract, tokenId, args);
+        (, , IBrokerRouter.Commitment memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            args
+        );
 
         uint256 collateralVault = tokenContract.computeId(tokenId);
 
@@ -95,7 +97,7 @@ contract Fuzzers is TestHelpers {
         assertEq(interest, uint256(0));
 
         // TODO calcs, waiting on better math for now
-        // _warpToMaturity(starId, uint256(0));
+        // _warpToMaturity(collateralVault, uint256(0));
         // interest = LIEN_TOKEN.getInterest(terms.collateralVault, uint256(0));
     }
 
@@ -106,8 +108,11 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (,, IBrokerRouter.Commitment memory terms) =
-            _commitToLoan(tokenContract, tokenId, args);
+        (, , IBrokerRouter.Commitment memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            args
+        );
         uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
             tokenContract.computeId(tokenId)
         );
@@ -122,11 +127,16 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (,, IBrokerRouter.Commitment memory terms) =
-            _commitToLoan(tokenContract, tokenId, args);
+        (, , IBrokerRouter.Commitment memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            args
+        );
 
-        (uint256 owed, uint256 owedPlus) =
-            LIEN_TOKEN.getBuyout(tokenContract.computeId(tokenId), uint256(0));
+        (uint256 owed, uint256 owedPlus) = LIEN_TOKEN.getBuyout(
+            tokenContract.computeId(tokenId),
+            uint256(0)
+        );
 
         assertLt(owed, owedPlus);
     }
@@ -136,13 +146,12 @@ contract Fuzzers is TestHelpers {
         FuzzInputs memory args,
         uint256 newInterestRate,
         uint256 newDuration
-    )
-        public
-        validateInputs(args)
-    {
+    ) public validateInputs(args) {
         newInterestRate = bound(newInterestRate, 1e10, 1e12);
         newDuration = bound(
-            newDuration, block.timestamp + 1 minutes, block.timestamp + 10 minutes
+            newDuration,
+            block.timestamp + 1 minutes,
+            block.timestamp + 10 minutes
         );
 
         Dummy721 loanTest = new Dummy721();

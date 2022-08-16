@@ -15,11 +15,8 @@ import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {BrokerImplementation} from "./BrokerImplementation.sol";
-import {
-    SeaportInterface, Order
-} from "seaport/interfaces/SeaportInterface.sol";
-import {ConduitControllerInterface} from
-    "seaport/interfaces/ConduitControllerInterface.sol";
+import {SeaportInterface, Order} from "seaport/interfaces/SeaportInterface.sol";
+import {ConduitControllerInterface} from "seaport/interfaces/ConduitControllerInterface.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -50,8 +47,6 @@ contract CollateralVault is
     mapping(uint256 => Asset) idToUnderlying;
     mapping(address => address) public securityHooks;
 
-    bytes32 SUPPORTED_ASSETS_ROOT;
-
     ITransferProxy public TRANSFER_PROXY;
     ILienToken public LIEN_TOKEN;
     IAuctionHouse public AUCTION_HOUSE;
@@ -62,10 +57,14 @@ contract CollateralVault is
     bytes32 public CONDUIT_KEY;
 
     event DepositERC721(
-        address indexed from, address indexed tokenContract, uint256 tokenId
+        address indexed from,
+        address indexed tokenContract,
+        uint256 tokenId
     );
     event ReleaseTo(
-        address indexed underlyingAsset, uint256 assetId, address indexed to
+        address indexed underlyingAsset,
+        uint256 assetId,
+        address indexed to
     );
 
     error AssetNotSupported(address);
@@ -94,23 +93,24 @@ contract CollateralVault is
             // or SEAPORT
             address addr = abi.decode(data, (address));
             SEAPORT = SeaportInterface(addr);
-            (,, address conduitController) = SEAPORT.information();
+            (, , address conduitController) = SEAPORT.information();
             CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
             CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
-            CONDUIT =
-                CONDUIT_CONTROLLER.createConduit(CONDUIT_KEY, address(this));
+            CONDUIT = CONDUIT_CONTROLLER.createConduit(
+                CONDUIT_KEY,
+                address(this)
+            );
         } else if (what == "setBondController") {
             address addr = abi.decode(data, (address));
             BROKER_ROUTER = IBrokerRouter(addr);
-        } else if (what == "setSupportedRoot") {
-            bytes32 value = abi.decode(data, (bytes32));
-            SUPPORTED_ASSETS_ROOT = value;
         } else if (what == "setAuctionHouse") {
             address addr = abi.decode(data, (address));
             AUCTION_HOUSE = IAuctionHouse(addr);
         } else if (what == "setSecurityHook") {
-            (address target, address hook) =
-                abi.decode(data, (address, address));
+            (address target, address hook) = abi.decode(
+                data,
+                (address, address)
+            );
             securityHooks[target] = hook;
         } else {
             revert("unsupported/file");
@@ -119,46 +119,35 @@ contract CollateralVault is
 
     modifier releaseCheck(uint256 collateralVault) {
         require(
-            uint256(0) == LIEN_TOKEN.getLiens(collateralVault).length
-                && !AUCTION_HOUSE.auctionExists(collateralVault),
+            uint256(0) == LIEN_TOKEN.getLiens(collateralVault).length &&
+                !AUCTION_HOUSE.auctionExists(collateralVault),
             "must be no liens or auctions to call this"
         );
         _;
     }
 
-    modifier onlySupportedAssets(
-        address tokenContract_,
-        bytes32[] calldata proof_
-    ) {
-        bytes32 leaf = keccak256(abi.encodePacked(tokenContract_));
-        bool isValidLeaf =
-            MerkleProof.verify(proof_, SUPPORTED_ASSETS_ROOT, leaf);
-        if (!isValidLeaf) {
-            revert AssetNotSupported(tokenContract_);
-        }
+    modifier onlyOwner(uint256 collateralVault) {
+        require(
+            ownerOf(collateralVault) == msg.sender,
+            "onlyOwner: only the owner"
+        );
         _;
     }
 
-    modifier onlyOwner(uint256 starId) {
-        require(ownerOf(starId) == msg.sender, "onlyOwner: only the owner");
-        _;
-    }
-
+    //TODO: scrap this for now
     function listUnderlyingOnSeaport(
         uint256 collateralVault,
         Order memory listingOrder
-    )
-        external
-        onlyOwner(collateralVault)
-    {
+    ) external onlyOwner(collateralVault) {
         //    ItemType itemType;
         //    address token;
         //    uint256 identifierOrCriteria;
         //    uint256 startAmount;
         //    uint256 endAmount;
         //    address payable recipient;
-        (address underlyingTokenContract, uint256 underlyingId) =
-            getUnderlying(collateralVault);
+        (address underlyingTokenContract, uint256 underlyingId) = getUnderlying(
+            collateralVault
+        );
         //ItemType itemType;
         //    address token;
         //    uint256 identifierOrCriteria;
@@ -176,7 +165,8 @@ contract CollateralVault is
             "must be the correct token type"
         );
         require(
-            listingOrder.parameters.offer[0].identifierOrCriteria == underlyingId,
+            listingOrder.parameters.offer[0].identifierOrCriteria ==
+                underlyingId,
             "must be the correct token type"
         );
         require(
@@ -193,13 +183,14 @@ contract CollateralVault is
         );
         //get total Debt and ensure its being sold for more than that
         uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
-            collateralVault, listingOrder.parameters.endTime
+            collateralVault,
+            listingOrder.parameters.endTime
         );
 
         require(
-            listingOrder.parameters.offer[0].startAmount >= totalDebt
-                && listingOrder.parameters.offer[0].startAmount
-                    == listingOrder.parameters.offer[0].endAmount,
+            listingOrder.parameters.offer[0].startAmount >= totalDebt &&
+                listingOrder.parameters.offer[0].startAmount ==
+                listingOrder.parameters.offer[0].endAmount,
             "startAmount and endAmount must match"
         );
 
@@ -233,10 +224,7 @@ contract CollateralVault is
         IFlashAction receiver,
         uint256 collateralVault,
         bytes calldata data
-    )
-        external
-        onlyOwner(collateralVault)
-    {
+    ) external onlyOwner(collateralVault) {
         address addr;
         uint256 tokenId;
         (addr, tokenId) = getUnderlying(collateralVault);
@@ -248,20 +236,23 @@ contract CollateralVault is
         bytes memory preTransferState;
 
         if (securityHooks[addr] != address(0)) {
-            preTransferState =
-                ISecurityHook(securityHooks[addr]).getState(addr, tokenId);
+            preTransferState = ISecurityHook(securityHooks[addr]).getState(
+                addr,
+                tokenId
+            );
         }
 
         nft.transferFrom(address(this), address(receiver), tokenId);
         // invoke the call passed by the msg.sender
         require(
-            receiver.onFlashAction(data) == keccak256("FlashAction.onFlashAction"),
+            receiver.onFlashAction(data) ==
+                keccak256("FlashAction.onFlashAction"),
             "flashAction: callback failed"
         );
 
         if (securityHooks[addr] != address(0)) {
-            bytes memory postTransferState =
-                ISecurityHook(securityHooks[addr]).getState(addr, tokenId);
+            bytes memory postTransferState = ISecurityHook(securityHooks[addr])
+                .getState(addr, tokenId);
             require(
                 keccak256(preTransferState) == keccak256(postTransferState),
                 "flashAction: Data must be the same"
@@ -270,7 +261,8 @@ contract CollateralVault is
 
         // validate that the NFT returned after the call
         require(
-            nft.ownerOf(tokenId) == address(this), "flashAction: NFT not returned"
+            nft.ownerOf(tokenId) == address(this),
+            "flashAction: NFT not returned"
         );
     }
 
@@ -289,10 +281,7 @@ contract CollateralVault is
         uint256[] calldata ids,
         uint256[] calldata values,
         bytes calldata data
-    )
-        external
-        returns (bytes4)
-    {
+    ) external returns (bytes4) {
         require(ids.length == values.length);
         for (uint256 i = 0; i < ids.length; ++i) {
             _onERC1155Received(operator, from, ids[i], values[i], data);
@@ -306,9 +295,7 @@ contract CollateralVault is
         uint256 id,
         uint256 value,
         bytes calldata data
-    )
-        internal
-    {
+    ) internal {
         require(
             isValidatorAsset(msg.sender),
             "address must be from a validator contract we care about"
@@ -339,10 +326,7 @@ contract CollateralVault is
         uint256 id,
         uint256 value,
         bytes calldata data
-    )
-        external
-        returns (bytes4)
-    {
+    ) external returns (bytes4) {
         _onERC1155Received(operator, from, id, value, data);
         return IERC1155Receiver.onERC1155Received.selector;
     }
@@ -362,9 +346,14 @@ contract CollateralVault is
     function _releaseToAddress(uint256 collateralVault, address releaseTo)
         internal
     {
-        (address underlyingAsset, uint256 assetId) =
-            getUnderlying(collateralVault);
-        IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
+        (address underlyingAsset, uint256 assetId) = getUnderlying(
+            collateralVault
+        );
+        IERC721(underlyingAsset).transferFrom(
+            address(this),
+            releaseTo,
+            assetId
+        );
         delete idToUnderlying[collateralVault];
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
@@ -385,8 +374,9 @@ contract CollateralVault is
         override
         returns (string memory)
     {
-        (address underlyingAsset, uint256 assetId) =
-            getUnderlying(collateralVault);
+        (address underlyingAsset, uint256 assetId) = getUnderlying(
+            collateralVault
+        );
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 
@@ -395,34 +385,31 @@ contract CollateralVault is
         address from_,
         uint256 tokenId_,
         bytes calldata data_
-    )
-        external
-        pure
-        override
-        returns (bytes4)
-    {
+    ) external pure override returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
     }
 
     function depositERC721(
         address depositFor_,
         address tokenContract_,
-        uint256 tokenId_,
-        bytes32[] calldata proof_
-    )
-        external
-        onlySupportedAssets(tokenContract_, proof_)
-    {
-        uint256 collateralVault =
-            uint256(keccak256(abi.encodePacked(tokenContract_, tokenId_)));
+        uint256 tokenId_
+    ) external {
+        uint256 collateralVault = uint256(
+            keccak256(abi.encodePacked(tokenContract_, tokenId_))
+        );
 
         ERC721(tokenContract_).safeTransferFrom(
-            depositFor_, address(this), tokenId_, ""
+            depositFor_,
+            address(this),
+            tokenId_,
+            ""
         );
 
         _mint(depositFor_, collateralVault);
-        idToUnderlying[collateralVault] =
-            Asset({tokenContract: tokenContract_, tokenId: tokenId_});
+        idToUnderlying[collateralVault] = Asset({
+            tokenContract: tokenContract_,
+            tokenId: tokenId_
+        });
 
         emit DepositERC721(depositFor_, tokenContract_, tokenId_);
     }
@@ -431,11 +418,7 @@ contract CollateralVault is
         uint256 collateralVault,
         address liquidator,
         uint256 liquidationFee
-    )
-        external
-        requiresAuth
-        returns (uint256 reserve)
-    {
+    ) external requiresAuth returns (uint256 reserve) {
         require(
             !AUCTION_HOUSE.auctionExists(collateralVault),
             "auctionVault: auction already exists"
