@@ -1,7 +1,7 @@
 pragma solidity ^0.8.13;
 
 import {BrokerImplementation} from "./BrokerImplementation.sol";
-import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
+import {ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -10,6 +10,7 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {LienToken} from "./LienToken.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
+import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
 abstract contract Vault is BrokerImplementation {}
 
@@ -43,12 +44,40 @@ contract PublicVault is Vault, ERC4626Cloned {
     //        WETH = IERC20(_WETH);
     //    }
 
-    function redeem(uint256 shares, address receiver, address owner)
+    function BROKER_TYPE()
         public
+        view
         virtual
-        override
-        returns (uint256 assets)
+        override(BrokerImplementation)
+        returns (uint256)
     {
+        return 2;
+    }
+
+    function name() public view override(IBase) returns (string memory) {
+        return
+            string(
+                abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol())
+            );
+    }
+
+    function symbol() public view override(IBase) returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "AST-V",
+                    owner(),
+                    "-",
+                    ERC20(underlying()).symbol()
+                )
+            );
+    }
+
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public virtual override returns (uint256 assets) {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
     }
 
@@ -57,11 +86,7 @@ contract PublicVault is Vault, ERC4626Cloned {
         address receiver,
         address owner,
         uint64 epoch
-    )
-        public
-        virtual
-        returns (uint256 assets)
-    {
+    ) public virtual returns (uint256 assets) {
         if (msg.sender != owner) {
             uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
 
@@ -81,7 +106,12 @@ contract PublicVault is Vault, ERC4626Cloned {
         transferFrom(owner, address(this), shares);
         // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
         if (withdrawProxies[epoch] == address(0)) {
-            WithdrawProxy proxy = new WithdrawProxy();
+            address proxy = ClonesWithImmutableArgs.clone(
+                IBrokerRouter(ROUTER()).WITHDRAW_IMPLEMENTATION(),
+                abi.encodePacked(
+                    address(this) //owner
+                )
+            );
             withdrawProxies[epoch] = address(proxy);
         }
 
@@ -95,12 +125,10 @@ contract PublicVault is Vault, ERC4626Cloned {
     function processEpoch(
         uint256[] memory collateralVaults,
         uint256[] memory positions
-    )
-        external
-    {
+    ) external {
         // check to make sure epoch is over
         require(
-            start() + ((currentEpoch + 1) * epoch_length()) < block.timestamp,
+            START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp,
             "Epoch has not ended"
         );
 
@@ -130,8 +158,8 @@ contract PublicVault is Vault, ERC4626Cloned {
                 "liquidations not processed"
             );
 
-            uint256 proxySupply =
-                WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
+            uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
+                .totalSupply();
 
             // recalculate liquidationWithdrawRatio for the new epoch
             liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply);
@@ -146,7 +174,7 @@ contract PublicVault is Vault, ERC4626Cloned {
 
     function transferWithdrawReserve() public {
         // check the available balance to be withdrawn
-        uint256 withdraw = ERC20(asset()).balanceOf(address(this));
+        uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
 
         // prevent transfer of more assets then are available
         if (withdrawReserve <= withdraw) {
@@ -155,7 +183,10 @@ contract PublicVault is Vault, ERC4626Cloned {
 
         // prevents transfer to a non-existent WithdrawProxy
         if (withdrawProxies[currentEpoch] != address(0)) {
-            ERC20(asset()).transfer(withdrawProxies[currentEpoch], withdraw);
+            ERC20(underlying()).transfer(
+                withdrawProxies[currentEpoch],
+                withdraw
+            );
         }
 
         // decrement the withdraw from the withdraw reserve
@@ -174,11 +205,7 @@ contract PublicVault is Vault, ERC4626Cloned {
     function haveLiquidationsProcessed(
         uint256[] memory collateralVaults,
         uint256[] memory positions
-    )
-        public
-        virtual
-        returns (bool)
-    {
+    ) public virtual returns (bool) {
         // was returns (uint256 balance)
         for (uint256 i = 0; i < collateralVaults.length; i++) {
             // get lienId from LienToken
@@ -190,8 +217,9 @@ contract PublicVault is Vault, ERC4626Cloned {
             // uint256 lienId =
             //     LIEN_TOKEN().liens(collateralVaults[i], positions[i]);
 
-            uint256 lienId =
-                LIEN_TOKEN().getLiens(collateralVaults[i])[positions[i]];
+            uint256 lienId = LIEN_TOKEN().getLiens(collateralVaults[i])[
+                positions[i]
+            ];
 
             // TODO implement
             // check that the lien is owned by the vault, this check prevents the msg.sender from presenting an incorrect lien set
@@ -207,8 +235,9 @@ contract PublicVault is Vault, ERC4626Cloned {
 
             // check that the lien cannot be liquidated
             if (
-                IBrokerRouter(router()).canLiquidate(
-                    collateralVaults[i], positions[i]
+                IBrokerRouter(ROUTER()).canLiquidate(
+                    collateralVaults[i],
+                    positions[i]
                 )
             ) {
                 return false;
@@ -218,7 +247,7 @@ contract PublicVault is Vault, ERC4626Cloned {
     }
 
     function LIEN_TOKEN() public view returns (ILienToken) {
-        return IBrokerRouter(router()).LIEN_TOKEN();
+        return IBrokerRouter(ROUTER()).LIEN_TOKEN();
     }
 
     function completeLiquidation(uint256 lienId, uint256 amount) public {
@@ -230,12 +259,18 @@ contract PublicVault is Vault, ERC4626Cloned {
 
         // check to ensure that the WithdrawProxy was instantiated
         if (withdrawProxies[currentEpoch] != address(0)) {
-            ERC20(asset()).transfer(withdrawProxies[currentEpoch], withdraw);
+            ERC20(underlying()).transfer(
+                withdrawProxies[currentEpoch],
+                withdraw
+            );
         }
 
         // decrement the yintercept for the amount received on liquidatation vs the expected
-        yintercept -=
-            (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
+        // TODO: unchecked?
+        yintercept -= (expected - amount).mulDivDown(
+            1 - liquidationWithdrawRatio,
+            1
+        );
     }
 
     function totalAssets() public view virtual override returns (uint256) {
@@ -268,10 +303,10 @@ contract PublicVault is Vault, ERC4626Cloned {
     }
 
     function _handleAppraiserReward(uint256 amount) internal virtual override {
-        (uint256 appraiserRate, uint256 appraiserBase) =
-            IBrokerRouter(router()).getAppraiserFee();
+        (uint256 appraiserRate, uint256 appraiserBase) = IBrokerRouter(ROUTER())
+            .getAppraiserFee();
         _mint(
-            appraiser(),
+            owner(),
             // ((convertToShares(amount) * appraiserRate) / appraiserBase)
             convertToShares(amount).mulDivDown(appraiserRate, appraiserBase)
         );

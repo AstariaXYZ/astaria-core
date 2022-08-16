@@ -80,7 +80,6 @@ interface IBrokerRouter {
         address delegate;
         //        uint256 expiration;
         uint256 deadline;
-        uint256 buyout;
         uint8 v;
         bytes32 r;
         bytes32 s;
@@ -104,23 +103,9 @@ interface IBrokerRouter {
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
     }
 
-    function newBondVault(BrokerParams memory params)
-        external
-        returns (address);
+    function newPublicVault(uint256) external returns (address);
 
     function feeTo() external returns (address);
-
-    function encodeBondVaultHash(
-        address appraiser,
-        address delegate,
-        //        uint256 expiration,
-        uint256 appraiserNonce,
-        uint256 deadline,
-        uint256 buyout
-    )
-        external
-        view
-        returns (bytes memory);
 
     function commitToLoans(Commitment[] calldata)
         external
@@ -133,6 +118,10 @@ interface IBrokerRouter {
     function LIEN_TOKEN() external view returns (ILienToken);
 
     function TRANSFER_PROXY() external view returns (ITransferProxy);
+
+    function WITHDRAW_IMPLEMENTATION() external view returns (address);
+
+    function VAULT_IMPLEMENTATION() external view returns (address);
 
     function COLLATERAL_VAULT() external view returns (ICollateralVault);
 
@@ -157,7 +146,9 @@ interface IBrokerRouter {
         returns (bool);
 
     event Liquidation(
-        uint256 collateralVault, uint256 position, uint256 reserve
+        uint256 collateralVault,
+        uint256 position,
+        uint256 reserve
     );
     event NewVault(address appraiser, address vault);
 

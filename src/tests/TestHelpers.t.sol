@@ -3,8 +3,7 @@ pragma solidity ^0.8.15;
 import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
-import {MultiRolesAuthority} from
-    "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
@@ -58,14 +57,15 @@ contract TestHelpers is Test {
         uint256 amount;
     }
 
-    LoanTerms defaultTerms = LoanTerms({
-        maxAmount: uint256(10 ether),
-        maxDebt: uint256(1 ether),
-        interestRate: uint256(50000 gwei),
-        maxInterestRate: uint256(75000 gwei),
-        duration: uint256(block.timestamp + 10 minutes),
-        amount: uint256(0.5 ether)
-    });
+    LoanTerms defaultTerms =
+        LoanTerms({
+            maxAmount: uint256(10 ether),
+            maxDebt: uint256(1 ether),
+            interestRate: uint256(50000 gwei),
+            maxInterestRate: uint256(75000 gwei),
+            duration: uint256(block.timestamp + 10 minutes),
+            amount: uint256(0.5 ether)
+        });
 
     // modifier validateLoanTerms(LoanTerms memory terms) {
 
@@ -96,9 +96,10 @@ contract TestHelpers is Test {
     bytes32 public whiteListRoot;
     bytes32[] public nftProof;
 
-    bytes32 testBondVaultHash = bytes32(
-        0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798
-    );
+    bytes32 testBondVaultHash =
+        bytes32(
+            0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798
+        );
     uint256 appraiserOnePK = uint256(0x1339);
     uint256 appraiserTwoPK = uint256(0x1344);
     address appraiserOne = vm.addr(appraiserOnePK);
@@ -110,7 +111,9 @@ contract TestHelpers is Test {
     address appraiserThree = vm.addr(0x1345);
 
     event NewTermCommitment(
-        bytes32 bondVault, uint256 collateralVault, uint256 amount
+        bytes32 bondVault,
+        uint256 collateralVault,
+        uint256 amount
     );
     event Repayment(bytes32 bondVault, uint256 collateralVault, uint256 amount);
     event Liquidation(bytes32 bondVault, uint256 collateralVault);
@@ -121,7 +124,9 @@ contract TestHelpers is Test {
         uint256 expiration
     );
     event RedeemBond(
-        bytes32 bondVault, uint256 amount, address indexed redeemer
+        bytes32 bondVault,
+        uint256 amount,
+        address indexed redeemer
     );
 
     function setUp() public virtual {
@@ -163,10 +168,12 @@ contract TestHelpers is Test {
         );
 
         COLLATERAL_VAULT.file(
-            bytes32("setBondController"), abi.encode(address(BOND_CONTROLLER))
+            bytes32("setBondController"),
+            abi.encode(address(BOND_CONTROLLER))
         );
         COLLATERAL_VAULT.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
         );
 
         // COLLATERAL_VAULT.setBondController(address(BOND_CONTROLLER));
@@ -180,8 +187,9 @@ contract TestHelpers is Test {
         }
 
         if (codeHash != 0x0) {
-            bytes memory seaportAddr =
-                abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
+            bytes memory seaportAddr = abi.encode(
+                address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
+            );
             COLLATERAL_VAULT.file(bytes32("setupSeaport"), seaportAddr);
             // COLLATERAL_VAULT.setupSeaport(
             //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
@@ -189,40 +197,49 @@ contract TestHelpers is Test {
         }
 
         LIEN_TOKEN.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
         );
         LIEN_TOKEN.file(
-            bytes32("setCollateralVault"), abi.encode(address(COLLATERAL_VAULT))
+            bytes32("setCollateralVault"),
+            abi.encode(address(COLLATERAL_VAULT))
         );
 
         // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
         // LIEN_TOKEN.setCollateralVault(address(COLLATERAL_VAULT));
         _setupRolesAndCapabilities();
-        _setupAppraisers();
     }
 
-    function _setupAppraisers() internal {
-        address[] memory appraisers = new address[](2);
-        appraisers[0] = appraiserOne;
-        appraisers[1] = appraiserTwo;
-
-        BOND_CONTROLLER.file(bytes32("setAppraisers"), abi.encode(appraisers));
-
-        // BOND_CONTROLLER.setAppraisers(appraisers);
-    }
+    //    function _setupAppraisers() internal {
+    //        address[] memory appraisers = new address[](2);
+    //        appraisers[0] = appraiserOne;
+    //        appraisers[1] = appraiserTwo;
+    //
+    //        BOND_CONTROLLER.file(bytes32("setAppraisers"), abi.encode(appraisers));
+    //
+    //        // BOND_CONTROLLER.setAppraisers(appraisers);
+    //    }
 
     function _setupRolesAndCapabilities() internal {
         MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.createAuction.selector, true
+            uint8(UserRoles.WRAPPER),
+            AuctionHouse.createAuction.selector,
+            true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.endAuction.selector, true
+            uint8(UserRoles.WRAPPER),
+            AuctionHouse.endAuction.selector,
+            true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER), LienToken.createLien.selector, true
+            uint8(UserRoles.BOND_CONTROLLER),
+            LienToken.createLien.selector,
+            true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.cancelAuction.selector, true
+            uint8(UserRoles.WRAPPER),
+            AuctionHouse.cancelAuction.selector,
+            true
         );
         MRA.setRoleCapability(
             uint8(UserRoles.BOND_CONTROLLER),
@@ -235,10 +252,14 @@ contract TestHelpers is Test {
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE), LienToken.removeLiens.selector, true
+            uint8(UserRoles.AUCTION_HOUSE),
+            LienToken.removeLiens.selector,
+            true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true
+            uint8(UserRoles.AUCTION_HOUSE),
+            LienToken.stopLiens.selector,
+            true
         );
         MRA.setRoleCapability(
             uint8(UserRoles.AUCTION_HOUSE),
@@ -246,13 +267,19 @@ contract TestHelpers is Test {
             true
         );
         MRA.setUserRole(
-            address(BOND_CONTROLLER), uint8(UserRoles.BOND_CONTROLLER), true
+            address(BOND_CONTROLLER),
+            uint8(UserRoles.BOND_CONTROLLER),
+            true
         );
         MRA.setUserRole(
-            address(COLLATERAL_VAULT), uint8(UserRoles.WRAPPER), true
+            address(COLLATERAL_VAULT),
+            uint8(UserRoles.WRAPPER),
+            true
         );
         MRA.setUserRole(
-            address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true
+            address(AUCTION_HOUSE),
+            uint8(UserRoles.AUCTION_HOUSE),
+            true
         );
 
         // TODO add to AstariaDeploy(?)
@@ -283,11 +310,19 @@ contract TestHelpers is Test {
      */
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
-        ERC721(tokenContract).setApprovalForAll(address(COLLATERAL_VAULT), true);
-        (bytes32 root, bytes32[] memory proof) = _createWhitelist(tokenContract);
+        ERC721(tokenContract).setApprovalForAll(
+            address(COLLATERAL_VAULT),
+            true
+        );
+        (bytes32 root, bytes32[] memory proof) = _createWhitelist(
+            tokenContract
+        );
         COLLATERAL_VAULT.file(bytes32("setSupportedRoot"), abi.encode(root));
         COLLATERAL_VAULT.depositERC721(
-            address(this), address(tokenContract), uint256(tokenId), proof
+            address(this),
+            address(tokenContract),
+            uint256(tokenId),
+            proof
         );
     }
 
@@ -300,23 +335,25 @@ contract TestHelpers is Test {
         returns (address)
     {
         if (vault) {
-            return _createBondVault(
-                appraiserTwo, // appraiserTwo for vault
-                address(0), // appraiserTwo for vault
-                //                    block.timestamp + 30 days, //expiration
-                block.timestamp + 1 days, //deadline
-                uint256(10), //buyout
-                appraiserTwoPK
-            );
+            return
+                _createBondVault(
+                    appraiserTwo, // appraiserTwo for vault
+                    address(0), // appraiserTwo for vault
+                    //                    block.timestamp + 30 days, //expiration
+                    block.timestamp + 1 days, //deadline
+                    uint256(10), //buyout
+                    appraiserTwoPK
+                );
         } else {
-            return _createBondVault(
-                appraiserOne, // appraiserOne for solo vault
-                address(0), // appraiserOne for solo vault
-                //                block.timestamp + 30 days, //expiration
-                block.timestamp + 1 days, //deadline
-                uint256(10), //buyout
-                appraiserOnePK
-            );
+            return
+                _createBondVault(
+                    appraiserOne, // appraiserOne for solo vault
+                    address(0), // appraiserOne for solo vault
+                    //                block.timestamp + 30 days, //expiration
+                    block.timestamp + 1 days, //deadline
+                    uint256(10), //buyout
+                    appraiserOnePK
+                );
         }
     }
 
@@ -328,34 +365,16 @@ contract TestHelpers is Test {
         uint256 buyout,
         //        bytes32 _rootHash,
         uint256 appraiserPk
-    )
-        internal
-        returns (address)
-    {
-        bytes32 hash = keccak256(
-            BOND_CONTROLLER.encodeBondVaultHash(
-                appraiser,
-                delegate,
-                //                expiration,
-                BOND_CONTROLLER.appraiserNonce(appraiser),
-                deadline,
-                buyout
-            )
-        );
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-
-        (v, r, s) = vm.sign(uint256(appraiserPk), hash);
-
-        IBrokerRouter.BrokerParams memory params = IBrokerRouter.BrokerParams(
-            appraiser, delegate, deadline, buyout, v, r, s
-        );
+    ) internal returns (address) {
+        address newVault;
+        vm.startPrank(appraiser);
         if (appraiser == appraiserOne) {
-            return BOND_CONTROLLER.newSoloVault(params);
+            newVault = BOND_CONTROLLER.newVault();
         } else {
-            return BOND_CONTROLLER.newBondVault(params);
+            newVault = BOND_CONTROLLER.newPublicVault(uint256(14 days));
         }
+        vm.stopPrank();
+        return newVault;
     }
 
     //    function _generateLoanProof(
@@ -418,14 +437,18 @@ contract TestHelpers is Test {
             inputs = new string[](11);
 
             uint256 collateralVault = uint256(
-                keccak256(abi.encodePacked(params.tokenContract, params.tokenId))
+                keccak256(
+                    abi.encodePacked(params.tokenContract, params.tokenId)
+                )
             );
 
             //string[] memory inputs = new string[](10);
             //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
 
-            IBrokerRouter.CollateralDetails memory terms =
-                abi.decode(params.data, (IBrokerRouter.CollateralDetails));
+            IBrokerRouter.CollateralDetails memory terms = abi.decode(
+                params.data,
+                (IBrokerRouter.CollateralDetails)
+            );
             inputs[0] = "node";
             inputs[1] = "scripts/loanProofGenerator.js";
             inputs[2] = abi.encodePacked(params.tokenContract).toHexString(); //tokenContract
@@ -436,8 +459,9 @@ contract TestHelpers is Test {
             inputs[6] = abi.encodePacked(true).toHexString(); //public
             inputs[7] = abi.encodePacked(address(0)).toHexString(); //vault
             //vault details
-            inputs[8] =
-                abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
+            inputs[8] = abi
+                .encodePacked(uint8(StrategyTypes.STANDARD))
+                .toHexString(); //type
             inputs[9] = abi.encodePacked(address(0)).toHexString(); //borrower
             inputs[10] = abi.encode(terms.lien).toHexString(); //lien details
 
@@ -495,11 +519,15 @@ contract TestHelpers is Test {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        (,, IBrokerRouter.Commitment memory terms) =
-            _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (, , IBrokerRouter.Commitment memory terms) = _commitToLoan(
+            tokenContract,
+            tokenId,
+            defaultTerms
+        );
 
-        collateralVault =
-            uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
+        collateralVault = uint256(
+            keccak256(abi.encodePacked(tokenContract, tokenId))
+        );
 
         return (tokenContract.computeId(tokenId));
     }
@@ -613,18 +641,19 @@ contract TestHelpers is Test {
             address broker
         )
     {
-        return _commitWithoutDeposit(
-            CommitWithoutDeposit(
-                tokenContract,
-                tokenId,
-                loanTerms.maxAmount,
-                loanTerms.maxDebt,
-                loanTerms.interestRate,
-                loanTerms.maxInterestRate,
-                loanTerms.duration,
-                loanTerms.amount
-            )
-        );
+        return
+            _commitWithoutDeposit(
+                CommitWithoutDeposit(
+                    tokenContract,
+                    tokenId,
+                    loanTerms.maxAmount,
+                    loanTerms.maxDebt,
+                    loanTerms.interestRate,
+                    loanTerms.maxInterestRate,
+                    loanTerms.duration,
+                    loanTerms.amount
+                )
+            );
     }
 
     function _generateLoanGeneratorParams(
@@ -636,26 +665,28 @@ contract TestHelpers is Test {
         uint256 maxInterestRate,
         uint256 duration,
         uint256 amount
-    )
-        internal
-        returns (LoanProofGeneratorParams memory)
-    {
-        return LoanProofGeneratorParams(
-            tokenContract,
-            tokenId,
-            uint8(0),
-            abi.encode(
-                IBrokerRouter.CollateralDetails(
-                    uint8(1),
-                    tokenContract,
-                    tokenId,
-                    address(0),
-                    IBrokerRouter.LienDetails(
-                        maxAmount, maxDebt, interestRate, maxInterestRate, duration
+    ) internal returns (LoanProofGeneratorParams memory) {
+        return
+            LoanProofGeneratorParams(
+                tokenContract,
+                tokenId,
+                uint8(0),
+                abi.encode(
+                    IBrokerRouter.CollateralDetails(
+                        uint8(1),
+                        tokenContract,
+                        tokenId,
+                        address(0),
+                        IBrokerRouter.LienDetails(
+                            maxAmount,
+                            maxDebt,
+                            interestRate,
+                            maxInterestRate,
+                            duration
+                        )
                     )
                 )
-            )
-        );
+            );
     }
 
     // TODO clean up flow, for now makes refinancing more convenient
@@ -681,20 +712,22 @@ contract TestHelpers is Test {
             address vault
         )
     {
-        uint256 collateralVault = params.tokenContract.computeId(params.tokenId);
+        uint256 collateralVault = params.tokenContract.computeId(
+            params.tokenId
+        );
 
         bytes32[] memory obligationProof;
-        LoanProofGeneratorParams memory proofParams =
-        _generateLoanGeneratorParams(
-            params.tokenContract,
-            params.tokenId,
-            params.maxAmount,
-            params.maxDebt,
-            params.interestRate,
-            params.maxInterestRate,
-            params.duration,
-            params.amount
-        );
+        LoanProofGeneratorParams
+            memory proofParams = _generateLoanGeneratorParams(
+                params.tokenContract,
+                params.tokenId,
+                params.maxAmount,
+                params.maxDebt,
+                params.interestRate,
+                params.maxInterestRate,
+                params.duration,
+                params.amount
+            );
         (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
 
         vault = _createBondVault(obligationRoot, true);
@@ -706,7 +739,13 @@ contract TestHelpers is Test {
         bytes32 s;
         (v, r, s) = vm.sign(uint256(appraiserOnePK), obligationRoot);
         IBrokerRouter.Commitment memory terms = _generateCommitment(
-            params, vault, obligationRoot, obligationProof, v, r, s
+            params,
+            vault,
+            obligationRoot,
+            obligationProof,
+            v,
+            r,
+            s
         );
         return (obligationRoot, terms, vault);
     }
@@ -721,47 +760,45 @@ contract TestHelpers is Test {
         uint8 v,
         bytes32 r,
         bytes32 s
-    )
-        internal
-        returns (IBrokerRouter.Commitment memory)
-    {
+    ) internal returns (IBrokerRouter.Commitment memory) {
         emit LogCommitWithoutDeposit(params);
-        return IBrokerRouter.Commitment(
-            params.tokenContract,
-            params.tokenId,
-            new bytes32[](0),
-            IBrokerRouter.NewObligationRequest(
-                IBrokerRouter.StrategyDetails(
-                    uint8(0),
-                    appraiserOne,
-                    address(0),
-                    BOND_CONTROLLER.appraiserNonce(appraiserOne), //nonce
-                    vault
-                ),
-                uint8(StrategyTypes.STANDARD), //obligationType
-                abi.encode(
-                    IBrokerRouter.CollateralDetails(
-                        uint8(1), //version
-                        params.tokenContract, // tokenContract
-                        params.tokenId, //tokenId
-                        address(0), // borrower
-                        IBrokerRouter.LienDetails({
-                            maxAmount: params.maxAmount,
-                            maxSeniorDebt: params.maxDebt,
-                            rate: params.interestRate,
-                            maxInterestRate: params.maxInterestRate,
-                            duration: params.duration //lienDetails
-                        })
-                    )
-                ), //obligationDetails
-                obligationRoot, //obligationRoot
-                obligationProof, //obligationProof
-                params.amount, //amount
-                v, //v
-                r, //r
-                s //s
-            )
-        );
+        return
+            IBrokerRouter.Commitment(
+                params.tokenContract,
+                params.tokenId,
+                new bytes32[](0),
+                IBrokerRouter.NewObligationRequest(
+                    IBrokerRouter.StrategyDetails(
+                        uint8(0),
+                        appraiserOne,
+                        address(0),
+                        BOND_CONTROLLER.appraiserNonce(appraiserOne), //nonce
+                        vault
+                    ),
+                    uint8(StrategyTypes.STANDARD), //obligationType
+                    abi.encode(
+                        IBrokerRouter.CollateralDetails(
+                            uint8(1), //version
+                            params.tokenContract, // tokenContract
+                            params.tokenId, //tokenId
+                            address(0), // borrower
+                            IBrokerRouter.LienDetails({
+                                maxAmount: params.maxAmount,
+                                maxSeniorDebt: params.maxDebt,
+                                rate: params.interestRate,
+                                maxInterestRate: params.maxInterestRate,
+                                duration: params.duration //lienDetails
+                            })
+                        )
+                    ), //obligationDetails
+                    obligationRoot, //obligationRoot
+                    obligationProof, //obligationProof
+                    params.amount, //amount
+                    v, //v
+                    r, //r
+                    s //s
+                )
+            );
     }
 
     // struct LoanTerms {
@@ -778,9 +815,7 @@ contract TestHelpers is Test {
         uint256 tokenId,
         LoanTerms memory oldTerms,
         LoanTerms memory newTerms
-    )
-        internal
-    {
+    ) internal {
         _commitToLoan(tokenContract, tokenId, oldTerms);
 
         _commitWithoutDeposit(tokenContract, tokenId, newTerms);
@@ -789,8 +824,10 @@ contract TestHelpers is Test {
     function _warpToMaturity(uint256 collateralVault, uint256 position)
         internal
     {
-        ILienToken.Lien memory lien =
-            LIEN_TOKEN.getLien(collateralVault, position);
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
+            collateralVault,
+            position
+        );
         vm.warp(block.timestamp + lien.start + lien.duration + 2 days);
     }
 
@@ -805,9 +842,11 @@ contract TestHelpers is Test {
         vm.warp(block.timestamp + duration);
     }
 
-    function _createBid(address bidder, uint256 tokenId, uint256 amount)
-        internal
-    {
+    function _createBid(
+        address bidder,
+        uint256 tokenId,
+        uint256 amount
+    ) internal {
         vm.deal(bidder, (amount * 15) / 10);
         vm.startPrank(bidder);
         WETH9.deposit{value: amount}();
@@ -816,9 +855,11 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-    function _lendToVault(address vault, uint256 amount, address lendAs)
-        internal
-    {
+    function _lendToVault(
+        address vault,
+        uint256 amount,
+        address lendAs
+    ) internal {
         vm.deal(lendAs, amount);
         vm.startPrank(lendAs);
         WETH9.deposit{value: amount}();
@@ -830,9 +871,11 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-    function _withdraw(bytes32 vaultHash, uint256 amount, address lendAs)
-        internal
-    {
+    function _withdraw(
+        bytes32 vaultHash,
+        uint256 amount,
+        address lendAs
+    ) internal {
         vm.startPrank(lendAs);
 
         vm.stopPrank();

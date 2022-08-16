@@ -24,6 +24,7 @@ const strategyDetails = [
 leaves.push(solidityKeccak256(...strategyDetails));
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
+let digest;
 if (detailsType === 0) {
   details = [
     [
@@ -50,7 +51,7 @@ if (detailsType === 0) {
         .map((x) => BigNumber.from(x).toString()),
     ],
   ];
-  const digest = solidityKeccak256(...details);
+  digest = solidityKeccak256(...details);
   const clone = details.map((x) => x.map((y) => y));
   clone[1][8] = "1000";
 
@@ -97,10 +98,10 @@ const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
 const treeLeaves = merkleTree.getHexLeaves();
 console.error(treeLeaves);
-const proof = merkleTree.getHexProof(treeLeaves[1]);
+const proof = merkleTree.getHexProof(digest);
 console.error(proof);
 console.error(merkleTree.toString());
-console.error(merkleTree.verify(proof, treeLeaves[1], rootHash));
+console.error(merkleTree.verify(proof, digest, rootHash));
 console.log(
   defaultAbiCoder.encode(["bytes32", "bytes32[]"], [rootHash, proof])
 );
