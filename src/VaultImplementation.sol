@@ -13,7 +13,7 @@ import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 
-abstract contract BrokerImplementation is ERC721TokenReceiver, VaultBase {
+abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
     using ValidateTerms for IBrokerRouter.NewObligationRequest;
@@ -113,7 +113,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, VaultBase {
 
         require(
             owner() != address(0),
-            "BrokerImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
+            "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
         );
 
         (bool valid, IBrokerRouter.LienDetails memory ld) =
@@ -253,7 +253,7 @@ interface IBroker {
         virtual
         returns (uint256 shares);
 }
-//contract SoloBroker is BrokerImplementation, IBroker {
+//contract SoloBroker is VaultImplementation, IBroker {
 //    using SafeTransferLib for ERC20;
 //
 //    function _handleAppraiserReward(uint256 shares) internal virtual override {}

@@ -14,11 +14,11 @@ import {LienToken} from "../LienToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
+import {IBrokerRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
-import {IBroker, BrokerImplementation} from "../BrokerImplementation.sol";
+import {IBroker, VaultImplementation} from "../VaultImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
@@ -557,7 +557,7 @@ contract AstariaTest is TestHelpers {
     //
     //        WETH9.deposit{value: 20 ether}();
     //        WETH9.transfer(broker, 20 ether);
-    //        BrokerImplementation(broker).buyoutLien(
+    //        VaultImplementation(broker).buyoutLien(
     //            collateralVault,
     //            uint256(0),
     //            terms.nor
@@ -646,7 +646,7 @@ contract AstariaTest is TestHelpers {
     function testFailLendWithNonexistentVault() public {
         address vault = _createBondVault(testBondVaultHash, true);
 
-        BrokerRouter emptyController;
+        AstariaRouter emptyController;
         //        emptyController.lendToVault(testBondVaultHash, uint256(1));
         IBroker(vault).deposit(uint256(1), address(this));
     }

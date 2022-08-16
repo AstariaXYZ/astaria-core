@@ -1,6 +1,6 @@
 pragma solidity ^0.8.13;
 
-import {BrokerImplementation} from "./BrokerImplementation.sol";
+import {VaultImplementation} from "./VaultImplementation.sol";
 import {ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
@@ -13,7 +13,7 @@ import {WithdrawProxy} from "./WithdrawProxy.sol";
 import {ClonesWithImmutableArgs} from
     "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
-abstract contract Vault is BrokerImplementation {}
+abstract contract Vault is VaultImplementation {}
 
 contract PublicVault is Vault, ERC4626Cloned {
     using FixedPointMathLib for uint256;

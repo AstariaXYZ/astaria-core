@@ -12,7 +12,7 @@ import {ILienToken} from "./interfaces/ILienToken.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
-import {IBroker, BrokerImplementation} from "./BrokerImplementation.sol";
+import {IBroker, VaultImplementation} from "./VaultImplementation.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
@@ -27,7 +27,7 @@ interface IInvoker {
         returns (bool);
 }
 
-contract BrokerRouter is Auth, IBrokerRouter {
+contract AstariaRouter is Auth, IBrokerRouter {
     using SafeERC20 for IERC20;
     using CollateralLookup for address;
     using FixedPointMathLib for uint256;
@@ -235,7 +235,7 @@ contract BrokerRouter is Auth, IBrokerRouter {
     )
         external
     {
-        BrokerImplementation(incomingTerms.nor.strategy.vault).buyoutLien(
+        VaultImplementation(incomingTerms.nor.strategy.vault).buyoutLien(
             incomingTerms.tokenContract.computeId(incomingTerms.tokenId),
             position,
             incomingTerms
@@ -459,7 +459,7 @@ contract BrokerRouter is Auth, IBrokerRouter {
         returns (uint256)
     {
         //router must be approved for the star nft to take a loan,
-        BrokerImplementation(c.nor.strategy.vault).commitToLoan(c, receiver);
+        VaultImplementation(c.nor.strategy.vault).commitToLoan(c, receiver);
         if (receiver == address(this)) {
             return c.nor.amount;
         }

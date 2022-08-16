@@ -12,7 +12,7 @@ import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {ILienToken, IERC721, IERC165} from "./interfaces/ILienToken.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
-import {BrokerImplementation} from "./BrokerImplementation.sol";
+import {VaultImplementation} from "./VaultImplementation.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -143,7 +143,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     //
     //        return
     //            params.validateTerms(
-    //                BrokerImplementation(lienData[lienId].broker).vaultHash()
+    //                VaultImplementation(lienData[lienId].broker).vaultHash()
     //            );
     //    }
 
@@ -254,7 +254,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
         uint8 newPosition = uint8(liens[collateralVault].length);
 
-        _mint(BrokerImplementation(params.vault).recipient(), lienId);
+        _mint(VaultImplementation(params.vault).recipient(), lienId);
         lienData[lienId] = Lien({
             token: WETH,
             collateralVault: collateralVault,

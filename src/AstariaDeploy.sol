@@ -7,9 +7,9 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {CollateralVault} from "./CollateralVault.sol";
 import {LienToken} from "./LienToken.sol";
-import {BrokerRouter} from "./BrokerRouter.sol";
+import {AstariaRouter} from "./AstariaRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
-//import {SoloBroker} from "./BrokerImplementation.sol";
+//import {SoloBroker} from "./VaultImplementation.sol";
 import {PublicVault} from "./PublicVault.sol";
 import {TransferProxy} from "./TransferProxy.sol";
 import {WEth} from "foundry_eip-4626/WEth.sol";
@@ -66,7 +66,7 @@ contract AstariaDeploy {
 
         //        SoloBroker soloImpl = new SoloBroker();
         PublicVault vaultImpl = new PublicVault();
-        BrokerRouter BROKER_ROUTER = new BrokerRouter(
+        AstariaRouter BROKER_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
             address(COLLATERAL_VAULT),

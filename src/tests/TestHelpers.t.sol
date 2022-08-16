@@ -15,10 +15,10 @@ import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
+import {IBrokerRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
-import {IBroker, BrokerImplementation} from "../BrokerImplementation.sol";
+import {IBroker, VaultImplementation} from "../VaultImplementation.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 
@@ -87,7 +87,7 @@ contract TestHelpers is Test {
 
     CollateralVault COLLATERAL_VAULT;
     LienToken LIEN_TOKEN;
-    BrokerRouter BOND_CONTROLLER;
+    AstariaRouter BOND_CONTROLLER;
     Dummy721 testNFT;
     TransferProxy TRANSFER_PROXY;
     IWETH9 WETH9;
@@ -145,7 +145,7 @@ contract TestHelpers is Test {
         //        SoloBroker soloImpl = new SoloBroker();
         PublicVault vaultImpl = new PublicVault();
 
-        BOND_CONTROLLER = new BrokerRouter(
+        BOND_CONTROLLER = new AstariaRouter(
             MRA,
             address(WETH9),
             address(COLLATERAL_VAULT),
@@ -529,7 +529,7 @@ contract TestHelpers is Test {
 
         // vm.expectEmit(true, true, false, false);
         // emit NewTermCommitment(vaultHash, collateralVault, amount);
-        BrokerImplementation(broker).commitToLoan(terms, address(this));
+        VaultImplementation(broker).commitToLoan(terms, address(this));
         // BrokerVault(broker).withdraw(0 ether);
 
         return (vaultHash, terms);
@@ -563,7 +563,7 @@ contract TestHelpers is Test {
         );
         emit LogCommitment(terms);
 
-        BrokerImplementation(vault).commitToLoan(terms, address(this));
+        VaultImplementation(vault).commitToLoan(terms, address(this));
 
         return (vaultHash, vault, terms);
     }

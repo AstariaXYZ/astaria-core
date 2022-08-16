@@ -14,10 +14,10 @@ import {LienToken} from "../LienToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {ICollateralVault} from "../interfaces/ICollateralVault.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
+import {IBrokerRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
-import {IBroker, BrokerImplementation} from "../BrokerImplementation.sol";
+import {IBroker, VaultImplementation} from "../VaultImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 
 import "./TestHelpers.t.sol";
@@ -178,7 +178,7 @@ contract Fuzzers is TestHelpers {
     //        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
     //
     //        //        BOND_CONTROLLER.lendToVault(vaultHash, amount);
-    //        BrokerImplementation(BOND_CONTROLLER.getBroker(vaultHash)).deposit(
+    //        VaultImplementation(BOND_CONTROLLER.getBroker(vaultHash)).deposit(
     //            amount,
     //            address(this)
     //        );

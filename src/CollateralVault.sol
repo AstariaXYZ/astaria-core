@@ -14,7 +14,7 @@ import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
-import {BrokerImplementation} from "./BrokerImplementation.sol";
+import {VaultImplementation} from "./VaultImplementation.sol";
 import {
     SeaportInterface, Order
 } from "seaport/interfaces/SeaportInterface.sol";
