@@ -17,12 +17,7 @@ import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IBrokerRouter, BrokerRouter} from "../BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
-import {
-    IBroker,
-    SoloBroker,
-    BrokerImplementation
-} from "../BrokerImplementation.sol";
-import {BrokerVault} from "../BrokerVault.sol";
+import {IBroker, BrokerImplementation} from "../BrokerImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 
 import "./TestHelpers.t.sol";

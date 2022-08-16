@@ -1,28 +1,9 @@
 const { MerkleTree } = require("merkletreejs");
 const keccak256 = require("keccak256");
 const { utils, BigNumber } = require("ethers");
-const {
-  getAddress,
-  solidityKeccak256,
-  defaultAbiCoder,
-  parseEther,
-  solidityPack,
-  hexZeroPad,
-} = utils;
+const { getAddress, solidityKeccak256, defaultAbiCoder } = utils;
 const args = process.argv.slice(2);
-// const keccak256 = solidityKeccak256;
-// console.log(args);
-// List of 7 public Ethereum addresses
 
-// console.log(incomingAddress);
-// const addresses = [incomingAddress];
-// Hash addresses to get the leaves
-
-// get list of
-// address, tokenId, maxAmount, maxDebt, interest, maxInterest, duration, schedule
-// const loanDetails = defaultAbiCoder
-//   .decode(["uint256", "uint256", "uint256", "uint256", "uint256"], args[8])
-//   .map((x) => BigNumber.from(x).toString());
 const leaves = [];
 const tokenAddress = args.shift();
 const tokenId = BigNumber.from(args.shift()).toString();
@@ -43,6 +24,7 @@ const strategyDetails = [
 leaves.push(solidityKeccak256(...strategyDetails));
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
+let digest;
 if (detailsType === 0) {
   details = [
     [
@@ -57,7 +39,7 @@ if (detailsType === 0) {
       "uint256",
     ],
     [
-      "1", // version
+      parseInt(BigNumber.from(1).toString()), // version
       getAddress(tokenAddress), // token
       tokenId, // tokenId
       getAddress(args.shift()), // borrower
@@ -69,7 +51,7 @@ if (detailsType === 0) {
         .map((x) => BigNumber.from(x).toString()),
     ],
   ];
-  const digest = solidityKeccak256(...details);
+  digest = solidityKeccak256(...details);
   const clone = details.map((x) => x.map((y) => y));
   clone[1][8] = "1000";
 
@@ -108,16 +90,18 @@ if (detailsType === 0) {
 
 const merkleTree = new MerkleTree(
   leaves.map((x) => x),
-  keccak256
+  keccak256,
+  { sortPairs: true }
 );
 // Get root
 const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
 const treeLeaves = merkleTree.getHexLeaves();
 console.error(treeLeaves);
-const proof = merkleTree.getHexProof(treeLeaves[1]);
+const proof = merkleTree.getHexProof(digest);
 console.error(proof);
 console.error(merkleTree.toString());
+console.error(merkleTree.verify(proof, digest, rootHash));
 console.log(
   defaultAbiCoder.encode(["bytes32", "bytes32[]"], [rootHash, proof])
 );

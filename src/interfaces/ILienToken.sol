@@ -52,6 +52,12 @@ interface ILienToken is IERC721 {
     //        uint256 replacementPosition;
     //    }
 
+    function calculateSlope(uint256 lienId) external returns (uint256 slope);
+
+    function changeInSlope(uint256 lienId, uint256 paymentAmount)
+        external
+        returns (uint256 slope);
+
     function stopLiens(uint256 collateralVault)
         external
         returns (

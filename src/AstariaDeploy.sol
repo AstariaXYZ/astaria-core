@@ -9,8 +9,8 @@ import {CollateralVault} from "./CollateralVault.sol";
 import {LienToken} from "./LienToken.sol";
 import {BrokerRouter} from "./BrokerRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
-import {SoloBroker} from "./BrokerImplementation.sol";
-import {BrokerVault} from "./BrokerVault.sol";
+//import {SoloBroker} from "./BrokerImplementation.sol";
+import {PublicVault} from "./PublicVault.sol";
 import {TransferProxy} from "./TransferProxy.sol";
 import {WEth} from "foundry_eip-4626/WEth.sol";
 
@@ -64,16 +64,16 @@ contract AstariaDeploy {
         );
         emit Deployed(address(COLLATERAL_VAULT));
 
-        SoloBroker soloImpl = new SoloBroker();
-        BrokerVault vaultImpl = new BrokerVault();
+        //        SoloBroker soloImpl = new SoloBroker();
+        PublicVault vaultImpl = new PublicVault();
         BrokerRouter BROKER_ROUTER = new BrokerRouter(
             MRA,
             address(WETH9),
             address(COLLATERAL_VAULT),
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY),
-            address(vaultImpl),
-            address(soloImpl)
+            address(vaultImpl)
+            //            address(soloImpl)
         );
         //
         AuctionHouse AUCTION_HOUSE = new AuctionHouse(

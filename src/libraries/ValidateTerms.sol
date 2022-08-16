@@ -86,7 +86,7 @@ library ValidateTerms {
             }
 
             leaf = keccak256(
-                abi.encode(
+                abi.encodePacked(
                     cd.version, // 1 is the version of the structure
                     cd.token, // token address
                     cd.borrower, // borrower address
