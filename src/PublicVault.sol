@@ -134,7 +134,8 @@ contract PublicVault is ERC4626Cloned, Vault {
             address proxy = ClonesWithImmutableArgs.clone(
                 IAstariaRouter(ROUTER()).WITHDRAW_IMPLEMENTATION(),
                 abi.encodePacked(
-                    address(this) //owner
+                    address(this), //owner
+                    underlying() //token
                 )
             );
             withdrawProxies[epoch] = address(proxy);
@@ -342,7 +343,6 @@ contract PublicVault is ERC4626Cloned, Vault {
         ).getAppraiserFee();
         _mint(
             owner(),
-            // ((convertToShares(amount) * appraiserRate) / appraiserBase)
             convertToShares(amount).mulDivDown(appraiserRate, appraiserBase)
         );
     }
