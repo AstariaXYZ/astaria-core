@@ -145,9 +145,7 @@ interface IBrokerRouter {
         returns (bool);
 
     event Liquidation(
-        uint256 collateralVault,
-        uint256 position,
-        uint256 reserve
+        uint256 collateralVault, uint256 position, uint256 reserve
     );
     event NewVault(address appraiser, address vault);
 

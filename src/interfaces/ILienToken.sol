@@ -107,5 +107,8 @@ interface ILienToken is IERC721 {
     function getTotalDebtForCollateralVault(
         uint256 collateralVault,
         uint256 timestamp
-    ) external view returns (uint256 totalDebt);
+    )
+        external
+        view
+        returns (uint256 totalDebt);
 }
