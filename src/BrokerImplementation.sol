@@ -58,10 +58,6 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, VaultBase {
         return ERC721TokenReceiver.onERC721Received.selector;
     }
 
-    function BROKER_TYPE() public view virtual returns (uint256) {
-        return 1;
-    }
-
     function _handleAppraiserReward(uint256) internal virtual {}
 
     //decode obligationData into structs
@@ -221,14 +217,6 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, VaultBase {
         internal
         returns (uint256)
     {
-        //        address tokenContract;
-        //        uint256 tokenId;
-        //        IBrokerRouter.LienDetails terms;
-        //        bytes32 obligationRoot;
-        //        uint256 amount;
-        //        address vault;
-        //        bool borrowAndBuy;
-
         IBrokerRouter.LienDetails memory terms = ValidateTerms.getLienDetails(
             c.nor.obligationType, c.nor.obligationDetails
         );

@@ -45,16 +45,6 @@ contract PublicVault is Vault, ERC4626Cloned {
     //        WETH = IERC20(_WETH);
     //    }
 
-    function BROKER_TYPE()
-        public
-        view
-        virtual
-        override (BrokerImplementation)
-        returns (uint256)
-    {
-        return 2;
-    }
-
     function name() public view override (IBase) returns (string memory) {
         return string(abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol()));
     }
@@ -295,6 +285,9 @@ contract PublicVault is Vault, ERC4626Cloned {
         override
     {
         // increase yintercept for assets held
+        if (BROKER_TYPE() == uint256(1)) {
+            require(msg.sender == owner(), "only owner can deposit");
+        }
         yintercept += assets;
         _handleAppraiserReward(shares);
     }

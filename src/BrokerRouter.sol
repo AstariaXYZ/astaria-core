@@ -424,7 +424,8 @@ contract BrokerRouter is Auth, IBrokerRouter {
                 address(this),
                 address(COLLATERAL_VAULT.AUCTION_HOUSE()),
                 block.timestamp,
-                epochLength
+                epochLength,
+                brokerType
             )
         );
         //        BondVault storage bondVault = bondVaults[params.root];
