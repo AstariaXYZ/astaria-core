@@ -110,7 +110,7 @@ contract PublicVault is Vault, ERC4626Cloned {
 
     // needs to be called in the epoch boundary before the next epoch can start
     function processEpoch(
-        uint256[] memory collateralVaults,
+        uint256[] memory escrowIds,
         uint256[] memory positions
     )
         external
@@ -126,7 +126,7 @@ contract PublicVault is Vault, ERC4626Cloned {
 
         // check to make sure the amount of CollateralVaults were the same as the LienTokens held by the vault
         require(
-            collateralVaults.length == LIEN_TOKEN().balanceOf(address(this)),
+            escrowIds.length == LIEN_TOKEN().balanceOf(address(this)),
             "provided ids less than balance"
         );
 
@@ -143,7 +143,7 @@ contract PublicVault is Vault, ERC4626Cloned {
         if (withdrawProxies[currentEpoch] != address(0)) {
             // check liquidations have been processed
             require(
-                haveLiquidationsProcessed(collateralVaults, positions),
+                haveLiquidationsProcessed(escrowIds, positions),
                 "liquidations not processed"
             );
 
@@ -191,7 +191,7 @@ contract PublicVault is Vault, ERC4626Cloned {
     }
 
     function haveLiquidationsProcessed(
-        uint256[] memory collateralVaults,
+        uint256[] memory escrowIds,
         uint256[] memory positions
     )
         public
@@ -199,18 +199,17 @@ contract PublicVault is Vault, ERC4626Cloned {
         returns (bool)
     {
         // was returns (uint256 balance)
-        for (uint256 i = 0; i < collateralVaults.length; i++) {
+        for (uint256 i = 0; i < escrowIds.length; i++) {
             // get lienId from LienToken
 
-            // uint256 lienId = LienToken.liens[collateralVaults[i]][
+            // uint256 lienId = LienToken.liens[escrowIds[i]][
             //     positions[i]
             // ];
 
             // uint256 lienId =
-            //     LIEN_TOKEN().liens(collateralVaults[i], positions[i]);
+            //     LIEN_TOKEN().liens(escrowIds[i], positions[i]);
 
-            uint256 lienId =
-                LIEN_TOKEN().getLiens(collateralVaults[i])[positions[i]];
+            uint256 lienId = LIEN_TOKEN().getLiens(escrowIds[i])[positions[i]];
 
             // TODO implement
             // check that the lien is owned by the vault, this check prevents the msg.sender from presenting an incorrect lien set
@@ -226,9 +225,7 @@ contract PublicVault is Vault, ERC4626Cloned {
 
             // check that the lien cannot be liquidated
             if (
-                IBrokerRouter(ROUTER()).canLiquidate(
-                    collateralVaults[i], positions[i]
-                )
+                IBrokerRouter(ROUTER()).canLiquidate(escrowIds[i], positions[i])
             ) {
                 return false;
             }

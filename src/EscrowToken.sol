@@ -11,7 +11,7 @@ import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
-import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
+import {IEscrowToken} from "./interfaces/IEscrowToken.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
@@ -33,11 +33,11 @@ interface ISecurityHook {
     function getState(address, uint256) external view returns (bytes memory);
 }
 
-contract CollateralVault is
+contract EscrowToken is
     Auth,
     ERC721,
     IERC721Receiver,
-    ICollateralVault,
+    IEscrowToken,
     IERC1155Receiver
 {
     using SafeTransferLib for ERC20;
@@ -75,7 +75,7 @@ contract CollateralVault is
         address LIEN_TOKEN_
     )
         Auth(msg.sender, Authority(AUTHORITY_))
-        ERC721("Astaria Collateral Vault", "VAULT")
+        ERC721("Astaria Collateral Vault", "VAULT") //TODO: what are these going to be, same for lien token
     {
         TRANSFER_PROXY = ITransferProxy(TRANSFER_PROXY_);
         LIEN_TOKEN = ILienToken(LIEN_TOKEN_);
@@ -112,29 +112,27 @@ contract CollateralVault is
         }
     }
 
-    modifier releaseCheck(uint256 collateralVault) {
+    modifier releaseCheck(uint256 escrowId) {
         require(
-            uint256(0) == LIEN_TOKEN.getLiens(collateralVault).length
-                && !AUCTION_HOUSE.auctionExists(collateralVault),
+            uint256(0) == LIEN_TOKEN.getLiens(escrowId).length
+                && !AUCTION_HOUSE.auctionExists(escrowId),
             "must be no liens or auctions to call this"
         );
         _;
     }
 
-    modifier onlyOwner(uint256 collateralVault) {
-        require(
-            ownerOf(collateralVault) == msg.sender, "onlyOwner: only the owner"
-        );
+    modifier onlyOwner(uint256 escrowId) {
+        require(ownerOf(escrowId) == msg.sender, "onlyOwner: only the owner");
         _;
     }
 
     //TODO: scrap this for now
     function listUnderlyingOnSeaport(
-        uint256 collateralVault,
+        uint256 escrowId,
         Order memory listingOrder
     )
         external
-        onlyOwner(collateralVault)
+        onlyOwner(escrowId)
     {
         //    ItemType itemType;
         //    address token;
@@ -143,7 +141,7 @@ contract CollateralVault is
         //    uint256 endAmount;
         //    address payable recipient;
         (address underlyingTokenContract, uint256 underlyingId) =
-            getUnderlying(collateralVault);
+            getUnderlying(escrowId);
         //ItemType itemType;
         //    address token;
         //    uint256 identifierOrCriteria;
@@ -178,7 +176,7 @@ contract CollateralVault is
         );
         //get total Debt and ensure its being sold for more than that
         uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
-            collateralVault, listingOrder.parameters.endTime
+            escrowId, listingOrder.parameters.endTime
         );
 
         require(
@@ -216,15 +214,15 @@ contract CollateralVault is
 
     function flashAction(
         IFlashAction receiver,
-        uint256 collateralVault,
+        uint256 escrowId,
         bytes calldata data
     )
         external
-        onlyOwner(collateralVault)
+        onlyOwner(escrowId)
     {
         address addr;
         uint256 tokenId;
-        (addr, tokenId) = getUnderlying(collateralVault);
+        (addr, tokenId) = getUnderlying(escrowId);
         IERC721 nft = IERC721(addr);
         // transfer the NFT to the desitnation optimistically
 
@@ -332,46 +330,42 @@ contract CollateralVault is
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function releaseToAddress(uint256 collateralVault, address releaseTo)
+    function releaseToAddress(uint256 escrowId, address releaseTo)
         public
-        releaseCheck(collateralVault)
+        releaseCheck(escrowId)
     {
         //check liens
         require(
-            msg.sender == ownerOf(collateralVault),
+            msg.sender == ownerOf(escrowId),
             "You don't have permission to call this"
         );
-        _releaseToAddress(collateralVault, releaseTo);
+        _releaseToAddress(escrowId, releaseTo);
     }
 
-    function _releaseToAddress(uint256 collateralVault, address releaseTo)
-        internal
-    {
-        (address underlyingAsset, uint256 assetId) =
-            getUnderlying(collateralVault);
+    function _releaseToAddress(uint256 escrowId, address releaseTo) internal {
+        (address underlyingAsset, uint256 assetId) = getUnderlying(escrowId);
         IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
-        delete idToUnderlying[collateralVault];
+        delete idToUnderlying[escrowId];
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
 
-    function getUnderlying(uint256 collateralVault)
+    function getUnderlying(uint256 escrowId)
         public
         view
         returns (address, uint256)
     {
-        Asset memory underlying = idToUnderlying[collateralVault];
+        Asset memory underlying = idToUnderlying[escrowId];
         return (underlying.tokenContract, underlying.tokenId);
     }
 
-    function tokenURI(uint256 collateralVault)
+    function tokenURI(uint256 escrowId)
         public
         view
         virtual
         override
         returns (string memory)
     {
-        (address underlyingAsset, uint256 assetId) =
-            getUnderlying(collateralVault);
+        (address underlyingAsset, uint256 assetId) = getUnderlying(escrowId);
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 
@@ -396,22 +390,22 @@ contract CollateralVault is
     )
         external
     {
-        uint256 collateralVault =
+        uint256 escrowId =
             uint256(keccak256(abi.encodePacked(tokenContract_, tokenId_)));
 
         ERC721(tokenContract_).safeTransferFrom(
             depositFor_, address(this), tokenId_, ""
         );
 
-        _mint(depositFor_, collateralVault);
-        idToUnderlying[collateralVault] =
+        _mint(depositFor_, escrowId);
+        idToUnderlying[escrowId] =
             Asset({tokenContract: tokenContract_, tokenId: tokenId_});
 
         emit DepositERC721(depositFor_, tokenContract_, tokenId_);
     }
 
     function auctionVault(
-        uint256 collateralVault,
+        uint256 escrowId,
         address liquidator,
         uint256 liquidationFee
     )
@@ -420,11 +414,11 @@ contract CollateralVault is
         returns (uint256 reserve)
     {
         require(
-            !AUCTION_HOUSE.auctionExists(collateralVault),
+            !AUCTION_HOUSE.auctionExists(escrowId),
             "auctionVault: auction already exists"
         );
         reserve = AUCTION_HOUSE.createAuction(
-            collateralVault,
+            escrowId,
             uint256(7 days), //todo make htis a param we can change
             liquidator,
             liquidationFee

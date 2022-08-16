@@ -2,7 +2,7 @@ pragma solidity ^0.8.15;
 
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ILienToken} from "./ILienToken.sol";
-import {ICollateralVault} from "./ICollateralVault.sol";
+import {IEscrowToken} from "./IEscrowToken.sol";
 import {ITransferProxy} from "./ITransferProxy.sol";
 
 interface IBrokerRouter {
@@ -10,7 +10,7 @@ interface IBrokerRouter {
         address broker;
         address token;
         bytes32[] proof;
-        uint256 collateralVault;
+        uint256 escrowId;
         uint256 maxAmount;
         uint256 maxDebt;
         uint256 rate;
@@ -122,17 +122,17 @@ interface IBrokerRouter {
 
     function VAULT_IMPLEMENTATION() external view returns (address);
 
-    function COLLATERAL_VAULT() external view returns (ICollateralVault);
+    function ESCROW_TOKEN() external view returns (IEscrowToken);
 
     function getAppraiserFee() external view returns (uint256, uint256);
 
     function lendToVault(address vault, uint256 amount) external;
 
-    function liquidate(uint256 collateralVault, uint256 position)
+    function liquidate(uint256 escrowId, uint256 position)
         external
         returns (uint256 reserve);
 
-    function canLiquidate(uint256 collateralVault, uint256 position)
+    function canLiquidate(uint256 escrowId, uint256 position)
         external
         view
         returns (bool);
@@ -144,9 +144,7 @@ interface IBrokerRouter {
         view
         returns (bool);
 
-    event Liquidation(
-        uint256 collateralVault, uint256 position, uint256 reserve
-    );
+    event Liquidation(uint256 escrowId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);
 
     error InvalidAddress(address);

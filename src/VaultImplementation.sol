@@ -1,7 +1,7 @@
 pragma solidity ^0.8.15;
 
 import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
-import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
+import {IEscrowToken} from "./interfaces/IEscrowToken.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
@@ -26,9 +26,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         uint256 amount
     );
 
-    event Payment(uint256 collateralVault, uint256 index, uint256 amount);
+    event Payment(uint256 escrowId, uint256 index, uint256 amount);
     event Liquidation(
-        uint256 collateralVault,
+        uint256 escrowId,
         bytes32[] bondVaults,
         uint256[] indexes,
         uint256 recovered
@@ -93,12 +93,11 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     )
         internal
     {
-        uint256 collateralVault = params.tokenContract.computeId(params.tokenId);
+        uint256 escrowId = params.tokenContract.computeId(params.tokenId);
 
-        address operator =
-            ERC721(COLLATERAL_VAULT()).getApproved(collateralVault);
+        address operator = ERC721(ESCROW_TOKEN()).getApproved(escrowId);
 
-        address holder = ERC721(COLLATERAL_VAULT()).ownerOf(collateralVault);
+        address holder = ERC721(ESCROW_TOKEN()).ownerOf(escrowId);
 
         if (msg.sender != holder) {
             require(msg.sender == operator, "invalid request");
@@ -168,23 +167,23 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             );
     }
 
-    function canLiquidate(uint256 collateralVault, uint256 position)
+    function canLiquidate(uint256 escrowId, uint256 position)
         public
         view
         returns (bool)
     {
-        return IBrokerRouter(ROUTER()).canLiquidate(collateralVault, position);
+        return IBrokerRouter(ROUTER()).canLiquidate(escrowId, position);
     }
 
     function buyoutLien(
-        uint256 collateralVault,
+        uint256 escrowId,
         uint256 position,
         IBrokerRouter.Commitment memory incomingTerms
     )
         external
     {
-        (uint256 owed, uint256 buyout) = IBrokerRouter(ROUTER()).LIEN_TOKEN()
-            .getBuyout(collateralVault, position);
+        (uint256 owed, uint256 buyout) =
+            IBrokerRouter(ROUTER()).LIEN_TOKEN().getBuyout(escrowId, position);
 
         require(
             buyout <= ERC20(underlying()).balanceOf(address(this)),

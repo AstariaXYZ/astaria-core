@@ -7,7 +7,7 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ClonesWithImmutableArgs} from
     "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
-import {ICollateralVault} from "./interfaces/ICollateralVault.sol";
+import {IEscrowToken} from "./interfaces/IEscrowToken.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
@@ -34,7 +34,7 @@ contract AstariaRouter is Auth, IBrokerRouter {
 
     bytes32 public immutable DOMAIN_SEPARATOR;
     IERC20 public immutable WETH;
-    ICollateralVault public immutable COLLATERAL_VAULT;
+    IEscrowToken public immutable ESCROW_TOKEN;
     ILienToken public immutable LIEN_TOKEN;
     ITransferProxy public immutable TRANSFER_PROXY;
     address public VAULT_IMPLEMENTATION;
@@ -65,7 +65,7 @@ contract AstariaRouter is Auth, IBrokerRouter {
     constructor(
         Authority _AUTHORITY,
         address _WETH,
-        address _COLLATERAL_VAULT,
+        address _ESCROW_TOKEN,
         address _LIEN_TOKEN,
         address _TRANSFER_PROXY,
         address _VAULT_IMPL
@@ -73,7 +73,7 @@ contract AstariaRouter is Auth, IBrokerRouter {
         Auth(address(msg.sender), _AUTHORITY)
     {
         WETH = IERC20(_WETH);
-        COLLATERAL_VAULT = ICollateralVault(_COLLATERAL_VAULT);
+        ESCROW_TOKEN = IEscrowToken(_ESCROW_TOKEN);
         LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
         TRANSFER_PROXY = ITransferProxy(_TRANSFER_PROXY);
         VAULT_IMPLEMENTATION = _VAULT_IMPL;
@@ -156,9 +156,9 @@ contract AstariaRouter is Auth, IBrokerRouter {
             );
             totalBorrowed += _executeCommitment(commitments[i]);
 
-            uint256 collateralVault =
+            uint256 escrowId =
                 commitments[i].tokenContract.computeId(commitments[i].tokenId);
-            _returnCollateral(collateralVault, address(msg.sender));
+            _returnCollateral(escrowId, address(msg.sender));
         }
         WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
         TRANSFER_PROXY.tokenTransferFrom(
@@ -231,7 +231,7 @@ contract AstariaRouter is Auth, IBrokerRouter {
 
     function buyoutLien(
         uint256 position,
-        IBrokerRouter.Commitment memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralVault, //            outgoingTerms.position //        )
+        IBrokerRouter.Commitment memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.escrowId, //            outgoingTerms.position //        )
     )
         external
     {
@@ -260,38 +260,35 @@ contract AstariaRouter is Auth, IBrokerRouter {
         IBroker(vault).deposit(amount, address(msg.sender));
     }
 
-    function canLiquidate(uint256 collateralVault, uint256 position)
+    function canLiquidate(uint256 escrowId, uint256 position)
         public
         view
         returns (bool)
     {
-        ILienToken.Lien memory lien =
-            LIEN_TOKEN.getLien(collateralVault, position);
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(escrowId, position);
 
-        uint256 interestAccrued =
-            LIEN_TOKEN.getInterest(collateralVault, position);
+        uint256 interestAccrued = LIEN_TOKEN.getInterest(escrowId, position);
         // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
         return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(uint256 collateralVault, uint256 position)
+    function liquidate(uint256 escrowId, uint256 position)
         external
         returns (uint256 reserve)
     {
         require(
-            canLiquidate(collateralVault, position),
-            "liquidate: borrow is healthy"
+            canLiquidate(escrowId, position), "liquidate: borrow is healthy"
         );
 
         // 0x
 
-        reserve = COLLATERAL_VAULT.auctionVault(
-            collateralVault, address(msg.sender), LIQUIDATION_FEE_PERCENT
+        reserve = ESCROW_TOKEN.auctionVault(
+            escrowId, address(msg.sender), LIQUIDATION_FEE_PERCENT
         );
 
-        emit Liquidation(collateralVault, position, reserve);
+        emit Liquidation(escrowId, position, reserve);
     }
 
     function getAppraiserFee() external view returns (uint256, uint256) {
@@ -308,7 +305,7 @@ contract AstariaRouter is Auth, IBrokerRouter {
         returns (bool)
     {
         ILienToken.Lien memory lien =
-            LIEN_TOKEN.getLien(params.incoming.collateralVault, params.position);
+            LIEN_TOKEN.getLien(params.incoming.escrowId, params.position);
         // uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
         uint256 minNewRate =
             uint256(lien.rate).mulDivDown(MIN_INTEREST_BPS, 1000);
@@ -393,7 +390,7 @@ contract AstariaRouter is Auth, IBrokerRouter {
         //abstract contract VaultBase is Base {
         //
         //
-        //    function COLLATERAL_VAULT() public view returns (address) {
+        //    function ESCROW_TOKEN() public view returns (address) {
         //        return _getArgAddress(40);
         //    }
         //
@@ -420,9 +417,9 @@ contract AstariaRouter is Auth, IBrokerRouter {
             abi.encodePacked(
                 address(msg.sender),
                 address(WETH),
-                address(COLLATERAL_VAULT),
+                address(ESCROW_TOKEN),
                 address(this),
-                address(COLLATERAL_VAULT.AUCTION_HOUSE()),
+                address(ESCROW_TOKEN.AUCTION_HOUSE()),
                 block.timestamp,
                 epochLength,
                 brokerType
@@ -446,10 +443,10 @@ contract AstariaRouter is Auth, IBrokerRouter {
         internal
         returns (uint256)
     {
-        uint256 collateralVault = c.tokenContract.computeId(c.tokenId);
+        uint256 escrowId = c.tokenContract.computeId(c.tokenId);
         require(
-            msg.sender == COLLATERAL_VAULT.ownerOf(collateralVault),
-            "invalid sender for collateralVault"
+            msg.sender == ESCROW_TOKEN.ownerOf(escrowId),
+            "invalid sender for escrowId"
         );
         return _borrow(c, address(this));
     }
@@ -473,15 +470,13 @@ contract AstariaRouter is Auth, IBrokerRouter {
             address(msg.sender), address(this), tokenId
         );
 
-        IERC721(tokenContract).approve(address(COLLATERAL_VAULT), tokenId);
+        IERC721(tokenContract).approve(address(ESCROW_TOKEN), tokenId);
 
-        COLLATERAL_VAULT.depositERC721(address(this), tokenContract, tokenId);
+        ESCROW_TOKEN.depositERC721(address(this), tokenContract, tokenId);
     }
 
-    function _returnCollateral(uint256 collateralVault, address receiver)
-        internal
-    {
-        COLLATERAL_VAULT.transferFrom(address(this), receiver, collateralVault);
+    function _returnCollateral(uint256 escrowId, address receiver) internal {
+        ESCROW_TOKEN.transferFrom(address(this), receiver, escrowId);
     }
 
     function _addLien(ILienToken.LienActionEncumber memory params) internal {
