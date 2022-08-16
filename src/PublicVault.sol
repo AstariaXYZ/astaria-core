@@ -10,7 +10,8 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {LienToken} from "./LienToken.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
-import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+import {ClonesWithImmutableArgs} from
+    "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
 abstract contract Vault is BrokerImplementation {}
 
@@ -48,36 +49,28 @@ contract PublicVault is Vault, ERC4626Cloned {
         public
         view
         virtual
-        override(BrokerImplementation)
+        override (BrokerImplementation)
         returns (uint256)
     {
         return 2;
     }
 
-    function name() public view override(IBase) returns (string memory) {
-        return
-            string(
-                abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol())
-            );
+    function name() public view override (IBase) returns (string memory) {
+        return string(abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol()));
     }
 
-    function symbol() public view override(IBase) returns (string memory) {
-        return
-            string(
-                abi.encodePacked(
-                    "AST-V",
-                    owner(),
-                    "-",
-                    ERC20(underlying()).symbol()
-                )
-            );
+    function symbol() public view override (IBase) returns (string memory) {
+        return string(
+            abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol())
+        );
     }
 
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public virtual override returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address owner)
+        public
+        virtual
+        override
+        returns (uint256 assets)
+    {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
     }
 
@@ -86,7 +79,11 @@ contract PublicVault is Vault, ERC4626Cloned {
         address receiver,
         address owner,
         uint64 epoch
-    ) public virtual returns (uint256 assets) {
+    )
+        public
+        virtual
+        returns (uint256 assets)
+    {
         if (msg.sender != owner) {
             uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
 
@@ -125,7 +122,9 @@ contract PublicVault is Vault, ERC4626Cloned {
     function processEpoch(
         uint256[] memory collateralVaults,
         uint256[] memory positions
-    ) external {
+    )
+        external
+    {
         // check to make sure epoch is over
         require(
             START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp,
@@ -158,8 +157,8 @@ contract PublicVault is Vault, ERC4626Cloned {
                 "liquidations not processed"
             );
 
-            uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
-                .totalSupply();
+            uint256 proxySupply =
+                WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
             // recalculate liquidationWithdrawRatio for the new epoch
             liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply);
@@ -184,8 +183,7 @@ contract PublicVault is Vault, ERC4626Cloned {
         // prevents transfer to a non-existent WithdrawProxy
         if (withdrawProxies[currentEpoch] != address(0)) {
             ERC20(underlying()).transfer(
-                withdrawProxies[currentEpoch],
-                withdraw
+                withdrawProxies[currentEpoch], withdraw
             );
         }
 
@@ -205,7 +203,11 @@ contract PublicVault is Vault, ERC4626Cloned {
     function haveLiquidationsProcessed(
         uint256[] memory collateralVaults,
         uint256[] memory positions
-    ) public virtual returns (bool) {
+    )
+        public
+        virtual
+        returns (bool)
+    {
         // was returns (uint256 balance)
         for (uint256 i = 0; i < collateralVaults.length; i++) {
             // get lienId from LienToken
@@ -217,9 +219,8 @@ contract PublicVault is Vault, ERC4626Cloned {
             // uint256 lienId =
             //     LIEN_TOKEN().liens(collateralVaults[i], positions[i]);
 
-            uint256 lienId = LIEN_TOKEN().getLiens(collateralVaults[i])[
-                positions[i]
-            ];
+            uint256 lienId =
+                LIEN_TOKEN().getLiens(collateralVaults[i])[positions[i]];
 
             // TODO implement
             // check that the lien is owned by the vault, this check prevents the msg.sender from presenting an incorrect lien set
@@ -236,8 +237,7 @@ contract PublicVault is Vault, ERC4626Cloned {
             // check that the lien cannot be liquidated
             if (
                 IBrokerRouter(ROUTER()).canLiquidate(
-                    collateralVaults[i],
-                    positions[i]
+                    collateralVaults[i], positions[i]
                 )
             ) {
                 return false;
@@ -260,17 +260,14 @@ contract PublicVault is Vault, ERC4626Cloned {
         // check to ensure that the WithdrawProxy was instantiated
         if (withdrawProxies[currentEpoch] != address(0)) {
             ERC20(underlying()).transfer(
-                withdrawProxies[currentEpoch],
-                withdraw
+                withdrawProxies[currentEpoch], withdraw
             );
         }
 
         // decrement the yintercept for the amount received on liquidatation vs the expected
         // TODO: unchecked?
-        yintercept -= (expected - amount).mulDivDown(
-            1 - liquidationWithdrawRatio,
-            1
-        );
+        yintercept -=
+            (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
@@ -303,8 +300,8 @@ contract PublicVault is Vault, ERC4626Cloned {
     }
 
     function _handleAppraiserReward(uint256 amount) internal virtual override {
-        (uint256 appraiserRate, uint256 appraiserBase) = IBrokerRouter(ROUTER())
-            .getAppraiserFee();
+        (uint256 appraiserRate, uint256 appraiserBase) =
+            IBrokerRouter(ROUTER()).getAppraiserFee();
         _mint(
             owner(),
             // ((convertToShares(amount) * appraiserRate) / appraiserBase)

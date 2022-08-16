@@ -8,7 +8,9 @@ interface ICollateralVault is IERC721 {
         uint256 collateralVault,
         address initiator,
         uint256 initiatorFee
-    ) external returns (uint256);
+    )
+        external
+        returns (uint256);
 
     function AUCTION_HOUSE() external view returns (IAuctionHouse);
 
@@ -19,5 +21,6 @@ interface ICollateralVault is IERC721 {
         address tokenContract_,
         uint256 tokenId_,
         bytes32[] calldata proof_
-    ) external;
+    )
+        external;
 }
