@@ -1,7 +1,7 @@
 pragma solidity ^0.8.15;
 
 import {IERC721, IERC165} from "openzeppelin/token/ERC721/IERC721.sol";
-import {IBrokerRouter} from "./IBrokerRouter.sol";
+import {IAstariaRouter} from "./IAstariaRouter.sol";
 
 interface ILienToken is IERC721 {
     struct Lien {
@@ -20,7 +20,7 @@ interface ILienToken is IERC721 {
     struct LienActionEncumber {
         address tokenContract;
         uint256 tokenId;
-        IBrokerRouter.LienDetails terms;
+        IAstariaRouter.LienDetails terms;
         bytes32 obligationRoot;
         uint256 amount;
         address vault;
@@ -28,7 +28,7 @@ interface ILienToken is IERC721 {
     }
 
     struct LienActionBuyout {
-        IBrokerRouter.Commitment incoming;
+        IAstariaRouter.Commitment incoming;
         uint256 position;
         address receiver;
     }

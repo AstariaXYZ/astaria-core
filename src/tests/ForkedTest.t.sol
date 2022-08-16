@@ -13,7 +13,7 @@
 // import {IEscrowToken} from "../interfaces/IEscrowToken.sol";
 // import {ILienToken} from "../interfaces/ILienToken.sol";
 // import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-// import {IBrokerRouter, BrokerRouter} from "../AstariaRouter.sol";
+// import {IAstariaRouter, BrokerRouter} from "../AstariaRouter.sol";
 // import {AuctionHouse} from "gpl/AuctionHouse.sol";
 // import {Strings2} from "./utils/Strings2.sol";
 // import {VaultImplementation} from "../VaultImplementation.sol";
@@ -80,7 +80,7 @@
 //         uint256 minListingPrice = listingPrice + (listingFee * 2);
 //         //        vm.expectEmit(true, true, false, true);
 //         //        emit DepositERC721(address(this), tokenContract, tokenId);
-//         (bytes32 vaultHash, IBrokerRouter.Terms memory terms) = _commitToLoan(
+//         (bytes32 vaultHash, IAstariaRouter.Terms memory terms) = _commitToLoan(
 //             tokenContract,
 //             tokenId,
 //             defaultTerms

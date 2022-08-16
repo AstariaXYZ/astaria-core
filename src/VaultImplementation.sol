@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 import {IEscrowToken} from "./interfaces/IEscrowToken.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
-import {IBrokerRouter} from "./interfaces/IBrokerRouter.sol";
+import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {VaultBase} from "gpl/ERC4626-Cloned.sol";
@@ -16,7 +16,7 @@ import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
-    using ValidateTerms for IBrokerRouter.NewObligationRequest;
+    using ValidateTerms for IAstariaRouter.NewObligationRequest;
     using FixedPointMathLib for uint256;
 
     event NewObligation(
@@ -41,7 +41,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         uint256 expiration
     );
     event RedeemBond(
-        bytes32 bondVault, uint256 amount, address indexed redeemer
+        bytes32 bondVault,
+        uint256 amount,
+        address indexed redeemer
     );
 
     function onERC721Received(
@@ -49,12 +51,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         address from_,
         uint256 tokenId_,
         bytes calldata data_
-    )
-        external
-        pure
-        override
-        returns (bytes4)
-    {
+    ) external pure override returns (bytes4) {
         return ERC721TokenReceiver.onERC721Received.selector;
     }
 
@@ -64,35 +61,33 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     function _decodeObligationData(
         uint8 obligationType,
         bytes memory obligationData
-    )
-        internal
-        view
-        returns (IBrokerRouter.LienDetails memory)
-    {
-        if (obligationType == uint8(IBrokerRouter.ObligationType.STANDARD)) {
-            IBrokerRouter.CollateralDetails memory cd =
-                abi.decode(obligationData, (IBrokerRouter.CollateralDetails));
+    ) internal view returns (IAstariaRouter.LienDetails memory) {
+        if (obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
+            IAstariaRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IAstariaRouter.CollateralDetails)
+            );
             return (cd.lien);
         } else if (
-            obligationType == uint8(IBrokerRouter.ObligationType.COLLECTION)
+            obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)
         ) {
-            IBrokerRouter.CollectionDetails memory cd =
-                abi.decode(obligationData, (IBrokerRouter.CollectionDetails));
+            IAstariaRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IAstariaRouter.CollectionDetails)
+            );
             return (cd.lien);
         } else {
             revert("unknown obligation type");
         }
     }
 
-    event LogNor(IBrokerRouter.NewObligationRequest);
-    event LogLien(IBrokerRouter.LienDetails);
+    event LogNor(IAstariaRouter.NewObligationRequest);
+    event LogLien(IAstariaRouter.LienDetails);
 
     function _validateCommitment(
-        IBrokerRouter.Commitment memory params,
+        IAstariaRouter.Commitment memory params,
         address receiver
-    )
-        internal
-    {
+    ) internal {
         uint256 escrowId = params.tokenContract.computeId(params.tokenId);
 
         address operator = ERC721(ESCROW_TOKEN()).getApproved(escrowId);
@@ -105,7 +100,8 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
 
         if (receiver != holder) {
             require(
-                receiver == operator || IBrokerRouter(ROUTER()).isValidVault(receiver),
+                receiver == operator ||
+                    IAstariaRouter(ROUTER()).isValidVault(receiver),
                 "can only issue funds to an operator that is approved by the owner"
             );
         }
@@ -115,8 +111,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
         );
 
-        (bool valid, IBrokerRouter.LienDetails memory ld) =
-            params.nor.validateTerms(holder);
+        (bool valid, IAstariaRouter.LienDetails memory ld) = params
+            .nor
+            .validateTerms(holder);
 
         require(
             valid,
@@ -128,10 +125,11 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             "Vault._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
         );
 
-        uint256 seniorDebt = IBrokerRouter(ROUTER()).LIEN_TOKEN()
+        uint256 seniorDebt = IAstariaRouter(ROUTER())
+            .LIEN_TOKEN()
             .getTotalDebtForCollateralVault(
-            params.tokenContract.computeId(params.tokenId)
-        );
+                params.tokenContract.computeId(params.tokenId)
+            );
         require(
             seniorDebt <= ld.maxSeniorDebt,
             "Vault._validateTerms(): too much debt already for this loan"
@@ -150,11 +148,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     {}
 
     function commitToLoan(
-        IBrokerRouter.Commitment memory params,
+        IAstariaRouter.Commitment memory params,
         address receiver
-    )
-        external
-    {
+    ) external {
         _validateCommitment(params, receiver);
         uint256 lienId = _requestLienAndIssuePayout(params, receiver);
         _handleAppraiserReward(params.nor.amount);
@@ -164,7 +160,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             params.tokenContract,
             params.tokenId,
             params.nor.amount
-            );
+        );
     }
 
     function canLiquidate(uint256 escrowId, uint256 position)
@@ -172,18 +168,17 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         view
         returns (bool)
     {
-        return IBrokerRouter(ROUTER()).canLiquidate(escrowId, position);
+        return IAstariaRouter(ROUTER()).canLiquidate(escrowId, position);
     }
 
     function buyoutLien(
         uint256 escrowId,
         uint256 position,
-        IBrokerRouter.Commitment memory incomingTerms
-    )
-        external
-    {
-        (uint256 owed, uint256 buyout) =
-            IBrokerRouter(ROUTER()).LIEN_TOKEN().getBuyout(escrowId, position);
+        IAstariaRouter.Commitment memory incomingTerms
+    ) external {
+        (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
+            .LIEN_TOKEN()
+            .getBuyout(escrowId, position);
 
         require(
             buyout <= ERC20(underlying()).balanceOf(address(this)),
@@ -194,9 +189,10 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         _validateCommitment(incomingTerms, recipient());
 
         ERC20(underlying()).safeApprove(
-            address(IBrokerRouter(ROUTER()).TRANSFER_PROXY()), owed
+            address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
+            owed
         );
-        IBrokerRouter(ROUTER()).LIEN_TOKEN().buyoutLien(
+        IAstariaRouter(ROUTER()).LIEN_TOKEN().buyoutLien(
             ILienToken.LienActionBuyout(incomingTerms, position, recipient())
         );
     }
@@ -210,17 +206,15 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     }
 
     function _requestLienAndIssuePayout(
-        IBrokerRouter.Commitment memory c,
+        IAstariaRouter.Commitment memory c,
         address receiver
-    )
-        internal
-        returns (uint256)
-    {
-        IBrokerRouter.LienDetails memory terms = ValidateTerms.getLienDetails(
-            c.nor.obligationType, c.nor.obligationDetails
+    ) internal returns (uint256) {
+        IAstariaRouter.LienDetails memory terms = ValidateTerms.getLienDetails(
+            c.nor.obligationType,
+            c.nor.obligationDetails
         );
 
-        uint256 newLienId = IBrokerRouter(ROUTER()).requestLienPosition(
+        uint256 newLienId = IAstariaRouter(ROUTER()).requestLienPosition(
             ILienToken.LienActionEncumber(
                 c.tokenContract,
                 c.tokenId,
@@ -231,7 +225,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
                 true
             )
         );
-        address feeTo = IBrokerRouter(ROUTER()).feeTo();
+        address feeTo = IAstariaRouter(ROUTER()).feeTo();
         bool feeOn = feeTo != address(0);
         if (feeOn) {
             // uint256 rake = (amount * 997) / 1000;
@@ -246,11 +240,8 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     }
 }
 
-interface IBroker {
-    function deposit(uint256 assets, address receiver)
-        external
-        virtual
-        returns (uint256 shares);
+interface IVault {
+    function deposit(uint256, address) external virtual returns (uint256);
 }
 //contract SoloBroker is VaultImplementation, IBroker {
 //    using SafeTransferLib for ERC20;

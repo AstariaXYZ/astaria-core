@@ -5,7 +5,7 @@ import {ILienToken} from "./ILienToken.sol";
 import {IEscrowToken} from "./IEscrowToken.sol";
 import {ITransferProxy} from "./ITransferProxy.sol";
 
-interface IBrokerRouter {
+interface IAstariaRouter {
     struct Terms {
         address broker;
         address token;
