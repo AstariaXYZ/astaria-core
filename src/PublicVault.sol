@@ -10,29 +10,21 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {LienToken} from "./LienToken.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
-import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+import {ClonesWithImmutableArgs} from
+    "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 contract Vault is VaultImplementation, IVault {
     using SafeTransferLib for ERC20;
 
     function name() public view returns (string memory) {
-        return
-            string(
-                abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol())
-            );
+        return string(abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol()));
     }
 
     function symbol() public view returns (string memory) {
-        return
-            string(
-                abi.encodePacked(
-                    "AST-V",
-                    owner(),
-                    "-",
-                    ERC20(underlying()).symbol()
-                )
-            );
+        return string(
+            abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol())
+        );
     }
 
     function _handleAppraiserReward(uint256 shares) internal virtual override {}
@@ -40,30 +32,20 @@ contract Vault is VaultImplementation, IVault {
     function deposit(uint256 amount, address)
         public
         virtual
-        override(IVault)
+        override (IVault)
         returns (uint256)
     {
-        require(
-            msg.sender == owner(),
-            "only the appraiser can fund this vault"
-        );
+        require(msg.sender == owner(), "only the appraiser can fund this vault");
         ERC20(underlying()).safeTransferFrom(
-            address(msg.sender),
-            address(this),
-            amount
+            address(msg.sender), address(this), amount
         );
         return amount;
     }
 
     function withdraw(uint256 amount) external {
-        require(
-            msg.sender == owner(),
-            "only the appraiser can exit this vault"
-        );
+        require(msg.sender == owner(), "only the appraiser can exit this vault");
         ERC20(underlying()).safeTransferFrom(
-            address(this),
-            address(msg.sender),
-            amount
+            address(this), address(msg.sender), amount
         );
     }
 }
@@ -98,11 +80,12 @@ contract PublicVault is ERC4626Cloned, Vault {
     //        WETH = IERC20(_WETH);
     //    }
 
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public virtual override returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address owner)
+        public
+        virtual
+        override
+        returns (uint256 assets)
+    {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
     }
 
@@ -111,7 +94,11 @@ contract PublicVault is ERC4626Cloned, Vault {
         address receiver,
         address owner,
         uint64 epoch
-    ) public virtual returns (uint256 assets) {
+    )
+        public
+        virtual
+        returns (uint256 assets)
+    {
         if (msg.sender != owner) {
             uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
 
@@ -149,7 +136,7 @@ contract PublicVault is ERC4626Cloned, Vault {
 
     function deposit(uint256 amount, address receiver)
         public
-        override(Vault, ERC4626Cloned)
+        override (Vault, ERC4626Cloned)
         returns (uint256)
     {
         return super.deposit(amount, receiver);
@@ -159,7 +146,9 @@ contract PublicVault is ERC4626Cloned, Vault {
     function processEpoch(
         uint256[] memory escrowIds,
         uint256[] memory positions
-    ) external {
+    )
+        external
+    {
         // check to make sure epoch is over
         require(
             START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp,
@@ -192,8 +181,8 @@ contract PublicVault is ERC4626Cloned, Vault {
                 "liquidations not processed"
             );
 
-            uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
-                .totalSupply();
+            uint256 proxySupply =
+                WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
             // recalculate liquidationWithdrawRatio for the new epoch
             liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply);
@@ -218,8 +207,7 @@ contract PublicVault is ERC4626Cloned, Vault {
         // prevents transfer to a non-existent WithdrawProxy
         if (withdrawProxies[currentEpoch] != address(0)) {
             ERC20(underlying()).transfer(
-                withdrawProxies[currentEpoch],
-                withdraw
+                withdrawProxies[currentEpoch], withdraw
             );
         }
 
@@ -239,7 +227,11 @@ contract PublicVault is ERC4626Cloned, Vault {
     function haveLiquidationsProcessed(
         uint256[] memory escrowIds,
         uint256[] memory positions
-    ) public virtual returns (bool) {
+    )
+        public
+        virtual
+        returns (bool)
+    {
         // was returns (uint256 balance)
         for (uint256 i = 0; i < escrowIds.length; i++) {
             // get lienId from LienToken
@@ -267,10 +259,7 @@ contract PublicVault is ERC4626Cloned, Vault {
 
             // check that the lien cannot be liquidated
             if (
-                IAstariaRouter(ROUTER()).canLiquidate(
-                    escrowIds[i],
-                    positions[i]
-                )
+                IAstariaRouter(ROUTER()).canLiquidate(escrowIds[i], positions[i])
             ) {
                 return false;
             }
@@ -292,17 +281,14 @@ contract PublicVault is ERC4626Cloned, Vault {
         // check to ensure that the WithdrawProxy was instantiated
         if (withdrawProxies[currentEpoch] != address(0)) {
             ERC20(underlying()).transfer(
-                withdrawProxies[currentEpoch],
-                withdraw
+                withdrawProxies[currentEpoch], withdraw
             );
         }
 
         // decrement the yintercept for the amount received on liquidatation vs the expected
         // TODO: unchecked?
-        yintercept -= (expected - amount).mulDivDown(
-            1 - liquidationWithdrawRatio,
-            1
-        );
+        yintercept -=
+            (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
@@ -338,9 +324,8 @@ contract PublicVault is ERC4626Cloned, Vault {
     }
 
     function _handleAppraiserReward(uint256 amount) internal virtual override {
-        (uint256 appraiserRate, uint256 appraiserBase) = IAstariaRouter(
-            ROUTER()
-        ).getAppraiserFee();
+        (uint256 appraiserRate, uint256 appraiserBase) =
+            IAstariaRouter(ROUTER()).getAppraiserFee();
         _mint(
             owner(),
             convertToShares(amount).mulDivDown(appraiserRate, appraiserBase)
