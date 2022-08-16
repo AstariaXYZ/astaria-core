@@ -207,7 +207,7 @@ abstract contract BrokerImplementation is ERC721TokenReceiver, VaultBase {
     }
 
     function recipient() public view returns (address) {
-        if (BROKER_TYPE() == uint256(1)) {
+        if (BROKER_TYPE() == uint256(2)) {
             return address(this);
         } else {
             return owner();
