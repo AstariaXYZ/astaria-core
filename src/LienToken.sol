@@ -115,10 +115,10 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
         //TODO: fix up min duration and min rate changes
         require(ld.rate < lienData[lienId].rate, "Invalid Rate");
-        require(
-            lienData[lienId].rate - ld.rate > IAstariaRouter(),
-            "Invalid Rate delta"
-        );
+        //        require(
+        //            lienData[lienId].rate - ld.rate > IAstariaRouter(),
+        //            "Invalid Rate delta"
+        //        );
         require(
             block.timestamp + ld.duration
                 >= lienData[lienId].start + lienData[lienId].duration,
