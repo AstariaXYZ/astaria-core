@@ -28,7 +28,7 @@ contract TransferAgent {
 }
 
 contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
-    using ValidateTerms for IAstariaRouter.NewObligationRequest;
+    using ValidateTerms for IAstariaRouter.NewLienRequest;
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
 
@@ -37,10 +37,6 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
     bytes32 public immutable DOMAIN_SEPARATOR;
 
-    string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA =
-        "\x19\x01";
-
-    uint256 public lienCounter;
     uint256 public buyoutNumerator;
     uint256 public buyoutDenominator;
 
@@ -56,7 +52,6 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         TransferAgent(_TRANSFER_PROXY, _WETH)
         ERC721("Astaria Lien Token", "Lien")
     {
-        lienCounter = 1;
         buyoutNumerator = 10;
         buyoutDenominator = 100;
         uint256 chainId;
@@ -91,11 +86,10 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override (ERC721, IERC165)
+        override (IERC165, ERC721)
         returns (bool)
     {
-        return interfaceId == type(IERC721).interfaceId
-            || interfaceId == type(ILienToken).interfaceId
+        return interfaceId == type(ILienToken).interfaceId
             || super.supportsInterface(interfaceId);
     }
 
@@ -118,8 +112,18 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         if (!valid) {
             revert("invalid incoming terms");
         }
-        require(ld.rate <= lienData[lienId].rate, "Invalid Rate");
-        require(ld.duration <= type(uint256).max, "Invalid Duration"); //TODO: set this check to be proper with a min DURATION
+
+        //TODO: fix up min duration and min rate changes
+        require(ld.rate < lienData[lienId].rate, "Invalid Rate");
+        require(
+            lienData[lienId].rate - ld.rate > IAstariaRouter(),
+            "Invalid Rate delta"
+        );
+        require(
+            block.timestamp + ld.duration
+                >= lienData[lienId].start + lienData[lienId].duration,
+            "Invalid Duration"
+        );
         lienData[lienId].last = uint32(block.timestamp);
         lienData[lienId].start = uint32(block.timestamp);
         lienData[lienId].rate = uint32(ld.rate);
@@ -128,8 +132,10 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         lienData[lienId].vault = params.incoming.nor.strategy.vault;
 
         //TODO: emit event, should we send to sender or broker on buyout?
-        safeTransferFrom(ownerOf(lienId), address(params.receiver), lienId);
+        _safeTransfer(ownerOf(lienId), address(params.receiver), lienId, "");
     }
+
+    event RateData(uint256);
 
     //    function validateTerms(IAstariaRouter.Terms memory params)
     //        public
@@ -163,7 +169,9 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
     {
         uint256 delta_t = uint256(uint32(timestamp) - lien.last);
 
-        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, 1);
+        //        return ((delta_t * lien.rate) / 100) * lien.amount;
+        return ((delta_t * lien.rate) / 31556952 / 100) * lien.amount;
+        //        return delta_t.mulDivDown(rps, 100).mulDivDown(lien.amount, 100);
     }
 
     function stopLiens(uint256 escrowId)
@@ -295,14 +303,17 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         return lienData[lienId];
     }
 
+    event Data(uint256, uint256);
+
     function getBuyout(uint256 escrowId, uint256 index)
         public
-        view
         returns (uint256, uint256)
     {
         Lien memory lien = getLien(escrowId, index);
         uint256 owed = _getOwed(lien);
         uint256 remainingInterest = _getRemainingInterest(lien);
+
+        emit Data(owed, remainingInterest);
         return (
             owed,
             // owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
@@ -427,15 +438,10 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
     function _getRemainingInterest(Lien memory lien)
         internal
-        pure
+        view
         returns (uint256)
     {
-        uint256 delta_t =
-            uint256(uint32(lien.start + lien.duration) - lien.last);
-
-        // return (delta_t * uint256(lien.rate) * lien.amount);
-
-        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, 1);
+        return _getInterest(lien, (lien.start + lien.duration - lien.last));
     }
 
     function _payment(uint256 escrowId, uint256 position, uint256 paymentAmount)

@@ -43,8 +43,8 @@ contract AstariaRouter is Auth, IAstariaRouter {
     address public feeTo;
 
     uint256 public LIQUIDATION_FEE_PERCENT;
-    uint256 public APPRAISER_ORIGINATION_FEE_NUMERATOR;
-    uint256 public APPRAISER_ORIGINATION_FEE_BASE;
+    uint256 public STRATEGIST_ORIGINATION_FEE_NUMERATOR;
+    uint256 public STRATEGIST_ORIGINATION_FEE_BASE;
     uint64 public MIN_INTEREST_BPS;
     uint64 public MIN_DURATION_INCREASE;
 
@@ -73,8 +73,8 @@ contract AstariaRouter is Auth, IAstariaRouter {
         SOLO_IMPLEMENTATION = _SOLO_IMPL;
         LIQUIDATION_FEE_PERCENT = 13;
         MIN_INTEREST_BPS = 5; //5 bps
-        APPRAISER_ORIGINATION_FEE_NUMERATOR = 200;
-        APPRAISER_ORIGINATION_FEE_BASE = 1000;
+        STRATEGIST_ORIGINATION_FEE_NUMERATOR = 200;
+        STRATEGIST_ORIGINATION_FEE_BASE = 1000;
         MIN_DURATION_INCREASE = 14 days;
     }
 
@@ -87,10 +87,10 @@ contract AstariaRouter is Auth, IAstariaRouter {
             MIN_INTEREST_BPS = uint64(value);
         } else if (what == "APPRAISER_NUMERATOR") {
             uint256 value = abi.decode(data, (uint256));
-            APPRAISER_ORIGINATION_FEE_NUMERATOR = value;
+            STRATEGIST_ORIGINATION_FEE_NUMERATOR = value;
         } else if (what == "APPRAISER_ORIGINATION_FEE_BASE") {
             uint256 value = abi.decode(data, (uint256));
-            APPRAISER_ORIGINATION_FEE_BASE = value;
+            STRATEGIST_ORIGINATION_FEE_BASE = value;
         } else if (what == "MIN_DURATION_INCREASE") {
             uint256 value = abi.decode(data, (uint256));
             MIN_DURATION_INCREASE = uint64(value);
@@ -243,38 +243,45 @@ contract AstariaRouter is Auth, IAstariaRouter {
         emit Liquidation(escrowId, position, reserve);
     }
 
-    function getAppraiserFee() external view returns (uint256, uint256) {
-        return (APPRAISER_ORIGINATION_FEE_NUMERATOR, APPRAISER_ORIGINATION_FEE_BASE);
+    function getStrategistFee() external view returns (uint256, uint256) {
+        return (
+            STRATEGIST_ORIGINATION_FEE_NUMERATOR, STRATEGIST_ORIGINATION_FEE_BASE
+        );
     }
 
     function isValidVault(address vault) external view returns (bool) {
         return vaults[vault] != address(0);
     }
 
-    function isValidRefinance(IAstariaRouter.RefinanceCheckParams memory params)
-        external
-        view
-        returns (bool)
-    {
-        ILienToken.Lien memory lien =
-            LIEN_TOKEN.getLien(params.incoming.escrowId, params.position);
-        // uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
-        uint256 minNewRate =
-            uint256(lien.rate).mulDivDown(MIN_INTEREST_BPS, 1000);
-
-        if (params.incoming.rate > minNewRate) {
-            revert InvalidRefinanceRate(params.incoming.rate);
-        }
-
-        if (
-            (block.timestamp + params.incoming.duration)
-                - (lien.start + lien.duration) < MIN_DURATION_INCREASE
-        ) {
-            revert InvalidRefinanceDuration(params.incoming.duration);
-        }
-
-        return true;
-    }
+    //    function isValidRefinance(IAstariaRouter.RefinanceCheckParams memory params)
+    //        external
+    //        view
+    //        returns (bool)
+    //    {
+    //        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
+    //            params.incoming.tokenContract.compute(params.incoming.tokenId),
+    //            params.position
+    //        );
+    //        // uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
+    //        uint256 minNewRate = uint256(lien.rate).mulDivDown(
+    //            MIN_INTEREST_BPS,
+    //            1000
+    //        );
+    //
+    //        if (params.incoming.rate > minNewRate) {
+    //            revert InvalidRefinanceRate(params.incoming.rate);
+    //        }
+    //
+    //        if (
+    //            (block.timestamp + params.incoming.duration) -
+    //                (lien.start + lien.duration) <
+    //            MIN_DURATION_INCREASE
+    //        ) {
+    //            revert InvalidRefinanceDuration(params.incoming.duration);
+    //        }
+    //
+    //        return true;
+    //    }
 
     //INTERNAL FUNCS
 

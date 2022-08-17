@@ -281,21 +281,21 @@ contract AstariaTest is TestHelpers {
         );
         assert(BOND_CONTROLLER.LIQUIDATION_FEE_PERCENT() == uint256(0));
 
-        bytes memory newMinInterestBps = abi.encode(uint256(0));
+        bytes memory newMinInterestBps = abi.encode(uint256(5));
         BOND_CONTROLLER.file(bytes32("MIN_INTEREST_BPS"), newMinInterestBps);
         assert(BOND_CONTROLLER.MIN_INTEREST_BPS() == uint256(0));
 
         bytes memory appraiserNumerator = abi.encode(uint256(0));
         BOND_CONTROLLER.file(bytes32("APPRAISER_NUMERATOR"), appraiserNumerator);
         assert(
-            BOND_CONTROLLER.APPRAISER_ORIGINATION_FEE_NUMERATOR() == uint256(0)
+            BOND_CONTROLLER.STRATEGIST_ORIGINATION_FEE_NUMERATOR() == uint256(0)
         );
 
         bytes memory appraiserOriginationFeeBase = abi.encode(uint256(0));
         BOND_CONTROLLER.file(
             bytes32("APPRAISER_ORIGINATION_FEE_BASE"), appraiserOriginationFeeBase
         );
-        assert(BOND_CONTROLLER.APPRAISER_ORIGINATION_FEE_BASE() == uint256(0));
+        assert(BOND_CONTROLLER.STRATEGIST_ORIGINATION_FEE_BASE() == uint256(0));
 
         bytes memory minDurationIncrease = abi.encode(uint256(0));
         BOND_CONTROLLER.file(
@@ -423,7 +423,7 @@ contract AstariaTest is TestHelpers {
     //        // address tokenContract;
     //        //        uint256 tokenId;
     //        //        bytes32[] depositProof;
-    //        //        NewObligationRequest nor;
+    //        //        NewLienRequest nor;
     //        IAstariaRouter.Commitment memory incoming = IAstariaRouter.Commitment(
     //            tokenContract,tokenId,
     //        );
@@ -438,129 +438,123 @@ contract AstariaTest is TestHelpers {
     //        _commitWithoutDeposit(tokenContract, tokenId, newTerms); // refinances loan
     //    }
 
-    // function testRefinanceLoan() public {
-    //     //------------------------------
-
-    //     Dummy721 loanTest = new Dummy721();
-    //     address tokenContract = address(loanTest);
-    //     uint256 tokenId = uint256(1);
-
-    //     LoanTerms memory newTerms = LoanTerms({
-    //         maxAmount: uint256(100000000000000000000),
-    //         interestRate: uint256(10000000000000000000), // interest rate decreased
-    //         duration: uint256(block.timestamp + 10 minutes * 2), // duration doubled
-    //         amount: uint256(1 ether),
-    //         lienPosition: uint256(0),
-    //         schedule: uint256(50 ether)
-    //     });
-
-    //     uint256 escrowId = uint256(
-    //         keccak256(abi.encodePacked(tokenContract, tokenId))
-    //     );
-    //     bytes32 vaultHash;
-    //     bytes32[] memory proof;
-
-    //     (vaultHash, proof) = _generateLoanProof(escrowId, defaultTerms);
-
-    //     address broker = BOND_CONTROLLER.getBroker(vaultHash);
-
-    //     // TODO fix
-    //     IAstariaRouter.Terms memory outgoing = IAstariaRouter.Terms({
-    //         broker: broker, // broker
-    //         proof: proof, // proof
-    //         escrowId: escrowId, // escrowId
-    //         maxAmount: defaultTerms.maxAmount,
-    //         rate: defaultTerms.interestRate, // rate
-    //         duration: defaultTerms.duration,
-    //         position: defaultTerms.lienPosition, // position
-    //         schedule: defaultTerms.schedule
-    //     });
-
-    //     (vaultHash, proof) = _generateLoanProof(escrowId, newTerms);
-
-    //     IAstariaRouter.Terms memory incoming = IAstariaRouter.Terms({
-    //         broker: broker, // broker
-    //         proof: proof, // proof
-    //         escrowId: escrowId, // escrowId
-    //         maxAmount: newTerms.maxAmount,
-    //         rate: newTerms.interestRate, // rate
-    //         duration: newTerms.duration,
-    //         position: newTerms.lienPosition, // position
-    //         schedule: newTerms.schedule
-    //     });
-
-    //     IAstariaRouter.RefinanceCheckParams
-    //         memory refinanceCheckParams = IAstariaRouter.RefinanceCheckParams(
-    //             outgoing,
-    //             incoming
-    //         );
-
-    // BOND_CONTROLLER.isValidRefinance(refinanceCheckParams);
-
-    // _refinanceLoan(tokenContract, tokenId, defaultTerms, newTerms);
-
-    // (bytes32 outgoing, IAstariaRouter.Terms memory terms) = _commitToLoan(
-    //     tokenContract,
-    //     tokenId,
-    //     defaultTerms
-    // );
-
-    // uint256[] memory loanDetails2 = new uint256[](6);
-    // loanDetails2[0] = uint256(100000000000000000000); //maxAmount
-    // loanDetails2[1] = uint256(10000000000000000000); //interestRate
-    // loanDetails2[2] = uint256(block.timestamp + 10 minutes * 2); //duration
-    // loanDetails2[3] = uint256(1 ether); //amount
-    // loanDetails2[4] = uint256(0); //lienPosition
-    // loanDetails2[5] = uint256(50); //schedule
-
-    // _commitWithoutDeposit(
-    //     tokenContract,
-    //     tokenId,
-    //     loanDetails2[0],
-    //     loanDetails2[1], //interestRate
-    //     loanDetails2[2], //duration
-    //     loanDetails2[3], // amount
-    //     loanDetails2[4], //lienPosition
-    //     loanDetails2[5] //schedule
-    // );
-    // }
+    //    function testRefinanceLoan() public {
+    //        //------------------------------
+    //
+    //        Dummy721 loanTest = new Dummy721();
+    //        address tokenContract = address(loanTest);
+    //        uint256 tokenId = uint256(1);
+    //
+    //        uint256 escrowId = tokenContract.computeId(tokenId);
+    //        bytes32 outgoingVaultHash;
+    //        bytes32 incomingVaultHash;
+    //        IAstariaRouter.Commitment memory outgoingCommitment;
+    //        IAstariaRouter.Commitment memory incomingCommitment;
+    //        address outgoingVault;
+    //        address incomingVault;
+    //        (
+    //            outgoingVaultHash,
+    //            outgoingCommitment,
+    //            outgoingVault
+    //        ) = _commitWithoutDeposit(
+    //            CommitWithoutDeposit(
+    //                tokenContract,
+    //                tokenId,
+    //                defaultTerms.maxAmount,
+    //                defaultTerms.maxDebt,
+    //                defaultTerms.interestRate,
+    //                defaultTerms.maxInterestRate,
+    //                defaultTerms.duration,
+    //                defaultTerms.amount
+    //            )
+    //        );
+    //
+    //        (
+    //            incomingVaultHash,
+    //            incomingCommitment,
+    //            incomingVault
+    //        ) = _commitWithoutDeposit(
+    //            CommitWithoutDeposit(
+    //                tokenContract,
+    //                tokenId,
+    //                refinanceTerms.maxAmount,
+    //                refinanceTerms.maxDebt,
+    //                refinanceTerms.interestRate,
+    //                refinanceTerms.maxInterestRate,
+    //                refinanceTerms.duration,
+    //                refinanceTerms.amount
+    //            )
+    //        );
+    //
+    ////        IAstariaRouter.RefinanceCheckParams
+    ////            memory refinanceCheckParams = IAstariaRouter.RefinanceCheckParams(
+    ////                incoming
+    ////            );
+    //
+    ////        BOND_CONTROLLER.isValidRefinance(refinanceCheckParams);
+    //
+    ////        _refinanceLoan(tokenContract, tokenId, defaultTerms, loanTerms);
+    //
+    //        (bytes32 outgoing, IAstariaRouter.Terms memory terms) = _commitToLoan(
+    //            tokenContract,
+    //            tokenId,
+    //            defaultTerms
+    //        );
+    //
+    //        _commitWithoutDeposit(
+    //            tokenContract,
+    //            tokenId,
+    //            loanDetails2[0],
+    //            loanDetails2[1], //interestRate
+    //            loanDetails2[2], //duration
+    //            loanDetails2[3], // amount
+    //            loanDetails2[4], //lienPosition
+    //            loanDetails2[5] //schedule
+    //        );
+    //    }
 
     // lienToken testing
 
-    //    function testBuyoutLien() public {
-    //        Dummy721 buyoutTest = new Dummy721();
-    //        address tokenContract = address(buyoutTest);
-    //        uint256 tokenId = uint256(1);
-    //
-    //        LoanTerms memory loanTerms = LoanTerms({
-    //            maxAmount: 10 ether,
-    //            maxDebt: 20 ether, //used to be uint256(10000000000000000000)
-    //            interestRate: uint256(0),
-    //            duration: 730 days,
-    //            amount: uint256(10 ether),
-    //            schedule: uint256(50 ether)
-    //        });
-    //
-    //        (
-    //            bytes32 vaultHash,
-    //            ,
-    //            IAstariaRouter.Commitment memory terms
-    //        ) = _commitToLoan(tokenContract, tokenId, loanTerms);
-    //
-    //        uint256 escrowId = tokenContract.computeId(tokenId);
-    //
-    //        _warpToMaturity(escrowId, uint256(0));
-    //
-    //        address broker = BOND_CONTROLLER.getBroker(vaultHash);
-    //
-    //        WETH9.deposit{value: 20 ether}();
-    //        WETH9.transfer(broker, 20 ether);
-    //        VaultImplementation(broker).buyoutLien(
-    //            escrowId,
-    //            uint256(0),
-    //            terms.nor
-    //        );
-    //    }
+    function testBuyoutLien() public {
+        Dummy721 buyoutTest = new Dummy721();
+        address tokenContract = address(buyoutTest);
+        uint256 tokenId = uint256(1);
+
+        (
+            bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms
+        ) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+
+        (
+            bytes32 incomingVaultHash,
+            IAstariaRouter.Commitment memory incomingTerms,
+            address incomingVault
+        ) = _commitWithoutDeposit(
+            CommitWithoutDeposit(
+                appraiserTwo,
+                tokenContract,
+                tokenId,
+                refinanceTerms.maxAmount,
+                refinanceTerms.maxDebt,
+                refinanceTerms.interestRate,
+                refinanceTerms.maxInterestRate,
+                refinanceTerms.duration,
+                refinanceTerms.amount
+            )
+        );
+        uint256 escrowId = tokenContract.computeId(tokenId);
+
+        _warpToMaturity(escrowId, uint256(0));
+
+        vm.startPrank(appraiserTwo);
+        vm.deal(appraiserTwo, 50 ether);
+        //        WETH9.deposit{value: 20 ether}();
+        WETH9.approve(incomingVault, 20 ether);
+        //        IVault(incomingVault).deposit(20 ether, address(this));
+        vm.stopPrank();
+        VaultImplementation(incomingVault).buyoutLien(
+            escrowId, uint256(0), incomingTerms
+        );
+    }
 
     event INTEREST(uint256 interest);
 

@@ -68,7 +68,6 @@ interface ILienToken is IERC721 {
 
     function getBuyout(uint256 escrowId, uint256 index)
         external
-        view
         returns (uint256, uint256);
 
     function removeLiens(uint256 escrowId) external;

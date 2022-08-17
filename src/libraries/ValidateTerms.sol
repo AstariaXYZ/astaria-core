@@ -7,11 +7,12 @@ library ValidateTerms {
     event LogCollateral(IAstariaRouter.CollateralDetails);
     event LogCollection(IAstariaRouter.CollectionDetails);
     event LogBytes32(bytes32);
+    event LogLien(IAstariaRouter.LienDetails);
 
-    event LogNOR(IAstariaRouter.NewObligationRequest);
+    event LogNOR(IAstariaRouter.NewLienRequest);
 
     function validateTerms(
-        IAstariaRouter.NewObligationRequest memory params,
+        IAstariaRouter.NewLienRequest memory params,
         address borrower
     )
         internal
@@ -28,6 +29,7 @@ library ValidateTerms {
             //new structure, of borrower based
             emit LogCollateral(cd);
             emit LogNOR(params);
+            emit LogLien(cd.lien);
 
             //[
             //    'uint8',   'address',

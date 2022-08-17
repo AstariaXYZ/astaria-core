@@ -51,12 +51,11 @@ interface IAstariaRouter {
         uint8 version;
         address strategist;
         address delegate;
-        //        uint256 expiration;
         uint256 nonce;
         address vault;
     }
 
-    struct NewObligationRequest {
+    struct NewLienRequest {
         StrategyDetails strategy;
         uint8 obligationType;
         bytes obligationDetails;
@@ -71,22 +70,12 @@ interface IAstariaRouter {
     struct Commitment {
         address tokenContract;
         uint256 tokenId;
-        NewObligationRequest nor;
-    }
-
-    struct BrokerParams {
-        address appraiser;
-        address delegate;
-        //        uint256 expiration;
-        uint256 deadline;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
+        NewLienRequest nor;
     }
 
     struct RefinanceCheckParams {
         uint256 position;
-        Terms incoming;
+        Commitment incoming;
     }
 
     struct BorrowAndBuyParams {
@@ -124,7 +113,9 @@ interface IAstariaRouter {
 
     function ESCROW_TOKEN() external view returns (IEscrowToken);
 
-    function getAppraiserFee() external view returns (uint256, uint256);
+    function MIN_INTEREST_BPS() external view returns (uint256);
+
+    function getStrategistFee() external view returns (uint256, uint256);
 
     function lendToVault(address vault, uint256 amount) external;
 
@@ -139,10 +130,10 @@ interface IAstariaRouter {
 
     function isValidVault(address) external view returns (bool);
 
-    function isValidRefinance(RefinanceCheckParams memory params)
-        external
-        view
-        returns (bool);
+    //    function isValidRefinance(RefinanceCheckParams memory params)
+    //        external
+    //        view
+    //        returns (bool);
 
     event Liquidation(uint256 escrowId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);

@@ -6,7 +6,7 @@ import {ILienToken} from "./interfaces/ILienToken.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {VaultBase} from "gpl/ERC4626-Cloned.sol";
+import {IVault, VaultBase} from "gpl/ERC4626-Cloned.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
@@ -16,7 +16,7 @@ import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
-    using ValidateTerms for IAstariaRouter.NewObligationRequest;
+    using ValidateTerms for IAstariaRouter.NewLienRequest;
     using FixedPointMathLib for uint256;
 
     event NewObligation(
@@ -84,7 +84,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         }
     }
 
-    event LogNor(IAstariaRouter.NewObligationRequest);
+    event LogNor(IAstariaRouter.NewLienRequest);
     event LogLien(IAstariaRouter.LienDetails);
 
     function _validateCommitment(
@@ -244,10 +244,6 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         ERC20(underlying()).safeTransfer(receiver, c.nor.amount);
         return newLienId;
     }
-}
-
-interface IVault {
-    function deposit(uint256, address) external virtual returns (uint256);
 }
 //contract SoloBroker is VaultImplementation, IBroker {
 //    using SafeTransferLib for ERC20;

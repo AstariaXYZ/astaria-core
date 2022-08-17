@@ -61,9 +61,18 @@ contract TestHelpers is Test {
     LoanTerms defaultTerms = LoanTerms({
         maxAmount: uint256(10 ether),
         maxDebt: uint256(1 ether),
-        interestRate: uint256(50000 gwei),
-        maxInterestRate: uint256(75000 gwei),
-        duration: uint256(block.timestamp + 10 minutes),
+        interestRate: uint256(5),
+        maxInterestRate: uint256(6),
+        duration: uint256(block.timestamp + 10 days),
+        amount: uint256(0.5 ether)
+    });
+
+    LoanTerms refinanceTerms = LoanTerms({
+        maxAmount: uint256(10 ether),
+        maxDebt: uint256(10 ether),
+        interestRate: uint256(3),
+        maxInterestRate: uint256(7),
+        duration: uint256(block.timestamp + 10 days),
         amount: uint256(0.5 ether)
     });
 
@@ -370,6 +379,8 @@ contract TestHelpers is Test {
     //    }
 
     struct LoanProofGeneratorParams {
+        address strategist;
+        address delegate;
         address tokenContract;
         uint256 tokenId;
         uint8 generationType;
@@ -397,8 +408,8 @@ contract TestHelpers is Test {
             inputs[2] = abi.encodePacked(params.tokenContract).toHexString(); //tokenContract
             inputs[3] = abi.encodePacked(params.tokenId).toHexString(); //tokenId
 
-            inputs[4] = abi.encodePacked(appraiserOne).toHexString(); //appraiserOne
-            inputs[5] = abi.encodePacked(appraiserTwo).toHexString(); //appraiserTwo
+            inputs[4] = abi.encodePacked(params.strategist).toHexString(); //appraiserOne
+            inputs[5] = abi.encodePacked(params.delegate).toHexString(); //appraiserTwo
             inputs[6] = abi.encodePacked(true).toHexString(); //public
             inputs[7] = abi.encodePacked(address(0)).toHexString(); //vault
             //vault details
@@ -512,6 +523,7 @@ contract TestHelpers is Test {
 
         (vaultHash, terms, broker) = _commitWithoutDeposit(
             CommitWithoutDeposit(
+                appraiserOne,
                 tokenContract,
                 tokenId,
                 maxAmount,
@@ -547,6 +559,7 @@ contract TestHelpers is Test {
         emit LogTerms(loanTerms);
         (vaultHash, terms, vault) = _commitWithoutDeposit(
             CommitWithoutDeposit(
+                appraiserOne,
                 tokenContract,
                 tokenId,
                 loanTerms.maxAmount,
@@ -580,6 +593,7 @@ contract TestHelpers is Test {
     {
         return _commitWithoutDeposit(
             CommitWithoutDeposit(
+                appraiserTwo,
                 tokenContract,
                 tokenId,
                 loanTerms.maxAmount,
@@ -593,6 +607,7 @@ contract TestHelpers is Test {
     }
 
     function _generateLoanGeneratorParams(
+        address strategist,
         address tokenContract,
         uint256 tokenId,
         uint256 maxAmount,
@@ -606,6 +621,8 @@ contract TestHelpers is Test {
         returns (LoanProofGeneratorParams memory)
     {
         return LoanProofGeneratorParams(
+            strategist,
+            address(0), // delegate
             tokenContract,
             tokenId,
             uint8(0),
@@ -626,6 +643,7 @@ contract TestHelpers is Test {
     // TODO clean up flow, for now makes refinancing more convenient
 
     struct CommitWithoutDeposit {
+        address strategist;
         address tokenContract;
         uint256 tokenId;
         uint256 maxAmount;
@@ -651,6 +669,7 @@ contract TestHelpers is Test {
         bytes32[] memory obligationProof;
         LoanProofGeneratorParams memory proofParams =
         _generateLoanGeneratorParams(
+            params.strategist,
             params.tokenContract,
             params.tokenId,
             params.maxAmount,
@@ -664,7 +683,7 @@ contract TestHelpers is Test {
 
         vault = _createBondVault(obligationRoot, true);
 
-        _lendToVault(vault, uint256(500 ether), appraiserTwo);
+        _lendToVault(vault, uint256(20 ether), appraiserTwo);
 
         uint8 v;
         bytes32 r;
@@ -694,7 +713,7 @@ contract TestHelpers is Test {
         return IAstariaRouter.Commitment(
             params.tokenContract,
             params.tokenId,
-            IAstariaRouter.NewObligationRequest(
+            IAstariaRouter.NewLienRequest(
                 IAstariaRouter.StrategyDetails(
                     uint8(0),
                     appraiserOne,
@@ -752,7 +771,8 @@ contract TestHelpers is Test {
 
     function _warpToMaturity(uint256 escrowId, uint256 position) internal {
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(escrowId, position);
-        vm.warp(block.timestamp + lien.start + lien.duration + 2 days);
+        //        vm.warp(block.timestamp + lien.start + lien.duration + 2 days);
+        vm.warp(block.timestamp + 1 days);
     }
 
     function _warpToAuctionEnd(uint256 escrowId) internal {

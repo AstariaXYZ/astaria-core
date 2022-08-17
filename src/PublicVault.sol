@@ -1,7 +1,7 @@
 pragma solidity ^0.8.13;
 
-import {IVault, VaultImplementation} from "./VaultImplementation.sol";
-import {ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
+import {VaultImplementation} from "./VaultImplementation.sol";
+import {IVault, ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -32,7 +32,7 @@ contract Vault is VaultImplementation, IVault {
     function deposit(uint256 amount, address)
         public
         virtual
-        override (IVault)
+        override
         returns (uint256)
     {
         require(msg.sender == owner(), "only the appraiser can fund this vault");
@@ -325,7 +325,7 @@ contract PublicVault is ERC4626Cloned, Vault {
 
     function _handleAppraiserReward(uint256 amount) internal virtual override {
         (uint256 appraiserRate, uint256 appraiserBase) =
-            IAstariaRouter(ROUTER()).getAppraiserFee();
+            IAstariaRouter(ROUTER()).getStrategistFee();
         _mint(
             owner(),
             convertToShares(amount).mulDivDown(appraiserRate, appraiserBase)

@@ -4,9 +4,10 @@ pragma solidity ^0.8.15;
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
+import {IERC165, IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
+//import {ERC721} from "solmate/tokens/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
@@ -79,6 +80,16 @@ contract EscrowToken is
     {
         TRANSFER_PROXY = ITransferProxy(TRANSFER_PROXY_);
         LIEN_TOKEN = ILienToken(LIEN_TOKEN_);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override (IERC165, ERC721)
+        returns (bool)
+    {
+        return interfaceId == type(IEscrowToken).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     function file(bytes32 what, bytes calldata data) external requiresAuth {
