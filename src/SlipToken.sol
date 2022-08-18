@@ -12,7 +12,7 @@ import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IERC1271} from "openzeppelin/interfaces/IERC1271.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
-import {IEscrowToken} from "./interfaces/IEscrowToken.sol";
+import {ISlipToken} from "./interfaces/ISlipToken.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
@@ -34,11 +34,11 @@ interface ISecurityHook {
     function getState(address, uint256) external view returns (bytes memory);
 }
 
-contract EscrowToken is
+contract SlipToken is
     Auth,
     ERC721,
     IERC721Receiver,
-    IEscrowToken,
+    ISlipToken,
     IERC1155Receiver
 {
     using SafeTransferLib for ERC20;
@@ -88,7 +88,7 @@ contract EscrowToken is
         override (IERC165, ERC721)
         returns (bool)
     {
-        return interfaceId == type(IEscrowToken).interfaceId
+        return interfaceId == type(ISlipToken).interfaceId
             || super.supportsInterface(interfaceId);
     }
 
@@ -123,27 +123,27 @@ contract EscrowToken is
         }
     }
 
-    modifier releaseCheck(uint256 escrowId) {
+    modifier releaseCheck(uint256 slipId) {
         require(
-            uint256(0) == LIEN_TOKEN.getLiens(escrowId).length
-                && !AUCTION_HOUSE.auctionExists(escrowId),
+            uint256(0) == LIEN_TOKEN.getLiens(slipId).length
+                && !AUCTION_HOUSE.auctionExists(slipId),
             "must be no liens or auctions to call this"
         );
         _;
     }
 
-    modifier onlyOwner(uint256 escrowId) {
-        require(ownerOf(escrowId) == msg.sender, "onlyOwner: only the owner");
+    modifier onlyOwner(uint256 slipId) {
+        require(ownerOf(slipId) == msg.sender, "onlyOwner: only the owner");
         _;
     }
 
     //TODO: scrap this for now
     function listUnderlyingOnSeaport(
-        uint256 escrowId,
+        uint256 slipId,
         Order memory listingOrder
     )
         external
-        onlyOwner(escrowId)
+        onlyOwner(slipId)
     {
         //    ItemType itemType;
         //    address token;
@@ -152,7 +152,7 @@ contract EscrowToken is
         //    uint256 endAmount;
         //    address payable recipient;
         (address underlyingTokenContract, uint256 underlyingId) =
-            getUnderlying(escrowId);
+            getUnderlying(slipId);
         //ItemType itemType;
         //    address token;
         //    uint256 identifierOrCriteria;
@@ -187,7 +187,7 @@ contract EscrowToken is
         );
         //get total Debt and ensure its being sold for more than that
         uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
-            escrowId, listingOrder.parameters.endTime
+            slipId, listingOrder.parameters.endTime
         );
 
         require(
@@ -225,15 +225,15 @@ contract EscrowToken is
 
     function flashAction(
         IFlashAction receiver,
-        uint256 escrowId,
+        uint256 slipId,
         bytes calldata data
     )
         external
-        onlyOwner(escrowId)
+        onlyOwner(slipId)
     {
         address addr;
         uint256 tokenId;
-        (addr, tokenId) = getUnderlying(escrowId);
+        (addr, tokenId) = getUnderlying(slipId);
         IERC721 nft = IERC721(addr);
         // transfer the NFT to the desitnation optimistically
 
@@ -341,42 +341,42 @@ contract EscrowToken is
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function releaseToAddress(uint256 escrowId, address releaseTo)
+    function releaseToAddress(uint256 slipId, address releaseTo)
         public
-        releaseCheck(escrowId)
+        releaseCheck(slipId)
     {
         //check liens
         require(
-            msg.sender == ownerOf(escrowId),
+            msg.sender == ownerOf(slipId),
             "You don't have permission to call this"
         );
-        _releaseToAddress(escrowId, releaseTo);
+        _releaseToAddress(slipId, releaseTo);
     }
 
-    function _releaseToAddress(uint256 escrowId, address releaseTo) internal {
-        (address underlyingAsset, uint256 assetId) = getUnderlying(escrowId);
+    function _releaseToAddress(uint256 slipId, address releaseTo) internal {
+        (address underlyingAsset, uint256 assetId) = getUnderlying(slipId);
         IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
-        delete idToUnderlying[escrowId];
+        delete idToUnderlying[slipId];
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
 
-    function getUnderlying(uint256 escrowId)
+    function getUnderlying(uint256 slipId)
         public
         view
         returns (address, uint256)
     {
-        Asset memory underlying = idToUnderlying[escrowId];
+        Asset memory underlying = idToUnderlying[slipId];
         return (underlying.tokenContract, underlying.tokenId);
     }
 
-    function tokenURI(uint256 escrowId)
+    function tokenURI(uint256 slipId)
         public
         view
         virtual
         override
         returns (string memory)
     {
-        (address underlyingAsset, uint256 assetId) = getUnderlying(escrowId);
+        (address underlyingAsset, uint256 assetId) = getUnderlying(slipId);
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 
@@ -401,22 +401,22 @@ contract EscrowToken is
     )
         external
     {
-        uint256 escrowId =
+        uint256 slipId =
             uint256(keccak256(abi.encodePacked(tokenContract_, tokenId_)));
 
         ERC721(tokenContract_).safeTransferFrom(
             depositFor_, address(this), tokenId_, ""
         );
 
-        _mint(depositFor_, escrowId);
-        idToUnderlying[escrowId] =
+        _mint(depositFor_, slipId);
+        idToUnderlying[slipId] =
             Asset({tokenContract: tokenContract_, tokenId: tokenId_});
 
         emit DepositERC721(depositFor_, tokenContract_, tokenId_);
     }
 
     function auctionVault(
-        uint256 escrowId,
+        uint256 slipId,
         address liquidator,
         uint256 liquidationFee
     )
@@ -425,11 +425,11 @@ contract EscrowToken is
         returns (uint256 reserve)
     {
         require(
-            !AUCTION_HOUSE.auctionExists(escrowId),
+            !AUCTION_HOUSE.auctionExists(slipId),
             "auctionVault: auction already exists"
         );
         reserve = AUCTION_HOUSE.createAuction(
-            escrowId,
+            slipId,
             uint256(7 days), //todo make htis a param we can change
             liquidator,
             liquidationFee

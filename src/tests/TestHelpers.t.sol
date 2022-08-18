@@ -9,9 +9,9 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {EscrowToken} from "../EscrowToken.sol";
+import {SlipToken} from "../SlipToken.sol";
 import {LienToken} from "../LienToken.sol";
-import {IEscrowToken} from "../interfaces/IEscrowToken.sol";
+import {ISlipToken} from "../interfaces/ISlipToken.sol";
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
@@ -94,7 +94,7 @@ contract TestHelpers is Test {
 
     using Strings2 for bytes;
 
-    EscrowToken ESCROW_TOKEN;
+    SlipToken SLIP_TOKEN;
     LienToken LIEN_TOKEN;
     AstariaRouter BOND_CONTROLLER;
     Dummy721 testNFT;
@@ -118,9 +118,9 @@ contract TestHelpers is Test {
     address appraiserTwo = vm.addr(appraiserTwoPK);
     address appraiserThree = vm.addr(0x1345);
 
-    event NewTermCommitment(bytes32 bondVault, uint256 escrowId, uint256 amount);
-    event Repayment(bytes32 bondVault, uint256 escrowId, uint256 amount);
-    event Liquidation(bytes32 bondVault, uint256 escrowId);
+    event NewTermCommitment(bytes32 bondVault, uint256 slipId, uint256 amount);
+    event Repayment(bytes32 bondVault, uint256 slipId, uint256 amount);
+    event Liquidation(bytes32 bondVault, uint256 slipId);
     event NewBondVault(
         address appraiser,
         bytes32 bondVault,
@@ -144,7 +144,7 @@ contract TestHelpers is Test {
             address(TRANSFER_PROXY),
             address(WETH9)
         );
-        ESCROW_TOKEN = new EscrowToken(
+        SLIP_TOKEN = new SlipToken(
             MRA,
             address(TRANSFER_PROXY),
             address(LIEN_TOKEN)
@@ -155,7 +155,7 @@ contract TestHelpers is Test {
         BOND_CONTROLLER = new AstariaRouter(
             MRA,
             address(WETH9),
-            address(ESCROW_TOKEN),
+            address(SLIP_TOKEN),
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY),
             address(vaultImpl),
@@ -165,20 +165,20 @@ contract TestHelpers is Test {
         AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
             address(MRA),
-            address(ESCROW_TOKEN),
+            address(SLIP_TOKEN),
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
 
-        ESCROW_TOKEN.file(
+        SLIP_TOKEN.file(
             bytes32("setBondController"), abi.encode(address(BOND_CONTROLLER))
         );
-        ESCROW_TOKEN.file(
+        SLIP_TOKEN.file(
             bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
         );
 
-        // ESCROW_TOKEN.setBondController(address(BOND_CONTROLLER));
-        // ESCROW_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
+        // SLIP_TOKEN.setBondController(address(BOND_CONTROLLER));
+        // SLIP_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
 
         bool seaportActive;
         address seaport = address(0x00000000006c3852cbEf3e08E8dF289169EdE581);
@@ -190,8 +190,8 @@ contract TestHelpers is Test {
         if (codeHash != 0x0) {
             bytes memory seaportAddr =
                 abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
-            ESCROW_TOKEN.file(bytes32("setupSeaport"), seaportAddr);
-            // ESCROW_TOKEN.setupSeaport(
+            SLIP_TOKEN.file(bytes32("setupSeaport"), seaportAddr);
+            // SLIP_TOKEN.setupSeaport(
             //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
             // );
         }
@@ -200,11 +200,11 @@ contract TestHelpers is Test {
             bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
         );
         LIEN_TOKEN.file(
-            bytes32("setCollateralVault"), abi.encode(address(ESCROW_TOKEN))
+            bytes32("setCollateralVault"), abi.encode(address(SLIP_TOKEN))
         );
 
         // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
-        // LIEN_TOKEN.setCollateralVault(address(ESCROW_TOKEN));
+        // LIEN_TOKEN.setCollateralVault(address(SLIP_TOKEN));
         _setupRolesAndCapabilities();
     }
 
@@ -233,7 +233,7 @@ contract TestHelpers is Test {
         );
         MRA.setRoleCapability(
             uint8(UserRoles.BOND_CONTROLLER),
-            EscrowToken.auctionVault.selector,
+            SlipToken.auctionVault.selector,
             true
         );
         MRA.setRoleCapability(
@@ -255,7 +255,7 @@ contract TestHelpers is Test {
         MRA.setUserRole(
             address(BOND_CONTROLLER), uint8(UserRoles.BOND_CONTROLLER), true
         );
-        MRA.setUserRole(address(ESCROW_TOKEN), uint8(UserRoles.WRAPPER), true);
+        MRA.setUserRole(address(SLIP_TOKEN), uint8(UserRoles.WRAPPER), true);
         MRA.setUserRole(
             address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true
         );
@@ -275,8 +275,8 @@ contract TestHelpers is Test {
      */
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
-        ERC721(tokenContract).setApprovalForAll(address(ESCROW_TOKEN), true);
-        ESCROW_TOKEN.depositERC721(
+        ERC721(tokenContract).setApprovalForAll(address(SLIP_TOKEN), true);
+        SLIP_TOKEN.depositERC721(
             address(this), address(tokenContract), uint256(tokenId)
         );
     }
@@ -334,12 +334,12 @@ contract TestHelpers is Test {
     }
 
     //    function _generateLoanProof(
-    //        uint256 _escrowId,
+    //        uint256 _slipId,
     //        LoanTerms memory terms
     //    ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
     //        return
     //            _generateLoanProof(
-    //                _escrowId,
+    //                _slipId,
     //                terms.maxAmount,
     //                terms.maxDebt,
     //                terms.interestRate,
@@ -350,7 +350,7 @@ contract TestHelpers is Test {
 
     //
     //    function _generateLoanProof(
-    //        uint256 _escrowId,
+    //        uint256 _slipId,
     //        uint256 maxAmount,
     //        uint256 maxDebt,
     //        uint256 interest,
@@ -358,8 +358,8 @@ contract TestHelpers is Test {
     //        uint256 duration,
     //        uint256 schedule
     //    ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
-    //        (address tokenContract, uint256 tokenId) = ESCROW_TOKEN
-    //            .getUnderlying(_escrowId);
+    //        (address tokenContract, uint256 tokenId) = SLIP_TOKEN
+    //            .getUnderlying(_slipId);
     //        string[] memory inputs = new string[](10);
     //        //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
     //
@@ -394,7 +394,7 @@ contract TestHelpers is Test {
         if (params.generationType == uint8(StrategyTypes.STANDARD)) {
             inputs = new string[](11);
 
-            uint256 escrowId = uint256(
+            uint256 slipId = uint256(
                 keccak256(abi.encodePacked(params.tokenContract, params.tokenId))
             );
 
@@ -428,8 +428,8 @@ contract TestHelpers is Test {
         }
         //        } else if (generationType == StrategyTypes.COLLECTION) {
         //            inputs = new string[](10);
-        //            (address tokenContract, uint256 tokenId) = ESCROW_TOKEN
-        //                .getUnderlying(_escrowId);
+        //            (address tokenContract, uint256 tokenId) = SLIP_TOKEN
+        //                .getUnderlying(_slipId);
         //            string[] memory inputs = new string[](11);
         //            //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
         //
@@ -466,7 +466,7 @@ contract TestHelpers is Test {
 
     function _generateDefaultCollateralVault()
         internal
-        returns (uint256 escrowId)
+        returns (uint256 slipId)
     {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
@@ -475,7 +475,7 @@ contract TestHelpers is Test {
         (,, IAstariaRouter.Commitment memory terms) =
             _commitToLoan(tokenContract, tokenId, defaultTerms);
 
-        escrowId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
+        slipId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
 
         return (tokenContract.computeId(tokenId));
     }
@@ -536,7 +536,7 @@ contract TestHelpers is Test {
         );
 
         // vm.expectEmit(true, true, false, false);
-        // emit NewTermCommitment(vaultHash, escrowId, amount);
+        // emit NewTermCommitment(vaultHash, slipId, amount);
         VaultImplementation(broker).commitToLoan(terms, address(this));
         // BrokerVault(broker).withdraw(0 ether);
 
@@ -664,7 +664,7 @@ contract TestHelpers is Test {
             address vault
         )
     {
-        uint256 escrowId = params.tokenContract.computeId(params.tokenId);
+        uint256 slipId = params.tokenContract.computeId(params.tokenId);
 
         bytes32[] memory obligationProof;
         LoanProofGeneratorParams memory proofParams =
@@ -769,20 +769,20 @@ contract TestHelpers is Test {
         _commitWithoutDeposit(tokenContract, tokenId, newTerms);
     }
 
-    function _warpToMaturity(uint256 escrowId, uint256 position) internal {
-        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(escrowId, position);
+    function _warpToMaturity(uint256 slipId, uint256 position) internal {
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(slipId, position);
         //        vm.warp(block.timestamp + lien.start + lien.duration + 2 days);
         vm.warp(block.timestamp + 1 days);
     }
 
-    function _warpToAuctionEnd(uint256 escrowId) internal {
+    function _warpToAuctionEnd(uint256 slipId) internal {
         (
             uint256 amount,
             uint256 duration,
             uint256 firstBidTime,
             uint256 reservePrice,
             address bidder
-        ) = AUCTION_HOUSE.getAuctionData(escrowId);
+        ) = AUCTION_HOUSE.getAuctionData(slipId);
         vm.warp(block.timestamp + duration);
     }
 

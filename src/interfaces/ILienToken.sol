@@ -6,7 +6,7 @@ import {IAstariaRouter} from "./IAstariaRouter.sol";
 interface ILienToken is IERC721 {
     struct Lien {
         uint256 amount; //32
-        uint256 escrowId; //32
+        uint256 slipId; //32
         address token; // 20
         uint32 rate; // 4
         uint32 start; // 4
@@ -24,7 +24,7 @@ interface ILienToken is IERC721 {
         bytes32 obligationRoot;
         uint256 amount;
         address vault;
-        bool validateEscrow;
+        bool validateSlip;
     }
 
     struct LienActionBuyout {
@@ -34,7 +34,7 @@ interface ILienToken is IERC721 {
     }
 
     //    struct SubjugationOffer {
-    //        uint256 escrowId;
+    //        uint256 slipId;
     //        uint256 lien;
     //        uint256 currentPosition;
     //        uint256 lowestPosition;
@@ -58,7 +58,7 @@ interface ILienToken is IERC721 {
         external
         returns (uint256 slope);
 
-    function stopLiens(uint256 escrowId)
+    function stopLiens(uint256 slipId)
         external
         returns (
             uint256 reserve,
@@ -66,25 +66,25 @@ interface ILienToken is IERC721 {
             uint256[] memory lienIds
         );
 
-    function getBuyout(uint256 escrowId, uint256 index)
+    function getBuyout(uint256 slipId, uint256 index)
         external
         returns (uint256, uint256);
 
-    function removeLiens(uint256 escrowId) external;
+    function removeLiens(uint256 slipId) external;
 
-    function getInterest(uint256 escrowId, uint256 position)
+    function getInterest(uint256 slipId, uint256 position)
         external
         view
         returns (uint256);
 
-    function getLiens(uint256 _escrowId)
+    function getLiens(uint256 _slipId)
         external
         view
         returns (uint256[] memory);
 
     function getLien(uint256 lienId) external view returns (Lien memory);
 
-    function getLien(uint256 escrowId, uint256 position)
+    function getLien(uint256 slipId, uint256 position)
         external
         view
         returns (Lien memory);
@@ -95,14 +95,14 @@ interface ILienToken is IERC721 {
 
     function buyoutLien(LienActionBuyout calldata params) external;
 
-    function makePayment(uint256 escrowId, uint256 paymentAmount) external;
+    function makePayment(uint256 slipId, uint256 paymentAmount) external;
 
-    function getTotalDebtForCollateralVault(uint256 escrowId)
+    function getTotalDebtForCollateralVault(uint256 slipId)
         external
         view
         returns (uint256 totalDebt);
 
-    function getTotalDebtForCollateralVault(uint256 escrowId, uint256 timestamp)
+    function getTotalDebtForCollateralVault(uint256 slipId, uint256 timestamp)
         external
         view
         returns (uint256 totalDebt);

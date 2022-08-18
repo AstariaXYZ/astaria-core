@@ -9,10 +9,10 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {EscrowToken} from "../EscrowToken.sol";
+import {SlipToken} from "../SlipToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
-import {IEscrowToken} from "../interfaces/IEscrowToken.sol";
+import {ISlipToken} from "../interfaces/ISlipToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
@@ -89,14 +89,14 @@ contract Fuzzers is TestHelpers {
         (,, IAstariaRouter.Commitment memory terms) =
             _commitToLoan(tokenContract, tokenId, args);
 
-        uint256 escrowId = tokenContract.computeId(tokenId);
+        uint256 slipId = tokenContract.computeId(tokenId);
 
-        uint256 interest = LIEN_TOKEN.getInterest(escrowId, uint256(0));
+        uint256 interest = LIEN_TOKEN.getInterest(slipId, uint256(0));
         assertEq(interest, uint256(0));
 
         // TODO calcs, waiting on better math for now
-        // _warpToMaturity(escrowId, uint256(0));
-        // interest = LIEN_TOKEN.getInterest(terms.escrowId, uint256(0));
+        // _warpToMaturity(slipId, uint256(0));
+        // interest = LIEN_TOKEN.getInterest(terms.slipId, uint256(0));
     }
 
     function testFuzzLienGetTotalDebtForCollateralVault(FuzzInputs memory args)
