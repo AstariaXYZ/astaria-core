@@ -129,7 +129,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         );
 
         uint256 seniorDebt = IAstariaRouter(ROUTER()).LIEN_TOKEN()
-            .getTotalDebtForCollateralVault(
+            .getTotalDebtForCollateralToken(
             params.tokenContract.computeId(params.tokenId)
         );
         require(

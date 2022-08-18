@@ -75,7 +75,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         if (what == "setAuctionHouse") {
             address addr = abi.decode(data, (address));
             AUCTION_HOUSE = IAuctionHouse(addr);
-        } else if (what == "setCollateralVault") {
+        } else if (what == "setCollateralToken") {
             address addr = abi.decode(data, (address));
             COLLATERAL_TOKEN = ICollateralToken(addr);
         } else {
@@ -225,7 +225,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
             );
         }
 
-        uint256 totalDebt = getTotalDebtForCollateralVault(collateralId);
+        uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
         uint256 impliedRate = getImpliedRate(collateralId);
 
         require(
@@ -382,7 +382,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
 
     function _afterPayment(uint256 lienId, uint256 amount) internal virtual {}
 
-    function getTotalDebtForCollateralVault(uint256 collateralId)
+    function getTotalDebtForCollateralToken(uint256 collateralId)
         public
         view
         returns (uint256 totalDebt)
@@ -394,7 +394,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         }
     }
 
-    function getTotalDebtForCollateralVault(uint256 collateralId, uint256 timestamp)
+    function getTotalDebtForCollateralToken(uint256 collateralId, uint256 timestamp)
         public
         view
         returns (uint256 totalDebt)
@@ -412,7 +412,7 @@ contract LienToken is ILienToken, Auth, TransferAgent, ERC721 {
         view
         returns (uint256 impliedRate)
     {
-        uint256 totalDebt = getTotalDebtForCollateralVault(collateralId);
+        uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
         uint256[] memory openLiens = getLiens(collateralId);
         impliedRate = 0;
         for (uint256 i = 0; i < openLiens.length; ++i) {

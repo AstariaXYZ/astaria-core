@@ -158,7 +158,7 @@ contract PublicVault is ERC4626Cloned, Vault {
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
-        // check to make sure the amount of CollateralVaults were the same as the LienTokens held by the vault
+        // check to make sure the amount of CollateralTokens were the same as the LienTokens held by the vault
         require(
             collateralIds.length == LIEN_TOKEN().balanceOf(address(this)),
             "provided ids less than balance"
@@ -331,4 +331,9 @@ contract PublicVault is ERC4626Cloned, Vault {
             convertToShares(amount).mulDivDown(appraiserRate, appraiserBase)
         );
     }
+
+    // TODO fix getter/access flow
+    function getSlope() public returns (uint256) {
+        return slope;
+    } 
 }

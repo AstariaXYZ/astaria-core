@@ -84,7 +84,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
             LIQUIDATION_FEE_PERCENT = value;
         } else if (what == "MIN_INTEREST_BPS") {
             uint256 value = abi.decode(data, (uint256));
-            MIN_INTEREST_BPS = uint64(value);
+            MIN_INTEREST_BPS = uint256(value);
         } else if (what == "APPRAISER_NUMERATOR") {
             uint256 value = abi.decode(data, (uint256));
             STRATEGIST_ORIGINATION_FEE_NUMERATOR = value;

@@ -31,7 +31,7 @@ interface IWETH9 is IERC20 {
 contract AstariaDeploy {
     enum UserRoles {
         ADMIN,
-        BROKER_ROUTER,
+        ASTARIA_ROUTER,
         COLLATERAL_TOKEN,
         LIEN_TOKEN,
         AUCTION_HOUSE,
@@ -65,7 +65,7 @@ contract AstariaDeploy {
 
         Vault soloImpl = new Vault();
         PublicVault vaultImpl = new PublicVault();
-        AstariaRouter BROKER_ROUTER = new AstariaRouter(
+        AstariaRouter ASTARIA_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
             address(COLLATERAL_TOKEN),
@@ -83,7 +83,7 @@ contract AstariaDeploy {
             address(TRANSFER_PROXY)
         );
         COLLATERAL_TOKEN.file(
-            bytes32("setBondController"), abi.encode(address(BROKER_ROUTER))
+            bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER))
         );
         COLLATERAL_TOKEN.file(
             bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
@@ -105,17 +105,17 @@ contract AstariaDeploy {
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BROKER_ROUTER),
+            uint8(UserRoles.ASTARIA_ROUTER),
             CollateralToken.auctionVault.selector,
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BROKER_ROUTER),
+            uint8(UserRoles.ASTARIA_ROUTER),
             TRANSFER_PROXY.tokenTransferFrom.selector,
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BROKER_ROUTER),
+            uint8(UserRoles.ASTARIA_ROUTER),
             TRANSFER_PROXY.tokenTransferFrom.selector,
             true
         );
@@ -128,7 +128,7 @@ contract AstariaDeploy {
             uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true
         );
         MRA.setUserRole(
-            address(BROKER_ROUTER), uint8(UserRoles.BROKER_ROUTER), true
+            address(ASTARIA_ROUTER), uint8(UserRoles.ASTARIA_ROUTER), true
         );
         MRA.setUserRole(
             address(COLLATERAL_TOKEN), uint8(UserRoles.COLLATERAL_TOKEN), true
@@ -138,7 +138,7 @@ contract AstariaDeploy {
         );
 
         MRA.setOwner(address(msg.sender));
-        BROKER_ROUTER.setOwner(address(msg.sender));
+        ASTARIA_ROUTER.setOwner(address(msg.sender));
         LIEN_TOKEN.setOwner(address(msg.sender));
         COLLATERAL_TOKEN.setOwner(address(msg.sender));
     }

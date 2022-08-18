@@ -99,7 +99,7 @@ contract Fuzzers is TestHelpers {
         // interest = LIEN_TOKEN.getInterest(terms.collateralId, uint256(0));
     }
 
-    function testFuzzLienGetTotalDebtForCollateralVault(FuzzInputs memory args)
+    function testFuzzLienGetTotalDebtForCollateralToken(FuzzInputs memory args)
         public
         validateInputs(args)
     {
@@ -108,7 +108,7 @@ contract Fuzzers is TestHelpers {
         uint256 tokenId = uint256(1);
         (,, IAstariaRouter.Commitment memory terms) =
             _commitToLoan(tokenContract, tokenId, args);
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(
             tokenContract.computeId(tokenId)
         );
         // TODO calcs
@@ -175,10 +175,10 @@ contract Fuzzers is TestHelpers {
     //        vm.deal(lender, 1000 ether);
     //        vm.startPrank(lender);
     //        WETH9.deposit{value: 50 ether}();
-    //        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+    //        WETH9.approve(address(ASTARIA_ROUTER), type(uint256).max);
     //
-    //        //        BOND_CONTROLLER.lendToVault(vaultHash, amount);
-    //        VaultImplementation(BOND_CONTROLLER.getBroker(vaultHash)).deposit(
+    //        //        ASTARIA_ROUTER.lendToVault(vaultHash, amount);
+    //        VaultImplementation(ASTARIA_ROUTER.getBroker(vaultHash)).deposit(
     //            amount,
     //            address(this)
     //        );

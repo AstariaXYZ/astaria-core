@@ -152,7 +152,7 @@
         "lib/solmate/src/auth/authorities/MultiRolesAuthority.sol",
         "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
         "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
-        "./CollateralVault.sol",
+        "./collateralToken.sol",
         "./LienToken.sol",
         "./BrokerRouter.sol",
         "lib/gpl/src/AuctionHouse.sol",
@@ -340,10 +340,10 @@
         "ERC721"
       ]
     },
-    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/CollateralVault.sol": {
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/collateralToken.sol": {
       "lastModificationDate": 1658182849668,
       "contentHash": "464792e54ca7e7c8e70857076ed1154a",
-      "sourceName": "src/CollateralVault.sol",
+      "sourceName": "src/collateralToken.sol",
       "solcConfig": {
         "version": "0.8.13",
         "settings": {
@@ -381,7 +381,7 @@
         "lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol",
         "lib/gpl/src/interfaces/IAuctionHouse.sol",
         "lib/gpl/src/interfaces/ITransferProxy.sol",
-        "./interfaces/ICollateralVault.sol",
+        "./interfaces/IcollateralToken.sol",
         "./interfaces/IBrokerRouter.sol",
         "./interfaces/ILienToken.sol",
         "./BrokerImplementation.sol",
@@ -396,7 +396,7 @@
         "^0.8.13"
       ],
       "artifacts": [
-        "CollateralVault",
+        "collateralToken",
         "IFlashAction",
         "ISecurityHook"
       ]
@@ -443,7 +443,7 @@
         "lib/gpl/src/interfaces/IAuctionHouse.sol",
         "lib/gpl/src/interfaces/ITransferProxy.sol",
         "./interfaces/ILienToken.sol",
-        "./interfaces/ICollateralVault.sol",
+        "./interfaces/IcollateralToken.sol",
         "./interfaces/IBrokerRouter.sol",
         "./BrokerImplementation.sol",
         "./libraries/ValidateTerms.sol",
@@ -496,7 +496,7 @@
         "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
         "lib/gpl/src/interfaces/IAuctionHouse.sol",
         "lib/clones-with-immutable-args/src/ClonesWithImmutableArgs.sol",
-        "./interfaces/ICollateralVault.sol",
+        "./interfaces/IcollateralToken.sol",
         "./interfaces/ILienToken.sol",
         "./interfaces/ITransferProxy.sol",
         "./interfaces/IBrokerRouter.sol",
@@ -552,7 +552,7 @@
         "./interfaces/ITransferProxy.sol",
         "./interfaces/IWETH9.sol",
         "../../../src/interfaces/ILienToken.sol",
-        "../../../src/interfaces/ICollateralVault.sol"
+        "../../../src/interfaces/IcollateralToken.sol"
       ],
       "versionPragmas": [
         "^0.8.13"
@@ -596,7 +596,7 @@
       "imports": [
         "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
         "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol",
-        "./interfaces/ICollateralVault.sol",
+        "./interfaces/IcollateralToken.sol",
         "./interfaces/ILienToken.sol",
         "./interfaces/IBrokerRouter.sol",
         "lib/gpl/src/interfaces/IAuctionHouse.sol",
@@ -1234,10 +1234,10 @@
         "ITransferProxy"
       ]
     },
-    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/interfaces/ICollateralVault.sol": {
+    "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/interfaces/IcollateralToken.sol": {
       "lastModificationDate": 1658182849669,
       "contentHash": "a0beb0b92c59557988841b4e96f8dfd6",
-      "sourceName": "src/interfaces/ICollateralVault.sol",
+      "sourceName": "src/interfaces/IcollateralToken.sol",
       "solcConfig": {
         "version": "0.8.13",
         "settings": {
@@ -1273,7 +1273,7 @@
         "^0.8.13"
       ],
       "artifacts": [
-        "ICollateralVault"
+        "IcollateralToken"
       ]
     },
     "/Users/santiagogregory/Documents/Astaria/nft-bond-vault/src/interfaces/IBrokerRouter.sol": {
@@ -1311,7 +1311,7 @@
       "imports": [
         "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
         "./ILienToken.sol",
-        "./ICollateralVault.sol",
+        "./IcollateralToken.sol",
         "./ITransferProxy.sol"
       ],
       "versionPragmas": [
@@ -1985,10 +1985,10 @@
         "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol",
         "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
         "lib/openzeppelin-contracts/contracts/utils/Strings.sol",
-        "../CollateralVault.sol",
+        "../collateralToken.sol",
         "../LienToken.sol",
         "../interfaces/ILienToken.sol",
-        "../interfaces/ICollateralVault.sol",
+        "../interfaces/IcollateralToken.sol",
         "lib/solmate/src/test/utils/mocks/MockERC721.sol",
         "../BrokerRouter.sol",
         "lib/gpl/src/AuctionHouse.sol",
@@ -2173,9 +2173,9 @@
         "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol",
         "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
         "lib/openzeppelin-contracts/contracts/utils/Strings.sol",
-        "../CollateralVault.sol",
+        "../collateralToken.sol",
         "../LienToken.sol",
-        "../interfaces/ICollateralVault.sol",
+        "../interfaces/IcollateralToken.sol",
         "../interfaces/ILienToken.sol",
         "lib/solmate/src/test/utils/mocks/MockERC721.sol",
         "../BrokerRouter.sol",
@@ -2480,10 +2480,10 @@
         "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol",
         "lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
         "lib/openzeppelin-contracts/contracts/utils/Strings.sol",
-        "../CollateralVault.sol",
+        "../collateralToken.sol",
         "../LienToken.sol",
         "../interfaces/ILienToken.sol",
-        "../interfaces/ICollateralVault.sol",
+        "../interfaces/IcollateralToken.sol",
         "lib/solmate/src/test/utils/mocks/MockERC721.sol",
         "../BrokerRouter.sol",
         "lib/gpl/src/AuctionHouse.sol",

@@ -85,7 +85,7 @@ contract TestHelpers is Test {
 
     enum UserRoles {
         ADMIN,
-        BOND_CONTROLLER,
+        ASTARIA_ROUTER,
         WRAPPER,
         AUCTION_HOUSE,
         TRANSFER_PROXY,
@@ -96,7 +96,9 @@ contract TestHelpers is Test {
 
     CollateralToken COLLATERAL_TOKEN;
     LienToken LIEN_TOKEN;
-    AstariaRouter BOND_CONTROLLER;
+    AstariaRouter ASTARIA_ROUTER;
+    PublicVault PUBLIC_VAULT;
+    Vault SOLO_VAULT;
     Dummy721 testNFT;
     TransferProxy TRANSFER_PROXY;
     IWETH9 WETH9;
@@ -149,17 +151,18 @@ contract TestHelpers is Test {
             address(TRANSFER_PROXY),
             address(LIEN_TOKEN)
         );
-        Vault soloImpl = new Vault();
-        PublicVault vaultImpl = new PublicVault();
+        
+        PublicVault PUBLIC_VAULT = new PublicVault();
+        Vault SOLO_VAULT = new Vault();
 
-        BOND_CONTROLLER = new AstariaRouter(
+        ASTARIA_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
             address(COLLATERAL_TOKEN),
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY),
-            address(vaultImpl),
-            address(soloImpl)
+            address(PUBLIC_VAULT),
+            address(SOLO_VAULT)
         );
 
         AUCTION_HOUSE = new AuctionHouse(
@@ -171,13 +174,13 @@ contract TestHelpers is Test {
         );
 
         COLLATERAL_TOKEN.file(
-            bytes32("setBondController"), abi.encode(address(BOND_CONTROLLER))
+            bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER))
         );
         COLLATERAL_TOKEN.file(
             bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
         );
 
-        // COLLATERAL_TOKEN.setBondController(address(BOND_CONTROLLER));
+        // COLLATERAL_TOKEN.setBondController(address(ASTARIA_ROUTER));
         // COLLATERAL_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
 
         bool seaportActive;
@@ -200,11 +203,11 @@ contract TestHelpers is Test {
             bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
         );
         LIEN_TOKEN.file(
-            bytes32("setCollateralVault"), abi.encode(address(COLLATERAL_TOKEN))
+            bytes32("setCollateralToken"), abi.encode(address(COLLATERAL_TOKEN))
         );
 
         // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
-        // LIEN_TOKEN.setCollateralVault(address(COLLATERAL_TOKEN));
+        // LIEN_TOKEN.setCollateralToken(address(COLLATERAL_TOKEN));
         _setupRolesAndCapabilities();
     }
 
@@ -213,9 +216,9 @@ contract TestHelpers is Test {
     //        appraisers[0] = appraiserOne;
     //        appraisers[1] = appraiserTwo;
     //
-    //        BOND_CONTROLLER.file(bytes32("setAppraisers"), abi.encode(appraisers));
+    //        ASTARIA_ROUTER.file(bytes32("setAppraisers"), abi.encode(appraisers));
     //
-    //        // BOND_CONTROLLER.setAppraisers(appraisers);
+    //        // ASTARIA_ROUTER.setAppraisers(appraisers);
     //    }
 
     function _setupRolesAndCapabilities() internal {
@@ -226,18 +229,18 @@ contract TestHelpers is Test {
             uint8(UserRoles.WRAPPER), AuctionHouse.endAuction.selector, true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER), LienToken.createLien.selector, true
+            uint8(UserRoles.ASTARIA_ROUTER), LienToken.createLien.selector, true
         );
         MRA.setRoleCapability(
             uint8(UserRoles.WRAPPER), AuctionHouse.cancelAuction.selector, true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER),
+            uint8(UserRoles.ASTARIA_ROUTER),
             CollateralToken.auctionVault.selector,
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER),
+            uint8(UserRoles.ASTARIA_ROUTER),
             TRANSFER_PROXY.tokenTransferFrom.selector,
             true
         );
@@ -253,7 +256,7 @@ contract TestHelpers is Test {
             true
         );
         MRA.setUserRole(
-            address(BOND_CONTROLLER), uint8(UserRoles.BOND_CONTROLLER), true
+            address(ASTARIA_ROUTER), uint8(UserRoles.ASTARIA_ROUTER), true
         );
         MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
         MRA.setUserRole(
@@ -325,9 +328,9 @@ contract TestHelpers is Test {
         address newVault;
         vm.startPrank(appraiser);
         if (appraiser == appraiserOne) {
-            newVault = BOND_CONTROLLER.newVault();
+            newVault = ASTARIA_ROUTER.newVault();
         } else {
-            newVault = BOND_CONTROLLER.newPublicVault(uint256(14 days));
+            newVault = ASTARIA_ROUTER.newPublicVault(uint256(14 days));
         }
         vm.stopPrank();
         return newVault;
@@ -464,7 +467,7 @@ contract TestHelpers is Test {
 
     event LoanObligationProof(bytes32[]);
 
-    function _generateDefaultCollateralVault()
+    function _generateDefaultCollateralToken()
         internal
         returns (uint256 collateralId)
     {
@@ -718,7 +721,7 @@ contract TestHelpers is Test {
                     uint8(0),
                     appraiserOne,
                     address(0),
-                    BOND_CONTROLLER.appraiserNonce(appraiserOne), //nonce
+                    ASTARIA_ROUTER.appraiserNonce(appraiserOne), //nonce
                     vault
                 ),
                 uint8(StrategyTypes.STANDARD), //obligationType
@@ -804,9 +807,9 @@ contract TestHelpers is Test {
         vm.startPrank(lendAs);
         WETH9.deposit{value: amount}();
         WETH9.approve(vault, type(uint256).max);
-        //        BOND_CONTROLLER.lendToVault(vaultHash, amount);
+        //        ASTARIA_ROUTER.lendToVault(vaultHash, amount);
         IVault(vault).deposit(amount, lendAs);
-        // BOND_CONTROLLER.getBroker(vaultHash).withdraw(uint256(0));
+        // ASTARIA_ROUTER.getBroker(vaultHash).withdraw(uint256(0));
 
         vm.stopPrank();
     }

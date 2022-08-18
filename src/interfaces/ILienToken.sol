@@ -97,12 +97,12 @@ interface ILienToken is IERC721 {
 
     function makePayment(uint256 collateralId, uint256 paymentAmount) external;
 
-    function getTotalDebtForCollateralVault(uint256 collateralId)
+    function getTotalDebtForCollateralToken(uint256 collateralId)
         external
         view
         returns (uint256 totalDebt);
 
-    function getTotalDebtForCollateralVault(uint256 collateralId, uint256 timestamp)
+    function getTotalDebtForCollateralToken(uint256 collateralId, uint256 timestamp)
         external
         view
         returns (uint256 totalDebt);

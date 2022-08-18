@@ -8,7 +8,7 @@
 // import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 // import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 // import {Strings} from "openzeppelin/utils/Strings.sol";
-// import {CollateralVault, IFlashAction} from "../CollateralToken.sol";
+// import {CollateralToken, IFlashAction} from "../CollateralToken.sol";
 // import {LienToken} from "../LienToken.sol";
 // import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 // import {ILienToken} from "../interfaces/ILienToken.sol";

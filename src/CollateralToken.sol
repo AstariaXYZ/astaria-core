@@ -54,7 +54,7 @@ contract CollateralToken is
     ITransferProxy public TRANSFER_PROXY;
     ILienToken public LIEN_TOKEN;
     IAuctionHouse public AUCTION_HOUSE;
-    IAstariaRouter public BROKER_ROUTER;
+    IAstariaRouter public ASTARIA_ROUTER;
     SeaportInterface public SEAPORT;
     ConduitControllerInterface public CONDUIT_CONTROLLER;
     address public CONDUIT;
@@ -108,9 +108,9 @@ contract CollateralToken is
             CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
             CONDUIT =
                 CONDUIT_CONTROLLER.createConduit(CONDUIT_KEY, address(this));
-        } else if (what == "setBondController") {
+        } else if (what == "setAstariaRouter") {
             address addr = abi.decode(data, (address));
-            BROKER_ROUTER = IAstariaRouter(addr);
+            ASTARIA_ROUTER = IAstariaRouter(addr);
         } else if (what == "setAuctionHouse") {
             address addr = abi.decode(data, (address));
             AUCTION_HOUSE = IAuctionHouse(addr);
@@ -186,7 +186,7 @@ contract CollateralToken is
             address(this) == listingOrder.parameters.consideration[2].recipient
         );
         //get total Debt and ensure its being sold for more than that
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(
             collateralId, listingOrder.parameters.endTime
         );
 
@@ -313,7 +313,7 @@ contract CollateralToken is
             ERC20(lien.token).balanceOf(address(this)) >= value,
             "not enough balance to make this payment"
         );
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(id);
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(id);
 
         require(value >= totalDebt, "cannot be less than total obligation");
         ERC20(lien.token).safeApprove(address(TRANSFER_PROXY), totalDebt);

@@ -60,7 +60,7 @@ keccack256('loan, 'collateral)
 
 ```js
   struct Loan {
-    uint256 collateralVault; // ERC721, 1155 will be wrapped to create a singular tokenId
+    uint256 collateralToken; // ERC721, 1155 will be wrapped to create a singular tokenId
     uint256 amount; // loans are only in wETH
     uint32 interestRate; // rate of interest accruing on the borrow (should be in seconds to make calculations easy)
     uint32 start; // epoch time of last interest accrual
