@@ -8,9 +8,9 @@
 // import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 // import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
 // import {Strings} from "openzeppelin/utils/Strings.sol";
-// import {CollateralVault, IFlashAction} from "../SlipToken.sol";
+// import {CollateralVault, IFlashAction} from "../CollateralToken.sol";
 // import {LienToken} from "../LienToken.sol";
-// import {ISlipToken} from "../interfaces/ISlipToken.sol";
+// import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 // import {ILienToken} from "../interfaces/ILienToken.sol";
 // import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 // import {IAstariaRouter, BrokerRouter} from "../AstariaRouter.sol";
@@ -85,7 +85,7 @@
 //             tokenId,
 //             defaultTerms
 //         );
-//         uint256 slipId = uint256(
+//         uint256 collateralId = uint256(
 //             keccak256(abi.encodePacked(tokenContract, tokenId))
 //         );
 //         //struct OrderParameters {
@@ -117,7 +117,7 @@
 
 //         //setup validator asset
 //         ValidatorAsset validator = new ValidatorAsset(
-//             address(SLIP_TOKEN)
+//             address(COLLATERAL_TOKEN)
 //         );
 
 //         //ItemType itemType;
@@ -144,15 +144,15 @@
 //             uint256(0),
 //             minListingPrice,
 //             minListingPrice,
-//             payable(address(SLIP_TOKEN))
+//             payable(address(COLLATERAL_TOKEN))
 //         );
 //         considerationItems[1] = ConsiderationItem(
 //             ItemType.ERC1155,
 //             address(validator),
-//             slipId,
+//             collateralId,
 //             minListingPrice,
 //             minListingPrice,
-//             payable(address(SLIP_TOKEN))
+//             payable(address(COLLATERAL_TOKEN))
 //         );
 
 //         emit Dummy();
@@ -173,8 +173,8 @@
 
 //         // old andrew
 //         //     OrderParameters({
-//         //             offerer: address(SLIP_TOKEN),
-//         //             zone: address(SLIP_TOKEN), // 0x20
+//         //             offerer: address(COLLATERAL_TOKEN),
+//         //             zone: address(COLLATERAL_TOKEN), // 0x20
 //         //             offer: offer,
 //         //             consideration: considerationItems,
 //         //             orderType: OrderType.FULL_OPEN,
@@ -182,16 +182,16 @@
 //         //             endTime: uint256(block.timestamp + 10 minutes),
 //         //             zoneHash: bytes32(0),
 //         //             salt: uint256(blockhash(block.number)),
-//         //             conduitKey: Bytes32AddressLib.fillLast12Bytes(address(SLIP_TOKEN)), // 0x120
+//         //             conduitKey: Bytes32AddressLib.fillLast12Bytes(address(COLLATERAL_TOKEN)), // 0x120
 //         //             totalOriginalConsiderationItems: uint256(3)
 //         // }),
 
 //         Consideration consideration = new Consideration(
-//             address(SLIP_TOKEN)
+//             address(COLLATERAL_TOKEN)
 //         );
 
 //         OrderParameters memory orderParameters = OrderParameters({
-//             offerer: address(SLIP_TOKEN),
+//             offerer: address(COLLATERAL_TOKEN),
 //             zone: address(0), // 0x20
 //             offer: offer,
 //             consideration: considerationItems,
@@ -204,7 +204,7 @@
 //             totalOriginalConsiderationItems: uint256(3)
 //         });
 
-//         uint256 nonce = consideration.getCounter(address(SLIP_TOKEN));
+//         uint256 nonce = consideration.getCounter(address(COLLATERAL_TOKEN));
 //         OrderComponents memory orderComponents = OrderComponents(
 //             orderParameters.offerer,
 //             orderParameters.zone,
@@ -233,7 +233,7 @@
 
 //         // (Order memory listingOffer, , ) = _prepareOrder(tokenId, uint256(3));
 
-//         SLIP_TOKEN.listUnderlyingOnSeaport(slipId, listingOffer);
+//         COLLATERAL_TOKEN.listUnderlyingOnSeaport(collateralId, listingOffer);
 //     }
 
 //     // from seaport
@@ -275,15 +275,15 @@
 //     //         defaultTerms
 //     //     );
 
-//     //     uint256 slipId = uint256(
+//     //     uint256 collateralId = uint256(
 //     //         keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
 //     //     );
 
-//     //     IFlashAction apeCoinClaim = new ApeCoinClaim(address(SLIP_TOKEN));
+//     //     IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_TOKEN));
 
 //     //     // vm.expectEmit(false, false, false, false);
 //     //     // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
-//     //     SLIP_TOKEN.flashAction(apeCoinClaim, slipId, "");
+//     //     COLLATERAL_TOKEN.flashAction(apeCoinClaim, collateralId, "");
 //     // }
 
 //     function testFlashApeClaim() public {
@@ -311,14 +311,14 @@
 //             defaultTerms
 //         );
 
-//         uint256 slipId = uint256(
+//         uint256 collateralId = uint256(
 //             keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
 //         );
 
-// //         IFlashAction apeCoinClaim = new ApeCoinClaim(address(SLIP_TOKEN));
+// //         IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_TOKEN));
 
 // //         // vm.expectEmit(false, false, false, false);
 // //         // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
-// //         SLIP_TOKEN.flashAction(apeCoinClaim, slipId, "");
+// //         COLLATERAL_TOKEN.flashAction(apeCoinClaim, collateralId, "");
 // //     }
 // // }

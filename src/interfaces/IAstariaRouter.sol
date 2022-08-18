@@ -2,7 +2,7 @@ pragma solidity ^0.8.15;
 
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {ILienToken} from "./ILienToken.sol";
-import {ISlipToken} from "./ISlipToken.sol";
+import {ICollateralToken} from "./ICollateralToken.sol";
 import {ITransferProxy} from "./ITransferProxy.sol";
 
 interface IAstariaRouter {
@@ -10,7 +10,7 @@ interface IAstariaRouter {
         address broker;
         address token;
         bytes32[] proof;
-        uint256 slipId;
+        uint256 collateralId;
         uint256 maxAmount;
         uint256 maxDebt;
         uint256 rate;
@@ -111,7 +111,7 @@ interface IAstariaRouter {
 
     function VAULT_IMPLEMENTATION() external view returns (address);
 
-    function SLIP_TOKEN() external view returns (ISlipToken);
+    function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
     function MIN_INTEREST_BPS() external view returns (uint256);
 
@@ -119,11 +119,11 @@ interface IAstariaRouter {
 
     function lendToVault(address vault, uint256 amount) external;
 
-    function liquidate(uint256 slipId, uint256 position)
+    function liquidate(uint256 collateralId, uint256 position)
         external
         returns (uint256 reserve);
 
-    function canLiquidate(uint256 slipId, uint256 position)
+    function canLiquidate(uint256 collateralId, uint256 position)
         external
         view
         returns (bool);
@@ -135,7 +135,7 @@ interface IAstariaRouter {
     //        view
     //        returns (bool);
 
-    event Liquidation(uint256 slipId, uint256 position, uint256 reserve);
+    event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);
 
     error InvalidAddress(address);

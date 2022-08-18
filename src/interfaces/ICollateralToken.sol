@@ -3,9 +3,9 @@ pragma solidity ^0.8.15;
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
-interface ISlipToken is IERC721 {
+interface ICollateralToken is IERC721 {
     function auctionVault(
-        uint256 slipId,
+        uint256 collateralId,
         address initiator,
         uint256 initiatorFee
     )
