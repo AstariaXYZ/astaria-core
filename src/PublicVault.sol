@@ -53,10 +53,10 @@ contract Vault is VaultImplementation, IVault {
 contract PublicVault is ERC4626Cloned, Vault {
     using FixedPointMathLib for uint256;
 
-    // epoch seconds when yintercept was calculated last
+    // epoch seconds when yIntercept was calculated last
     uint256 last;
     // sum of all LienToken amounts
-    uint256 yintercept;
+    uint256 yIntercept;
     // sum of all slopes of each LienToken
     uint256 slope;
 
@@ -285,22 +285,22 @@ contract PublicVault is ERC4626Cloned, Vault {
             );
         }
 
-        // decrement the yintercept for the amount received on liquidatation vs the expected
+        // decrement the yIntercept for the amount received on liquidatation vs the expected
         // TODO: unchecked?
-        yintercept -=
+        yIntercept -=
             (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
-        return slope.mulDivDown(delta_t, 1) + yintercept;
+        return slope.mulDivDown(delta_t, 1) + yIntercept;
     }
 
     function beforePayment(uint256 lienId, uint256 amount)
         public
         onlyLienToken
     {
-        yintercept = totalAssets() - amount;
+        yIntercept = totalAssets() - amount;
         slope -= LIEN_TOKEN().changeInSlope(lienId, amount);
         last = block.timestamp;
     }
@@ -315,11 +315,11 @@ contract PublicVault is ERC4626Cloned, Vault {
         virtual
         override
     {
-        // increase yintercept for assets held
+        // increase yIntercept for assets held
         if (BROKER_TYPE() == uint256(1)) {
             require(msg.sender == owner(), "only owner can deposit");
         }
-        yintercept += assets;
+        yIntercept += assets;
         _handleAppraiserReward(shares);
     }
 
@@ -336,4 +336,16 @@ contract PublicVault is ERC4626Cloned, Vault {
     function getSlope() public returns (uint256) {
         return slope;
     } 
+
+    function getYIntercept() public returns (uint256) {
+        return yIntercept;
+    }
+
+    function getLast() public returns (uint256) {
+        return last;
+    }
+
+    function getCurrentEpoch() public returns (uint64) {
+        return currentEpoch;
+    }
 }

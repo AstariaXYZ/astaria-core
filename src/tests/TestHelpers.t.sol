@@ -152,8 +152,8 @@ contract TestHelpers is Test {
             address(LIEN_TOKEN)
         );
         
-        PublicVault PUBLIC_VAULT = new PublicVault();
-        Vault SOLO_VAULT = new Vault();
+        PUBLIC_VAULT = new PublicVault();
+        SOLO_VAULT = new Vault();
 
         ASTARIA_ROUTER = new AstariaRouter(
             MRA,
