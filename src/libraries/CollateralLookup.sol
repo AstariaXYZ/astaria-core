@@ -1,6 +1,7 @@
 pragma solidity ^0.8.16;
 
-import {IERC721} from "gpl/interfaces/IERC721.sol";
+// import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {IERC721} from "../interfaces/IERC721.sol";
 
 library CollateralLookup {
     function computeId(address token, uint256 tokenId) internal view returns (uint256) {

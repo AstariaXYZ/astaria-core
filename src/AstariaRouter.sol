@@ -2,7 +2,7 @@ pragma solidity ^0.8.16;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {IERC721} from "./interfaces/IERC721.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ClonesWithImmutableArgs} from

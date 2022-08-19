@@ -4,7 +4,7 @@ pragma solidity ^0.8.16;
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
+import {IERC721, IERC165} from "./interfaces/IERC721.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
