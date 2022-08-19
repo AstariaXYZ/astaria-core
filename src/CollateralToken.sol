@@ -6,7 +6,7 @@ pragma experimental ABIEncoderV2;
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {IERC721, IERC165} from "./interfaces/IERC721.sol";
 import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
-import {ERC721} from "gpl/ERC721.sol";
+// import {ERC721} from "gpl/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
@@ -18,6 +18,7 @@ import {SeaportInterface, Order} from "seaport/interfaces/SeaportInterface.sol";
 import {ConduitControllerInterface} from "seaport/interfaces/ConduitControllerInterface.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 

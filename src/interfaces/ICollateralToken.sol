@@ -1,6 +1,6 @@
 pragma solidity ^0.8.15;
 
-import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {IERC721} from "./IERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 interface ICollateralBase {
