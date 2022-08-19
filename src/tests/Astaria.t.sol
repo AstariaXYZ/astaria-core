@@ -1,13 +1,12 @@
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.16;
 
 import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
-import {MultiRolesAuthority} from
-    "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
-import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {EscrowToken, IFlashAction} from "../EscrowToken.sol";
 import {LienToken} from "../LienToken.sol";
@@ -45,40 +44,19 @@ contract AstariaTest is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
 
-    event DepositERC721(
-        address indexed from, address indexed tokenContract, uint256 tokenId
-    );
+    event DepositERC721(address indexed from, address indexed tokenContract, uint256 tokenId);
 
-    event ReleaseTo(
-        address indexed underlyingAsset, uint256 assetId, address indexed to
-    );
+    event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
 
     event Liquidation(uint256 escrowId, uint256 position, uint256 reserve);
 
     event AuctionCanceled(uint256 indexed auctionId);
 
-    event AuctionBid(
-        uint256 indexed tokenId,
-        address sender,
-        uint256 value,
-        bool firstBid,
-        bool extended
-    );
+    event AuctionBid(uint256 indexed tokenId, address sender, uint256 value, bool firstBid, bool extended);
 
-    event AuctionEnded(
-        uint256 indexed tokenId,
-        address winner,
-        uint256 winningBid,
-        uint256[] recipients
-    );
+    event AuctionEnded(uint256 indexed tokenId, address winner, uint256 winningBid, uint256[] recipients);
 
-    event NewBondVault(
-        address appraiser,
-        address broker,
-        bytes32 bondVault,
-        bytes32 contentHash,
-        uint256 expiration
-    );
+    event NewBondVault(address appraiser, address broker, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
 
     /**
      * Ensure that we can borrow capital from the bond controller
@@ -103,15 +81,12 @@ contract AstariaTest is TestHelpers {
         vm.expectEmit(true, true, false, true);
         emit DepositERC721(address(this), tokenContract, tokenId);
 
-        (bytes32 vaultHash,,) =
-            _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
         // BrokerVault(BOND_CONTROLLER.getBroker(testBondVaultHash)).withdraw(50 ether);
 
         //assert weth balance is before + 1 ether
-        assert(
-            WETH9.balanceOf(address(this)) == balanceBefore + defaultTerms.amount
-        );
+        assert(WETH9.balanceOf(address(this)) == balanceBefore + defaultTerms.amount);
     }
 
     function testSoloLend() public {
@@ -139,11 +114,9 @@ contract AstariaTest is TestHelpers {
         _depositNFTs(tokenContract, tokenId);
         // startMeasuringGas("ReleaseTo Address");
 
-        uint256 starTokenId =
-            uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
+        uint256 starTokenId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
 
-        (address underlyingAsset, uint256 assetId) =
-            ESCROW_TOKEN.getUnderlying(starTokenId);
+        (address underlyingAsset, uint256 assetId) = ESCROW_TOKEN.getUnderlying(starTokenId);
 
         vm.expectEmit(true, true, false, true);
 
@@ -166,15 +139,11 @@ contract AstariaTest is TestHelpers {
 
         vm.expectEmit(true, true, false, true);
         emit DepositERC721(address(this), tokenContract, tokenId);
-        (
-            bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms
-        ) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms) =
+            _commitToLoan(tokenContract, tokenId, defaultTerms);
         vm.expectRevert(bytes("must be no liens or auctions to call this"));
 
-        ESCROW_TOKEN.releaseToAddress(
-            uint256(keccak256(abi.encodePacked(tokenContract, tokenId))),
-            address(this)
-        );
+        ESCROW_TOKEN.releaseToAddress(uint256(keccak256(abi.encodePacked(tokenContract, tokenId))), address(this));
     }
 
     /**
@@ -276,9 +245,7 @@ contract AstariaTest is TestHelpers {
 
     function testBrokerRouterFileSetup() public {
         bytes memory newLiquidationFeePercent = abi.encode(uint256(0));
-        BOND_CONTROLLER.file(
-            bytes32("LIQUIDATION_FEE_PERCENT"), newLiquidationFeePercent
-        );
+        BOND_CONTROLLER.file(bytes32("LIQUIDATION_FEE_PERCENT"), newLiquidationFeePercent);
         assert(BOND_CONTROLLER.LIQUIDATION_FEE_PERCENT() == uint256(0));
 
         bytes memory newMinInterestBps = abi.encode(uint256(5));
@@ -287,20 +254,14 @@ contract AstariaTest is TestHelpers {
 
         bytes memory appraiserNumerator = abi.encode(uint256(0));
         BOND_CONTROLLER.file(bytes32("APPRAISER_NUMERATOR"), appraiserNumerator);
-        assert(
-            BOND_CONTROLLER.STRATEGIST_ORIGINATION_FEE_NUMERATOR() == uint256(0)
-        );
+        assert(BOND_CONTROLLER.STRATEGIST_ORIGINATION_FEE_NUMERATOR() == uint256(0));
 
         bytes memory appraiserOriginationFeeBase = abi.encode(uint256(0));
-        BOND_CONTROLLER.file(
-            bytes32("APPRAISER_ORIGINATION_FEE_BASE"), appraiserOriginationFeeBase
-        );
+        BOND_CONTROLLER.file(bytes32("APPRAISER_ORIGINATION_FEE_BASE"), appraiserOriginationFeeBase);
         assert(BOND_CONTROLLER.STRATEGIST_ORIGINATION_FEE_BASE() == uint256(0));
 
         bytes memory minDurationIncrease = abi.encode(uint256(0));
-        BOND_CONTROLLER.file(
-            bytes32("MIN_DURATION_INCREASE"), minDurationIncrease
-        );
+        BOND_CONTROLLER.file(bytes32("MIN_DURATION_INCREASE"), minDurationIncrease);
         assert(BOND_CONTROLLER.MIN_DURATION_INCREASE() == uint256(0));
 
         bytes memory feeTo = abi.encode(address(0));
@@ -308,9 +269,7 @@ contract AstariaTest is TestHelpers {
         assert(BOND_CONTROLLER.feeTo() == address(0));
 
         bytes memory vaultImplementation = abi.encode(address(0));
-        BOND_CONTROLLER.file(
-            bytes32("VAULT_IMPLEMENTATION"), vaultImplementation
-        );
+        BOND_CONTROLLER.file(bytes32("VAULT_IMPLEMENTATION"), vaultImplementation);
         assert(BOND_CONTROLLER.VAULT_IMPLEMENTATION() == address(0));
 
         vm.expectRevert("unsupported/file");
@@ -520,15 +479,11 @@ contract AstariaTest is TestHelpers {
         address tokenContract = address(buyoutTest);
         uint256 tokenId = uint256(1);
 
-        (
-            bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms
-        ) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms) =
+            _commitToLoan(tokenContract, tokenId, defaultTerms);
 
-        (
-            bytes32 incomingVaultHash,
-            IAstariaRouter.Commitment memory incomingTerms,
-            address incomingVault
-        ) = _commitWithoutDeposit(
+        (bytes32 incomingVaultHash, IAstariaRouter.Commitment memory incomingTerms, address incomingVault) =
+        _commitWithoutDeposit(
             CommitWithoutDeposit(
                 appraiserTwo,
                 tokenContract,
@@ -551,9 +506,7 @@ contract AstariaTest is TestHelpers {
         WETH9.approve(incomingVault, 20 ether);
         //        IVault(incomingVault).deposit(20 ether, address(this));
         vm.stopPrank();
-        VaultImplementation(incomingVault).buyoutLien(
-            escrowId, uint256(0), incomingTerms
-        );
+        VaultImplementation(incomingVault).buyoutLien(escrowId, uint256(0), incomingTerms);
     }
 
     event INTEREST(uint256 interest);
@@ -586,8 +539,7 @@ contract AstariaTest is TestHelpers {
     function testLienGetBuyout() public {
         uint256 escrowId = _generateDefaultCollateralVault();
 
-        (uint256 owed, uint256 owedPlus) =
-            LIEN_TOKEN.getBuyout(escrowId, uint256(0));
+        (uint256 owed, uint256 owedPlus) = LIEN_TOKEN.getBuyout(escrowId, uint256(0));
 
         assertEq(owed, uint256(1000000000000000000));
         assertEq(owedPlus, uint256(179006655693800000000000000000));
@@ -617,11 +569,9 @@ contract AstariaTest is TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        (bytes32 vaultHash,,) =
-            _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
-        uint256 escrowId =
-            uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
+        uint256 escrowId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
         IFlashAction borrowAndRedeposit = new BorrowAndRedeposit();
         ESCROW_TOKEN.flashAction(borrowAndRedeposit, escrowId, "");
     }
@@ -661,8 +611,7 @@ contract AstariaTest is TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
         vm.prank(address(1));
-        (bytes32 vaultHash,,) =
-            _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
     }
 
     function testFailSoloLendNotAppraiser() public {

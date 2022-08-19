@@ -1,13 +1,12 @@
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.16;
 
 import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
-import {MultiRolesAuthority} from
-    "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
-import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {EscrowToken} from "../EscrowToken.sol";
 import {LienToken} from "../LienToken.sol";
@@ -105,9 +104,7 @@ contract TestHelpers is Test {
     bytes32 public whiteListRoot;
     bytes32[] public nftProof;
 
-    bytes32 testBondVaultHash = bytes32(
-        0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798
-    );
+    bytes32 testBondVaultHash = bytes32(0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798);
     uint256 appraiserOnePK = uint256(0x1339);
     uint256 appraiserTwoPK = uint256(0x1344);
     address appraiserOne = vm.addr(appraiserOnePK);
@@ -121,15 +118,8 @@ contract TestHelpers is Test {
     event NewTermCommitment(bytes32 bondVault, uint256 escrowId, uint256 amount);
     event Repayment(bytes32 bondVault, uint256 escrowId, uint256 amount);
     event Liquidation(bytes32 bondVault, uint256 escrowId);
-    event NewBondVault(
-        address appraiser,
-        bytes32 bondVault,
-        bytes32 contentHash,
-        uint256 expiration
-    );
-    event RedeemBond(
-        bytes32 bondVault, uint256 amount, address indexed redeemer
-    );
+    event NewBondVault(address appraiser, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
+    event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
 
     function setUp() public virtual {
         WETH9 = IWETH9(deployCode(weth9Artifact));
@@ -170,12 +160,8 @@ contract TestHelpers is Test {
             address(TRANSFER_PROXY)
         );
 
-        ESCROW_TOKEN.file(
-            bytes32("setBondController"), abi.encode(address(BOND_CONTROLLER))
-        );
-        ESCROW_TOKEN.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
-        );
+        ESCROW_TOKEN.file(bytes32("setBondController"), abi.encode(address(BOND_CONTROLLER)));
+        ESCROW_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
 
         // ESCROW_TOKEN.setBondController(address(BOND_CONTROLLER));
         // ESCROW_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
@@ -188,20 +174,15 @@ contract TestHelpers is Test {
         }
 
         if (codeHash != 0x0) {
-            bytes memory seaportAddr =
-                abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
+            bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
             ESCROW_TOKEN.file(bytes32("setupSeaport"), seaportAddr);
             // ESCROW_TOKEN.setupSeaport(
             //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
             // );
         }
 
-        LIEN_TOKEN.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
-        );
-        LIEN_TOKEN.file(
-            bytes32("setCollateralVault"), abi.encode(address(ESCROW_TOKEN))
-        );
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        LIEN_TOKEN.file(bytes32("setCollateralVault"), abi.encode(address(ESCROW_TOKEN)));
 
         // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
         // LIEN_TOKEN.setCollateralVault(address(ESCROW_TOKEN));
@@ -219,53 +200,21 @@ contract TestHelpers is Test {
     //    }
 
     function _setupRolesAndCapabilities() internal {
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.createAuction.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.endAuction.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER), LienToken.createLien.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.cancelAuction.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER),
-            EscrowToken.auctionVault.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.BOND_CONTROLLER),
-            TRANSFER_PROXY.tokenTransferFrom.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE), LienToken.removeLiens.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE),
-            TRANSFER_PROXY.tokenTransferFrom.selector,
-            true
-        );
-        MRA.setUserRole(
-            address(BOND_CONTROLLER), uint8(UserRoles.BOND_CONTROLLER), true
-        );
+        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.createAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.endAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.BOND_CONTROLLER), LienToken.createLien.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.cancelAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.BOND_CONTROLLER), EscrowToken.auctionVault.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.BOND_CONTROLLER), TRANSFER_PROXY.tokenTransferFrom.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), LienToken.removeLiens.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), TRANSFER_PROXY.tokenTransferFrom.selector, true);
+        MRA.setUserRole(address(BOND_CONTROLLER), uint8(UserRoles.BOND_CONTROLLER), true);
         MRA.setUserRole(address(ESCROW_TOKEN), uint8(UserRoles.WRAPPER), true);
-        MRA.setUserRole(
-            address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true
-        );
+        MRA.setUserRole(address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true);
 
         // TODO add to AstariaDeploy(?)
-        MRA.setRoleCapability(
-            uint8(UserRoles.LIEN_TOKEN),
-            TRANSFER_PROXY.tokenTransferFrom.selector,
-            true
-        );
+        MRA.setRoleCapability(uint8(UserRoles.LIEN_TOKEN), TRANSFER_PROXY.tokenTransferFrom.selector, true);
         MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
     }
 
@@ -276,19 +225,14 @@ contract TestHelpers is Test {
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
         ERC721(tokenContract).setApprovalForAll(address(ESCROW_TOKEN), true);
-        ESCROW_TOKEN.depositERC721(
-            address(this), address(tokenContract), uint256(tokenId)
-        );
+        ESCROW_TOKEN.depositERC721(address(this), address(tokenContract), uint256(tokenId));
     }
 
     /**
      * Ensure that we can create a new bond vault and we emit the correct events
      */
 
-    function _createBondVault(bytes32 vaultHash, bool vault)
-        internal
-        returns (address)
-    {
+    function _createBondVault(bytes32 vaultHash, bool vault) internal returns (address) {
         if (vault) {
             return _createBondVault(
                 appraiserTwo, // appraiserTwo for vault
@@ -387,22 +331,16 @@ contract TestHelpers is Test {
         bytes data;
     }
 
-    function _generateInputs(LoanProofGeneratorParams memory params)
-        internal
-        returns (string[] memory inputs)
-    {
+    function _generateInputs(LoanProofGeneratorParams memory params) internal returns (string[] memory inputs) {
         if (params.generationType == uint8(StrategyTypes.STANDARD)) {
             inputs = new string[](11);
 
-            uint256 escrowId = uint256(
-                keccak256(abi.encodePacked(params.tokenContract, params.tokenId))
-            );
+            uint256 escrowId = uint256(keccak256(abi.encodePacked(params.tokenContract, params.tokenId)));
 
             //string[] memory inputs = new string[](10);
             //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
 
-            IAstariaRouter.CollateralDetails memory terms =
-                abi.decode(params.data, (IAstariaRouter.CollateralDetails));
+            IAstariaRouter.CollateralDetails memory terms = abi.decode(params.data, (IAstariaRouter.CollateralDetails));
             inputs[0] = "node";
             inputs[1] = "scripts/loanProofGenerator.js";
             inputs[2] = abi.encodePacked(params.tokenContract).toHexString(); //tokenContract
@@ -413,8 +351,7 @@ contract TestHelpers is Test {
             inputs[6] = abi.encodePacked(true).toHexString(); //public
             inputs[7] = abi.encodePacked(address(0)).toHexString(); //vault
             //vault details
-            inputs[8] =
-                abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
+            inputs[8] = abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
             inputs[9] = abi.encodePacked(address(0)).toHexString(); //borrower
             inputs[10] = abi.encode(terms.lien).toHexString(); //lien details
 
@@ -464,16 +401,12 @@ contract TestHelpers is Test {
 
     event LoanObligationProof(bytes32[]);
 
-    function _generateDefaultCollateralVault()
-        internal
-        returns (uint256 escrowId)
-    {
+    function _generateDefaultCollateralVault() internal returns (uint256 escrowId) {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        (,, IAstariaRouter.Commitment memory terms) =
-            _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
         escrowId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
 
@@ -523,15 +456,7 @@ contract TestHelpers is Test {
 
         (vaultHash, terms, broker) = _commitWithoutDeposit(
             CommitWithoutDeposit(
-                appraiserOne,
-                tokenContract,
-                tokenId,
-                maxAmount,
-                maxDebt,
-                interestRate,
-                maxInterestRate,
-                duration,
-                amount
+                appraiserOne, tokenContract, tokenId, maxAmount, maxDebt, interestRate, maxInterestRate, duration, amount
             )
         );
 
@@ -543,17 +468,9 @@ contract TestHelpers is Test {
         return (vaultHash, terms);
     }
 
-    function _commitToLoan(
-        address tokenContract,
-        uint256 tokenId,
-        LoanTerms memory loanTerms
-    )
+    function _commitToLoan(address tokenContract, uint256 tokenId, LoanTerms memory loanTerms)
         internal
-        returns (
-            bytes32 vaultHash,
-            address vault,
-            IAstariaRouter.Commitment memory terms
-        )
+        returns (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms)
     {
         _depositNFTs(tokenContract, tokenId);
         emit LogTerms(loanTerms);
@@ -579,17 +496,9 @@ contract TestHelpers is Test {
 
     event LogTerms(LoanTerms);
 
-    function _commitWithoutDeposit(
-        address tokenContract,
-        uint256 tokenId,
-        LoanTerms memory loanTerms
-    )
+    function _commitWithoutDeposit(address tokenContract, uint256 tokenId, LoanTerms memory loanTerms)
         internal
-        returns (
-            bytes32 vaultHash,
-            IAstariaRouter.Commitment memory terms,
-            address broker
-        )
+        returns (bytes32 vaultHash, IAstariaRouter.Commitment memory terms, address broker)
     {
         return _commitWithoutDeposit(
             CommitWithoutDeposit(
@@ -632,9 +541,7 @@ contract TestHelpers is Test {
                     tokenContract,
                     tokenId,
                     address(0),
-                    IAstariaRouter.LienDetails(
-                        maxAmount, maxDebt, interestRate, maxInterestRate, duration
-                    )
+                    IAstariaRouter.LienDetails(maxAmount, maxDebt, interestRate, maxInterestRate, duration)
                 )
             )
         );
@@ -658,17 +565,12 @@ contract TestHelpers is Test {
 
     function _commitWithoutDeposit(CommitWithoutDeposit memory params)
         internal
-        returns (
-            bytes32 obligationRoot,
-            IAstariaRouter.Commitment memory terms,
-            address vault
-        )
+        returns (bytes32 obligationRoot, IAstariaRouter.Commitment memory terms, address vault)
     {
         uint256 escrowId = params.tokenContract.computeId(params.tokenId);
 
         bytes32[] memory obligationProof;
-        LoanProofGeneratorParams memory proofParams =
-        _generateLoanGeneratorParams(
+        LoanProofGeneratorParams memory proofParams = _generateLoanGeneratorParams(
             params.strategist,
             params.tokenContract,
             params.tokenId,
@@ -689,9 +591,8 @@ contract TestHelpers is Test {
         bytes32 r;
         bytes32 s;
         (v, r, s) = vm.sign(uint256(appraiserOnePK), obligationRoot);
-        IAstariaRouter.Commitment memory terms = _generateCommitment(
-            params, vault, obligationRoot, obligationProof, v, r, s
-        );
+        IAstariaRouter.Commitment memory terms =
+            _generateCommitment(params, vault, obligationRoot, obligationProof, v, r, s);
         return (obligationRoot, terms, vault);
     }
 
@@ -776,19 +677,12 @@ contract TestHelpers is Test {
     }
 
     function _warpToAuctionEnd(uint256 escrowId) internal {
-        (
-            uint256 amount,
-            uint256 duration,
-            uint256 firstBidTime,
-            uint256 reservePrice,
-            address bidder
-        ) = AUCTION_HOUSE.getAuctionData(escrowId);
+        (uint256 amount, uint256 duration, uint256 firstBidTime, uint256 reservePrice, address bidder) =
+            AUCTION_HOUSE.getAuctionData(escrowId);
         vm.warp(block.timestamp + duration);
     }
 
-    function _createBid(address bidder, uint256 tokenId, uint256 amount)
-        internal
-    {
+    function _createBid(address bidder, uint256 tokenId, uint256 amount) internal {
         vm.deal(bidder, (amount * 15) / 10);
         vm.startPrank(bidder);
         WETH9.deposit{value: amount}();
@@ -797,9 +691,7 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-    function _lendToVault(address vault, uint256 amount, address lendAs)
-        internal
-    {
+    function _lendToVault(address vault, uint256 amount, address lendAs) internal {
         vm.deal(lendAs, amount);
         vm.startPrank(lendAs);
         WETH9.deposit{value: amount}();
@@ -811,9 +703,7 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-    function _withdraw(bytes32 vaultHash, uint256 amount, address lendAs)
-        internal
-    {
+    function _withdraw(bytes32 vaultHash, uint256 amount, address lendAs) internal {
         vm.startPrank(lendAs);
 
         vm.stopPrank();
