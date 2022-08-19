@@ -1,10 +1,9 @@
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.16;
 
 import {Authority} from "solmate/auth/Auth.sol";
-import {MultiRolesAuthority} from
-    "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {ERC721} from "openzeppelin/token/ERC721/ERC721.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
 import {CollateralToken} from "./CollateralToken.sol";
 import {LienToken} from "./LienToken.sol";
 import {AstariaRouter} from "./AstariaRouter.sol";
@@ -83,13 +82,16 @@ contract AstariaDeploy {
             address(TRANSFER_PROXY)
         );
         COLLATERAL_TOKEN.file(
-            bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER))
+            bytes32("setAstariaRouter"),
+            abi.encode(address(ASTARIA_ROUTER))
         );
         COLLATERAL_TOKEN.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
         );
         LIEN_TOKEN.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
         );
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_TOKEN),
@@ -97,7 +99,9 @@ contract AstariaDeploy {
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.COLLATERAL_TOKEN), AuctionHouse.endAuction.selector, true
+            uint8(UserRoles.COLLATERAL_TOKEN),
+            AuctionHouse.endAuction.selector,
+            true
         );
         MRA.setRoleCapability(
             uint8(UserRoles.COLLATERAL_TOKEN),
@@ -125,16 +129,24 @@ contract AstariaDeploy {
             true
         );
         MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true
+            uint8(UserRoles.AUCTION_HOUSE),
+            LienToken.stopLiens.selector,
+            true
         );
         MRA.setUserRole(
-            address(ASTARIA_ROUTER), uint8(UserRoles.ASTARIA_ROUTER), true
+            address(ASTARIA_ROUTER),
+            uint8(UserRoles.ASTARIA_ROUTER),
+            true
         );
         MRA.setUserRole(
-            address(COLLATERAL_TOKEN), uint8(UserRoles.COLLATERAL_TOKEN), true
+            address(COLLATERAL_TOKEN),
+            uint8(UserRoles.COLLATERAL_TOKEN),
+            true
         );
         MRA.setUserRole(
-            address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true
+            address(AUCTION_HOUSE),
+            uint8(UserRoles.AUCTION_HOUSE),
+            true
         );
 
         MRA.setOwner(address(msg.sender));

@@ -1,7 +1,7 @@
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.16;
 
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
-import {ILienToken} from "./ILienToken.sol";
+import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {ILienBase, ILienToken} from "./ILienToken.sol";
 import {ICollateralToken} from "./ICollateralToken.sol";
 import {ITransferProxy} from "./ITransferProxy.sol";
 
@@ -99,7 +99,7 @@ interface IAstariaRouter {
         external
         returns (uint256 totalBorrowed);
 
-    function requestLienPosition(ILienToken.LienActionEncumber calldata params)
+    function requestLienPosition(ILienBase.LienActionEncumber calldata params)
         external
         returns (uint256);
 

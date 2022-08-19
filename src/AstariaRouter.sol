@@ -1,14 +1,15 @@
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.16;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
+import {IERC721} from "./interfaces/IERC721.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ClonesWithImmutableArgs} from
     "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
+import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
@@ -17,12 +18,7 @@ import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 interface IInvoker {
-    function onBorrowAndBuy(
-        bytes calldata data,
-        address token,
-        uint256 amount,
-        address payable recipient
-    )
+    function onBorrowAndBuy(bytes calldata data, address token, uint256 amount, address payable recipient)
         external
         returns (bool);
 }
@@ -110,25 +106,17 @@ contract AstariaRouter is Auth, IAstariaRouter {
 
     // MODIFIERS
     modifier onlyVaults() {
-        require(
-            vaults[msg.sender] != address(0),
-            "this vault has not been initialized"
-        );
+        require(vaults[msg.sender] != address(0), "this vault has not been initialized");
         _;
     }
 
     //PUBLIC
 
     //todo: check all incoming obligations for validity
-    function commitToLoans(IAstariaRouter.Commitment[] calldata commitments)
-        external
-        returns (uint256 totalBorrowed)
-    {
+    function commitToLoans(IAstariaRouter.Commitment[] calldata commitments) external returns (uint256 totalBorrowed) {
         totalBorrowed = 0;
         for (uint256 i = 0; i < commitments.length; ++i) {
-            _transferAndDepositAsset(
-                commitments[i].tokenContract, commitments[i].tokenId
-            );
+            _transferAndDepositAsset(commitments[i].tokenContract, commitments[i].tokenId);
             totalBorrowed += _executeCommitment(commitments[i]);
 
             uint256 collateralId =
@@ -136,9 +124,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
             _returnCollateral(collateralId, address(msg.sender));
         }
         WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
-        TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH), address(this), address(msg.sender), totalBorrowed
-        );
+        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(this), address(msg.sender), totalBorrowed);
     }
 
     // verifies the signature on the root of the merkle tree to be the appraiser
@@ -188,24 +174,16 @@ contract AstariaRouter is Auth, IAstariaRouter {
         external
     {
         VaultImplementation(incomingTerms.nor.strategy.vault).buyoutLien(
-            incomingTerms.tokenContract.computeId(incomingTerms.tokenId),
-            position,
-            incomingTerms
+            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
         );
     }
 
-    function requestLienPosition(ILienToken.LienActionEncumber calldata params)
-        external
-        onlyVaults
-        returns (uint256)
-    {
+    function requestLienPosition(ILienBase.LienActionEncumber calldata params) external onlyVaults returns (uint256) {
         return LIEN_TOKEN.createLien(params);
     }
 
     function lendToVault(address vault, uint256 amount) external {
-        TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH), address(msg.sender), address(this), amount
-        );
+        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), address(this), amount);
 
         require(vaults[vault] != address(0), "lendToVault: vault doesn't exist");
         WETH.safeApprove(vault, amount);
@@ -244,9 +222,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
     }
 
     function getStrategistFee() external view returns (uint256, uint256) {
-        return (
-            STRATEGIST_ORIGINATION_FEE_NUMERATOR, STRATEGIST_ORIGINATION_FEE_BASE
-        );
+        return (STRATEGIST_ORIGINATION_FEE_NUMERATOR, STRATEGIST_ORIGINATION_FEE_BASE);
     }
 
     function isValidVault(address vault) external view returns (bool) {
@@ -290,9 +266,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
 
         address implementation;
         if (epochLength > uint256(0)) {
-            require(
-                epochLength >= 3 days, "epochLength must be at least 3 days"
-            );
+            require(epochLength >= 3 days, "epochLength must be at least 3 days");
             implementation = VAULT_IMPLEMENTATION;
             brokerType = 2;
         } else {
@@ -333,10 +307,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
         return _borrow(c, address(this));
     }
 
-    function _borrow(IAstariaRouter.Commitment memory c, address receiver)
-        internal
-        returns (uint256)
-    {
+    function _borrow(IAstariaRouter.Commitment memory c, address receiver) internal returns (uint256) {
         //router must be approved for the star nft to take a loan,
         VaultImplementation(c.nor.strategy.vault).commitToLoan(c, receiver);
         if (receiver == address(this)) {
@@ -345,12 +316,8 @@ contract AstariaRouter is Auth, IAstariaRouter {
         return uint256(0);
     }
 
-    function _transferAndDepositAsset(address tokenContract, uint256 tokenId)
-        internal
-    {
-        IERC721(tokenContract).transferFrom(
-            address(msg.sender), address(this), tokenId
-        );
+    function _transferAndDepositAsset(address tokenContract, uint256 tokenId) internal {
+        IERC721(tokenContract).transferFrom(address(msg.sender), address(this), tokenId);
 
         IERC721(tokenContract).approve(address(COLLATERAL_TOKEN), tokenId);
 
@@ -361,7 +328,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
         COLLATERAL_TOKEN.transferFrom(address(this), receiver, collateralId);
     }
 
-    function _addLien(ILienToken.LienActionEncumber memory params) internal {
+    function _addLien(ILienBase.LienActionEncumber memory params) internal {
         LIEN_TOKEN.createLien(params);
     }
 }

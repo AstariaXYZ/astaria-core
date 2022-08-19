@@ -12,15 +12,11 @@ import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 
 contract WithdrawProxy is ERC20Cloned {
     function name() public view override (IBase) returns (string memory) {
-        return string(
-            abi.encodePacked("AST-WithdrawVault-", ERC20(underlying()).symbol())
-        );
+        return string(abi.encodePacked("AST-WithdrawVault-", ERC20(underlying()).symbol()));
     }
 
     function symbol() public view override (IBase) returns (string memory) {
-        return string(
-            abi.encodePacked("AST-W", owner(), "-", ERC20(underlying()).symbol())
-        );
+        return string(abi.encodePacked("AST-W", owner(), "-", ERC20(underlying()).symbol()));
     }
 
     using SafeTransferLib for ERC20;
@@ -29,16 +25,11 @@ contract WithdrawProxy is ERC20Cloned {
         require(balanceOf[msg.sender] >= amount, "insufficient balance");
         _burn(msg.sender, amount);
         ERC20(underlying()).safeTransfer(
-            msg.sender,
-            (amount / totalSupply) * ERC20(underlying()).balanceOf(address(this))
+            msg.sender, (amount / totalSupply) * ERC20(underlying()).balanceOf(address(this))
         );
     }
 
-    function mint(address receiver, uint256 shares)
-        public
-        virtual
-        returns (uint256 assets)
-    {
+    function mint(address receiver, uint256 shares) public virtual returns (uint256 assets) {
         require(msg.sender == owner(), "only owner can mint");
         _mint(receiver, shares);
     }

@@ -1,16 +1,14 @@
 pragma solidity ^0.8.15;
 
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
+import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
-interface ICollateralToken is IERC721 {
+interface ICollateralBase {
     function auctionVault(
         uint256 collateralId,
         address initiator,
         uint256 initiatorFee
-    )
-        external
-        returns (uint256);
+    ) external returns (uint256);
 
     function AUCTION_HOUSE() external view returns (IAuctionHouse);
 
@@ -20,6 +18,7 @@ interface ICollateralToken is IERC721 {
         address depositFor_,
         address tokenContract_,
         uint256 tokenId_
-    )
-        external;
+    ) external;
 }
+
+interface ICollateralToken is ICollateralBase, IERC721 {}
