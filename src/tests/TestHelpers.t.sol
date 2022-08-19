@@ -8,9 +8,9 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {EscrowToken} from "../EscrowToken.sol";
+import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
-import {IEscrowToken} from "../interfaces/IEscrowToken.sol";
+import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
@@ -84,7 +84,7 @@ contract TestHelpers is Test {
 
     enum UserRoles {
         ADMIN,
-        BOND_CONTROLLER,
+        ASTARIA_ROUTER,
         WRAPPER,
         AUCTION_HOUSE,
         TRANSFER_PROXY,
@@ -93,9 +93,11 @@ contract TestHelpers is Test {
 
     using Strings2 for bytes;
 
-    EscrowToken ESCROW_TOKEN;
+    CollateralToken COLLATERAL_TOKEN;
     LienToken LIEN_TOKEN;
-    AstariaRouter BOND_CONTROLLER;
+    AstariaRouter ASTARIA_ROUTER;
+    PublicVault PUBLIC_VAULT;
+    Vault SOLO_VAULT;
     Dummy721 testNFT;
     TransferProxy TRANSFER_PROXY;
     IWETH9 WETH9;
@@ -115,11 +117,18 @@ contract TestHelpers is Test {
     address appraiserTwo = vm.addr(appraiserTwoPK);
     address appraiserThree = vm.addr(0x1345);
 
-    event NewTermCommitment(bytes32 bondVault, uint256 escrowId, uint256 amount);
-    event Repayment(bytes32 bondVault, uint256 escrowId, uint256 amount);
-    event Liquidation(bytes32 bondVault, uint256 escrowId);
-    event NewBondVault(address appraiser, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
-    event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
+    event NewTermCommitment(bytes32 bondVault, uint256 collateralId, uint256 amount);
+    event Repayment(bytes32 bondVault, uint256 collateralId, uint256 amount);
+    event Liquidation(bytes32 bondVault, uint256 collateralId);
+    event NewBondVault(
+        address appraiser,
+        bytes32 bondVault,
+        bytes32 contentHash,
+        uint256 expiration
+    );
+    event RedeemBond(
+        bytes32 bondVault, uint256 amount, address indexed redeemer
+    );
 
     function setUp() public virtual {
         WETH9 = IWETH9(deployCode(weth9Artifact));
@@ -134,37 +143,42 @@ contract TestHelpers is Test {
             address(TRANSFER_PROXY),
             address(WETH9)
         );
-        ESCROW_TOKEN = new EscrowToken(
+        COLLATERAL_TOKEN = new CollateralToken(
             MRA,
             address(TRANSFER_PROXY),
             address(LIEN_TOKEN)
         );
-        Vault soloImpl = new Vault();
-        PublicVault vaultImpl = new PublicVault();
 
-        BOND_CONTROLLER = new AstariaRouter(
+        PUBLIC_VAULT = new PublicVault();
+        SOLO_VAULT = new Vault();
+
+        ASTARIA_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
-            address(ESCROW_TOKEN),
+            address(COLLATERAL_TOKEN),
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY),
-            address(vaultImpl),
-            address(soloImpl)
+            address(PUBLIC_VAULT),
+            address(SOLO_VAULT)
         );
 
         AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
             address(MRA),
-            address(ESCROW_TOKEN),
+            address(COLLATERAL_TOKEN),
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
 
-        ESCROW_TOKEN.file(bytes32("setBondController"), abi.encode(address(BOND_CONTROLLER)));
-        ESCROW_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        COLLATERAL_TOKEN.file(
+            bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER))
+        );
+        COLLATERAL_TOKEN.file(
+            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
+        );
 
-        // ESCROW_TOKEN.setBondController(address(BOND_CONTROLLER));
-        // ESCROW_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
+        // COLLATERAL_TOKEN.setBondController(address(ASTARIA_ROUTER));
+        // COLLATERAL_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
 
         bool seaportActive;
         address seaport = address(0x00000000006c3852cbEf3e08E8dF289169EdE581);
@@ -174,18 +188,23 @@ contract TestHelpers is Test {
         }
 
         if (codeHash != 0x0) {
-            bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
-            ESCROW_TOKEN.file(bytes32("setupSeaport"), seaportAddr);
-            // ESCROW_TOKEN.setupSeaport(
+            bytes memory seaportAddr =
+                abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
+            COLLATERAL_TOKEN.file(bytes32("setupSeaport"), seaportAddr);
+            // COLLATERAL_TOKEN.setupSeaport(
             //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
             // );
         }
 
-        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
-        LIEN_TOKEN.file(bytes32("setCollateralVault"), abi.encode(address(ESCROW_TOKEN)));
+        LIEN_TOKEN.file(
+            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
+        );
+        LIEN_TOKEN.file(
+            bytes32("setCollateralToken"), abi.encode(address(COLLATERAL_TOKEN))
+        );
 
         // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
-        // LIEN_TOKEN.setCollateralVault(address(ESCROW_TOKEN));
+        // LIEN_TOKEN.setCollateralToken(address(COLLATERAL_TOKEN));
         _setupRolesAndCapabilities();
     }
 
@@ -194,24 +213,52 @@ contract TestHelpers is Test {
     //        appraisers[0] = appraiserOne;
     //        appraisers[1] = appraiserTwo;
     //
-    //        BOND_CONTROLLER.file(bytes32("setAppraisers"), abi.encode(appraisers));
+    //        ASTARIA_ROUTER.file(bytes32("setAppraisers"), abi.encode(appraisers));
     //
-    //        // BOND_CONTROLLER.setAppraisers(appraisers);
+    //        // ASTARIA_ROUTER.setAppraisers(appraisers);
     //    }
 
     function _setupRolesAndCapabilities() internal {
-        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.createAuction.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.endAuction.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.BOND_CONTROLLER), LienToken.createLien.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.cancelAuction.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.BOND_CONTROLLER), EscrowToken.auctionVault.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.BOND_CONTROLLER), TRANSFER_PROXY.tokenTransferFrom.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), LienToken.removeLiens.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), TRANSFER_PROXY.tokenTransferFrom.selector, true);
-        MRA.setUserRole(address(BOND_CONTROLLER), uint8(UserRoles.BOND_CONTROLLER), true);
-        MRA.setUserRole(address(ESCROW_TOKEN), uint8(UserRoles.WRAPPER), true);
-        MRA.setUserRole(address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true);
+        MRA.setRoleCapability(
+            uint8(UserRoles.WRAPPER), AuctionHouse.createAuction.selector, true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.WRAPPER), AuctionHouse.endAuction.selector, true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.ASTARIA_ROUTER), LienToken.createLien.selector, true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.WRAPPER), AuctionHouse.cancelAuction.selector, true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.ASTARIA_ROUTER),
+            CollateralToken.auctionVault.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.ASTARIA_ROUTER),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE), LienToken.removeLiens.selector, true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setUserRole(
+            address(ASTARIA_ROUTER), uint8(UserRoles.ASTARIA_ROUTER), true
+        );
+        MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
+        MRA.setUserRole(
+            address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true
+        );
 
         // TODO add to AstariaDeploy(?)
         MRA.setRoleCapability(uint8(UserRoles.LIEN_TOKEN), TRANSFER_PROXY.tokenTransferFrom.selector, true);
@@ -224,8 +271,10 @@ contract TestHelpers is Test {
      */
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
-        ERC721(tokenContract).setApprovalForAll(address(ESCROW_TOKEN), true);
-        ESCROW_TOKEN.depositERC721(address(this), address(tokenContract), uint256(tokenId));
+        ERC721(tokenContract).setApprovalForAll(address(COLLATERAL_TOKEN), true);
+        COLLATERAL_TOKEN.depositERC721(
+            address(this), address(tokenContract), uint256(tokenId)
+        );
     }
 
     /**
@@ -269,21 +318,21 @@ contract TestHelpers is Test {
         address newVault;
         vm.startPrank(appraiser);
         if (appraiser == appraiserOne) {
-            newVault = BOND_CONTROLLER.newVault();
+            newVault = ASTARIA_ROUTER.newVault();
         } else {
-            newVault = BOND_CONTROLLER.newPublicVault(uint256(14 days));
+            newVault = ASTARIA_ROUTER.newPublicVault(uint256(14 days));
         }
         vm.stopPrank();
         return newVault;
     }
 
     //    function _generateLoanProof(
-    //        uint256 _escrowId,
+    //        uint256 _collateralId,
     //        LoanTerms memory terms
     //    ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
     //        return
     //            _generateLoanProof(
-    //                _escrowId,
+    //                _collateralId,
     //                terms.maxAmount,
     //                terms.maxDebt,
     //                terms.interestRate,
@@ -294,7 +343,7 @@ contract TestHelpers is Test {
 
     //
     //    function _generateLoanProof(
-    //        uint256 _escrowId,
+    //        uint256 _collateralId,
     //        uint256 maxAmount,
     //        uint256 maxDebt,
     //        uint256 interest,
@@ -302,8 +351,8 @@ contract TestHelpers is Test {
     //        uint256 duration,
     //        uint256 schedule
     //    ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
-    //        (address tokenContract, uint256 tokenId) = ESCROW_TOKEN
-    //            .getUnderlying(_escrowId);
+    //        (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN
+    //            .getUnderlying(_collateralId);
     //        string[] memory inputs = new string[](10);
     //        //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
     //
@@ -335,7 +384,9 @@ contract TestHelpers is Test {
         if (params.generationType == uint8(StrategyTypes.STANDARD)) {
             inputs = new string[](11);
 
-            uint256 escrowId = uint256(keccak256(abi.encodePacked(params.tokenContract, params.tokenId)));
+            uint256 collateralId = uint256(
+                keccak256(abi.encodePacked(params.tokenContract, params.tokenId))
+            );
 
             //string[] memory inputs = new string[](10);
             //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
@@ -365,8 +416,8 @@ contract TestHelpers is Test {
         }
         //        } else if (generationType == StrategyTypes.COLLECTION) {
         //            inputs = new string[](10);
-        //            (address tokenContract, uint256 tokenId) = ESCROW_TOKEN
-        //                .getUnderlying(_escrowId);
+        //            (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN
+        //                .getUnderlying(_collateralId);
         //            string[] memory inputs = new string[](11);
         //            //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
         //
@@ -401,14 +452,17 @@ contract TestHelpers is Test {
 
     event LoanObligationProof(bytes32[]);
 
-    function _generateDefaultCollateralVault() internal returns (uint256 escrowId) {
+    function _generateDefaultCollateralToken()
+        internal
+        returns (uint256 collateralId)
+    {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
         (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
-        escrowId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
+        collateralId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
 
         return (tokenContract.computeId(tokenId));
     }
@@ -461,7 +515,7 @@ contract TestHelpers is Test {
         );
 
         // vm.expectEmit(true, true, false, false);
-        // emit NewTermCommitment(vaultHash, escrowId, amount);
+        // emit NewTermCommitment(vaultHash, collateralId, amount);
         VaultImplementation(broker).commitToLoan(terms, address(this));
         // BrokerVault(broker).withdraw(0 ether);
 
@@ -567,7 +621,7 @@ contract TestHelpers is Test {
         internal
         returns (bytes32 obligationRoot, IAstariaRouter.Commitment memory terms, address vault)
     {
-        uint256 escrowId = params.tokenContract.computeId(params.tokenId);
+        uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
         bytes32[] memory obligationProof;
         LoanProofGeneratorParams memory proofParams = _generateLoanGeneratorParams(
@@ -619,7 +673,7 @@ contract TestHelpers is Test {
                     uint8(0),
                     appraiserOne,
                     address(0),
-                    BOND_CONTROLLER.appraiserNonce(appraiserOne), //nonce
+                    ASTARIA_ROUTER.appraiserNonce(appraiserOne), //nonce
                     vault
                 ),
                 uint8(StrategyTypes.STANDARD), //obligationType
@@ -670,15 +724,20 @@ contract TestHelpers is Test {
         _commitWithoutDeposit(tokenContract, tokenId, newTerms);
     }
 
-    function _warpToMaturity(uint256 escrowId, uint256 position) internal {
-        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(escrowId, position);
+    function _warpToMaturity(uint256 collateralId, uint256 position) internal {
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
         //        vm.warp(block.timestamp + lien.start + lien.duration + 2 days);
         vm.warp(block.timestamp + 1 days);
     }
 
-    function _warpToAuctionEnd(uint256 escrowId) internal {
-        (uint256 amount, uint256 duration, uint256 firstBidTime, uint256 reservePrice, address bidder) =
-            AUCTION_HOUSE.getAuctionData(escrowId);
+    function _warpToAuctionEnd(uint256 collateralId) internal {
+        (
+            uint256 amount,
+            uint256 duration,
+            uint256 firstBidTime,
+            uint256 reservePrice,
+            address bidder
+        ) = AUCTION_HOUSE.getAuctionData(collateralId);
         vm.warp(block.timestamp + duration);
     }
 
@@ -696,9 +755,9 @@ contract TestHelpers is Test {
         vm.startPrank(lendAs);
         WETH9.deposit{value: amount}();
         WETH9.approve(vault, type(uint256).max);
-        //        BOND_CONTROLLER.lendToVault(vaultHash, amount);
+        //        ASTARIA_ROUTER.lendToVault(vaultHash, amount);
         IVault(vault).deposit(amount, lendAs);
-        // BOND_CONTROLLER.getBroker(vaultHash).withdraw(uint256(0));
+        // ASTARIA_ROUTER.getBroker(vaultHash).withdraw(uint256(0));
 
         vm.stopPrank();
     }

@@ -1,8 +1,9 @@
 pragma solidity ^0.8.16;
 
 import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
-import {IEscrowToken} from "./interfaces/IEscrowToken.sol";
 import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
+import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
+import {ILienToken} from "./interfaces/ILienToken.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -21,10 +22,23 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
 
     event NewObligation(bytes32 bondVault, address tokenContract, uint256 tokenId, uint256 amount);
 
-    event Payment(uint256 escrowId, uint256 index, uint256 amount);
-    event Liquidation(uint256 escrowId, bytes32[] bondVaults, uint256[] indexes, uint256 recovered);
-    event NewBondVault(address appraiser, address broker, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
-    event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
+    event Payment(uint256 collateralId, uint256 index, uint256 amount);
+    event Liquidation(
+        uint256 collateralId,
+        bytes32[] bondVaults,
+        uint256[] indexes,
+        uint256 recovered
+    );
+    event NewBondVault(
+        address appraiser,
+        address broker,
+        bytes32 bondVault,
+        bytes32 contentHash,
+        uint256 expiration
+    );
+    event RedeemBond(
+        bytes32 bondVault, uint256 amount, address indexed redeemer
+    );
 
     function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
         external
@@ -57,12 +71,17 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     event LogNor(IAstariaRouter.NewLienRequest);
     event LogLien(IAstariaRouter.LienDetails);
 
-    function _validateCommitment(IAstariaRouter.Commitment memory params, address receiver) internal {
-        uint256 escrowId = params.tokenContract.computeId(params.tokenId);
+    function _validateCommitment(
+        IAstariaRouter.Commitment memory params,
+        address receiver
+    )
+        internal
+    {
+        uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
-        address operator = ERC721(ESCROW_TOKEN()).getApproved(escrowId);
+        address operator = ERC721(COLLATERAL_TOKEN()).getApproved(collateralId);
 
-        address holder = ERC721(ESCROW_TOKEN()).ownerOf(escrowId);
+        address holder = ERC721(COLLATERAL_TOKEN()).ownerOf(collateralId);
 
         if (msg.sender != holder) {
             require(msg.sender == operator, "invalid request");
@@ -90,7 +109,8 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             "Vault._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
         );
 
-        uint256 seniorDebt = IAstariaRouter(ROUTER()).LIEN_TOKEN().getTotalDebtForCollateralVault(
+        uint256 seniorDebt = IAstariaRouter(ROUTER()).LIEN_TOKEN()
+            .getTotalDebtForCollateralToken(
             params.tokenContract.computeId(params.tokenId)
         );
         require(seniorDebt <= ld.maxSeniorDebt, "Vault._validateTerms(): too much debt already for this loan");
@@ -112,12 +132,23 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         emit NewObligation(params.nor.obligationRoot, params.tokenContract, params.tokenId, params.nor.amount);
     }
 
-    function canLiquidate(uint256 escrowId, uint256 position) public view returns (bool) {
-        return IAstariaRouter(ROUTER()).canLiquidate(escrowId, position);
+    function canLiquidate(uint256 collateralId, uint256 position)
+        public
+        view
+        returns (bool)
+    {
+        return IAstariaRouter(ROUTER()).canLiquidate(collateralId, position);
     }
 
-    function buyoutLien(uint256 escrowId, uint256 position, IAstariaRouter.Commitment memory incomingTerms) external {
-        (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER()).LIEN_TOKEN().getBuyout(escrowId, position);
+    function buyoutLien(
+        uint256 collateralId,
+        uint256 position,
+        IAstariaRouter.Commitment memory incomingTerms
+    )
+        external
+    {
+        (uint256 owed, uint256 buyout) =
+            IAstariaRouter(ROUTER()).LIEN_TOKEN().getBuyout(collateralId, position);
 
         require(buyout <= ERC20(underlying()).balanceOf(address(this)), "not enough balance to buy out loan");
         incomingTerms.nor.amount = owed;

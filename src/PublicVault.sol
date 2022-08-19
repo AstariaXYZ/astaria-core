@@ -46,10 +46,10 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for ERC20;
 
-    // epoch seconds when yintercept was calculated last
+    // epoch seconds when yIntercept was calculated last
     uint256 last;
     // sum of all LienToken amounts
-    uint256 yintercept;
+    uint256 yIntercept;
     // sum of all slopes of each LienToken
     uint256 slope;
 
@@ -122,15 +122,23 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     }
 
     // needs to be called in the epoch boundary before the next epoch can start
-    function processEpoch(uint256[] memory escrowIds, uint256[] memory positions) external {
+    function processEpoch(
+        uint256[] memory collateralIds,
+        uint256[] memory positions
+    )
+        external
+    {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
 
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
-        // check to make sure the amount of CollateralVaults were the same as the LienTokens held by the vault
-        require(escrowIds.length == LIEN_TOKEN().balanceOf(address(this)), "provided ids less than balance");
+        // check to make sure the amount of CollateralTokens were the same as the LienTokens held by the vault
+        require(
+            collateralIds.length == LIEN_TOKEN().balanceOf(address(this)),
+            "provided ids less than balance"
+        );
 
         // increment epoch
         currentEpoch++;
@@ -144,7 +152,10 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         // check if there are LPs withdrawing this epoch
         if (withdrawProxies[currentEpoch] != address(0)) {
             // check liquidations have been processed
-            require(haveLiquidationsProcessed(escrowIds, positions), "liquidations not processed");
+            require(
+                haveLiquidationsProcessed(collateralIds, positions),
+                "liquidations not processed"
+            );
 
             uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
@@ -186,23 +197,26 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         slope += LIEN_TOKEN().calculateSlope(lienId);
     }
 
-    function haveLiquidationsProcessed(uint256[] memory escrowIds, uint256[] memory positions)
+    function haveLiquidationsProcessed(
+        uint256[] memory collateralIds,
+        uint256[] memory positions
+    )
         public
         virtual
         returns (bool)
     {
         // was returns (uint256 balance)
-        for (uint256 i = 0; i < escrowIds.length; i++) {
+        for (uint256 i = 0; i < collateralIds.length; i++) {
             // get lienId from LienToken
 
-            // uint256 lienId = LienToken.liens[escrowIds[i]][
+            // uint256 lienId = LienToken.liens[collateralIds[i]][
             //     positions[i]
             // ];
 
             // uint256 lienId =
-            //     LIEN_TOKEN().liens(escrowIds[i], positions[i]);
+            //     LIEN_TOKEN().liens(collateralIds[i], positions[i]);
 
-            uint256 lienId = LIEN_TOKEN().getLiens(escrowIds[i])[positions[i]];
+            uint256 lienId = LIEN_TOKEN().getLiens(collateralIds[i])[positions[i]];
 
             // TODO implement
             // check that the lien is owned by the vault, this check prevents the msg.sender from presenting an incorrect lien set
@@ -214,7 +228,9 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
             require(LIEN_TOKEN().ownerOf(lienId) == address(this), "lien not owned by vault");
 
             // check that the lien cannot be liquidated
-            if (IAstariaRouter(ROUTER()).canLiquidate(escrowIds[i], positions[i])) {
+            if (
+                IAstariaRouter(ROUTER()).canLiquidate(collateralIds[i], positions[i])
+            ) {
                 return false;
             }
         }
@@ -237,18 +253,22 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
             ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch], withdraw);
         }
 
-        // decrement the yintercept for the amount received on liquidatation vs the expected
+        // decrement the yIntercept for the amount received on liquidatation vs the expected
         // TODO: unchecked?
-        yintercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
+        yIntercept -=
+            (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
-        return slope.mulDivDown(delta_t, 1) + yintercept;
+        return slope.mulDivDown(delta_t, 1) + yIntercept;
     }
 
-    function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
-        yintercept = totalAssets() - amount;
+    function beforePayment(uint256 lienId, uint256 amount)
+        public
+        onlyLienToken
+    {
+        yIntercept = totalAssets() - amount;
         slope -= LIEN_TOKEN().changeInSlope(lienId, amount);
         last = block.timestamp;
     }
@@ -258,17 +278,38 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         _;
     }
 
-    function afterDeposit(uint256 assets, uint256 shares) internal virtual override {
-        // increase yintercept for assets held
+    function afterDeposit(uint256 assets, uint256 shares)
+        internal
+        virtual
+        override
+    {
+        // increase yIntercept for assets held
         if (BROKER_TYPE() == uint256(1)) {
             require(msg.sender == owner(), "only owner can deposit");
         }
-        yintercept += assets;
+        yIntercept += assets;
         _handleAppraiserReward(shares);
     }
 
     function _handleAppraiserReward(uint256 amount) internal virtual override {
         (uint256 appraiserRate, uint256 appraiserBase) = IAstariaRouter(ROUTER()).getStrategistFee();
         _mint(owner(), convertToShares(amount).mulDivDown(appraiserRate, appraiserBase));
+    }
+
+    // TODO fix getter/access flow
+    function getSlope() public returns (uint256) {
+        return slope;
+    }
+
+    function getYIntercept() public returns (uint256) {
+        return yIntercept;
+    }
+
+    function getLast() public returns (uint256) {
+        return last;
+    }
+
+    function getCurrentEpoch() public returns (uint64) {
+        return currentEpoch;
     }
 }

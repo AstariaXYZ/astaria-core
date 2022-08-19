@@ -9,8 +9,8 @@ import {ERC721} from "solmate/tokens/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
-import {ILienBase, ILienToken, IERC721} from "./interfaces/ILienToken.sol";
-import {IEscrowToken} from "./interfaces/IEscrowToken.sol";
+import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
+import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
@@ -34,7 +34,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     using CollateralLookup for address;
 
     IAuctionHouse public AUCTION_HOUSE;
-    IEscrowToken public ESCROW_TOKEN;
+    ICollateralToken public COLLATERAL_TOKEN;
 
     bytes32 public immutable DOMAIN_SEPARATOR;
 
@@ -48,7 +48,11 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     event RemovedLiens(uint256 lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
 
-    constructor(Authority _AUTHORITY, address _TRANSFER_PROXY, address _WETH)
+    constructor(
+        Authority _AUTHORITY,
+        address _TRANSFER_PROXY,
+        address _WETH
+    )
         Auth(address(msg.sender), _AUTHORITY)
         TransferAgent(_TRANSFER_PROXY, _WETH)
         ERC721("Astaria Lien Token", "Lien")
@@ -61,7 +65,9 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         }
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
                 keccak256("LienToken"),
                 keccak256("1"),
                 chainId,
@@ -74,27 +80,46 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         if (what == "setAuctionHouse") {
             address addr = abi.decode(data, (address));
             AUCTION_HOUSE = IAuctionHouse(addr);
-        } else if (what == "setCollateralVault") {
+        } else if (what == "setCollateralToken") {
             address addr = abi.decode(data, (address));
-            ESCROW_TOKEN = IEscrowToken(addr);
+            COLLATERAL_TOKEN = ICollateralToken(addr);
         } else {
             revert("unsupported/file");
         }
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override (ERC721) returns (bool) {
-        return interfaceId == type(ILienToken).interfaceId || super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721)
+        returns (bool)
+    {
+        return
+            interfaceId == type(ILienToken).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
-        uint256 escrowId = params.incoming.tokenContract.computeId(params.incoming.tokenId);
-        (uint256 owed, uint256 buyout) = getBuyout(escrowId, params.position);
+        uint256 collateralId = params.incoming.tokenContract.computeId(
+            params.incoming.tokenId
+        );
+        (uint256 owed, uint256 buyout) = getBuyout(
+            collateralId,
+            params.position
+        );
 
-        uint256 lienId = liens[escrowId][params.position];
-        TRANSFER_PROXY.tokenTransferFrom(lienData[lienId].token, address(msg.sender), ownerOf(lienId), uint256(buyout));
+        uint256 lienId = liens[collateralId][params.position];
+        TRANSFER_PROXY.tokenTransferFrom(
+            lienData[lienId].token,
+            address(msg.sender),
+            ownerOf(lienId),
+            uint256(buyout)
+        );
 
-        (bool valid, IAstariaRouter.LienDetails memory ld) =
-            params.incoming.nor.validateTerms(ESCROW_TOKEN.ownerOf(escrowId));
+        (bool valid, IAstariaRouter.LienDetails memory ld) = params
+            .incoming
+            .nor
+            .validateTerms(COLLATERAL_TOKEN.ownerOf(collateralId));
 
         if (!valid) {
             revert("invalid incoming terms");
@@ -106,7 +131,11 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         //            lienData[lienId].rate - ld.rate > IAstariaRouter(),
         //            "Invalid Rate delta"
         //        );
-        require(block.timestamp + ld.duration >= lienData[lienId].start + lienData[lienId].duration, "Invalid Duration");
+        require(
+            block.timestamp + ld.duration >=
+                lienData[lienId].start + lienData[lienId].duration,
+            "Invalid Duration"
+        );
         lienData[lienId].last = uint32(block.timestamp);
         lienData[lienId].start = uint32(block.timestamp);
         lienData[lienId].rate = uint32(ld.rate);
@@ -125,7 +154,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     //        view
     //        returns (bool)
     //    {
-    //        uint256 lienId = liens[params.escrowId][params.position];
+    //        uint256 lienId = liens[params.collateralId][params.position];
     //
     //        return
     //            params.validateTerms(
@@ -133,15 +162,23 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     //            );
     //    }
 
-    function getInterest(uint256 escrowId, uint256 position) public view returns (uint256) {
-        uint256 lien = liens[escrowId][position];
+    function getInterest(uint256 collateralId, uint256 position)
+        public
+        view
+        returns (uint256)
+    {
+        uint256 lien = liens[collateralId][position];
         if (!lienData[lien].active) {
             return uint256(0);
         }
         return _getInterest(lienData[lien], block.timestamp);
     }
 
-    function _getInterest(Lien memory lien, uint256 timestamp) internal view returns (uint256) {
+    function _getInterest(Lien memory lien, uint256 timestamp)
+        internal
+        view
+        returns (uint256)
+    {
         uint256 delta_t = uint256(uint32(timestamp) - lien.last);
 
         //        return ((delta_t * lien.rate) / 100) * lien.amount;
@@ -149,14 +186,18 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         //        return delta_t.mulDivDown(rps, 100).mulDivDown(lien.amount, 100);
     }
 
-    function stopLiens(uint256 escrowId)
+    function stopLiens(uint256 collateralId)
         external
         requiresAuth
-        returns (uint256 reserve, uint256[] memory amounts, uint256[] memory lienIds)
+        returns (
+            uint256 reserve,
+            uint256[] memory amounts,
+            uint256[] memory lienIds
+        )
     {
         reserve = 0;
-        lienIds = liens[escrowId];
-        amounts = new uint256[](liens[escrowId].length);
+        lienIds = liens[collateralId];
+        amounts = new uint256[](liens[collateralId].length);
         for (uint256 i = 0; i < lienIds.length; ++i) {
             ILienToken.Lien storage lien = lienData[lienIds[i]];
             unchecked {
@@ -174,30 +215,48 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         return "";
     }
 
-    function createLien(ILienBase.LienActionEncumber memory params) external requiresAuth returns (uint256 lienId) {
+    function createLien(ILienBase.LienActionEncumber memory params)
+        external
+        requiresAuth
+        returns (uint256 lienId)
+    {
         // require that the auction is not under way
 
-        uint256 escrowId = params.tokenContract.computeId(params.tokenId);
+        uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
-        require(!AUCTION_HOUSE.auctionExists(escrowId), "escrowId is being liquidated, cannot open new liens");
+        require(
+            !AUCTION_HOUSE.auctionExists(collateralId),
+            "collateralId is being liquidated, cannot open new liens"
+        );
 
-        if (params.validateEscrow == true) {
-            (address tokenContract,) = ESCROW_TOKEN.getUnderlying(escrowId);
-            require(tokenContract != address(0), "Collateral must be deposited before you can request a lien");
+        if (params.validateSlip) {
+            (address tokenContract, ) = COLLATERAL_TOKEN.getUnderlying(
+                collateralId
+            );
+            require(
+                tokenContract != address(0),
+                "Collateral must be deposited before you can request a lien"
+            );
         }
 
-        uint256 totalDebt = getTotalDebtForCollateralVault(escrowId);
-        uint256 impliedRate = getImpliedRate(escrowId);
+        uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
+        uint256 impliedRate = getImpliedRate(collateralId);
 
-        require(params.terms.maxSeniorDebt >= totalDebt, "too much debt to take this loan");
+        require(
+            params.terms.maxSeniorDebt >= totalDebt,
+            "too much debt to take this loan"
+        );
 
-        require(params.terms.maxInterestRate >= impliedRate, "current implied rate is too high");
+        require(
+            params.terms.maxInterestRate >= impliedRate,
+            "current implied rate is too high"
+        );
 
         lienId = uint256(
             keccak256(
                 abi.encodePacked(
                     abi.encode(
-                        bytes32(escrowId),
+                        bytes32(collateralId),
                         params.vault,
                         WETH,
                         params.terms.maxAmount,
@@ -211,12 +270,12 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
             )
         );
 
-        uint8 newPosition = uint8(liens[escrowId].length);
+        uint8 newPosition = uint8(liens[collateralId].length);
 
         _mint(VaultImplementation(params.vault).recipient(), lienId);
         lienData[lienId] = Lien({
             token: WETH,
-            escrowId: escrowId,
+            collateralId: collateralId,
             position: newPosition,
             amount: params.amount,
             active: true,
@@ -227,33 +286,44 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
             duration: uint32(params.terms.duration)
         });
 
-        liens[escrowId].push(lienId);
+        liens[collateralId].push(lienId);
 
-        emit NewLien(lienId, escrowId, newPosition, params.obligationRoot);
+        emit NewLien(lienId, collateralId, newPosition, params.obligationRoot);
     }
 
-    function removeLiens(uint256 escrowId) external requiresAuth {
-        delete liens[escrowId];
-        emit RemovedLiens(escrowId);
+    function removeLiens(uint256 collateralId) external requiresAuth {
+        delete liens[collateralId];
+        emit RemovedLiens(collateralId);
     }
 
-    function getLiens(uint256 escrowId) public view returns (uint256[] memory) {
-        return liens[escrowId];
+    function getLiens(uint256 collateralId)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        return liens[collateralId];
     }
 
     function getLien(uint256 lienId) external view returns (Lien memory) {
         return lienData[lienId];
     }
 
-    function getLien(uint256 escrowId, uint256 position) public view returns (Lien memory) {
-        uint256 lienId = liens[escrowId][position];
+    function getLien(uint256 collateralId, uint256 position)
+        public
+        view
+        returns (Lien memory)
+    {
+        uint256 lienId = liens[collateralId][position];
         return lienData[lienId];
     }
 
     event Data(uint256, uint256);
 
-    function getBuyout(uint256 escrowId, uint256 index) public returns (uint256, uint256) {
-        Lien memory lien = getLien(escrowId, index);
+    function getBuyout(uint256 collateralId, uint256 index)
+        public
+        returns (uint256, uint256)
+    {
+        Lien memory lien = getLien(collateralId, index);
         uint256 owed = _getOwed(lien);
         uint256 remainingInterest = _getRemainingInterest(lien);
 
@@ -261,31 +331,37 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         return (
             owed,
             // owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
-            owed + remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
+            owed +
+                remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
         );
     }
 
-    function makePayment(uint256 escrowId, uint256 paymentAmount) public {
-        uint256[] memory openLiens = liens[escrowId];
+    function makePayment(uint256 collateralId, uint256 paymentAmount) public {
+        uint256[] memory openLiens = liens[collateralId];
         for (uint256 i = 0; i < openLiens.length; ++i) {
-            paymentAmount = _payment(escrowId, i, paymentAmount);
+            paymentAmount = _payment(collateralId, i, paymentAmount);
         }
     }
 
-    function makePayment(uint256 escrowId, uint256 paymentAmount, uint256 index) external {
-        address lienOwner = ownerOf(liens[escrowId][index]);
-        if (IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId)) {
+    function makePayment(
+        uint256 collateralId,
+        uint256 paymentAmount,
+        uint256 index
+    ) external {
+        address lienOwner = ownerOf(liens[collateralId][index]);
+        if (
+            IPublicVault(lienOwner).supportsInterface(
+                type(IPublicVault).interfaceId
+            )
+        ) {
             // was lienOwner.supportsinterface(PublicVault)
-            IPublicVault(lienOwner).beforePayment(liens[escrowId][index], paymentAmount);
+            IPublicVault(lienOwner).beforePayment(
+                liens[collateralId][index],
+                paymentAmount
+            );
         }
-        _payment(escrowId, index, paymentAmount);
+        _payment(collateralId, index, paymentAmount);
     }
-
-    function supportsInterface(address lienOwner, uint256 escrowId) internal returns (bool) {
-        return true;
-    }
-
-    function beforePayment(address lienOwner, uint256 paymentAmount) internal {}
 
     // TODO change to (aggregate) rate?
 
@@ -294,7 +370,11 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         uint256 end = (lien.start + lien.duration);
         // return (end - lien.last) / (lien.amount * lien.rate * end - lien.amount); // TODO check
 
-        return (lien.amount * lien.rate * end - lien.amount).mulDivDown(1, end - lien.last);
+        return
+            (lien.amount * lien.rate * end - lien.amount).mulDivDown(
+                1,
+                end - lien.last
+            );
     }
 
     function changeInSlope(uint256 lienId, uint256 paymentAmount)
@@ -311,27 +391,31 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         // uint256 newSlope =
         //     (end - block.timestamp) / ((newAmount * lien.rate * end) - newAmount);
 
-        uint256 newSlope = ((newAmount * lien.rate * end) - newAmount).mulDivDown(1, end - block.timestamp);
+        uint256 newSlope = ((newAmount * lien.rate * end) - newAmount)
+            .mulDivDown(1, end - block.timestamp);
 
         slope = oldSlope - newSlope;
     }
 
     function _afterPayment(uint256 lienId, uint256 amount) internal virtual {}
 
-    function getTotalDebtForCollateralVault(uint256 escrowId) public view returns (uint256 totalDebt) {
-        uint256[] memory openLiens = getLiens(escrowId);
+    function getTotalDebtForCollateralToken(uint256 collateralId)
+        public
+        view
+        returns (uint256 totalDebt)
+    {
+        uint256[] memory openLiens = getLiens(collateralId);
         totalDebt = 0;
         for (uint256 i = 0; i < openLiens.length; ++i) {
             totalDebt += _getOwed(lienData[openLiens[i]]);
         }
     }
 
-    function getTotalDebtForCollateralVault(uint256 escrowId, uint256 timestamp)
-        public
-        view
-        returns (uint256 totalDebt)
-    {
-        uint256[] memory openLiens = getLiens(escrowId);
+    function getTotalDebtForCollateralToken(
+        uint256 collateralId,
+        uint256 timestamp
+    ) public view returns (uint256 totalDebt) {
+        uint256[] memory openLiens = getLiens(collateralId);
         totalDebt = 0;
 
         for (uint256 i = 0; i < openLiens.length; ++i) {
@@ -339,16 +423,23 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         }
     }
 
-    function getImpliedRate(uint256 escrowId) public view returns (uint256 impliedRate) {
-        uint256 totalDebt = getTotalDebtForCollateralVault(escrowId);
-        uint256[] memory openLiens = getLiens(escrowId);
+    function getImpliedRate(uint256 collateralId)
+        public
+        view
+        returns (uint256 impliedRate)
+    {
+        uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
+        uint256[] memory openLiens = getLiens(collateralId);
         impliedRate = 0;
         for (uint256 i = 0; i < openLiens.length; ++i) {
             Lien storage lien = lienData[openLiens[i]];
 
             // impliedRate += (lien.amount / totalDebt) * lien.rate;
 
-            impliedRate += uint256(lien.rate).mulDivDown(lien.amount, totalDebt);
+            impliedRate += uint256(lien.rate).mulDivDown(
+                lien.amount,
+                totalDebt
+            );
         }
     }
 
@@ -356,31 +447,48 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         return lien.amount += _getInterest(lien, block.timestamp);
     }
 
-    function _getOwed(Lien memory lien, uint256 timestamp) internal view returns (uint256) {
+    function _getOwed(Lien memory lien, uint256 timestamp)
+        internal
+        view
+        returns (uint256)
+    {
         return lien.amount += _getInterest(lien, timestamp);
     }
 
-    function _getRemainingInterest(Lien memory lien) internal view returns (uint256) {
+    function _getRemainingInterest(Lien memory lien)
+        internal
+        view
+        returns (uint256)
+    {
         return _getInterest(lien, (lien.start + lien.duration - lien.last));
     }
 
-    function _payment(uint256 escrowId, uint256 position, uint256 paymentAmount) internal returns (uint256) {
+    function _payment(
+        uint256 collateralId,
+        uint256 position,
+        uint256 paymentAmount
+    ) internal returns (uint256) {
         if (paymentAmount == uint256(0)) {
             return uint256(0);
         }
-        Lien storage lien = lienData[liens[escrowId][position]];
+        Lien storage lien = lienData[liens[collateralId][position]];
         uint256 maxPayment = _getOwed(lien);
-        address owner = ownerOf(liens[escrowId][position]);
+        address owner = ownerOf(liens[collateralId][position]);
 
         if (maxPayment < paymentAmount) {
             lien.amount -= paymentAmount;
             lien.last = uint32(block.timestamp);
         } else {
             paymentAmount = maxPayment;
-            _burn(liens[escrowId][position]);
-            delete liens[escrowId][position];
+            _burn(liens[collateralId][position]);
+            delete liens[collateralId][position];
         }
-        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), owner, paymentAmount);
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            owner,
+            paymentAmount
+        );
 
         return paymentAmount;
     }

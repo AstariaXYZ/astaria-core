@@ -8,10 +8,10 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {EscrowToken} from "../EscrowToken.sol";
+import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
-import {IEscrowToken} from "../interfaces/IEscrowToken.sol";
+import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
@@ -69,22 +69,28 @@ contract Fuzzers is TestHelpers {
         uint256 tokenId = uint256(1);
         (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, args);
 
-        uint256 escrowId = tokenContract.computeId(tokenId);
+        uint256 collateralId = tokenContract.computeId(tokenId);
 
-        uint256 interest = LIEN_TOKEN.getInterest(escrowId, uint256(0));
+        uint256 interest = LIEN_TOKEN.getInterest(collateralId, uint256(0));
         assertEq(interest, uint256(0));
 
         // TODO calcs, waiting on better math for now
-        // _warpToMaturity(escrowId, uint256(0));
-        // interest = LIEN_TOKEN.getInterest(terms.escrowId, uint256(0));
+        // _warpToMaturity(collateralId, uint256(0));
+        // interest = LIEN_TOKEN.getInterest(terms.collateralId, uint256(0));
     }
 
-    function testFuzzLienGetTotalDebtForCollateralVault(FuzzInputs memory args) public validateInputs(args) {
+    function testFuzzLienGetTotalDebtForCollateralToken(FuzzInputs memory args)
+        public
+        validateInputs(args)
+    {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, args);
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralVault(tokenContract.computeId(tokenId));
+        (,, IAstariaRouter.Commitment memory terms) =
+            _commitToLoan(tokenContract, tokenId, args);
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(
+            tokenContract.computeId(tokenId)
+        );
         // TODO calcs
         assert(args.amount <= totalDebt);
     }
@@ -138,10 +144,10 @@ contract Fuzzers is TestHelpers {
     //        vm.deal(lender, 1000 ether);
     //        vm.startPrank(lender);
     //        WETH9.deposit{value: 50 ether}();
-    //        WETH9.approve(address(BOND_CONTROLLER), type(uint256).max);
+    //        WETH9.approve(address(ASTARIA_ROUTER), type(uint256).max);
     //
-    //        //        BOND_CONTROLLER.lendToVault(vaultHash, amount);
-    //        VaultImplementation(BOND_CONTROLLER.getBroker(vaultHash)).deposit(
+    //        //        ASTARIA_ROUTER.lendToVault(vaultHash, amount);
+    //        VaultImplementation(ASTARIA_ROUTER.getBroker(vaultHash)).deposit(
     //            amount,
     //            address(this)
     //        );

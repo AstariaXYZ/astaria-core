@@ -2,10 +2,10 @@ import {IERC1155} from "openzeppelin/token/ERC1155/IERC1155.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 
 contract ValidatorAsset is IERC1155 {
-    address public ESCROW_TOKEN;
+    address public COLLATERAL_TOKEN;
 
-    constructor(address _ESCROW_TOKEN) {
-        ESCROW_TOKEN = _ESCROW_TOKEN;
+    constructor(address _COLLATERAL_TOKEN) {
+        COLLATERAL_TOKEN = _COLLATERAL_TOKEN;
     }
 
     function supportsInterface(bytes4 interfaceId) external view returns (bool) {
@@ -71,17 +71,17 @@ contract ValidatorAsset is IERC1155 {
     function safeTransferFrom(
         address tokenContract,
         address to,
-        uint256 escrowId,
+        uint256 collateralId,
         uint256 amountMinusFees,
         bytes calldata data //empty from seaport
     )
         public
     {
-        require(to == address(ESCROW_TOKEN));
+        require(to == address(COLLATERAL_TOKEN));
         IERC1155Receiver(to).onERC1155Received(
             msg.sender, //seaport
             tokenContract, //can be the tokenContract, WETH, DAI etc whatever
-            escrowId, //escrowId token id
+            collateralId, //collateralId token id
             amountMinusFees, //purchase price - fee's
             abi.encode("0x") //can be anything we want
         );
