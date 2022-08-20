@@ -120,15 +120,8 @@ contract TestHelpers is Test {
     event NewTermCommitment(bytes32 bondVault, uint256 collateralId, uint256 amount);
     event Repayment(bytes32 bondVault, uint256 collateralId, uint256 amount);
     event Liquidation(bytes32 bondVault, uint256 collateralId);
-    event NewBondVault(
-        address appraiser,
-        bytes32 bondVault,
-        bytes32 contentHash,
-        uint256 expiration
-    );
-    event RedeemBond(
-        bytes32 bondVault, uint256 amount, address indexed redeemer
-    );
+    event NewBondVault(address appraiser, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
+    event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
 
     function setUp() public virtual {
         WETH9 = IWETH9(deployCode(weth9Artifact));
@@ -170,12 +163,8 @@ contract TestHelpers is Test {
             address(TRANSFER_PROXY)
         );
 
-        COLLATERAL_TOKEN.file(
-            bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER))
-        );
-        COLLATERAL_TOKEN.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
-        );
+        COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
+        COLLATERAL_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
 
         // COLLATERAL_TOKEN.setBondController(address(ASTARIA_ROUTER));
         // COLLATERAL_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
@@ -188,20 +177,15 @@ contract TestHelpers is Test {
         }
 
         if (codeHash != 0x0) {
-            bytes memory seaportAddr =
-                abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
+            bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
             COLLATERAL_TOKEN.file(bytes32("setupSeaport"), seaportAddr);
             // COLLATERAL_TOKEN.setupSeaport(
             //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
             // );
         }
 
-        LIEN_TOKEN.file(
-            bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE))
-        );
-        LIEN_TOKEN.file(
-            bytes32("setCollateralToken"), abi.encode(address(COLLATERAL_TOKEN))
-        );
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        LIEN_TOKEN.file(bytes32("setCollateralToken"), abi.encode(address(COLLATERAL_TOKEN)));
 
         // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
         // LIEN_TOKEN.setCollateralToken(address(COLLATERAL_TOKEN));
@@ -219,46 +203,18 @@ contract TestHelpers is Test {
     //    }
 
     function _setupRolesAndCapabilities() internal {
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.createAuction.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.endAuction.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.ASTARIA_ROUTER), LienToken.createLien.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.WRAPPER), AuctionHouse.cancelAuction.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.ASTARIA_ROUTER),
-            CollateralToken.auctionVault.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.ASTARIA_ROUTER),
-            TRANSFER_PROXY.tokenTransferFrom.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE), LienToken.removeLiens.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE),
-            TRANSFER_PROXY.tokenTransferFrom.selector,
-            true
-        );
-        MRA.setUserRole(
-            address(ASTARIA_ROUTER), uint8(UserRoles.ASTARIA_ROUTER), true
-        );
+        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.createAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.endAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), LienToken.createLien.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.cancelAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), CollateralToken.auctionVault.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), TRANSFER_PROXY.tokenTransferFrom.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), LienToken.removeLiens.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), TRANSFER_PROXY.tokenTransferFrom.selector, true);
+        MRA.setUserRole(address(ASTARIA_ROUTER), uint8(UserRoles.ASTARIA_ROUTER), true);
         MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
-        MRA.setUserRole(
-            address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true
-        );
+        MRA.setUserRole(address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true);
 
         // TODO add to AstariaDeploy(?)
         MRA.setRoleCapability(uint8(UserRoles.LIEN_TOKEN), TRANSFER_PROXY.tokenTransferFrom.selector, true);
@@ -272,9 +228,7 @@ contract TestHelpers is Test {
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
         ERC721(tokenContract).setApprovalForAll(address(COLLATERAL_TOKEN), true);
-        COLLATERAL_TOKEN.depositERC721(
-            address(this), address(tokenContract), uint256(tokenId)
-        );
+        COLLATERAL_TOKEN.depositERC721(address(this), address(tokenContract), uint256(tokenId));
     }
 
     /**
@@ -384,9 +338,7 @@ contract TestHelpers is Test {
         if (params.generationType == uint8(StrategyTypes.STANDARD)) {
             inputs = new string[](11);
 
-            uint256 collateralId = uint256(
-                keccak256(abi.encodePacked(params.tokenContract, params.tokenId))
-            );
+            uint256 collateralId = uint256(keccak256(abi.encodePacked(params.tokenContract, params.tokenId)));
 
             //string[] memory inputs = new string[](10);
             //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
@@ -452,10 +404,7 @@ contract TestHelpers is Test {
 
     event LoanObligationProof(bytes32[]);
 
-    function _generateDefaultCollateralToken()
-        internal
-        returns (uint256 collateralId)
-    {
+    function _generateDefaultCollateralToken() internal returns (uint256 collateralId) {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
@@ -731,13 +680,8 @@ contract TestHelpers is Test {
     }
 
     function _warpToAuctionEnd(uint256 collateralId) internal {
-        (
-            uint256 amount,
-            uint256 duration,
-            uint256 firstBidTime,
-            uint256 reservePrice,
-            address bidder
-        ) = AUCTION_HOUSE.getAuctionData(collateralId);
+        (uint256 amount, uint256 duration, uint256 firstBidTime, uint256 reservePrice, address bidder) =
+            AUCTION_HOUSE.getAuctionData(collateralId);
         vm.warp(block.timestamp + duration);
     }
 

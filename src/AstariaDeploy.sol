@@ -81,73 +81,20 @@ contract AstariaDeploy {
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
-        COLLATERAL_TOKEN.file(
-            bytes32("setAstariaRouter"),
-            abi.encode(address(ASTARIA_ROUTER))
-        );
-        COLLATERAL_TOKEN.file(
-            bytes32("setAuctionHouse"),
-            abi.encode(address(AUCTION_HOUSE))
-        );
-        LIEN_TOKEN.file(
-            bytes32("setAuctionHouse"),
-            abi.encode(address(AUCTION_HOUSE))
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.COLLATERAL_TOKEN),
-            AuctionHouse.createAuction.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.COLLATERAL_TOKEN),
-            AuctionHouse.endAuction.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.COLLATERAL_TOKEN),
-            AuctionHouse.cancelAuction.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.ASTARIA_ROUTER),
-            CollateralToken.auctionVault.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.ASTARIA_ROUTER),
-            TRANSFER_PROXY.tokenTransferFrom.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.ASTARIA_ROUTER),
-            TRANSFER_PROXY.tokenTransferFrom.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE),
-            TRANSFER_PROXY.tokenTransferFrom.selector,
-            true
-        );
-        MRA.setRoleCapability(
-            uint8(UserRoles.AUCTION_HOUSE),
-            LienToken.stopLiens.selector,
-            true
-        );
-        MRA.setUserRole(
-            address(ASTARIA_ROUTER),
-            uint8(UserRoles.ASTARIA_ROUTER),
-            true
-        );
-        MRA.setUserRole(
-            address(COLLATERAL_TOKEN),
-            uint8(UserRoles.COLLATERAL_TOKEN),
-            true
-        );
-        MRA.setUserRole(
-            address(AUCTION_HOUSE),
-            uint8(UserRoles.AUCTION_HOUSE),
-            true
-        );
+        COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
+        COLLATERAL_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
+        MRA.setRoleCapability(uint8(UserRoles.COLLATERAL_TOKEN), AuctionHouse.createAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.COLLATERAL_TOKEN), AuctionHouse.endAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.COLLATERAL_TOKEN), AuctionHouse.cancelAuction.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), CollateralToken.auctionVault.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), TRANSFER_PROXY.tokenTransferFrom.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), TRANSFER_PROXY.tokenTransferFrom.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), TRANSFER_PROXY.tokenTransferFrom.selector, true);
+        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true);
+        MRA.setUserRole(address(ASTARIA_ROUTER), uint8(UserRoles.ASTARIA_ROUTER), true);
+        MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.COLLATERAL_TOKEN), true);
+        MRA.setUserRole(address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true);
 
         MRA.setOwner(address(msg.sender));
         ASTARIA_ROUTER.setOwner(address(msg.sender));

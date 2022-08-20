@@ -1,6 +1,6 @@
 pragma solidity ^0.8.16;
 
-import {IERC721} from "./IERC721.sol";
+import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {IAstariaRouter} from "./IAstariaRouter.sol";
 
 interface ILienBase {
@@ -41,28 +41,17 @@ interface ILienBase {
         external
         returns (uint256 reserve, uint256[] memory amounts, uint256[] memory lienIds);
 
-    function getBuyout(uint256 collateralId, uint256 index)
-        external
-        returns (uint256, uint256);
+    function getBuyout(uint256 collateralId, uint256 index) external returns (uint256, uint256);
 
     function removeLiens(uint256 collateralId) external;
 
-    function getInterest(uint256 collateralId, uint256 position)
-        external
-        view
-        returns (uint256);
+    function getInterest(uint256 collateralId, uint256 position) external view returns (uint256);
 
-    function getLiens(uint256 _collateralId)
-        external
-        view
-        returns (uint256[] memory);
+    function getLiens(uint256 _collateralId) external view returns (uint256[] memory);
 
     function getLien(uint256 lienId) external view returns (Lien memory);
 
-    function getLien(uint256 collateralId, uint256 position)
-        external
-        view
-        returns (Lien memory);
+    function getLien(uint256 collateralId, uint256 position) external view returns (Lien memory);
 
     function createLien(LienActionEncumber calldata params) external returns (uint256 lienId);
 
@@ -70,10 +59,7 @@ interface ILienBase {
 
     function makePayment(uint256 collateralId, uint256 paymentAmount) external;
 
-    function getTotalDebtForCollateralToken(uint256 collateralId)
-        external
-        view
-        returns (uint256 totalDebt);
+    function getTotalDebtForCollateralToken(uint256 collateralId) external view returns (uint256 totalDebt);
 
     function getTotalDebtForCollateralToken(uint256 collateralId, uint256 timestamp)
         external
