@@ -79,18 +79,12 @@ contract Fuzzers is TestHelpers {
         // interest = LIEN_TOKEN.getInterest(terms.collateralId, uint256(0));
     }
 
-    function testFuzzLienGetTotalDebtForCollateralToken(FuzzInputs memory args)
-        public
-        validateInputs(args)
-    {
+    function testFuzzLienGetTotalDebtForCollateralToken(FuzzInputs memory args) public validateInputs(args) {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (,, IAstariaRouter.Commitment memory terms) =
-            _commitToLoan(tokenContract, tokenId, args);
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(
-            tokenContract.computeId(tokenId)
-        );
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, args);
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(tokenContract.computeId(tokenId));
         // TODO calcs
         assert(args.amount <= totalDebt);
     }

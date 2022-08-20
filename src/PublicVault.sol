@@ -2,7 +2,7 @@ pragma solidity ^0.8.13;
 
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {IVault, ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
-import {IERC721, IERC165} from "./interfaces/IERC721.sol";
+import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -121,12 +121,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     }
 
     // needs to be called in the epoch boundary before the next epoch can start
-    function processEpoch(
-        uint256[] memory collateralIds,
-        uint256[] memory positions
-    )
-        external
-    {
+    function processEpoch(uint256[] memory collateralIds, uint256[] memory positions) external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
 
@@ -134,10 +129,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         transferWithdrawReserve();
 
         // check to make sure the amount of CollateralTokens were the same as the LienTokens held by the vault
-        require(
-            collateralIds.length == LIEN_TOKEN().balanceOf(address(this)),
-            "provided ids less than balance"
-        );
+        require(collateralIds.length == LIEN_TOKEN().balanceOf(address(this)), "provided ids less than balance");
 
         // increment epoch
         currentEpoch++;
@@ -151,10 +143,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         // check if there are LPs withdrawing this epoch
         if (withdrawProxies[currentEpoch] != address(0)) {
             // check liquidations have been processed
-            require(
-                haveLiquidationsProcessed(collateralIds, positions),
-                "liquidations not processed"
-            );
+            require(haveLiquidationsProcessed(collateralIds, positions), "liquidations not processed");
 
             uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
@@ -196,10 +185,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         slope += LIEN_TOKEN().calculateSlope(lienId);
     }
 
-    function haveLiquidationsProcessed(
-        uint256[] memory collateralIds,
-        uint256[] memory positions
-    )
+    function haveLiquidationsProcessed(uint256[] memory collateralIds, uint256[] memory positions)
         public
         virtual
         returns (bool)
@@ -227,9 +213,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
             require(LIEN_TOKEN().ownerOf(lienId) == address(this), "lien not owned by vault");
 
             // check that the lien cannot be liquidated
-            if (
-                IAstariaRouter(ROUTER()).canLiquidate(collateralIds[i], positions[i])
-            ) {
+            if (IAstariaRouter(ROUTER()).canLiquidate(collateralIds[i], positions[i])) {
                 return false;
             }
         }
@@ -254,8 +238,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
 
         // decrement the yIntercept for the amount received on liquidatation vs the expected
         // TODO: unchecked?
-        yIntercept -=
-            (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
+        yIntercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
@@ -263,10 +246,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         return slope.mulDivDown(delta_t, 1) + yIntercept;
     }
 
-    function beforePayment(uint256 lienId, uint256 amount)
-        public
-        onlyLienToken
-    {
+    function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
         yIntercept = totalAssets() - amount;
         slope -= LIEN_TOKEN().changeInSlope(lienId, amount);
         last = block.timestamp;
@@ -277,11 +257,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         _;
     }
 
-    function afterDeposit(uint256 assets, uint256 shares)
-        internal
-        virtual
-        override
-    {
+    function afterDeposit(uint256 assets, uint256 shares) internal virtual override {
         // increase yIntercept for assets held
         if (BROKER_TYPE() == uint256(1)) {
             require(msg.sender == owner(), "only owner can deposit");
