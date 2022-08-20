@@ -64,14 +64,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         LIEN_TOKEN = ILienToken(LIEN_TOKEN_);
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override (IERC165, ERC721)
-        returns (bool)
-    {
-        return interfaceId == type(ICollateralToken).interfaceId
-            || super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view override (IERC165, ERC721) returns (bool) {
+        return interfaceId == type(ICollateralToken).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function file(bytes32 what, bytes calldata data) external requiresAuth {
@@ -88,8 +82,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
             (,, address conduitController) = SEAPORT.information();
             CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
             CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
-            CONDUIT =
-                CONDUIT_CONTROLLER.createConduit(CONDUIT_KEY, address(this));
+            CONDUIT = CONDUIT_CONTROLLER.createConduit(CONDUIT_KEY, address(this));
         } else if (what == "setAstariaRouter") {
             address addr = abi.decode(data, (address));
             ASTARIA_ROUTER = IAstariaRouter(addr);
@@ -106,8 +99,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
 
     modifier releaseCheck(uint256 collateralId) {
         require(
-            uint256(0) == LIEN_TOKEN.getLiens(collateralId).length
-                && !AUCTION_HOUSE.auctionExists(collateralId),
+            uint256(0) == LIEN_TOKEN.getLiens(collateralId).length && !AUCTION_HOUSE.auctionExists(collateralId),
             "must be no liens or auctions to call this"
         );
         _;
@@ -119,10 +111,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
     }
 
     //TODO: scrap this for now
-    function listUnderlyingOnSeaport(
-        uint256 collateralId,
-        Order memory listingOrder
-    )
+    function listUnderlyingOnSeaport(uint256 collateralId, Order memory listingOrder)
         external
         onlyOwner(collateralId)
     {
@@ -132,8 +121,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         //    uint256 startAmount;
         //    uint256 endAmount;
         //    address payable recipient;
-        (address underlyingTokenContract, uint256 underlyingId) =
-            getUnderlying(collateralId);
+        (address underlyingTokenContract, uint256 underlyingId) = getUnderlying(collateralId);
         //ItemType itemType;
         //    address token;
         //    uint256 identifierOrCriteria;
@@ -150,9 +138,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
 
         require(address(this) == listingOrder.parameters.consideration[2].recipient);
         //get total Debt and ensure its being sold for more than that
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(
-            collateralId, listingOrder.parameters.endTime
-        );
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(collateralId, listingOrder.parameters.endTime);
 
         require(
             listingOrder.parameters.offer[0].startAmount >= totalDebt
@@ -180,11 +166,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         SEAPORT.validate(listings);
     }
 
-    function flashAction(
-        IFlashAction receiver,
-        uint256 collateralId,
-        bytes calldata data
-    )
+    function flashAction(IFlashAction receiver, uint256 collateralId, bytes calldata data)
         external
         onlyOwner(collateralId)
     {
@@ -243,10 +225,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         require(isValidatorAsset(msg.sender), "address must be from a validator contract we care about");
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(id, uint256(0));
 
-        require(
-            ERC20(lien.token).balanceOf(address(this)) >= value,
-            "not enough balance to make this payment"
-        );
+        require(ERC20(lien.token).balanceOf(address(this)) >= value, "not enough balance to make this payment");
         uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(id);
 
         require(value >= totalDebt, "cannot be less than total obligation");
@@ -269,15 +248,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function releaseToAddress(uint256 collateralId, address releaseTo)
-        public
-        releaseCheck(collateralId)
-    {
+    function releaseToAddress(uint256 collateralId, address releaseTo) public releaseCheck(collateralId) {
         //check liens
-        require(
-            msg.sender == ownerOf(collateralId),
-            "You don't have permission to call this"
-        );
+        require(msg.sender == ownerOf(collateralId), "You don't have permission to call this");
         _releaseToAddress(collateralId, releaseTo);
     }
 
@@ -288,22 +261,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
 
-    function getUnderlying(uint256 collateralId)
-        public
-        view
-        returns (address, uint256)
-    {
+    function getUnderlying(uint256 collateralId) public view returns (address, uint256) {
         Asset memory underlying = idToUnderlying[collateralId];
         return (underlying.tokenContract, underlying.tokenId);
     }
 
-    function tokenURI(uint256 collateralId)
-        public
-        view
-        virtual
-        override
-        returns (string memory)
-    {
+    function tokenURI(uint256 collateralId) public view virtual override returns (string memory) {
         (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
@@ -317,38 +280,23 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function depositERC721(
-        address depositFor_,
-        address tokenContract_,
-        uint256 tokenId_
-    )
-        external
-    {
-        uint256 collateralId =
-            uint256(keccak256(abi.encodePacked(tokenContract_, tokenId_)));
+    function depositERC721(address depositFor_, address tokenContract_, uint256 tokenId_) external {
+        uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract_, tokenId_)));
 
         ERC721(tokenContract_).safeTransferFrom(depositFor_, address(this), tokenId_, "");
 
         _mint(depositFor_, collateralId);
-        idToUnderlying[collateralId] =
-            Asset({tokenContract: tokenContract_, tokenId: tokenId_});
+        idToUnderlying[collateralId] = Asset({tokenContract: tokenContract_, tokenId: tokenId_});
 
         emit DepositERC721(depositFor_, tokenContract_, tokenId_);
     }
 
-    function auctionVault(
-        uint256 collateralId,
-        address liquidator,
-        uint256 liquidationFee
-    )
+    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee)
         external
         requiresAuth
         returns (uint256 reserve)
     {
-        require(
-            !AUCTION_HOUSE.auctionExists(collateralId),
-            "auctionVault: auction already exists"
-        );
+        require(!AUCTION_HOUSE.auctionExists(collateralId), "auctionVault: auction already exists");
         reserve = AUCTION_HOUSE.createAuction(
             collateralId,
             uint256(7 days), //todo make htis a param we can change

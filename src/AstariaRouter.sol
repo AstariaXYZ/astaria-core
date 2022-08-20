@@ -5,8 +5,7 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {IERC721} from "./interfaces/IERC721.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {ClonesWithImmutableArgs} from
-    "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
@@ -16,6 +15,8 @@ import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {IVault, VaultImplementation} from "./VaultImplementation.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+
+import {PublicVault} from "./PublicVault.sol";
 
 interface IInvoker {
     function onBorrowAndBuy(bytes calldata data, address token, uint256 amount, address payable recipient)
@@ -35,6 +36,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
     address public VAULT_IMPLEMENTATION;
     address public SOLO_IMPLEMENTATION;
     address public WITHDRAW_IMPLEMENTATION;
+    address public LIQUIDATION_IMPLEMENTATION;
 
     address public feeTo;
 
@@ -96,6 +98,9 @@ contract AstariaRouter is Auth, IAstariaRouter {
         } else if (what == "WITHDRAW_IMPLEMENTATION") {
             address addr = abi.decode(data, (address));
             WITHDRAW_IMPLEMENTATION = addr;
+        } else if (what == "LIQUIDATION_IMPLEMENTATION") {
+            address addr = abi.decode(data, (address));
+            LIQUIDATION_IMPLEMENTATION = addr;
         } else if (what == "VAULT_IMPLEMENTATION") {
             address addr = abi.decode(data, (address));
             VAULT_IMPLEMENTATION = addr;
@@ -119,8 +124,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
             _transferAndDepositAsset(commitments[i].tokenContract, commitments[i].tokenId);
             totalBorrowed += _executeCommitment(commitments[i]);
 
-            uint256 collateralId =
-                commitments[i].tokenContract.computeId(commitments[i].tokenId);
+            uint256 collateralId = commitments[i].tokenContract.computeId(commitments[i].tokenId);
             _returnCollateral(collateralId, address(msg.sender));
         }
         WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
@@ -190,11 +194,7 @@ contract AstariaRouter is Auth, IAstariaRouter {
         IVault(vault).deposit(amount, address(msg.sender));
     }
 
-    function canLiquidate(uint256 collateralId, uint256 position)
-        public
-        view
-        returns (bool)
-    {
+    function canLiquidate(uint256 collateralId, uint256 position) public view returns (bool) {
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
 
         uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
@@ -204,19 +204,29 @@ contract AstariaRouter is Auth, IAstariaRouter {
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(uint256 collateralId, uint256 position)
-        external
-        returns (uint256 reserve)
-    {
-        require(
-            canLiquidate(collateralId, position), "liquidate: borrow is healthy"
-        );
+    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve) {
+        require(canLiquidate(collateralId, position), "liquidate: borrow is healthy");
 
         // 0x
 
-        reserve = COLLATERAL_TOKEN.auctionVault(
-            collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT
-        );
+        // if expiration will be past epoch boundary, then create a LiquidationAccountant
+
+        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT);
+
+        if (
+            VaultImplementation(VAULT_IMPLEMENTATION).BROKER_TYPE() == uint256(2)
+                && PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd() < uint256(7 days)
+        ) {
+            address accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
+
+            uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
+
+            // TODO check
+            for (uint256 i = 0; i < liens.length; ++i) {
+                // LIEN_TOKEN.setPayee(LIEN_TOKEN.getLien(liens[i]).collateralId, accountant); // or use token address?
+                LIEN_TOKEN.setPayee(liens[i], accountant);
+            }
+        }
 
         emit Liquidation(collateralId, position, reserve);
     }
@@ -295,15 +305,9 @@ contract AstariaRouter is Auth, IAstariaRouter {
         return vaultAddr;
     }
 
-    function _executeCommitment(IAstariaRouter.Commitment memory c)
-        internal
-        returns (uint256)
-    {
+    function _executeCommitment(IAstariaRouter.Commitment memory c) internal returns (uint256) {
         uint256 collateralId = c.tokenContract.computeId(c.tokenId);
-        require(
-            msg.sender == COLLATERAL_TOKEN.ownerOf(collateralId),
-            "invalid sender for collateralId"
-        );
+        require(msg.sender == COLLATERAL_TOKEN.ownerOf(collateralId), "invalid sender for collateralId");
         return _borrow(c, address(this));
     }
 

@@ -95,19 +95,17 @@ interface IAstariaRouter {
 
     function feeTo() external returns (address);
 
-    function commitToLoans(Commitment[] calldata)
-        external
-        returns (uint256 totalBorrowed);
+    function commitToLoans(Commitment[] calldata) external returns (uint256 totalBorrowed);
 
-    function requestLienPosition(ILienBase.LienActionEncumber calldata params)
-        external
-        returns (uint256);
+    function requestLienPosition(ILienBase.LienActionEncumber calldata params) external returns (uint256);
 
     function LIEN_TOKEN() external view returns (ILienToken);
 
     function TRANSFER_PROXY() external view returns (ITransferProxy);
 
     function WITHDRAW_IMPLEMENTATION() external view returns (address);
+
+    function LIQUIDATION_IMPLEMENTATION() external view returns (address);
 
     function VAULT_IMPLEMENTATION() external view returns (address);
 
@@ -119,14 +117,9 @@ interface IAstariaRouter {
 
     function lendToVault(address vault, uint256 amount) external;
 
-    function liquidate(uint256 collateralId, uint256 position)
-        external
-        returns (uint256 reserve);
+    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve);
 
-    function canLiquidate(uint256 collateralId, uint256 position)
-        external
-        view
-        returns (bool);
+    function canLiquidate(uint256 collateralId, uint256 position) external view returns (bool);
 
     function isValidVault(address) external view returns (bool);
 
