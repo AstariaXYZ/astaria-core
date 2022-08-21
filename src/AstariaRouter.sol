@@ -10,6 +10,7 @@ import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {IVault, VaultImplementation} from "./VaultImplementation.sol";
@@ -253,6 +254,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             
             if(accountant == address(0)) {
                 accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
+            } else {
+                LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
             }
             uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
 

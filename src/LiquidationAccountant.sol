@@ -15,26 +15,28 @@ contract LiquidationAccountant {
 
     address public immutable WETH;
     // address public immutable WITHDRAW_PROXY;
+    address public immutable ASTARIA_ROUTER;
     address public immutable PUBLIC_VAULT;
     address public immutable LIEN_TOKEN;
 
     uint256 withdrawProxyAmount;
 
-    uint256 timeToAuctionEnd;
+    uint256 finalAuctionEnd;
 
     address withdrawProxy;
 
-    constructor(address _WETH, address _PUBLIC_VAULT, address _LIEN_TOKEN, uint256 AUCTION_WINDOW) {
+    constructor(address _WETH, address _ASTARIA_ROUTER, address _PUBLIC_VAULT, address _LIEN_TOKEN, uint256 AUCTION_WINDOW) {
         WETH = _WETH;
         // WITHDRAW_PROXY = _WITHDRAW_PROXY;
+        ASTARIA_ROUTER = _ASTARIA_ROUTER;
         PUBLIC_VAULT = _PUBLIC_VAULT;
         LIEN_TOKEN = _LIEN_TOKEN;
-        timeToAuctionEnd = AUCTION_WINDOW;
+        finalAuctionEnd = block.timestamp + AUCTION_WINDOW;
     }
 
     // TODO lienId and amount checks? (to make sure no one over-withdraws)
     function claim(uint256 lienId, uint256 amount) public {
-
+        require(block.timestamp > finalAuctionEnd);
         require(withdrawProxy != address(0), "calculateWithdrawAmount not called at epoch boundary");
 
         // TODO require liquidation is over?
@@ -65,5 +67,11 @@ contract LiquidationAccountant {
         withdrawProxy = proxy;
         withdrawProxyAmount =
             WithdrawProxy(withdrawProxy).totalSupply().mulDivDown(1, PublicVault(PUBLIC_VAULT).totalSupply()); // TODO check
+    }
+
+    // TODO if auction windows are universal, track only in immutable uint?
+    function updateAuctionEnd(uint256 auctionWindow) public { 
+        require(msg.sender == ASTARIA_ROUTER);
+        finalAuctionEnd = block.timestamp + auctionWindow;
     }
 }
