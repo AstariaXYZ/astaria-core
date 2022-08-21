@@ -176,10 +176,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         // TODO fix?
         accountant = ClonesWithImmutableArgs.clone(
             IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
-            abi.encodePacked(
-                address(this), //owner
-                underlying() //token
-            )
+            ""
         );
         liquidationAccountants[currentEpoch] = accountant;
     }
@@ -250,22 +247,22 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         return IAstariaRouter(ROUTER()).LIEN_TOKEN();
     }
 
-    function completeLiquidation(uint256 lienId, uint256 amount) public {
-        // get the lien amount the vault expected to get before liquidation
-        uint256 expected = LIEN_TOKEN().getLien(lienId).amount; // was LienToken.getLien
+    // function completeLiquidation(uint256 lienId, uint256 amount) public {
+    //     // get the lien amount the vault expected to get before liquidation
+    //     uint256 expected = LIEN_TOKEN().getLien(lienId).amount; // was LienToken.getLien
 
-        // compute the amount owed to the WithdrawProxy for the currentEpoch
-        uint256 withdraw = amount.mulDivDown(liquidationWithdrawRatio, 1);
+    //     // compute the amount owed to the WithdrawProxy for the currentEpoch
+    //     uint256 withdraw = amount.mulDivDown(liquidationWithdrawRatio, 1);
 
-        // check to ensure that the WithdrawProxy was instantiated
-        if (withdrawProxies[currentEpoch] != address(0)) {
-            ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch], withdraw);
-        }
+    //     // check to ensure that the WithdrawProxy was instantiated
+    //     if (withdrawProxies[currentEpoch] != address(0)) {
+    //         ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch], withdraw);
+    //     }
 
-        // decrement the yIntercept for the amount received on liquidatation vs the expected
-        // TODO: unchecked?
-        yIntercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
-    }
+    //     // decrement the yIntercept for the amount received on liquidatation vs the expected
+    //     // TODO: unchecked?
+    //     yIntercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
+    // }
 
     function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
@@ -298,28 +295,28 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     }
 
     // TODO fix getter/access flow
-    function getSlope() public returns (uint256) {
+    function getSlope() public view returns (uint256) {
         return slope;
     }
 
-    function getYIntercept() public returns (uint256) {
+    function getYIntercept() public view returns (uint256) {
         return yIntercept;
     }
 
-    // TODO auth
     function setYIntercept(uint256 _yIntercept) public {
+        require(msg.sender == liquidationAccountants[currentEpoch]);
         yIntercept = _yIntercept;
     }
 
-    function getLast() public returns (uint256) {
+    function getLast() public view returns (uint256) {
         return last;
     }
 
-    function getCurrentEpoch() public returns (uint64) {
+    function getCurrentEpoch() public view returns (uint64) {
         return currentEpoch;
     }
 
-    function timeToEpochEnd() public returns (uint256) {
+    function timeToEpochEnd() public view returns (uint256) {
         uint256 epochEnd = START() + ((currentEpoch + 1) * EPOCH_LENGTH());
 
         if (epochEnd >= block.timestamp) {
@@ -327,5 +324,9 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         }
 
         return block.timestamp - epochEnd; //
+    }
+
+    function getLiquidationAccountant(uint64 epoch) public view returns (address) {
+        return liquidationAccountants[epoch];
     }
 }

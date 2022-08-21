@@ -48,7 +48,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     //decode obligationData into structs
     function _decodeObligationData(uint8 obligationType, bytes memory obligationData)
         internal
-        view
+        pure
         returns (IAstariaRouter.LienDetails memory)
     {
         if (obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {

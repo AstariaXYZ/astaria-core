@@ -226,7 +226,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     function canLiquidate(uint256 collateralId, uint256 position) public view whenNotPaused returns (bool) {
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
 
-        uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
+        // uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
         // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
         return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
@@ -244,10 +244,16 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
         if (
             VaultImplementation(VAULT_IMPLEMENTATION).BROKER_TYPE() == uint256(2)
-                && PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd() < uint256(7 days)
+                && PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd() < COLLATERAL_TOKEN.AUCTION_WINDOW()
         ) {
-            address accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
 
+            uint64 currentEpoch = PublicVault(VAULT_IMPLEMENTATION).getCurrentEpoch();
+
+            address accountant = PublicVault(VAULT_IMPLEMENTATION).getLiquidationAccountant(currentEpoch);
+            
+            if(accountant == address(0)) {
+                accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
+            }
             uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
 
             // TODO check

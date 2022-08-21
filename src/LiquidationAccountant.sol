@@ -20,15 +20,23 @@ contract LiquidationAccountant {
 
     uint256 withdrawProxyAmount;
 
-    constructor(address _WETH, address _PUBLIC_VAULT, address _LIEN_TOKEN) {
+    uint256 timeToAuctionEnd;
+
+    address withdrawProxy;
+
+    constructor(address _WETH, address _PUBLIC_VAULT, address _LIEN_TOKEN, uint256 AUCTION_WINDOW) {
         WETH = _WETH;
         // WITHDRAW_PROXY = _WITHDRAW_PROXY;
         PUBLIC_VAULT = _PUBLIC_VAULT;
         LIEN_TOKEN = _LIEN_TOKEN;
+        timeToAuctionEnd = AUCTION_WINDOW;
     }
 
     // TODO lienId and amount checks? (to make sure no one over-withdraws)
-    function claim(uint256 lienId, uint256 amount, address withdrawProxy) public {
+    function claim(uint256 lienId, uint256 amount) public {
+
+        require(withdrawProxy != address(0), "calculateWithdrawAmount not called at epoch boundary");
+
         // TODO require liquidation is over?
 
         uint256 balance = ERC20(WETH).balanceOf(address(this));
@@ -48,11 +56,13 @@ contract LiquidationAccountant {
         uint256 expected = ILienToken(LIEN_TOKEN).getLien(lienId).amount; // was LienToken.getLien
 
         uint256 oldYIntercept = PublicVault(PUBLIC_VAULT).getYIntercept();
-        PublicVault(PUBLIC_VAULT).setYIntercept((expected - amount).mulDivDown(1 - withdrawProxyAmount, 1)); // TODO check, definitely wrong
+        PublicVault(PUBLIC_VAULT).setYIntercept(oldYIntercept - (expected - amount).mulDivDown(1 - withdrawProxyAmount, 1)); // TODO check, definitely wrong
     }
 
     // pass in withdrawproxy address here instead of constructor in case liquidation called before first marked withdraw
-    function calculateWithdrawAmount(address withdrawProxy) public {
+    // called on epoch boundary (maybe rename)
+    function calculateWithdrawAmount(address proxy) public {
+        withdrawProxy = proxy;
         withdrawProxyAmount =
             WithdrawProxy(withdrawProxy).totalSupply().mulDivDown(1, PublicVault(PUBLIC_VAULT).totalSupply()); // TODO check
     }
