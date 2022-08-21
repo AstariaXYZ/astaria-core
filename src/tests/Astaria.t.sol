@@ -90,10 +90,10 @@ contract AstariaTest is TestHelpers {
     }
 
     function testSoloLend() public {
-        vm.startPrank(appraiserOne);
         address vault = _createBondVault(testBondVaultHash, false);
-
+        vm.startPrank(appraiserOne);
         vm.deal(appraiserOne, 1000 ether);
+
         WETH9.deposit{value: 50 ether}();
         WETH9.approve(vault, type(uint256).max);
 

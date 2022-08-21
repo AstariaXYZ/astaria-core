@@ -2,8 +2,8 @@ pragma solidity ^0.8.16;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {IERC721} from "./interfaces/IERC721.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
@@ -13,23 +13,27 @@ import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {IVault, VaultImplementation} from "./VaultImplementation.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {Pausable} from "./utils/Pausable.sol";
 
 import {PublicVault} from "./PublicVault.sol";
 
 interface IInvoker {
-    function onBorrowAndBuy(bytes calldata data, address token, uint256 amount, address payable recipient)
-        external
-        returns (bool);
+    function onBorrowAndBuy(
+        bytes calldata data,
+        address token,
+        uint256 amount,
+        address payable recipient
+    ) external returns (bool);
 }
 
-contract AstariaRouter is Auth, IAstariaRouter {
-    using SafeERC20 for IERC20;
+contract AstariaRouter is Auth, Pausable, IAstariaRouter {
+    using SafeTransferLib for ERC20;
     using CollateralLookup for address;
     using FixedPointMathLib for uint256;
 
-    IERC20 public immutable WETH;
+    ERC20 public immutable WETH;
     ICollateralToken public immutable COLLATERAL_TOKEN;
     ILienToken public immutable LIEN_TOKEN;
     ITransferProxy public immutable TRANSFER_PROXY;
@@ -58,12 +62,10 @@ contract AstariaRouter is Auth, IAstariaRouter {
         address _COLLATERAL_TOKEN,
         address _LIEN_TOKEN,
         address _TRANSFER_PROXY,
-        address _VAULT_IMPL,
+        address _VAULT_IMPL, //TODO: move these out of constructor into setup flow? or just use the default?
         address _SOLO_IMPL
-    )
-        Auth(address(msg.sender), _AUTHORITY)
-    {
-        WETH = IERC20(_WETH);
+    ) Auth(address(msg.sender), _AUTHORITY) {
+        WETH = ERC20(_WETH);
         COLLATERAL_TOKEN = ICollateralToken(_COLLATERAL_TOKEN);
         LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
         TRANSFER_PROXY = ITransferProxy(_TRANSFER_PROXY);
@@ -76,7 +78,25 @@ contract AstariaRouter is Auth, IAstariaRouter {
         MIN_DURATION_INCREASE = 14 days;
     }
 
-    function file(bytes32 what, bytes calldata data) external requiresAuth {
+    function __emergencyPause() external requiresAuth whenNotPaused {
+        _pause();
+    }
+
+    function __emergencyUnpause() external requiresAuth whenPaused {
+        _unpause();
+    }
+
+    function file(bytes32[] memory what, bytes[] calldata data)
+        external
+        requiresAuth
+    {
+        require(what.length == data.length, "data length mismatch");
+        for (uint256 i = 0; i < what.length; i++) {
+            file(what[i], data[i]);
+        }
+    }
+
+    function file(bytes32 what, bytes calldata data) public requiresAuth {
         if (what == "LIQUIDATION_FEE_PERCENT") {
             uint256 value = abi.decode(data, (uint256));
             LIQUIDATION_FEE_PERCENT = value;
@@ -104,6 +124,9 @@ contract AstariaRouter is Auth, IAstariaRouter {
         } else if (what == "VAULT_IMPLEMENTATION") {
             address addr = abi.decode(data, (address));
             VAULT_IMPLEMENTATION = addr;
+        } else if (what == "SOLO_IMPLEMENTATION") {
+            address addr = abi.decode(data, (address));
+            SOLO_IMPLEMENTATION = addr;
         } else {
             revert("unsupported/file");
         }
@@ -111,34 +134,55 @@ contract AstariaRouter is Auth, IAstariaRouter {
 
     // MODIFIERS
     modifier onlyVaults() {
-        require(vaults[msg.sender] != address(0), "this vault has not been initialized");
+        require(
+            vaults[msg.sender] != address(0),
+            "this vault has not been initialized"
+        );
         _;
     }
 
     //PUBLIC
 
     //todo: check all incoming obligations for validity
-    function commitToLoans(IAstariaRouter.Commitment[] calldata commitments) external returns (uint256 totalBorrowed) {
+    function commitToLoans(IAstariaRouter.Commitment[] calldata commitments)
+        external
+        whenNotPaused
+        returns (uint256 totalBorrowed)
+    {
         totalBorrowed = 0;
         for (uint256 i = 0; i < commitments.length; ++i) {
-            _transferAndDepositAsset(commitments[i].tokenContract, commitments[i].tokenId);
+            _transferAndDepositAsset(
+                commitments[i].tokenContract,
+                commitments[i].tokenId
+            );
             totalBorrowed += _executeCommitment(commitments[i]);
 
-            uint256 collateralId = commitments[i].tokenContract.computeId(commitments[i].tokenId);
+            uint256 collateralId = commitments[i].tokenContract.computeId(
+                commitments[i].tokenId
+            );
             _returnCollateral(collateralId, address(msg.sender));
         }
         WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
-        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(this), address(msg.sender), totalBorrowed);
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(this),
+            address(msg.sender),
+            totalBorrowed
+        );
     }
 
     // verifies the signature on the root of the merkle tree to be the appraiser
     // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
 
-    function newVault() external returns (address) {
+    function newVault() external whenNotPaused returns (address) {
         return _newBondVault(uint256(0));
     }
 
-    function newPublicVault(uint256 epochLength) external returns (address) {
+    function newPublicVault(uint256 epochLength)
+        external
+        whenNotPaused
+        returns (address)
+    {
         return _newBondVault(epochLength);
     }
 
@@ -174,38 +218,70 @@ contract AstariaRouter is Auth, IAstariaRouter {
     function buyoutLien(
         uint256 position,
         IAstariaRouter.Commitment memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralId, //            outgoingTerms.position //        )
-    )
-        external
-    {
+    ) external whenNotPaused {
         VaultImplementation(incomingTerms.nor.strategy.vault).buyoutLien(
-            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
+            incomingTerms.tokenContract.computeId(incomingTerms.tokenId),
+            position,
+            incomingTerms
         );
     }
 
-    function requestLienPosition(ILienBase.LienActionEncumber calldata params) external onlyVaults returns (uint256) {
+    function requestLienPosition(ILienBase.LienActionEncumber calldata params)
+        external
+        whenNotPaused
+        onlyVaults
+        returns (uint256)
+    {
         return LIEN_TOKEN.createLien(params);
     }
 
-    function lendToVault(address vault, uint256 amount) external {
-        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), address(this), amount);
+    function lendToVault(address vault, uint256 amount) external whenNotPaused {
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH),
+            address(msg.sender),
+            address(this),
+            amount
+        );
 
-        require(vaults[vault] != address(0), "lendToVault: vault doesn't exist");
+        require(
+            vaults[vault] != address(0),
+            "lendToVault: vault doesn't exist"
+        );
         WETH.safeApprove(vault, amount);
         IVault(vault).deposit(amount, address(msg.sender));
     }
 
-    function canLiquidate(uint256 collateralId, uint256 position) public view returns (bool) {
-        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
+    function canLiquidate(uint256 collateralId, uint256 position)
+        public
+        view
+        whenNotPaused
+        returns (bool)
+    {
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
+            collateralId,
+            position
+        );
 
-        uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
+        uint256 interestAccrued = LIEN_TOKEN.getInterest(
+            collateralId,
+            position
+        );
         // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
-        return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
+        return (lien.start + lien.duration <= block.timestamp &&
+            lien.amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve) {
-        require(canLiquidate(collateralId, position), "liquidate: borrow is healthy");
+    function liquidate(uint256 collateralId, uint256 position)
+        external
+        whenNotPaused
+        returns (uint256 reserve)
+    {
+        require(
+            canLiquidate(collateralId, position),
+            "liquidate: borrow is healthy"
+        );
 
         // 0x
 
@@ -232,7 +308,10 @@ contract AstariaRouter is Auth, IAstariaRouter {
     }
 
     function getStrategistFee() external view returns (uint256, uint256) {
-        return (STRATEGIST_ORIGINATION_FEE_NUMERATOR, STRATEGIST_ORIGINATION_FEE_BASE);
+        return (
+            STRATEGIST_ORIGINATION_FEE_NUMERATOR,
+            STRATEGIST_ORIGINATION_FEE_BASE
+        );
     }
 
     function isValidVault(address vault) external view returns (bool) {
@@ -276,7 +355,11 @@ contract AstariaRouter is Auth, IAstariaRouter {
 
         address implementation;
         if (epochLength > uint256(0)) {
-            require(epochLength >= 3 days, "epochLength must be at least 3 days");
+            //TODO: check for max epoch length
+            require(
+                epochLength >= 3 days, //TODO: set via file
+                "epochLength must be at least 3 days"
+            );
             implementation = VAULT_IMPLEMENTATION;
             brokerType = 2;
         } else {
@@ -311,7 +394,10 @@ contract AstariaRouter is Auth, IAstariaRouter {
         return _borrow(c, address(this));
     }
 
-    function _borrow(IAstariaRouter.Commitment memory c, address receiver) internal returns (uint256) {
+    function _borrow(IAstariaRouter.Commitment memory c, address receiver)
+        internal
+        returns (uint256)
+    {
         //router must be approved for the star nft to take a loan,
         VaultImplementation(c.nor.strategy.vault).commitToLoan(c, receiver);
         if (receiver == address(this)) {
@@ -320,15 +406,23 @@ contract AstariaRouter is Auth, IAstariaRouter {
         return uint256(0);
     }
 
-    function _transferAndDepositAsset(address tokenContract, uint256 tokenId) internal {
-        IERC721(tokenContract).transferFrom(address(msg.sender), address(this), tokenId);
+    function _transferAndDepositAsset(address tokenContract, uint256 tokenId)
+        internal
+    {
+        IERC721(tokenContract).transferFrom(
+            address(msg.sender),
+            address(this),
+            tokenId
+        );
 
         IERC721(tokenContract).approve(address(COLLATERAL_TOKEN), tokenId);
 
         COLLATERAL_TOKEN.depositERC721(address(this), tokenContract, tokenId);
     }
 
-    function _returnCollateral(uint256 collateralId, address receiver) internal {
+    function _returnCollateral(uint256 collateralId, address receiver)
+        internal
+    {
         COLLATERAL_TOKEN.transferFrom(address(this), receiver, collateralId);
     }
 

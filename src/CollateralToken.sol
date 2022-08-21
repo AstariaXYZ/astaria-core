@@ -4,9 +4,8 @@ pragma solidity ^0.8.16;
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {IERC721, IERC165} from "./interfaces/IERC721.sol";
+import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
 import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
-// import {ERC721} from "gpl/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
@@ -30,7 +29,13 @@ interface ISecurityHook {
     function getState(address, uint256) external view returns (bytes memory);
 }
 
-contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC1155Receiver {
+contract CollateralToken is
+    Auth,
+    ERC721,
+    IERC721Receiver,
+    ICollateralBase,
+    IERC1155Receiver
+{
     using SafeTransferLib for ERC20;
 
     struct Asset {
@@ -49,37 +54,56 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
     ConduitControllerInterface public CONDUIT_CONTROLLER;
     address public CONDUIT;
     bytes32 public CONDUIT_KEY;
+    uint256 public AUCTION_WINDOW;
 
-    event DepositERC721(address indexed from, address indexed tokenContract, uint256 tokenId);
-    event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
+    event DepositERC721(
+        address indexed from,
+        address indexed tokenContract,
+        uint256 tokenId
+    );
+    event ReleaseTo(
+        address indexed underlyingAsset,
+        uint256 assetId,
+        address indexed to
+    );
 
     error AssetNotSupported(address);
     error AuctionStartedForCollateral(uint256);
 
-    constructor(Authority AUTHORITY_, address TRANSFER_PROXY_, address LIEN_TOKEN_)
+    constructor(
+        Authority AUTHORITY_,
+        address TRANSFER_PROXY_,
+        address LIEN_TOKEN_
+    )
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria Collateral Vault", "VAULT") //TODO: what are these going to be, same for lien token
     {
         TRANSFER_PROXY = ITransferProxy(TRANSFER_PROXY_);
         LIEN_TOKEN = ILienToken(LIEN_TOKEN_);
+
+        AUCTION_WINDOW = uint256(2 days);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override (IERC165, ERC721) returns (bool) {
-        return interfaceId == type(ICollateralToken).interfaceId || super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(IERC165, ERC721)
+        returns (bool)
+    {
+        return
+            interfaceId == type(ICollateralToken).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     function file(bytes32 what, bytes calldata data) external requiresAuth {
-        if (what == "CONDUIT") {
-            address addr = abi.decode(data, (address));
-            CONDUIT = addr;
-        } else if (what == "CONDUIT_KEY") {
-            bytes32 value = abi.decode(data, (bytes32));
-            CONDUIT_KEY = value;
+        if (what == "AUCTION_WINDOW") {
+            uint256 window = abi.decode(data, (uint256));
+            AUCTION_WINDOW = window;
         } else if (what == "setupSeaport") {
             // or SEAPORT
             address addr = abi.decode(data, (address));
             SEAPORT = SeaportInterface(addr);
-            (,, address conduitController) = SEAPORT.information();
+            (, , address conduitController) = SEAPORT.information();
             CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
             CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
             CONDUIT = CONDUIT_CONTROLLER.createConduit(CONDUIT_KEY, address(this));
@@ -90,7 +114,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
             address addr = abi.decode(data, (address));
             AUCTION_HOUSE = IAuctionHouse(addr);
         } else if (what == "setSecurityHook") {
-            (address target, address hook) = abi.decode(data, (address, address));
+            (address target, address hook) = abi.decode(
+                data,
+                (address, address)
+            );
             securityHooks[target] = hook;
         } else {
             revert("unsupported/file");
@@ -99,29 +126,35 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
 
     modifier releaseCheck(uint256 collateralId) {
         require(
-            uint256(0) == LIEN_TOKEN.getLiens(collateralId).length && !AUCTION_HOUSE.auctionExists(collateralId),
+            uint256(0) == LIEN_TOKEN.getLiens(collateralId).length &&
+                !AUCTION_HOUSE.auctionExists(collateralId),
             "must be no liens or auctions to call this"
         );
         _;
     }
 
     modifier onlyOwner(uint256 collateralId) {
-        require(ownerOf(collateralId) == msg.sender, "onlyOwner: only the owner");
+        require(
+            ownerOf(collateralId) == msg.sender,
+            "onlyOwner: only the owner"
+        );
         _;
     }
 
     //TODO: scrap this for now
-    function listUnderlyingOnSeaport(uint256 collateralId, Order memory listingOrder)
-        external
-        onlyOwner(collateralId)
-    {
+    function listUnderlyingOnSeaport(
+        uint256 collateralId,
+        Order memory listingOrder
+    ) external onlyOwner(collateralId) {
         //    ItemType itemType;
         //    address token;
         //    uint256 identifierOrCriteria;
         //    uint256 startAmount;
         //    uint256 endAmount;
         //    address payable recipient;
-        (address underlyingTokenContract, uint256 underlyingId) = getUnderlying(collateralId);
+        (address underlyingTokenContract, uint256 underlyingId) = getUnderlying(
+            collateralId
+        );
         //ItemType itemType;
         //    address token;
         //    uint256 identifierOrCriteria;
@@ -130,24 +163,52 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         //}
 
         //2 is ERC721
-        require(uint8(listingOrder.parameters.offer[0].itemType) == uint8(2), "must be type 2");
-        require(listingOrder.parameters.offer[0].token == underlyingTokenContract, "must be the correct token type");
-        require(listingOrder.parameters.offer[0].identifierOrCriteria == underlyingId, "must be the correct token type");
-        require(isValidatorAsset(listingOrder.parameters.consideration[2].token), "must be a validator asset");
-        require(listingOrder.parameters.offer.length == 1, "can only list one item at a time");
-
-        require(address(this) == listingOrder.parameters.consideration[2].recipient);
-        //get total Debt and ensure its being sold for more than that
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(collateralId, listingOrder.parameters.endTime);
+        require(
+            uint8(listingOrder.parameters.offer[0].itemType) == uint8(2),
+            "must be type 2"
+        );
+        require(
+            listingOrder.parameters.offer[0].token == underlyingTokenContract,
+            "must be the correct token type"
+        );
+        require(
+            listingOrder.parameters.offer[0].identifierOrCriteria ==
+                underlyingId,
+            "must be the correct token type"
+        );
+        require(
+            isValidatorAsset(listingOrder.parameters.consideration[2].token),
+            "must be a validator asset"
+        );
+        require(
+            listingOrder.parameters.offer.length == 1,
+            "can only list one item at a time"
+        );
 
         require(
-            listingOrder.parameters.offer[0].startAmount >= totalDebt
-                && listingOrder.parameters.offer[0].startAmount == listingOrder.parameters.offer[0].endAmount,
+            address(this) == listingOrder.parameters.consideration[2].recipient
+        );
+        //get total Debt and ensure its being sold for more than that
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(
+            collateralId,
+            listingOrder.parameters.endTime
+        );
+
+        require(
+            listingOrder.parameters.offer[0].startAmount >= totalDebt &&
+                listingOrder.parameters.offer[0].startAmount ==
+                listingOrder.parameters.offer[0].endAmount,
             "startAmount and endAmount must match"
         );
 
-        require(listingOrder.parameters.conduitKey == CONDUIT_KEY, "must use our conduit for transfers");
-        require(listingOrder.parameters.zone == address(this), "must use our conduit for transfers");
+        require(
+            listingOrder.parameters.conduitKey == CONDUIT_KEY,
+            "must use our conduit for transfers"
+        );
+        require(
+            listingOrder.parameters.zone == address(this),
+            "must use our conduit for transfers"
+        );
         //    address offerer; // 0x00
         //    address zone; // 0x20
         //    OfferItem[] offer; // 0x40
@@ -166,10 +227,11 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         SEAPORT.validate(listings);
     }
 
-    function flashAction(IFlashAction receiver, uint256 collateralId, bytes calldata data)
-        external
-        onlyOwner(collateralId)
-    {
+    function flashAction(
+        IFlashAction receiver,
+        uint256 collateralId,
+        bytes calldata data
+    ) external onlyOwner(collateralId) {
         address addr;
         uint256 tokenId;
         (addr, tokenId) = getUnderlying(collateralId);
@@ -181,23 +243,41 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         bytes memory preTransferState;
 
         if (securityHooks[addr] != address(0)) {
-            preTransferState = ISecurityHook(securityHooks[addr]).getState(addr, tokenId);
+            preTransferState = ISecurityHook(securityHooks[addr]).getState(
+                addr,
+                tokenId
+            );
         }
 
         nft.transferFrom(address(this), address(receiver), tokenId);
         // invoke the call passed by the msg.sender
-        require(receiver.onFlashAction(data) == keccak256("FlashAction.onFlashAction"), "flashAction: callback failed");
+        require(
+            receiver.onFlashAction(data) ==
+                keccak256("FlashAction.onFlashAction"),
+            "flashAction: callback failed"
+        );
 
         if (securityHooks[addr] != address(0)) {
-            bytes memory postTransferState = ISecurityHook(securityHooks[addr]).getState(addr, tokenId);
-            require(keccak256(preTransferState) == keccak256(postTransferState), "flashAction: Data must be the same");
+            bytes memory postTransferState = ISecurityHook(securityHooks[addr])
+                .getState(addr, tokenId);
+            require(
+                keccak256(preTransferState) == keccak256(postTransferState),
+                "flashAction: Data must be the same"
+            );
         }
 
         // validate that the NFT returned after the call
-        require(nft.ownerOf(tokenId) == address(this), "flashAction: NFT not returned");
+        require(
+            nft.ownerOf(tokenId) == address(this),
+            "flashAction: NFT not returned"
+        );
     }
 
-    function isValidatorAsset(address incomingAsset) public view returns (bool) {
+    function isValidatorAsset(address incomingAsset)
+        public
+        view
+        returns (bool)
+    {
         //todo setup handling validator assets
         return true;
     }
@@ -208,10 +288,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         uint256[] calldata ids,
         uint256[] calldata values,
         bytes calldata data
-    )
-        external
-        returns (bytes4)
-    {
+    ) external returns (bytes4) {
         require(ids.length == values.length);
         for (uint256 i = 0; i < ids.length; ++i) {
             _onERC1155Received(operator, from, ids[i], values[i], data);
@@ -219,13 +296,23 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
-    function _onERC1155Received(address operator, address from, uint256 id, uint256 value, bytes calldata data)
-        internal
-    {
-        require(isValidatorAsset(msg.sender), "address must be from a validator contract we care about");
+    function _onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) internal {
+        require(
+            isValidatorAsset(msg.sender),
+            "address must be from a validator contract we care about"
+        );
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(id, uint256(0));
 
-        require(ERC20(lien.token).balanceOf(address(this)) >= value, "not enough balance to make this payment");
+        require(
+            ERC20(lien.token).balanceOf(address(this)) >= value,
+            "not enough balance to make this payment"
+        );
         uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(id);
 
         require(value >= totalDebt, "cannot be less than total obligation");
@@ -240,10 +327,13 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         _burn(id);
     }
 
-    function onERC1155Received(address operator, address from, uint256 id, uint256 value, bytes calldata data)
-        external
-        returns (bytes4)
-    {
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) external returns (bytes4) {
         _onERC1155Received(operator, from, id, value, data);
         return IERC1155Receiver.onERC1155Received.selector;
     }
@@ -254,9 +344,17 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         _releaseToAddress(collateralId, releaseTo);
     }
 
-    function _releaseToAddress(uint256 collateralId, address releaseTo) internal {
-        (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
-        IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
+    function _releaseToAddress(uint256 collateralId, address releaseTo)
+        internal
+    {
+        (address underlyingAsset, uint256 assetId) = getUnderlying(
+            collateralId
+        );
+        IERC721(underlyingAsset).transferFrom(
+            address(this),
+            releaseTo,
+            assetId
+        );
         delete idToUnderlying[collateralId];
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
@@ -266,40 +364,70 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         return (underlying.tokenContract, underlying.tokenId);
     }
 
-    function tokenURI(uint256 collateralId) public view virtual override returns (string memory) {
-        (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
+    function tokenURI(uint256 collateralId)
+        public
+        view
+        virtual
+        override
+        returns (string memory)
+    {
+        (address underlyingAsset, uint256 assetId) = getUnderlying(
+            collateralId
+        );
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 
-    function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
-        external
-        pure
-        override
-        returns (bytes4)
-    {
+    function onERC721Received(
+        address operator_,
+        address from_,
+        uint256 tokenId_,
+        bytes calldata data_
+    ) external pure override returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function depositERC721(address depositFor_, address tokenContract_, uint256 tokenId_) external {
-        uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract_, tokenId_)));
+    modifier whenNotPaused() {
+        if (ASTARIA_ROUTER.paused()) revert("protocol is paused");
+        _;
+    }
 
-        ERC721(tokenContract_).safeTransferFrom(depositFor_, address(this), tokenId_, "");
+    function depositERC721(
+        address depositFor_,
+        address tokenContract_,
+        uint256 tokenId_
+    ) external whenNotPaused {
+        uint256 collateralId = uint256(
+            keccak256(abi.encodePacked(tokenContract_, tokenId_))
+        );
+
+        ERC721(tokenContract_).safeTransferFrom(
+            depositFor_,
+            address(this),
+            tokenId_,
+            ""
+        );
 
         _mint(depositFor_, collateralId);
-        idToUnderlying[collateralId] = Asset({tokenContract: tokenContract_, tokenId: tokenId_});
+        idToUnderlying[collateralId] = Asset({
+            tokenContract: tokenContract_,
+            tokenId: tokenId_
+        });
 
         emit DepositERC721(depositFor_, tokenContract_, tokenId_);
     }
 
-    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee)
-        external
-        requiresAuth
-        returns (uint256 reserve)
-    {
-        require(!AUCTION_HOUSE.auctionExists(collateralId), "auctionVault: auction already exists");
+    function auctionVault(
+        uint256 collateralId,
+        address liquidator,
+        uint256 liquidationFee
+    ) external whenNotPaused requiresAuth returns (uint256 reserve) {
+        require(
+            !AUCTION_HOUSE.auctionExists(collateralId),
+            "auctionVault: auction already exists"
+        );
         reserve = AUCTION_HOUSE.createAuction(
             collateralId,
-            uint256(7 days), //todo make htis a param we can change
+            uint256(7 days), //TODO the param w/ 2 days
             liquidator,
             liquidationFee
         );

@@ -2,7 +2,7 @@ pragma solidity ^0.8.16;
 
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {IVault, ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
-import {IERC721, IERC165} from "./interfaces/IERC721.sol";
+import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";

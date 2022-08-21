@@ -1,6 +1,6 @@
 pragma solidity ^0.8.16;
 
-import {IERC721} from "./IERC721.sol";
+import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {IAstariaRouter} from "./IAstariaRouter.sol";
 
 interface ILienBase {
