@@ -6,7 +6,8 @@ import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
-import {ERC721} from "solmate/tokens/ERC721.sol";
+// import {ERC721} from "solmate/tokens/ERC721.sol";
+import {ERC721} from "gpl/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {CollateralToken, IFlashAction} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
@@ -103,6 +104,25 @@ contract AstariaTest is TestHelpers {
         IVault(vault).deposit(50 ether, address(this));
 
         vm.stopPrank();
+    }
+
+    function testPublicVault() public {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+
+        uint256 balanceBefore = WETH9.balanceOf(address(this));
+        //balance of WETH before loan
+
+        vm.expectEmit(true, true, false, true);
+        emit DepositERC721(address(this), tokenContract, tokenId);
+
+        (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+
+        // BrokerVault(ASTARIA_ROUTER.getBroker(testBondVaultHash)).withdraw(50 ether);
+
+        //assert weth balance is before + 1 ether
+        assert(WETH9.balanceOf(address(this)) == balanceBefore + defaultTerms.amount);
     }
 
     function testWithdraw() public {}
@@ -280,18 +300,6 @@ contract AstariaTest is TestHelpers {
         // bytes memory supportedAssetsRoot = abi.encode(bytes32(0));
         // COLLATERAL_TOKEN.file(bytes32("SUPPORTED_ASSETS_ROOT"), supportedAssetsRoot);
         // assert(COLLATERAL_TOKEN.SUPPORTED_ASSETS_ROOT(), bytes32(0));
-
-        bytes memory conduit = abi.encode(address(0));
-        COLLATERAL_TOKEN.file(bytes32("CONDUIT"), conduit);
-        assert(COLLATERAL_TOKEN.CONDUIT() == address(0));
-
-        bytes memory conduitKey = abi.encode(bytes32(0));
-        COLLATERAL_TOKEN.file(bytes32("CONDUIT_KEY"), conduitKey);
-        assert(COLLATERAL_TOKEN.CONDUIT_KEY() == bytes32(0));
-
-        // setupSeaport fails at SEAPORT.information() in non-forked tests
-        // bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
-        // COLLATERAL_TOKEN.file(bytes32("setupSeaport"), seaportAddr);
 
         bytes memory astariaRouterAddr = abi.encode(address(0));
         COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), astariaRouterAddr);

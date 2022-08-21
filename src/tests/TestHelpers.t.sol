@@ -6,7 +6,8 @@ import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
-import {ERC721} from "solmate/tokens/ERC721.sol";
+// import {ERC721} from "solmate/tokens/ERC721.sol";
+import {ERC721} from "gpl/ERC721.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
@@ -169,20 +170,6 @@ contract TestHelpers is Test {
         // COLLATERAL_TOKEN.setBondController(address(ASTARIA_ROUTER));
         // COLLATERAL_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
 
-        bool seaportActive;
-        address seaport = address(0x00000000006c3852cbEf3e08E8dF289169EdE581);
-        bytes32 codeHash;
-        assembly {
-            codeHash := extcodehash(seaport)
-        }
-
-        if (codeHash != 0x0) {
-            bytes memory seaportAddr = abi.encode(address(0x00000000006c3852cbEf3e08E8dF289169EdE581));
-            COLLATERAL_TOKEN.file(bytes32("setupSeaport"), seaportAddr);
-            // COLLATERAL_TOKEN.setupSeaport(
-            //     address(0x00000000006c3852cbEf3e08E8dF289169EdE581)
-            // );
-        }
 
         LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
         LIEN_TOKEN.file(bytes32("setCollateralToken"), abi.encode(address(COLLATERAL_TOKEN)));

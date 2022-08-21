@@ -154,11 +154,13 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
 
             // TODO when to claim()?
             if (liquidationAccountants[currentEpoch] != address(0)) {
-                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawAmount(withdrawProxies[currentEpoch]);
+                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawAmount(
+                    withdrawProxies[currentEpoch]
+                );
             }
 
             // compute the withdrawReserve
-            uint256 withdrawReserve = convertToAssets(proxySupply);
+            withdrawReserve = convertToAssets(proxySupply);
 
             // burn the tokens of the LPs withdrawing
             _burn(address(this), proxySupply);
@@ -172,7 +174,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         );
 
         // TODO fix?
-        address accountant = ClonesWithImmutableArgs.clone(
+        accountant = ClonesWithImmutableArgs.clone(
             IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
             abi.encodePacked(
                 address(this), //owner
