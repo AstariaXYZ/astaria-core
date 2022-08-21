@@ -391,6 +391,11 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     // TODO change what's passed in
     function setPayee(uint256 lienId, address newPayee) public {
         require(!AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId), "collateralId is being liquidated, cannot change payee from LiquidationAccountant");
+        if(payees[lienId] == address(0)) {
+            require(msg.sender == ownerOf(lienId));
+        } else {
+            require(msg.sender == payees[lienId]);
+        }
 
         payees[lienId] = newPayee;
         // uint256 collateralId = params.tokenContract.computeId(params.tokenId);

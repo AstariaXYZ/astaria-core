@@ -231,7 +231,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         require(!AUCTION_HOUSE.auctionExists(collateralId), "auctionVault: auction already exists");
         reserve = AUCTION_HOUSE.createAuction(
             collateralId,
-            // uint256(7 days), //TODO the param w/ 2 days
+            // uint256(7 days),
             AUCTION_WINDOW,
             liquidator,
             liquidationFee
