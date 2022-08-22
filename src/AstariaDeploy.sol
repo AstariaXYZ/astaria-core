@@ -20,13 +20,6 @@ interface IWETH9 is IERC20 {
     function withdraw(uint256) external;
 }
 
-//TODO:
-// - setup helpers that let us put a loan into default
-// - setup helpers to repay loans
-// - setup helpers to pay loans at their schedule
-// - test for interest
-// - test auction flow
-// - create/cancel/end
 contract AstariaDeploy {
     enum UserRoles {
         ADMIN,

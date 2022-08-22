@@ -182,7 +182,9 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
 
     function _afterCommitToLoan(uint256 lienId, uint256 amount) internal virtual override {
         // increment slope for the new lien
-        slope += LIEN_TOKEN().calculateSlope(lienId);
+        unchecked {
+            slope += LIEN_TOKEN().calculateSlope(lienId);
+        }
     }
 
     function haveLiquidationsProcessed(uint256[] memory collateralIds, uint256[] memory positions)
@@ -238,7 +240,9 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
 
         // decrement the yIntercept for the amount received on liquidatation vs the expected
         // TODO: unchecked?
-        yIntercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
+        unchecked {
+            yIntercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
+        }
     }
 
     function totalAssets() public view virtual override returns (uint256) {

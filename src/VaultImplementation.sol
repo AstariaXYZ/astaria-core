@@ -20,67 +20,42 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     using ValidateTerms for IAstariaRouter.NewLienRequest;
     using FixedPointMathLib for uint256;
 
-    event NewObligation(
-        bytes32 bondVault,
-        address tokenContract,
-        uint256 tokenId,
-        uint256 amount
-    );
+    event NewObligation(bytes32 bondVault, address tokenContract, uint256 tokenId, uint256 amount);
 
     event Payment(uint256 collateralId, uint256 index, uint256 amount);
-    event Liquidation(
-        uint256 collateralId,
-        bytes32[] bondVaults,
-        uint256[] indexes,
-        uint256 recovered
-    );
-    event NewBondVault(
-        address appraiser,
-        address broker,
-        bytes32 bondVault,
-        bytes32 contentHash,
-        uint256 expiration
-    );
-    event RedeemBond(
-        bytes32 bondVault,
-        uint256 amount,
-        address indexed redeemer
-    );
+    event Liquidation(uint256 collateralId, bytes32[] bondVaults, uint256[] indexes, uint256 recovered);
+    event NewBondVault(address appraiser, address broker, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
+    event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
 
-    function onERC721Received(
-        address operator_,
-        address from_,
-        uint256 tokenId_,
-        bytes calldata data_
-    ) external pure override returns (bytes4) {
+    function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return ERC721TokenReceiver.onERC721Received.selector;
     }
 
     modifier whenNotPaused() {
-        if (IAstariaRouter(ROUTER()).paused()) revert("protocol is paused");
+        if (IAstariaRouter(ROUTER()).paused()) {
+            revert("protocol is paused");
+        }
         _;
     }
 
     function _handleAppraiserReward(uint256) internal virtual {}
 
     //decode obligationData into structs
-    function _decodeObligationData(
-        uint8 obligationType,
-        bytes memory obligationData
-    ) internal view returns (IAstariaRouter.LienDetails memory) {
+    function _decodeObligationData(uint8 obligationType, bytes memory obligationData)
+        internal
+        view
+        returns (IAstariaRouter.LienDetails memory)
+    {
         if (obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
-            IAstariaRouter.CollateralDetails memory cd = abi.decode(
-                obligationData,
-                (IAstariaRouter.CollateralDetails)
-            );
+            IAstariaRouter.CollateralDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollateralDetails));
             return (cd.lien);
-        } else if (
-            obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)
-        ) {
-            IAstariaRouter.CollectionDetails memory cd = abi.decode(
-                obligationData,
-                (IAstariaRouter.CollectionDetails)
-            );
+        } else if (obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)) {
+            IAstariaRouter.CollectionDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollectionDetails));
             return (cd.lien);
         } else {
             revert("unknown obligation type");
@@ -90,10 +65,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     event LogNor(IAstariaRouter.NewLienRequest);
     event LogLien(IAstariaRouter.LienDetails);
 
-    function _validateCommitment(
-        IAstariaRouter.Commitment memory params,
-        address receiver
-    ) internal {
+    function _validateCommitment(IAstariaRouter.Commitment memory params, address receiver) internal {
         uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
         address operator = ERC721(COLLATERAL_TOKEN()).getApproved(collateralId);
@@ -106,24 +78,19 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
 
         if (receiver != holder) {
             require(
-                receiver == operator ||
-                    IAstariaRouter(ROUTER()).isValidVault(receiver),
+                receiver == operator || IAstariaRouter(ROUTER()).isValidVault(receiver),
                 "can only issue funds to an operator that is approved by the owner"
             );
         }
 
         require(
-            owner() != address(0),
-            "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
+            owner() != address(0), "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
         );
 
-        (bool valid, IAstariaRouter.LienDetails memory ld) = params
-            .nor
-            .validateTerms(holder);
+        (bool valid, IAstariaRouter.LienDetails memory ld) = params.nor.validateTerms(holder);
 
         require(
-            valid,
-            "Vault._validateTerms(): Verification of provided merkle branch failed for the vault and parameters"
+            valid, "Vault._validateTerms(): Verification of provided merkle branch failed for the vault and parameters"
         );
 
         require(
@@ -131,15 +98,10 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             "Vault._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
         );
 
-        uint256 seniorDebt = IAstariaRouter(ROUTER())
-            .LIEN_TOKEN()
-            .getTotalDebtForCollateralToken(
-                params.tokenContract.computeId(params.tokenId)
-            );
-        require(
-            seniorDebt <= ld.maxSeniorDebt,
-            "Vault._validateTerms(): too much debt already for this loan"
+        uint256 seniorDebt = IAstariaRouter(ROUTER()).LIEN_TOKEN().getTotalDebtForCollateralToken(
+            params.tokenContract.computeId(params.tokenId)
         );
+        require(seniorDebt <= ld.maxSeniorDebt, "Vault._validateTerms(): too much debt already for this loan");
         require(
             params.nor.amount <= ERC20(underlying()).balanceOf(address(this)),
             "Vault._validateTerms():  Attempting to borrow more than available in the specified vault"
@@ -148,56 +110,32 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         //check that we aren't paused from reserves being too low
     }
 
-    function _afterCommitToLoan(uint256 lienId, uint256 amount)
-        internal
-        virtual
-    {}
+    function _afterCommitToLoan(uint256 lienId, uint256 amount) internal virtual {}
 
-    function commitToLoan(
-        IAstariaRouter.Commitment memory params,
-        address receiver
-    ) external whenNotPaused {
+    function commitToLoan(IAstariaRouter.Commitment memory params, address receiver) external whenNotPaused {
         _validateCommitment(params, receiver);
         uint256 lienId = _requestLienAndIssuePayout(params, receiver);
         _handleAppraiserReward(params.nor.amount);
         _afterCommitToLoan(lienId, params.nor.amount);
-        emit NewObligation(
-            params.nor.obligationRoot,
-            params.tokenContract,
-            params.tokenId,
-            params.nor.amount
-        );
+        emit NewObligation(params.nor.obligationRoot, params.tokenContract, params.tokenId, params.nor.amount);
     }
 
-    function canLiquidate(uint256 collateralId, uint256 position)
-        public
-        view
-        returns (bool)
-    {
+    function canLiquidate(uint256 collateralId, uint256 position) public view returns (bool) {
         return IAstariaRouter(ROUTER()).canLiquidate(collateralId, position);
     }
 
-    function buyoutLien(
-        uint256 collateralId,
-        uint256 position,
-        IAstariaRouter.Commitment memory incomingTerms
-    ) external whenNotPaused {
-        (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
-            .LIEN_TOKEN()
-            .getBuyout(collateralId, position);
+    function buyoutLien(uint256 collateralId, uint256 position, IAstariaRouter.Commitment memory incomingTerms)
+        external
+        whenNotPaused
+    {
+        (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER()).LIEN_TOKEN().getBuyout(collateralId, position);
 
-        require(
-            buyout <= ERC20(underlying()).balanceOf(address(this)),
-            "not enough balance to buy out loan"
-        );
+        require(buyout <= ERC20(underlying()).balanceOf(address(this)), "not enough balance to buy out loan");
         incomingTerms.nor.amount = owed;
 
         _validateCommitment(incomingTerms, recipient());
 
-        ERC20(underlying()).safeApprove(
-            address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
-            owed
-        );
+        ERC20(underlying()).safeApprove(address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()), owed);
         IAstariaRouter(ROUTER()).LIEN_TOKEN().buyoutLien(
             ILienBase.LienActionBuyout(incomingTerms, position, recipient())
         );
@@ -211,24 +149,16 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         }
     }
 
-    function _requestLienAndIssuePayout(
-        IAstariaRouter.Commitment memory c,
-        address receiver
-    ) internal returns (uint256) {
-        IAstariaRouter.LienDetails memory terms = ValidateTerms.getLienDetails(
-            c.nor.obligationType,
-            c.nor.obligationDetails
-        );
+    function _requestLienAndIssuePayout(IAstariaRouter.Commitment memory c, address receiver)
+        internal
+        returns (uint256)
+    {
+        IAstariaRouter.LienDetails memory terms =
+            ValidateTerms.getLienDetails(c.nor.obligationType, c.nor.obligationDetails);
 
         uint256 newLienId = IAstariaRouter(ROUTER()).requestLienPosition(
             ILienBase.LienActionEncumber(
-                c.tokenContract,
-                c.tokenId,
-                terms,
-                c.nor.obligationRoot,
-                c.nor.amount,
-                c.nor.strategy.vault,
-                true
+                c.tokenContract, c.tokenId, terms, c.nor.obligationRoot, c.nor.amount, c.nor.strategy.vault, true
             )
         );
         address feeTo = IAstariaRouter(ROUTER()).feeTo();
