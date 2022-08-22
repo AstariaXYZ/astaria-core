@@ -93,7 +93,7 @@ library ValidateTerms {
     //decode obligationData into structs
     function getLienDetails(uint8 obligationType, bytes memory obligationData)
         internal
-        view
+        pure
         returns (IAstariaRouter.LienDetails memory)
     {
         if (obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
@@ -110,7 +110,7 @@ library ValidateTerms {
     //decode obligationData into structs
     function getCollateralDetails(uint8 obligationType, bytes memory obligationData)
         internal
-        view
+        pure
         returns (IAstariaRouter.CollateralDetails memory)
     {
         if (obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
@@ -123,7 +123,7 @@ library ValidateTerms {
 
     function getCollectionDetails(uint8 obligationType, bytes memory obligationData)
         internal
-        view
+        pure
         returns (IAstariaRouter.CollectionDetails memory)
     {
         if (obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)) {

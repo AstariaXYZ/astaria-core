@@ -5,7 +5,8 @@ pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
-import {ERC721} from "solmate/tokens/ERC721.sol";
+// import {ERC721} from "solmate/tokens/ERC721.sol";
+import {ERC721} from "gpl/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
@@ -43,6 +44,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
+    mapping(uint256 => address) public payees;
 
     event NewLien(uint256 lienId, uint256, uint8, bytes32 rootHash);
     event RemovedLiens(uint256 lienId);
@@ -88,10 +90,10 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
         uint256 collateralId = params.incoming.tokenContract.computeId(params.incoming.tokenId);
-        (uint256 owed, uint256 buyout) = getBuyout(collateralId, params.position);
+        (, uint256 buyout) = getBuyout(collateralId, params.position);
 
         uint256 lienId = liens[collateralId][params.position];
-        TRANSFER_PROXY.tokenTransferFrom(lienData[lienId].token, address(msg.sender), ownerOf(lienId), uint256(buyout));
+        TRANSFER_PROXY.tokenTransferFrom(lienData[lienId].token, address(msg.sender), payees[lienId], uint256(buyout)); // was ownerOf(lienId) before payees[lienId]
 
         (bool valid, IAstariaRouter.LienDetails memory ld) =
             params.incoming.nor.validateTerms(COLLATERAL_TOKEN.ownerOf(collateralId));
@@ -142,7 +144,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         return _getInterest(lienData[lien], block.timestamp);
     }
 
-    function _getInterest(Lien memory lien, uint256 timestamp) internal view returns (uint256) {
+    function _getInterest(Lien memory lien, uint256 timestamp) internal pure returns (uint256) {
         uint256 delta_t = uint256(uint32(timestamp) - lien.last);
 
         //        return ((delta_t * lien.rate) / 100) * lien.amount;
@@ -284,7 +286,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
     // TODO change to (aggregate) rate?
 
-    function calculateSlope(uint256 lienId) public returns (uint256) {
+    function calculateSlope(uint256 lienId) public view returns (uint256) {
         Lien memory lien = lienData[lienId];
         uint256 end = (lien.start + lien.duration);
         // return (end - lien.last) / (lien.amount * lien.rate * end - lien.amount); // TODO check
@@ -294,6 +296,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
     function changeInSlope(uint256 lienId, uint256 paymentAmount)
         public
+        view
         returns (
             // view
             uint256 slope
@@ -351,11 +354,11 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         return lien.amount += _getInterest(lien, block.timestamp);
     }
 
-    function _getOwed(Lien memory lien, uint256 timestamp) internal view returns (uint256) {
+    function _getOwed(Lien memory lien, uint256 timestamp) internal pure returns (uint256) {
         return lien.amount += _getInterest(lien, timestamp);
     }
 
-    function _getRemainingInterest(Lien memory lien) internal view returns (uint256) {
+    function _getRemainingInterest(Lien memory lien) internal pure returns (uint256) {
         return _getInterest(lien, (lien.start + lien.duration - lien.last));
     }
 
@@ -365,7 +368,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         }
         Lien storage lien = lienData[liens[collateralId][position]];
         uint256 maxPayment = _getOwed(lien);
-        address owner = ownerOf(liens[collateralId][position]);
+        // address owner = ownerOf(liens[collateralId][position]);
 
         if (maxPayment < paymentAmount) {
             lien.amount -= paymentAmount;
@@ -375,8 +378,35 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
             _burn(liens[collateralId][position]);
             delete liens[collateralId][position];
         }
-        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), owner, paymentAmount);
+
+        // TODO check lien.token
+        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), payees[liens[collateralId][position]], paymentAmount); // was owner before payees[lienId]
 
         return paymentAmount;
+    }
+
+    function getPayee(uint256 lienId) public view returns (address) {
+        return payees[lienId];
+    }
+
+    // TODO change what's passed in
+    function setPayee(uint256 lienId, address newPayee) public {
+        require(!AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId), "collateralId is being liquidated, cannot change payee from LiquidationAccountant");
+        require(msg.sender == ownerOf(lienId));
+
+        // if(payees[lienId] == address(0)) {
+        //     require(msg.sender == ownerOf(lienId));
+        // } else {
+        //     require(msg.sender == payees[lienId]);
+        // }
+
+        payees[lienId] = newPayee;
+        // uint256 collateralId = params.tokenContract.computeId(params.tokenId);
+
+        // require(msg.sender == ownerOf(collateralId), "Must own lien to reassign payee");
+        // require(
+        //     !AUCTION_HOUSE.auctionExists(collateralId),
+        //     "collateralId is being liquidated, cannot open new liens"
+        // );
     }
 }

@@ -65,6 +65,10 @@ interface ILienBase {
         external
         view
         returns (uint256 totalDebt);
+
+    function getPayee(uint256 lienId) external view returns (address);
+
+    function setPayee(uint256 lienId, address payee) external;
 }
 
 interface ILienToken is ILienBase, IERC721 {}

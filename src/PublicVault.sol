@@ -1,4 +1,4 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.16;
 
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {IVault, ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
@@ -11,6 +11,7 @@ import {LienToken} from "./LienToken.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 
 interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
@@ -60,6 +61,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     uint256 liquidationWithdrawRatio = 0;
 
     mapping(uint64 => address) withdrawProxies;
+    mapping(uint64 => address) liquidationAccountants;
 
     //    constructor(
     //        uint256 _epoch_length(),
@@ -148,14 +150,35 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
             uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
             // recalculate liquidationWithdrawRatio for the new epoch
-            liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply);
+            // liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply);
+
+            // TODO when to claim()?
+            if (liquidationAccountants[currentEpoch] != address(0)) {
+                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawAmount(
+                    withdrawProxies[currentEpoch]
+                );
+            }
 
             // compute the withdrawReserve
-            uint256 withdrawReserve = convertToAssets(proxySupply);
+            withdrawReserve = convertToAssets(proxySupply);
 
             // burn the tokens of the LPs withdrawing
             _burn(address(this), proxySupply);
         }
+    }
+
+    function deployLiquidationAccountant() public returns (address accountant) {
+        require(
+            liquidationAccountants[currentEpoch] == address(0),
+            "cannot deploy two liquidation accountants for the same epoch"
+        );
+
+        // TODO fix?
+        accountant = ClonesWithImmutableArgs.clone(
+            IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
+            ""
+        );
+        liquidationAccountants[currentEpoch] = accountant;
     }
 
     function supportsInterface(bytes4 interfaceID) public view returns (bool) {
@@ -226,24 +249,22 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         return IAstariaRouter(ROUTER()).LIEN_TOKEN();
     }
 
-    function completeLiquidation(uint256 lienId, uint256 amount) public {
-        // get the lien amount the vault expected to get before liquidation
-        uint256 expected = LIEN_TOKEN().getLien(lienId).amount; // was LienToken.getLien
+    // function completeLiquidation(uint256 lienId, uint256 amount) public {
+    //     // get the lien amount the vault expected to get before liquidation
+    //     uint256 expected = LIEN_TOKEN().getLien(lienId).amount; // was LienToken.getLien
 
-        // compute the amount owed to the WithdrawProxy for the currentEpoch
-        uint256 withdraw = amount.mulDivDown(liquidationWithdrawRatio, 1);
+    //     // compute the amount owed to the WithdrawProxy for the currentEpoch
+    //     uint256 withdraw = amount.mulDivDown(liquidationWithdrawRatio, 1);
 
-        // check to ensure that the WithdrawProxy was instantiated
-        if (withdrawProxies[currentEpoch] != address(0)) {
-            ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch], withdraw);
-        }
+    //     // check to ensure that the WithdrawProxy was instantiated
+    //     if (withdrawProxies[currentEpoch] != address(0)) {
+    //         ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch], withdraw);
+    //     }
 
-        // decrement the yIntercept for the amount received on liquidatation vs the expected
-        // TODO: unchecked?
-        unchecked {
-            yIntercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
-        }
-    }
+    //     // decrement the yIntercept for the amount received on liquidatation vs the expected
+    //     // TODO: unchecked?
+    //     yIntercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
+    // }
 
     function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
@@ -276,19 +297,38 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     }
 
     // TODO fix getter/access flow
-    function getSlope() public returns (uint256) {
+    function getSlope() public view returns (uint256) {
         return slope;
     }
 
-    function getYIntercept() public returns (uint256) {
+    function getYIntercept() public view returns (uint256) {
         return yIntercept;
     }
 
-    function getLast() public returns (uint256) {
+    function setYIntercept(uint256 _yIntercept) public {
+        require(msg.sender == liquidationAccountants[currentEpoch]);
+        yIntercept = _yIntercept;
+    }
+
+    function getLast() public view returns (uint256) {
         return last;
     }
 
-    function getCurrentEpoch() public returns (uint64) {
+    function getCurrentEpoch() public view returns (uint64) {
         return currentEpoch;
+    }
+
+    function timeToEpochEnd() public view returns (uint256) {
+        uint256 epochEnd = START() + ((currentEpoch + 1) * EPOCH_LENGTH());
+
+        if (epochEnd >= block.timestamp) {
+            return uint256(0);
+        }
+
+        return block.timestamp - epochEnd; //
+    }
+
+    function getLiquidationAccountant(uint64 epoch) public view returns (address) {
+        return liquidationAccountants[epoch];
     }
 }

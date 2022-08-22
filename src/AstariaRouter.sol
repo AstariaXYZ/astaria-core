@@ -10,12 +10,15 @@ import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {IVault, VaultImplementation} from "./VaultImplementation.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Pausable} from "./utils/Pausable.sol";
+
+import {PublicVault} from "./PublicVault.sol";
 
 interface IInvoker {
     function onBorrowAndBuy(bytes calldata data, address token, uint256 amount, address payable recipient)
@@ -35,6 +38,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     address public VAULT_IMPLEMENTATION;
     address public SOLO_IMPLEMENTATION;
     address public WITHDRAW_IMPLEMENTATION;
+    address public LIQUIDATION_IMPLEMENTATION;
 
     address public feeTo;
 
@@ -58,7 +62,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         address _COLLATERAL_TOKEN,
         address _LIEN_TOKEN,
         address _TRANSFER_PROXY,
-        address _VAULT_IMPL, //TODO: move these out of constructor into setup flow? or just use the default?
+        address _VAULT_IMPL,
         address _SOLO_IMPL
     )
         Auth(address(msg.sender), _AUTHORITY)
@@ -113,6 +117,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         } else if (what == "WITHDRAW_IMPLEMENTATION") {
             address addr = abi.decode(data, (address));
             WITHDRAW_IMPLEMENTATION = addr;
+        } else if (what == "LIQUIDATION_IMPLEMENTATION") {
+            address addr = abi.decode(data, (address));
+            LIQUIDATION_IMPLEMENTATION = addr;
         } else if (what == "VAULT_IMPLEMENTATION") {
             address addr = abi.decode(data, (address));
             VAULT_IMPLEMENTATION = addr;
@@ -226,7 +233,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     function canLiquidate(uint256 collateralId, uint256 position) public view whenNotPaused returns (bool) {
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
 
-        uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
+        // uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
         // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
         return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
@@ -238,7 +245,32 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
         // 0x
 
+        // if expiration will be past epoch boundary, then create a LiquidationAccountant
+
         reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT);
+
+        if (
+            VaultImplementation(VAULT_IMPLEMENTATION).BROKER_TYPE() == uint256(2)
+                && PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd() < COLLATERAL_TOKEN.AUCTION_WINDOW()
+        ) {
+
+            uint64 currentEpoch = PublicVault(VAULT_IMPLEMENTATION).getCurrentEpoch();
+
+            address accountant = PublicVault(VAULT_IMPLEMENTATION).getLiquidationAccountant(currentEpoch);
+
+            if(accountant == address(0)) {
+                accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
+            } else {
+                LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
+            }
+            uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
+
+            // TODO check
+            for (uint256 i = 0; i < liens.length; ++i) {
+                // LIEN_TOKEN.setPayee(LIEN_TOKEN.getLien(liens[i]).collateralId, accountant); // or use token address?
+                LIEN_TOKEN.setPayee(liens[i], accountant);
+            }
+        }
 
         emit Liquidation(collateralId, position, reserve);
     }
