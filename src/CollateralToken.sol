@@ -53,7 +53,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
 
     constructor(Authority AUTHORITY_, address TRANSFER_PROXY_, address LIEN_TOKEN_)
         Auth(msg.sender, Authority(AUTHORITY_))
-        ERC721("Astaria Collateral Vault", "VAULT") //TODO: what are these going to be, same for lien token
+        ERC721("Astaria Collateral Token", "ACT")
     {
         TRANSFER_PROXY = ITransferProxy(TRANSFER_PROXY_);
         LIEN_TOKEN = ILienToken(LIEN_TOKEN_);
@@ -230,13 +230,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         returns (uint256 reserve)
     {
         require(!AUCTION_HOUSE.auctionExists(collateralId), "auctionVault: auction already exists");
-        reserve = AUCTION_HOUSE.createAuction(
-            collateralId,
-            // uint256(7 days),
-            AUCTION_WINDOW,
-            liquidator,
-            liquidationFee
-        );
+        reserve = AUCTION_HOUSE.createAuction(collateralId, AUCTION_WINDOW, liquidator, liquidationFee);
     }
 
     function cancelAuction(uint256 tokenId) external onlyOwner(tokenId) {

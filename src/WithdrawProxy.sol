@@ -1,9 +1,6 @@
 pragma solidity ^0.8.16;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-// import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
-// import {ERC20} from "solmate/tokens/ERC20.sol";
-// import {ERC20} from "openzeppelin/token/ERC20/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC20Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";

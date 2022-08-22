@@ -48,7 +48,6 @@ contract LiquidationAccountant {
         require(block.timestamp > finalAuctionEnd);
         require(ILienToken(LIEN_TOKEN).getLiens(finalLienId).length == 0);
 
-
         require(withdrawProxy != address(0), "calculateWithdrawAmount not called at epoch boundary");
 
         // TODO require liquidation is over?

@@ -47,6 +47,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256 public STRATEGIST_ORIGINATION_FEE_BASE;
     uint256 public MIN_INTEREST_BPS; // was uint64
     uint64 public MIN_DURATION_INCREASE;
+    uint256 public MIN_EPOCH_LENGTH;
+    uint256 public MAX_EPOCH_LENGTH;
 
     //public vault contract => appraiser
     mapping(address => address) public vaults;
@@ -60,7 +62,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         address _COLLATERAL_TOKEN,
         address _LIEN_TOKEN,
         address _TRANSFER_PROXY,
-        address _VAULT_IMPL, //TODO: move these out of constructor into setup flow? or just use the default?
+        address _VAULT_IMPL,
         address _SOLO_IMPL
     )
         Auth(address(msg.sender), _AUTHORITY)
@@ -124,6 +126,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         } else if (what == "SOLO_IMPLEMENTATION") {
             address addr = abi.decode(data, (address));
             SOLO_IMPLEMENTATION = addr;
+        } else if (what == "MIN_EPOCH_LENGTH") {
+            MIN_EPOCH_LENGTH = abi.decode(data, (uint256));
+        } else if (what == "MAX_EPOCH_LENGTH") {
+            MAX_EPOCH_LENGTH = abi.decode(data, (uint256));
         } else {
             revert("unsupported/file");
         }
@@ -256,7 +262,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
             } else {
                 // LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
-                
             }
             uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
 
@@ -266,7 +271,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
                 // LIEN_TOKEN.setPayee(LIEN_TOKEN.getLien(liens[i]).collateralId, accountant); // or use token address?
                 LIEN_TOKEN.setPayee(currentLien, accountant);
-                LiquidationAccountant(accountant).handleNewLiquidation(LIEN_TOKEN.getLien(currentLien).amount, currentLien);
+                LiquidationAccountant(accountant).handleNewLiquidation(
+                    LIEN_TOKEN.getLien(currentLien).amount, currentLien
+                );
             }
         }
 
@@ -318,10 +325,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
         address implementation;
         if (epochLength > uint256(0)) {
-            //TODO: check for max epoch length
             require(
-                epochLength >= 3 days, //TODO: set via file
-                "epochLength must be at least 3 days"
+                epochLength >= MIN_EPOCH_LENGTH || epochLength <= MAX_EPOCH_LENGTH,
+                "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
             );
             implementation = VAULT_IMPLEMENTATION;
             brokerType = 2;

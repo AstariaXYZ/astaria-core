@@ -120,7 +120,12 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         WithdrawProxy(withdrawProxies[epoch]).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
     }
 
-    function deposit(uint256 amount, address receiver) public override (Vault, ERC4626Cloned) returns (uint256) {
+    function deposit(uint256 amount, address receiver)
+        public
+        override (Vault, ERC4626Cloned)
+        whenNotPaused
+        returns (uint256)
+    {
         return super.deposit(amount, receiver);
     }
 
@@ -204,7 +209,9 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
 
     function _afterCommitToLoan(uint256 lienId, uint256 amount) internal virtual override {
         // increment slope for the new lien
-        slope += LIEN_TOKEN().calculateSlope(lienId);
+        unchecked {
+            slope += LIEN_TOKEN().calculateSlope(lienId);
+        }
     }
 
     function haveLiquidationsProcessed(uint256[] memory collateralIds, uint256[] memory positions)
@@ -279,7 +286,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         _;
     }
 
-    function afterDeposit(uint256 assets, uint256 shares) internal virtual override {
+    function afterDeposit(uint256 assets, uint256 shares) internal virtual override whenNotPaused {
         // increase yIntercept for assets held
         if (BROKER_TYPE() == uint256(1)) {
             require(msg.sender == owner(), "only owner can deposit");

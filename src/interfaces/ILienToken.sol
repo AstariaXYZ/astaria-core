@@ -59,6 +59,10 @@ interface ILienBase {
 
     function makePayment(uint256 collateralId, uint256 paymentAmount) external;
 
+    function makePayment(uint256 collateralId, uint256 paymentAmount, address payer) external;
+
+    function makePayment(uint256 collateralId, uint256 paymentAmount, uint256 index) external;
+
     function getTotalDebtForCollateralToken(uint256 collateralId) external view returns (uint256 totalDebt);
 
     function getTotalDebtForCollateralToken(uint256 collateralId, uint256 timestamp)
