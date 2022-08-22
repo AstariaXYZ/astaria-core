@@ -389,8 +389,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
             delete liens[collateralId][index];
         }
 
-        // TODO check lien.token
-        TRANSFER_PROXY.tokenTransferFrom(address(WETH), payer, payees[liens[collateralId][index]], paymentAmount); // was owner before payees[lienId]
+        TRANSFER_PROXY.tokenTransferFrom(lien.token, payer, payees[liens[collateralId][index]], paymentAmount); // was owner before payees[lienId]
 
         return paymentAmount;
     }
