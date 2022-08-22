@@ -262,7 +262,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
             } else {
                 // LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
-                
             }
             uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
 
@@ -272,7 +271,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
                 // LIEN_TOKEN.setPayee(LIEN_TOKEN.getLien(liens[i]).collateralId, accountant); // or use token address?
                 LIEN_TOKEN.setPayee(currentLien, accountant);
-                LiquidationAccountant(accountant).handleNewLiquidation(LIEN_TOKEN.getLien(currentLien).amount, currentLien);
+                LiquidationAccountant(accountant).handleNewLiquidation(
+                    LIEN_TOKEN.getLien(currentLien).amount, currentLien
+                );
             }
         }
 

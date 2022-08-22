@@ -28,7 +28,13 @@ contract LiquidationAccountant {
 
     address withdrawProxy;
 
-    constructor(address _WETH, address _ASTARIA_ROUTER, address _PUBLIC_VAULT, address _LIEN_TOKEN, uint256 AUCTION_WINDOW) {
+    constructor(
+        address _WETH,
+        address _ASTARIA_ROUTER,
+        address _PUBLIC_VAULT,
+        address _LIEN_TOKEN,
+        uint256 AUCTION_WINDOW
+    ) {
         WETH = _WETH;
         // WITHDRAW_PROXY = _WITHDRAW_PROXY;
         ASTARIA_ROUTER = _ASTARIA_ROUTER;
@@ -41,7 +47,6 @@ contract LiquidationAccountant {
     function claim() public {
         require(block.timestamp > finalAuctionEnd);
         require(ILienToken(LIEN_TOKEN).getLiens(finalLienId).length == 0);
-
 
         require(withdrawProxy != address(0), "calculateWithdrawAmount not called at epoch boundary");
 
