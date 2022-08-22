@@ -25,7 +25,13 @@ contract LiquidationAccountant {
 
     address withdrawProxy;
 
-    constructor(address _WETH, address _ASTARIA_ROUTER, address _PUBLIC_VAULT, address _LIEN_TOKEN, uint256 AUCTION_WINDOW) {
+    constructor(
+        address _WETH,
+        address _ASTARIA_ROUTER,
+        address _PUBLIC_VAULT,
+        address _LIEN_TOKEN,
+        uint256 AUCTION_WINDOW
+    ) {
         WETH = _WETH;
         // WITHDRAW_PROXY = _WITHDRAW_PROXY;
         ASTARIA_ROUTER = _ASTARIA_ROUTER;
@@ -58,7 +64,9 @@ contract LiquidationAccountant {
         uint256 expected = ILienToken(LIEN_TOKEN).getLien(lienId).amount; // was LienToken.getLien
 
         uint256 oldYIntercept = PublicVault(PUBLIC_VAULT).getYIntercept();
-        PublicVault(PUBLIC_VAULT).setYIntercept(oldYIntercept - (expected - amount).mulDivDown(1 - withdrawProxyAmount, 1)); // TODO check, definitely wrong
+        PublicVault(PUBLIC_VAULT).setYIntercept(
+            oldYIntercept - (expected - amount).mulDivDown(1 - withdrawProxyAmount, 1)
+        ); // TODO check, definitely wrong
     }
 
     // pass in withdrawproxy address here instead of constructor in case liquidation called before first marked withdraw
@@ -70,7 +78,7 @@ contract LiquidationAccountant {
     }
 
     // TODO if auction windows are universal, track only in immutable uint?
-    function updateAuctionEnd(uint256 auctionWindow) public { 
+    function updateAuctionEnd(uint256 auctionWindow) public {
         require(msg.sender == ASTARIA_ROUTER);
         finalAuctionEnd = block.timestamp + auctionWindow;
     }

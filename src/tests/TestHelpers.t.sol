@@ -170,7 +170,6 @@ contract TestHelpers is Test {
         // COLLATERAL_TOKEN.setBondController(address(ASTARIA_ROUTER));
         // COLLATERAL_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
 
-
         LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
         LIEN_TOKEN.file(bytes32("setCollateralToken"), abi.encode(address(COLLATERAL_TOKEN)));
 

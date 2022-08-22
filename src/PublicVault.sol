@@ -174,10 +174,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         );
 
         // TODO fix?
-        accountant = ClonesWithImmutableArgs.clone(
-            IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
-            ""
-        );
+        accountant = ClonesWithImmutableArgs.clone(IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(), "");
         liquidationAccountants[currentEpoch] = accountant;
     }
 

@@ -271,17 +271,19 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     function makePayment(uint256 collateralId, uint256 paymentAmount) public {
         uint256[] memory openLiens = liens[collateralId];
         for (uint256 i = 0; i < openLiens.length; ++i) {
-            paymentAmount = _payment(collateralId, i, paymentAmount);
+            paymentAmount = _payment(collateralId, i, paymentAmount, address(msg.sender));
         }
     }
 
     function makePayment(uint256 collateralId, uint256 paymentAmount, uint256 index) external {
-        address lienOwner = ownerOf(liens[collateralId][index]);
-        if (IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId)) {
-            // was lienOwner.supportsinterface(PublicVault)
-            IPublicVault(lienOwner).beforePayment(liens[collateralId][index], paymentAmount);
+        _payment(collateralId, index, paymentAmount, address(msg.sender));
+    }
+
+    function makePayment(uint256 collateralId, uint256 paymentAmount, address payer) external requiresAuth {
+        uint256[] memory openLiens = liens[collateralId];
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            paymentAmount = _payment(collateralId, i, paymentAmount, payer);
         }
-        _payment(collateralId, index, paymentAmount);
     }
 
     // TODO change to (aggregate) rate?
@@ -362,11 +364,19 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         return _getInterest(lien, (lien.start + lien.duration - lien.last));
     }
 
-    function _payment(uint256 collateralId, uint256 position, uint256 paymentAmount) internal returns (uint256) {
+    function _payment(uint256 collateralId, uint256 index, uint256 paymentAmount, address payer)
+        internal
+        returns (uint256)
+    {
         if (paymentAmount == uint256(0)) {
             return uint256(0);
         }
-        Lien storage lien = lienData[liens[collateralId][position]];
+        address lienOwner = ownerOf(liens[collateralId][index]);
+        if (IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId)) {
+            // was lienOwner.supportsinterface(PublicVault)
+            IPublicVault(lienOwner).beforePayment(liens[collateralId][index], paymentAmount);
+        }
+        Lien storage lien = lienData[liens[collateralId][index]];
         uint256 maxPayment = _getOwed(lien);
         // address owner = ownerOf(liens[collateralId][position]);
 
@@ -375,12 +385,12 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
             lien.last = uint32(block.timestamp);
         } else {
             paymentAmount = maxPayment;
-            _burn(liens[collateralId][position]);
-            delete liens[collateralId][position];
+            _burn(liens[collateralId][index]);
+            delete liens[collateralId][index];
         }
 
         // TODO check lien.token
-        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), payees[liens[collateralId][position]], paymentAmount); // was owner before payees[lienId]
+        TRANSFER_PROXY.tokenTransferFrom(address(WETH), payer, payees[liens[collateralId][index]], paymentAmount); // was owner before payees[lienId]
 
         return paymentAmount;
     }
@@ -391,7 +401,10 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
     // TODO change what's passed in
     function setPayee(uint256 lienId, address newPayee) public {
-        require(!AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId), "collateralId is being liquidated, cannot change payee from LiquidationAccountant");
+        require(
+            !AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId),
+            "collateralId is being liquidated, cannot change payee from LiquidationAccountant"
+        );
         require(msg.sender == ownerOf(lienId));
 
         // if(payees[lienId] == address(0)) {

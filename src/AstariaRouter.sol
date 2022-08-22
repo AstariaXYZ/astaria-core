@@ -253,12 +253,11 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             VaultImplementation(VAULT_IMPLEMENTATION).BROKER_TYPE() == uint256(2)
                 && PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd() < COLLATERAL_TOKEN.AUCTION_WINDOW()
         ) {
-
             uint64 currentEpoch = PublicVault(VAULT_IMPLEMENTATION).getCurrentEpoch();
 
             address accountant = PublicVault(VAULT_IMPLEMENTATION).getLiquidationAccountant(currentEpoch);
 
-            if(accountant == address(0)) {
+            if (accountant == address(0)) {
                 accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
             } else {
                 LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
