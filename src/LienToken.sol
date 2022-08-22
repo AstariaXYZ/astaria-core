@@ -380,7 +380,9 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         }
 
         // TODO check lien.token
-        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), payees[liens[collateralId][position]], paymentAmount); // was owner before payees[lienId]
+        TRANSFER_PROXY.tokenTransferFrom(
+            address(WETH), address(msg.sender), payees[liens[collateralId][position]], paymentAmount
+        ); // was owner before payees[lienId]
 
         return paymentAmount;
     }
@@ -391,7 +393,10 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
     // TODO change what's passed in
     function setPayee(uint256 lienId, address newPayee) public {
-        require(!AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId), "collateralId is being liquidated, cannot change payee from LiquidationAccountant");
+        require(
+            !AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId),
+            "collateralId is being liquidated, cannot change payee from LiquidationAccountant"
+        );
         require(msg.sender == ownerOf(lienId));
 
         // if(payees[lienId] == address(0)) {

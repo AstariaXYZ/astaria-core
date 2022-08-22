@@ -1,5 +1,6 @@
 pragma solidity ^0.8.16;
 
+import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {IVault, ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
 import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
@@ -12,6 +13,7 @@ import {WithdrawProxy} from "./WithdrawProxy.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {LiquidationAccountant} from "./LiquidationAccountant.sol";
+import {Pausable} from "./utils/Pausable.sol";
 
 interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
@@ -174,10 +176,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         );
 
         // TODO fix?
-        accountant = ClonesWithImmutableArgs.clone(
-            IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
-            ""
-        );
+        accountant = ClonesWithImmutableArgs.clone(IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(), "");
         liquidationAccountants[currentEpoch] = accountant;
     }
 
@@ -324,6 +323,10 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         }
 
         return block.timestamp - epochEnd; //
+    }
+
+    function hasWithdrawProxy() public view returns (bool) {
+        return withdrawProxies[currentEpoch] != address(0);
     }
 
     function getLiquidationAccountant(uint64 epoch) public view returns (address) {
