@@ -247,7 +247,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
         // if expiration will be past epoch boundary, then create a LiquidationAccountant
 
-        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT);
+        uint256 epochCap = 0; // no cap when no epochs
 
         if (
             VaultImplementation(VAULT_IMPLEMENTATION).BROKER_TYPE() == uint256(2)
@@ -255,6 +255,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 && PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd() < COLLATERAL_TOKEN.AUCTION_WINDOW()
         ) {
             uint64 currentEpoch = PublicVault(VAULT_IMPLEMENTATION).getCurrentEpoch();
+
+            epochCap = block.timestamp + PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd()
+                + PublicVault(VAULT_IMPLEMENTATION).EPOCH_LENGTH();
 
             address accountant = PublicVault(VAULT_IMPLEMENTATION).getLiquidationAccountant(currentEpoch);
 
@@ -276,6 +279,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 );
             }
         }
+
+        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT, epochCap);
 
         emit Liquidation(collateralId, position, reserve);
     }
