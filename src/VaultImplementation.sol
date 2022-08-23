@@ -87,14 +87,14 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             owner() != address(0), "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
         );
 
-        (bool valid, IAstariaRouter.LienDetails memory ld) = params.nor.validateTerms(holder);
+        (bool valid, IAstariaRouter.LienDetails memory ld) = params.lienRequest.validateTerms(holder);
 
         require(
             valid, "Vault._validateTerms(): Verification of provided merkle branch failed for the vault and parameters"
         );
 
         require(
-            ld.maxAmount >= params.nor.amount,
+            ld.maxAmount >= params.lienRequest.amount,
             "Vault._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
         );
 
@@ -103,7 +103,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         );
         require(seniorDebt <= ld.maxSeniorDebt, "Vault._validateTerms(): too much debt already for this loan");
         require(
-            params.nor.amount <= ERC20(underlying()).balanceOf(address(this)),
+            params.lienRequest.amount <= ERC20(underlying()).balanceOf(address(this)),
             "Vault._validateTerms():  Attempting to borrow more than available in the specified vault"
         );
 
@@ -115,9 +115,11 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     function commitToLoan(IAstariaRouter.Commitment memory params, address receiver) external whenNotPaused {
         _validateCommitment(params, receiver);
         uint256 lienId = _requestLienAndIssuePayout(params, receiver);
-        _handleAppraiserReward(params.nor.amount);
-        _afterCommitToLoan(lienId, params.nor.amount);
-        emit NewObligation(params.nor.obligationRoot, params.tokenContract, params.tokenId, params.nor.amount);
+        _handleAppraiserReward(params.lienRequest.amount);
+        _afterCommitToLoan(lienId, params.lienRequest.amount);
+        emit NewObligation(
+            params.lienRequest.obligationRoot, params.tokenContract, params.tokenId, params.lienRequest.amount
+            );
     }
 
     function canLiquidate(uint256 collateralId, uint256 position) public view returns (bool) {
@@ -131,7 +133,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER()).LIEN_TOKEN().getBuyout(collateralId, position);
 
         require(buyout <= ERC20(underlying()).balanceOf(address(this)), "not enough balance to buy out loan");
-        incomingTerms.nor.amount = owed;
+        incomingTerms.lienRequest.amount = owed;
 
         _validateCommitment(incomingTerms, recipient());
 
@@ -153,25 +155,30 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         internal
         returns (uint256)
     {
-        IAstariaRouter.LienDetails memory terms =
-            ValidateTerms.getLienDetails(c.nor.obligationType, c.nor.obligationDetails);
+        IAstariaRouter.LienDetails memory terms = c.lienRequest.getLienDetails();
 
         uint256 newLienId = IAstariaRouter(ROUTER()).requestLienPosition(
             ILienBase.LienActionEncumber(
-                c.tokenContract, c.tokenId, terms, c.nor.obligationRoot, c.nor.amount, c.nor.strategy.vault, true
+                c.tokenContract,
+                c.tokenId,
+                terms,
+                c.lienRequest.obligationRoot,
+                c.lienRequest.amount,
+                c.lienRequest.strategy.vault,
+                true
             )
         );
         address feeTo = IAstariaRouter(ROUTER()).feeTo();
         bool feeOn = feeTo != address(0);
         if (feeOn) {
             // uint256 rake = (amount * 997) / 1000;
-            uint256 rake = c.nor.amount.mulDivDown(997, 1000);
+            uint256 rake = c.lienRequest.amount.mulDivDown(997, 1000);
             ERC20(underlying()).safeTransfer(feeTo, rake);
             unchecked {
-                c.nor.amount -= rake;
+                c.lienRequest.amount -= rake;
             }
         }
-        ERC20(underlying()).safeTransfer(receiver, c.nor.amount);
+        ERC20(underlying()).safeTransfer(receiver, c.lienRequest.amount);
         return newLienId;
     }
 }

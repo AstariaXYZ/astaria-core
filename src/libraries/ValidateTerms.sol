@@ -91,16 +91,18 @@ library ValidateTerms {
     }
 
     //decode obligationData into structs
-    function getLienDetails(uint8 obligationType, bytes memory obligationData)
+    function getLienDetails(IAstariaRouter.NewLienRequest memory params)
         internal
         pure
         returns (IAstariaRouter.LienDetails memory)
     {
-        if (obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
-            IAstariaRouter.CollateralDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollateralDetails));
+        if (params.obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
+            IAstariaRouter.CollateralDetails memory cd =
+                abi.decode(params.obligationDetails, (IAstariaRouter.CollateralDetails));
             return (cd.lien);
-        } else if (obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)) {
-            IAstariaRouter.CollectionDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollectionDetails));
+        } else if (params.obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)) {
+            IAstariaRouter.CollectionDetails memory cd =
+                abi.decode(params.obligationDetails, (IAstariaRouter.CollectionDetails));
             return (cd.lien);
         } else {
             revert("unknown obligation type");

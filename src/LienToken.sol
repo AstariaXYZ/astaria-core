@@ -96,7 +96,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         TRANSFER_PROXY.tokenTransferFrom(lienData[lienId].token, address(msg.sender), payees[lienId], uint256(buyout)); // was ownerOf(lienId) before payees[lienId]
 
         (bool valid, IAstariaRouter.LienDetails memory ld) =
-            params.incoming.nor.validateTerms(COLLATERAL_TOKEN.ownerOf(collateralId));
+            params.incoming.lienRequest.validateTerms(COLLATERAL_TOKEN.ownerOf(collateralId));
 
         if (!valid) {
             revert("invalid incoming terms");
@@ -114,7 +114,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         lienData[lienId].rate = uint32(ld.rate);
         lienData[lienId].duration = uint32(ld.duration);
         //so, something about brokers
-        lienData[lienId].vault = params.incoming.nor.strategy.vault;
+        lienData[lienId].vault = params.incoming.lienRequest.strategy.vault;
 
         //should this be safe transfer from?
         getApproved[lienId] = address(this);

@@ -71,7 +71,7 @@ interface IAstariaRouter is IPausable {
     struct Commitment {
         address tokenContract;
         uint256 tokenId;
-        NewLienRequest nor;
+        NewLienRequest lienRequest;
     }
 
     struct RefinanceCheckParams {
@@ -124,10 +124,7 @@ interface IAstariaRouter is IPausable {
 
     function isValidVault(address) external view returns (bool);
 
-    //    function isValidRefinance(RefinanceCheckParams memory params)
-    //        external
-    //        view
-    //        returns (bool);
+    function isValidRefinance(RefinanceCheckParams memory params) external view returns (bool);
 
     event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);

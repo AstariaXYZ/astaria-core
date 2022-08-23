@@ -17,7 +17,7 @@ import {IVault, VaultImplementation} from "./VaultImplementation.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Pausable} from "./utils/Pausable.sol";
-
+import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {PublicVault} from "./PublicVault.sol";
 
 interface IInvoker {
@@ -30,6 +30,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
     using FixedPointMathLib for uint256;
+    using ValidateTerms for NewLienRequest;
 
     ERC20 public immutable WETH;
     ICollateralToken public immutable COLLATERAL_TOKEN;
@@ -208,7 +209,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         external
         whenNotPaused
     {
-        VaultImplementation(incomingTerms.nor.strategy.vault).buyoutLien(
+        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
             incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
         );
     }
@@ -293,35 +294,24 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         return vaults[vault] != address(0);
     }
 
-    //    function isValidRefinance(IAstariaRouter.RefinanceCheckParams memory params)
-    //        external
-    //        view
-    //        returns (bool)
-    //    {
-    //        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
-    //            params.incoming.tokenContract.compute(params.incoming.tokenId),
-    //            params.position
-    //        );
-    //        // uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
-    //        uint256 minNewRate = uint256(lien.rate).mulDivDown(
-    //            MIN_INTEREST_BPS,
-    //            1000
-    //        );
-    //
-    //        if (params.incoming.rate > minNewRate) {
-    //            revert InvalidRefinanceRate(params.incoming.rate);
-    //        }
-    //
-    //        if (
-    //            (block.timestamp + params.incoming.duration) -
-    //                (lien.start + lien.duration) <
-    //            MIN_DURATION_INCREASE
-    //        ) {
-    //            revert InvalidRefinanceDuration(params.incoming.duration);
-    //        }
-    //
-    //        return true;
-    //    }
+    function isValidRefinance(IAstariaRouter.RefinanceCheckParams memory params) external view returns (bool) {
+        ILienToken.Lien memory lien =
+            LIEN_TOKEN.getLien(params.incoming.tokenContract.computeId(params.incoming.tokenId), params.position);
+
+        IAstariaRouter.LienDetails memory newLien = params.incoming.lienRequest.getLienDetails();
+        // uint256 minNewRate = (((lien.rate * MIN_INTEREST_BPS) / 1000));
+        uint256 minNewRate = uint256(lien.rate).mulDivDown(MIN_INTEREST_BPS, 1000);
+
+        if (newLien.rate > minNewRate) {
+            revert InvalidRefinanceRate(newLien.rate);
+        }
+
+        if ((block.timestamp + newLien.duration) - (lien.start + lien.duration) < MIN_DURATION_INCREASE) {
+            revert InvalidRefinanceDuration(newLien.duration);
+        }
+
+        return true;
+    }
 
     //INTERNAL FUNCS
 
@@ -370,9 +360,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     function _borrow(IAstariaRouter.Commitment memory c, address receiver) internal returns (uint256) {
         //router must be approved for the star nft to take a loan,
-        VaultImplementation(c.nor.strategy.vault).commitToLoan(c, receiver);
+        VaultImplementation(c.lienRequest.strategy.vault).commitToLoan(c, receiver);
         if (receiver == address(this)) {
-            return c.nor.amount;
+            return c.lienRequest.amount;
         }
         return uint256(0);
     }

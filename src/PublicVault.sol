@@ -222,23 +222,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     {
         // was returns (uint256 balance)
         for (uint256 i = 0; i < collateralIds.length; i++) {
-            // get lienId from LienToken
-
-            // uint256 lienId = LienToken.liens[collateralIds[i]][
-            //     positions[i]
-            // ];
-
-            // uint256 lienId =
-            //     LIEN_TOKEN().liens(collateralIds[i], positions[i]);
-
             uint256 lienId = LIEN_TOKEN().getLiens(collateralIds[i])[positions[i]];
-
-            // TODO implement
-            // check that the lien is owned by the vault, this check prevents the msg.sender from presenting an incorrect lien set
-            // require(
-            //     ILienToken.ownerOf(lienId) == address(this),
-            //     "lien not owned by vault"
-            // );
 
             require(LIEN_TOKEN().ownerOf(lienId) == address(this), "lien not owned by vault");
 
@@ -253,23 +237,6 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     function LIEN_TOKEN() public view returns (ILienToken) {
         return IAstariaRouter(ROUTER()).LIEN_TOKEN();
     }
-
-    // function completeLiquidation(uint256 lienId, uint256 amount) public {
-    //     // get the lien amount the vault expected to get before liquidation
-    //     uint256 expected = LIEN_TOKEN().getLien(lienId).amount; // was LienToken.getLien
-
-    //     // compute the amount owed to the WithdrawProxy for the currentEpoch
-    //     uint256 withdraw = amount.mulDivDown(liquidationWithdrawRatio, 1);
-
-    //     // check to ensure that the WithdrawProxy was instantiated
-    //     if (withdrawProxies[currentEpoch] != address(0)) {
-    //         ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch], withdraw);
-    //     }
-
-    //     // decrement the yIntercept for the amount received on liquidatation vs the expected
-    //     // TODO: unchecked?
-    //     yIntercept -= (expected - amount).mulDivDown(1 - liquidationWithdrawRatio, 1);
-    // }
 
     function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
@@ -288,10 +255,6 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     }
 
     function afterDeposit(uint256 assets, uint256 shares) internal virtual override whenNotPaused {
-        // increase yIntercept for assets held
-        if (BROKER_TYPE() == uint256(1)) {
-            require(msg.sender == owner(), "only owner can deposit");
-        }
         yIntercept += assets;
         _handleAppraiserReward(shares);
     }
@@ -301,7 +264,6 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         _mint(owner(), convertToShares(amount).mulDivDown(appraiserRate, appraiserBase));
     }
 
-    // TODO fix getter/access flow
     function getSlope() public view returns (uint256) {
         return slope;
     }
