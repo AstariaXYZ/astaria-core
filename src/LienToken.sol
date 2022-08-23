@@ -118,7 +118,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
         //should this be safe transfer from?
         getApproved[lienId] = address(this);
-        transferFrom(ownerOf(lienId), address(params.receiver), lienId);
+        _transfer(ownerOf(lienId), address(params.receiver), lienId);
     }
 
     event RateData(uint256);

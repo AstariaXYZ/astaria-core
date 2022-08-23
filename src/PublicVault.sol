@@ -185,8 +185,9 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         liquidationAccountants[currentEpoch] = accountant;
     }
 
-    function supportsInterface(bytes4 interfaceID) public view returns (bool) {
-        return interfaceID == 0x5b7d8a81;
+    function supportsInterface(bytes4 interfaceId) public view override (IERC165) returns (bool) {
+        return interfaceId == type(IPublicVault).interfaceId || interfaceId == type(IVault).interfaceId
+            || interfaceId == type(ERC4626Cloned).interfaceId;
     }
 
     function transferWithdrawReserve() public {

@@ -20,12 +20,12 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     using ValidateTerms for IAstariaRouter.NewLienRequest;
     using FixedPointMathLib for uint256;
 
-    event NewObligation(bytes32 bondVault, address tokenContract, uint256 tokenId, uint256 amount);
+    event NewObligation(bytes32 strategyRoot, address tokenContract, uint256 tokenId, uint256 amount);
 
     event Payment(uint256 collateralId, uint256 index, uint256 amount);
-    event Liquidation(uint256 collateralId, bytes32[] bondVaults, uint256[] indexes, uint256 recovered);
-    event NewBondVault(address appraiser, address broker, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
-    event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
+    event NewVault(address appraiser, address vault);
+
+    //    event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
 
     function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
         external

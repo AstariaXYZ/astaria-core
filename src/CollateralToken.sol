@@ -15,7 +15,6 @@ import {ILienToken} from "./interfaces/ILienToken.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-// import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
@@ -28,7 +27,7 @@ interface ISecurityHook {
     function getState(address, uint256) external view returns (bytes memory);
 }
 
-contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC1155Receiver {
+contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
     using SafeTransferLib for ERC20;
 
     struct Asset {
@@ -61,7 +60,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         AUCTION_WINDOW = uint256(2 days);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override (IERC165, ERC721) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override (ERC721) returns (bool) {
         return interfaceId == type(ICollateralToken).interfaceId || super.supportsInterface(interfaceId);
     }
 
@@ -125,52 +124,6 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
 
         // validate that the NFT returned after the call
         require(nft.ownerOf(tokenId) == address(this), "flashAction: NFT not returned");
-    }
-
-    function onERC1155BatchReceived(
-        address operator,
-        address from,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        bytes calldata data
-    )
-        external
-        returns (bytes4)
-    {
-        require(ids.length == values.length);
-        for (uint256 i = 0; i < ids.length; ++i) {
-            _onERC1155Received(operator, from, ids[i], values[i], data);
-        }
-        return IERC1155Receiver.onERC1155BatchReceived.selector;
-    }
-
-    function _onERC1155Received(address operator, address from, uint256 id, uint256 value, bytes calldata data)
-        internal
-    {
-        // require(isValidatorAsset(msg.sender), "address must be from a validator contract we care about");
-        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(id, uint256(0));
-
-        require(ERC20(lien.token).balanceOf(address(this)) >= value, "not enough balance to make this payment");
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(id);
-
-        require(value >= totalDebt, "cannot be less than total obligation");
-        ERC20(lien.token).safeApprove(address(TRANSFER_PROXY), totalDebt);
-        LIEN_TOKEN.makePayment(id, value);
-
-        if (value > totalDebt) {
-            ERC20(lien.token).safeTransfer(ownerOf(id), value - totalDebt);
-        }
-
-        delete idToUnderlying[id];
-        _burn(id);
-    }
-
-    function onERC1155Received(address operator, address from, uint256 id, uint256 value, bytes calldata data)
-        external
-        returns (bytes4)
-    {
-        _onERC1155Received(operator, from, id, value, data);
-        return IERC1155Receiver.onERC1155Received.selector;
     }
 
     function releaseToAddress(uint256 collateralId, address releaseTo) public releaseCheck(collateralId) {
@@ -243,7 +196,6 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase, IERC
         require(AUCTION_HOUSE.auctionExists(tokenId), "Auction doesn't exist");
 
         address winner = AUCTION_HOUSE.endAuction(tokenId);
-        //        _transfer(ownerOf(tokenId), winner, tokenId);
         _releaseToAddress(tokenId, winner);
     }
 }

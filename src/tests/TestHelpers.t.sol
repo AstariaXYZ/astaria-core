@@ -121,7 +121,7 @@ contract TestHelpers is Test {
     event NewTermCommitment(bytes32 bondVault, uint256 collateralId, uint256 amount);
     event Repayment(bytes32 bondVault, uint256 collateralId, uint256 amount);
     event Liquidation(bytes32 bondVault, uint256 collateralId);
-    event NewBondVault(address appraiser, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
+    event NewVault(address appraiser, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
     event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
 
     function setUp() public virtual {

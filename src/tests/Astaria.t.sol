@@ -57,7 +57,7 @@ contract AstariaTest is TestHelpers {
 
     event AuctionEnded(uint256 indexed tokenId, address winner, uint256 winningBid, uint256[] recipients);
 
-    event NewBondVault(address appraiser, address broker, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
+    event NewVault(address appraiser, address broker, bytes32 bondVault, bytes32 contentHash, uint256 expiration);
 
     /**
      * Ensure that we can borrow capital from the bond controller
