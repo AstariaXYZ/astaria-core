@@ -34,6 +34,5 @@ contract WithdrawProxy is ERC20Cloned {
 
     function undoWithdraw(uint256 amount) public {
         require(ERC20(underlying()).balanceOf(msg.sender) >= amount);
-
     }
 }
