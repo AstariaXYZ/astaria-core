@@ -15,6 +15,7 @@ import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {Base64} from "./libraries/Base64.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {IPublicVault} from "./PublicVault.sol";
 
@@ -172,7 +173,12 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
     //undo solmate change for now
 
-    function tokenURI(uint256) public view override returns (string memory) {
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override
+        returns (string memory)
+    {
         return "";
     }
 
