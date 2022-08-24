@@ -172,6 +172,7 @@ contract TestHelpers is Test {
 
         LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
         LIEN_TOKEN.file(bytes32("setCollateralToken"), abi.encode(address(COLLATERAL_TOKEN)));
+        LIEN_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
 
         // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
         // LIEN_TOKEN.setCollateralToken(address(COLLATERAL_TOKEN));

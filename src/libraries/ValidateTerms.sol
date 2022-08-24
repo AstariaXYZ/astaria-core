@@ -4,26 +4,21 @@ import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
 
 library ValidateTerms {
-    event LogCollateral(IAstariaRouter.CollateralDetails);
-    event LogCollection(IAstariaRouter.CollectionDetails);
-    event LogBytes32(bytes32);
-    event LogLien(IAstariaRouter.LienDetails);
-
-    event LogNOR(IAstariaRouter.NewLienRequest);
-
-    function validateTerms(IAstariaRouter.NewLienRequest memory params, address borrower)
-        internal
-        returns (bool, IAstariaRouter.LienDetails memory ld)
-    {
+    function validateTerms(
+        IAstariaRouter.NewLienRequest memory params,
+        address borrower
+    ) internal returns (bool, IAstariaRouter.LienDetails memory ld) {
         bytes32 leaf;
-        if (params.obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
-            IAstariaRouter.CollateralDetails memory cd =
-                abi.decode(params.obligationDetails, (IAstariaRouter.CollateralDetails));
+        if (
+            params.obligationType ==
+            uint8(IAstariaRouter.ObligationType.STANDARD)
+        ) {
+            IAstariaRouter.CollateralDetails memory cd = abi.decode(
+                params.obligationDetails,
+                (IAstariaRouter.CollateralDetails)
+            );
             // borrower based so check on msg sender
             //new structure, of borrower based
-            emit LogCollateral(cd);
-            emit LogNOR(params);
-            emit LogLien(cd.lien);
 
             //[
             //    'uint8',   'address',
@@ -45,7 +40,10 @@ library ValidateTerms {
             //  ]
 
             if (cd.borrower != address(0)) {
-                require(borrower == cd.borrower, "invalid borrower requesting commitment");
+                require(
+                    borrower == cd.borrower,
+                    "invalid borrower requesting commitment"
+                );
             }
 
             leaf = keccak256(
@@ -62,14 +60,21 @@ library ValidateTerms {
                 )
             );
 
-            emit LogBytes32(leaf);
             ld = cd.lien;
-        } else if (params.obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)) {
-            IAstariaRouter.CollectionDetails memory cd =
-                abi.decode(params.obligationDetails, (IAstariaRouter.CollectionDetails));
+        } else if (
+            params.obligationType ==
+            uint8(IAstariaRouter.ObligationType.COLLECTION)
+        ) {
+            IAstariaRouter.CollectionDetails memory cd = abi.decode(
+                params.obligationDetails,
+                (IAstariaRouter.CollectionDetails)
+            );
 
             if (cd.borrower != address(0)) {
-                require(borrower == cd.borrower, "invalid borrower requesting commitment");
+                require(
+                    borrower == cd.borrower,
+                    "invalid borrower requesting commitment"
+                );
             }
 
             leaf = keccak256(
@@ -87,7 +92,14 @@ library ValidateTerms {
             ld = cd.lien;
         }
 
-        return (MerkleProof.verify(params.obligationProof, params.obligationRoot, leaf), ld);
+        return (
+            MerkleProof.verify(
+                params.obligationProof,
+                params.obligationRoot,
+                leaf
+            ),
+            ld
+        );
     }
 
     //decode obligationData into structs
@@ -96,13 +108,23 @@ library ValidateTerms {
         pure
         returns (IAstariaRouter.LienDetails memory)
     {
-        if (params.obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
-            IAstariaRouter.CollateralDetails memory cd =
-                abi.decode(params.obligationDetails, (IAstariaRouter.CollateralDetails));
+        if (
+            params.obligationType ==
+            uint8(IAstariaRouter.ObligationType.STANDARD)
+        ) {
+            IAstariaRouter.CollateralDetails memory cd = abi.decode(
+                params.obligationDetails,
+                (IAstariaRouter.CollateralDetails)
+            );
             return (cd.lien);
-        } else if (params.obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)) {
-            IAstariaRouter.CollectionDetails memory cd =
-                abi.decode(params.obligationDetails, (IAstariaRouter.CollectionDetails));
+        } else if (
+            params.obligationType ==
+            uint8(IAstariaRouter.ObligationType.COLLECTION)
+        ) {
+            IAstariaRouter.CollectionDetails memory cd = abi.decode(
+                params.obligationDetails,
+                (IAstariaRouter.CollectionDetails)
+            );
             return (cd.lien);
         } else {
             revert("unknown obligation type");
@@ -110,26 +132,30 @@ library ValidateTerms {
     }
 
     //decode obligationData into structs
-    function getCollateralDetails(uint8 obligationType, bytes memory obligationData)
-        internal
-        pure
-        returns (IAstariaRouter.CollateralDetails memory)
-    {
+    function getCollateralDetails(
+        uint8 obligationType,
+        bytes memory obligationData
+    ) internal pure returns (IAstariaRouter.CollateralDetails memory) {
         if (obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
-            IAstariaRouter.CollateralDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollateralDetails));
+            IAstariaRouter.CollateralDetails memory cd = abi.decode(
+                obligationData,
+                (IAstariaRouter.CollateralDetails)
+            );
             return (cd);
         } else {
             revert("unknown obligation type");
         }
     }
 
-    function getCollectionDetails(uint8 obligationType, bytes memory obligationData)
-        internal
-        pure
-        returns (IAstariaRouter.CollectionDetails memory)
-    {
+    function getCollectionDetails(
+        uint8 obligationType,
+        bytes memory obligationData
+    ) internal pure returns (IAstariaRouter.CollectionDetails memory) {
         if (obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)) {
-            IAstariaRouter.CollectionDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollectionDetails));
+            IAstariaRouter.CollectionDetails memory cd = abi.decode(
+                obligationData,
+                (IAstariaRouter.CollectionDetails)
+            );
             return (cd);
         } else {
             revert("unknown obligation type");
