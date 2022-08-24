@@ -5,7 +5,6 @@ pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
-// import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
@@ -242,11 +241,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         uint256 owed = _getOwed(lien);
         uint256 remainingInterest = _getRemainingInterest(lien);
 
-        return (
-            owed,
-            // owed + (remainingInterest * buyoutNumerator) / buyoutDenominator
-            owed + remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
-        );
+        return (owed, owed + remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator));
     }
 
     function makePayment(uint256 collateralId, uint256 paymentAmount) public {
@@ -289,8 +284,6 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         uint256 end = (lien.start + lien.duration);
         uint256 oldSlope = calculateSlope(lienId);
         uint256 newAmount = (lien.amount - paymentAmount);
-        // uint256 newSlope =
-        //     (end - block.timestamp) / ((newAmount * lien.rate * end) - newAmount);
 
         uint256 newSlope = ((newAmount * lien.rate * end) - newAmount).mulDivDown(1, end - block.timestamp);
 
@@ -387,19 +380,6 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         );
         require(msg.sender == ownerOf(lienId));
 
-        // if(payees[lienId] == address(0)) {
-        //     require(msg.sender == ownerOf(lienId));
-        // } else {
-        //     require(msg.sender == payees[lienId]);
-        // }
-
         payees[lienId] = newPayee;
-        // uint256 collateralId = params.tokenContract.computeId(params.tokenId);
-
-        // require(msg.sender == ownerOf(collateralId), "Must own lien to reassign payee");
-        // require(
-        //     !AUCTION_HOUSE.auctionExists(collateralId),
-        //     "collateralId is being liquidated, cannot open new liens"
-        // );
     }
 }
