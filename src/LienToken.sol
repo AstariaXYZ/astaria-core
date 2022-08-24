@@ -112,7 +112,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         TRANSFER_PROXY.tokenTransferFrom(
             lienData[lienId].token,
             address(msg.sender),
-            payees[lienId],
+            getPayee(lienId),
             uint256(buyout)
         );
 
@@ -460,15 +460,15 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         TRANSFER_PROXY.tokenTransferFrom(
             lien.token,
             payer,
-            payees[liens[collateralId][index]],
+            getPayee(liens[collateralId][index]),
             paymentAmount
-        ); // was owner before payees[lienId]
+        );
 
         return paymentAmount;
     }
 
     function getPayee(uint256 lienId) public view returns (address) {
-        return payees[lienId];
+        return payees[lienId] != address(0) ? payees[lienId] : ownerOf(lienId);
     }
 
     // TODO change what's passed in
