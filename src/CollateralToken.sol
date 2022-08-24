@@ -18,6 +18,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
+import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 
 interface IFlashAction {
     function onFlashAction(bytes calldata data) external returns (bytes32);
@@ -29,6 +30,7 @@ interface ISecurityHook {
 
 contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
     using SafeTransferLib for ERC20;
+    using CollateralLookup for address;
 
     struct Asset {
         address tokenContract;
@@ -44,7 +46,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
     IAstariaRouter public ASTARIA_ROUTER;
     uint256 public AUCTION_WINDOW;
 
-    event DepositERC721(address indexed from, address indexed tokenContract, uint256 tokenId);
+    event Deposit721(address indexed from, address indexed tokenContract, uint256 tokenId);
     event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
 
     error AssetNotSupported(address);
@@ -151,10 +153,23 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
 
     function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
         external
-        pure
         override
         returns (bytes4)
     {
+        uint256 collateralId = msg.sender.computeId(tokenId_);
+
+        address depositFor = operator_;
+
+        if (operator_ != from_) {
+            depositFor = from_;
+        }
+
+        _mint(depositFor, collateralId);
+
+        idToUnderlying[collateralId] = Asset({tokenContract: msg.sender, tokenId: tokenId_});
+
+        emit Deposit721(depositFor, msg.sender, tokenId_);
+
         return IERC721Receiver.onERC721Received.selector;
     }
 
@@ -173,7 +188,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         _mint(depositFor_, collateralId);
         idToUnderlying[collateralId] = Asset({tokenContract: tokenContract_, tokenId: tokenId_});
 
-        emit DepositERC721(depositFor_, tokenContract_, tokenId_);
+        emit Deposit721(depositFor_, tokenContract_, tokenId_);
     }
 
     function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee, uint256 epochCap)

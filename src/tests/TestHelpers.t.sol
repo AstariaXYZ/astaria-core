@@ -214,8 +214,9 @@ contract TestHelpers is Test {
      */
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
-        ERC721(tokenContract).setApprovalForAll(address(COLLATERAL_TOKEN), true);
-        COLLATERAL_TOKEN.depositERC721(address(this), address(tokenContract), uint256(tokenId));
+        //        ERC721(tokenContract).setApprovalForAll(address(COLLATERAL_TOKEN), true);
+        //        COLLATERAL_TOKEN.depositERC721(address(this), address(tokenContract), uint256(tokenId));
+        ERC721(tokenContract).safeTransferFrom(address(this), address(COLLATERAL_TOKEN), uint256(tokenId), "");
     }
 
     /**
@@ -517,6 +518,7 @@ contract TestHelpers is Test {
         uint256 amount
     )
         internal
+        pure
         returns (LoanProofGeneratorParams memory)
     {
         return LoanProofGeneratorParams(

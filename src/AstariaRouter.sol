@@ -231,7 +231,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         IVault(vault).deposit(amount, address(msg.sender));
     }
 
-    function canLiquidate(uint256 collateralId, uint256 position) public view whenNotPaused returns (bool) {
+    function canLiquidate(uint256 collateralId, uint256 position) public view returns (bool) {
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
 
         // uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
@@ -241,44 +241,40 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(uint256 collateralId, uint256 position) external whenNotPaused returns (uint256 reserve) {
+    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve) {
         require(canLiquidate(collateralId, position), "liquidate: borrow is healthy");
 
-        // 0x
-
         // if expiration will be past epoch boundary, then create a LiquidationAccountant
-
         uint256 epochCap = 0; // no cap when no epochs
 
-        if (
-            VaultImplementation(VAULT_IMPLEMENTATION).BROKER_TYPE() == uint256(2)
-                && PublicVault(VAULT_IMPLEMENTATION).hasWithdrawProxy()
-                && PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd() < COLLATERAL_TOKEN.AUCTION_WINDOW()
-        ) {
-            uint64 currentEpoch = PublicVault(VAULT_IMPLEMENTATION).getCurrentEpoch();
+        uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
 
-            epochCap = block.timestamp + PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd()
-                + PublicVault(VAULT_IMPLEMENTATION).EPOCH_LENGTH();
+        for (uint256 i = 0; i < liens.length; ++i) {
+            uint256 currentLien = liens[i];
 
-            address accountant = PublicVault(VAULT_IMPLEMENTATION).getLiquidationAccountant(currentEpoch);
+            ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
 
-            if (accountant == address(0)) {
-                accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
-            } else {
-                // LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
-            }
-            uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
+            if (
+                VaultImplementation(lien.vault).BROKER_TYPE() == uint256(2)
+                    && PublicVault(lien.vault).timeToEpochEnd() < COLLATERAL_TOKEN.AUCTION_WINDOW()
+            ) {
+                uint64 currentEpoch = PublicVault(lien.vault).getCurrentEpoch();
 
-            // TODO check
-            for (uint256 i = 0; i < liens.length; ++i) {
-                uint256 currentLien = liens[i];
+                epochCap =
+                    block.timestamp + PublicVault(lien.vault).timeToEpochEnd() + PublicVault(lien.vault).EPOCH_LENGTH();
 
-                // LIEN_TOKEN.setPayee(LIEN_TOKEN.getLien(liens[i]).collateralId, accountant); // or use token address?
+                address accountant = PublicVault(lien.vault).getLiquidationAccountant(currentEpoch);
+
+                if (accountant == address(0)) {
+                    accountant = PublicVault(lien.vault).deployLiquidationAccountant();
+                } else {
+                    // LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
+                }
                 LIEN_TOKEN.setPayee(currentLien, accountant);
-                LiquidationAccountant(accountant).handleNewLiquidation(
-                    LIEN_TOKEN.getLien(currentLien).amount, currentLien
-                );
+                LiquidationAccountant(accountant).handleNewLiquidation(lien.amount, currentLien);
             }
+
+            // LIEN_TOKEN.setPayee(LIEN_TOKEN.getLien(liens[i]).collateralId, accountant); // or use token address?
         }
 
         reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT, epochCap);

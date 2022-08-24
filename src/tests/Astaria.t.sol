@@ -45,7 +45,7 @@ contract AstariaTest is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
 
-    event DepositERC721(address indexed from, address indexed tokenContract, uint256 tokenId);
+    event Deposit721(address indexed from, address indexed tokenContract, uint256 tokenId);
 
     event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
 
@@ -80,7 +80,7 @@ contract AstariaTest is TestHelpers {
         //balance of WETH before loan
 
         vm.expectEmit(true, true, false, true);
-        emit DepositERC721(address(this), tokenContract, tokenId);
+        emit Deposit721(address(this), tokenContract, tokenId);
 
         (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
@@ -115,7 +115,7 @@ contract AstariaTest is TestHelpers {
         //balance of WETH before loan
 
         vm.expectEmit(true, true, false, true);
-        emit DepositERC721(address(this), tokenContract, tokenId);
+        emit Deposit721(address(this), tokenContract, tokenId);
 
         (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
@@ -158,7 +158,7 @@ contract AstariaTest is TestHelpers {
         uint256 tokenId = uint256(1);
 
         vm.expectEmit(true, true, false, true);
-        emit DepositERC721(address(this), tokenContract, tokenId);
+        emit Deposit721(address(this), tokenContract, tokenId);
         (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms) =
             _commitToLoan(tokenContract, tokenId, defaultTerms);
         vm.expectRevert(bytes("must be no liens or auctions to call this"));
