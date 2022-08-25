@@ -245,7 +245,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         require(canLiquidate(collateralId, position), "liquidate: borrow is healthy");
 
         // if expiration will be past epoch boundary, then create a LiquidationAccountant
-        uint256 epochCap = 0; // no cap when no epochs
 
         uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
 
@@ -256,28 +255,23 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
             if (
                 VaultImplementation(lien.vault).VAULT_TYPE() == uint256(2)
-                    && PublicVault(lien.vault).timeToEpochEnd() < COLLATERAL_TOKEN.AUCTION_WINDOW()
+                    && PublicVault(lien.vault).timeToEpochEnd() <= COLLATERAL_TOKEN.AUCTION_WINDOW()
             ) {
                 uint64 currentEpoch = PublicVault(lien.vault).getCurrentEpoch();
-
-                epochCap =
-                    block.timestamp + PublicVault(lien.vault).timeToEpochEnd() + PublicVault(lien.vault).EPOCH_LENGTH();
 
                 address accountant = PublicVault(lien.vault).getLiquidationAccountant(currentEpoch);
 
                 if (accountant == address(0)) {
                     accountant = PublicVault(lien.vault).deployLiquidationAccountant();
-                } else {
-                    // LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
                 }
                 LIEN_TOKEN.setPayee(currentLien, accountant);
-                LiquidationAccountant(accountant).handleNewLiquidation(lien.amount, currentLien);
+                LiquidationAccountant(accountant).handleNewLiquidation(
+                    lien.amount, COLLATERAL_TOKEN.AUCTION_WINDOW() + 1 days
+                );
             }
-
-            // LIEN_TOKEN.setPayee(LIEN_TOKEN.getLien(liens[i]).collateralId, accountant); // or use token address?
         }
 
-        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT, epochCap);
+        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT);
 
         emit Liquidation(collateralId, position, reserve);
     }

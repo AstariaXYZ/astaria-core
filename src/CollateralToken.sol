@@ -191,14 +191,14 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         emit Deposit721(depositFor_, tokenContract_, tokenId_);
     }
 
-    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee, uint256 epochCap)
+    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee)
         external
         whenNotPaused
         requiresAuth
         returns (uint256 reserve)
     {
         require(!AUCTION_HOUSE.auctionExists(collateralId), "auctionVault: auction already exists");
-        reserve = AUCTION_HOUSE.createAuction(collateralId, AUCTION_WINDOW, liquidator, liquidationFee, epochCap);
+        reserve = AUCTION_HOUSE.createAuction(collateralId, AUCTION_WINDOW, liquidator, liquidationFee);
     }
 
     function cancelAuction(uint256 tokenId) external onlyOwner(tokenId) {
