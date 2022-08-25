@@ -1,48 +1,106 @@
 const { MerkleTree } = require("merkletreejs");
 const keccak256 = require("keccak256");
 const { utils, BigNumber } = require("ethers");
-const { getAddress, defaultAbiCoder, parseEther } = utils;
+const { getAddress, solidityKeccak256, defaultAbiCoder } = utils;
 const args = process.argv.slice(2);
-// console.log(args);
-// List of 7 public Ethereum addresses
 
-// console.log(incomingAddress);
-// const addresses = [incomingAddress];
-// Hash addresses to get the leaves
-
-// get list of
-// address, tokenId, valuation, interest, start, stop, lienPosition, schedule
 const leaves = [];
-const loan = keccak256([
-  BigNumber.from(args[2]),
-  BigNumber.from(args[3]),
-  BigNumber.from(args[4]),
-  BigNumber.from(args[5]),
-  BigNumber.from(args[6]),
-  BigNumber.from(args[7]),
-]);
-const collateral = keccak256([args[0], BigNumber.from(args[1])]);
+const tokenAddress = args.shift();
+const tokenId = BigNumber.from(args.shift()).toString();
+const strategyData = [
+  // BigNumber.from(0).toString(), // type
+  parseInt(BigNumber.from(0).toString()), // version
+  getAddress(args.shift()), // strategist
+  getAddress(args.shift()), // delegate
+  parseInt(BigNumber.from(args.shift()).toString()), // public
+  parseInt(BigNumber.from(0).toString()), // nonce
+  getAddress(args.shift()), // vault
+];
 
-leaves.push(keccak256([loan, collateral]));
+const strategyDetails = [
+  ["uint8", "address", "address", "bool", "uint256", "address"],
+  strategyData,
+];
+leaves.push(solidityKeccak256(...strategyDetails));
+const detailsType = parseInt(BigNumber.from(args.shift()).toString());
+let details;
+let digest;
+if (detailsType === 0) {
+  details = [
+    [
+      "uint8",
+      "address",
+      "uint256",
+      "address",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+    ],
+    [
+      parseInt(BigNumber.from(1).toString()), // version
+      getAddress(tokenAddress), // token
+      tokenId, // tokenId
+      getAddress(args.shift()), // borrower
+      ...defaultAbiCoder
+        .decode(
+          ["uint256", "uint256", "uint256", "uint256", "uint256"],
+          args.shift()
+        )
+        .map((x) => BigNumber.from(x).toString()),
+    ],
+  ];
+  digest = solidityKeccak256(...details);
+  const clone = details.map((x) => x.map((y) => y));
+  clone[1][8] = "1000";
+
+  const digest2 = solidityKeccak256(...clone);
+
+  leaves.push(digest);
+  leaves.push(digest2);
+} else if (detailsType === 1) {
+  details = [
+    [
+      "uint8",
+      "address",
+      "address",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+    ],
+    [
+      "2", // type
+      getAddress(args.shift()), // token
+      getAddress(args.shift()), // borrower
+      ...defaultAbiCoder
+        .decode(
+          ["uint256", "uint256", "uint256", "uint256", "uint256"],
+          args.shift()
+        )
+        .map((x) => BigNumber.from(x).toString()),
+    ],
+  ];
+  leaves.push(solidityKeccak256(...details));
+}
+
 // Create tree
-const merkleTree = new MerkleTree(leaves, keccak256, { sort: true });
+
+const merkleTree = new MerkleTree(
+  leaves.map((x) => x),
+  keccak256,
+  { sortPairs: true }
+);
 // Get root
-const rootHash = merkleTree.getRoot();
+const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
-const proof = merkleTree.getHexProof(merkleTree.getLeaves()[0]);
+const treeLeaves = merkleTree.getHexLeaves();
+const proof = merkleTree.getHexProof(digest);
+console.error(proof);
+console.error(merkleTree.toString());
+console.error(merkleTree.verify(proof, digest, rootHash));
 console.log(
   defaultAbiCoder.encode(["bytes32", "bytes32[]"], [rootHash, proof])
 );
-// console.log(rootHash.toString("hex"));
-// process.stdout.write(defaultAbiCoder.encode(["bytes32"], ["0x" + rootHash]));
-
-// collateralVault, maxAmount, interestRate, start, end, lienPosition, schedule;
-// 0x938e5ed128458139a9c3306ace87c60bcba9c067	10 1000000000000000000	50000000000000000000	1651810553	1665029753	0	1000000000000000000
-// 50000000000000000000	60000000000000000000	1651810553	1670300153	1	10000000000000000000	0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d	7381
-// 30000000000000000000	60000000000000000000	1651810553	1670300153	0	10000000000000000000	0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb	9138
-// 10000000000000000000	60000000000000000000	1651810553	1670300153	1	10000000000000000000	0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb	9138
-//  csv.forEach(function (row:Array<string>) {
-//     let loan = utils.solidityKeccak256([ "uint256","uint256","uint256","uint256","uint8","uint256" ], [ row[0], row[1], row[2], row[3], row[4], row[5] ]);
-//     let collateral = utils.solidityKeccak256([ "address", "uint256" ], [ row[6], row[7] ]);
-//     leaves.push(utils.solidityKeccak256([ "bytes32", "bytes32" ], [ loan, collateral ]));
-//   });

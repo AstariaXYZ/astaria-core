@@ -1,0 +1,498 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.16;
+
+pragma experimental ABIEncoderV2;
+
+import {Auth, Authority} from "solmate/auth/Auth.sol";
+import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
+import {ERC721} from "gpl/ERC721.sol";
+import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
+import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
+import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
+import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
+import {VaultImplementation} from "./VaultImplementation.sol";
+import {ValidateTerms} from "./libraries/ValidateTerms.sol";
+import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {Base64} from "./libraries/Base64.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {IPublicVault} from "./PublicVault.sol";
+
+contract TransferAgent {
+    address public immutable WETH;
+    ITransferProxy public immutable TRANSFER_PROXY;
+
+    constructor(address _TRANSFER_PROXY, address _WETH) {
+        TRANSFER_PROXY = ITransferProxy(_TRANSFER_PROXY);
+        WETH = _WETH;
+    }
+}
+
+contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
+    using ValidateTerms for IAstariaRouter.NewLienRequest;
+    using FixedPointMathLib for uint256;
+    using CollateralLookup for address;
+
+    IAuctionHouse public AUCTION_HOUSE;
+    IAstariaRouter public ASTARIA_ROUTER;
+    ICollateralToken public COLLATERAL_TOKEN;
+
+    uint256 public buyoutNumerator;
+    uint256 public buyoutDenominator;
+
+    mapping(uint256 => Lien) public lienData;
+    mapping(uint256 => uint256[]) public liens;
+    mapping(uint256 => address) public payees;
+
+    event NewLien(uint256 lienId, uint256, uint8, bytes32 rootHash);
+    event RemovedLiens(uint256 lienId);
+    event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
+
+    constructor(
+        Authority _AUTHORITY,
+        address _TRANSFER_PROXY,
+        address _WETH
+    )
+        Auth(address(msg.sender), _AUTHORITY)
+        TransferAgent(_TRANSFER_PROXY, _WETH)
+        ERC721("Astaria Lien Token", "ALT")
+    {
+        buyoutNumerator = 10;
+        buyoutDenominator = 100;
+    }
+
+    function file(bytes32 what, bytes calldata data) external requiresAuth {
+        if (what == "setAuctionHouse") {
+            address addr = abi.decode(data, (address));
+            AUCTION_HOUSE = IAuctionHouse(addr);
+        } else if (what == "setCollateralToken") {
+            address addr = abi.decode(data, (address));
+            COLLATERAL_TOKEN = ICollateralToken(addr);
+        } else if (what == "setAstariaRouter") {
+            address addr = abi.decode(data, (address));
+            ASTARIA_ROUTER = IAstariaRouter(addr);
+        } else {
+            revert("unsupported/file");
+        }
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721)
+        returns (bool)
+    {
+        return
+            interfaceId == type(ILienToken).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
+    function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
+        uint256 collateralId = params.incoming.tokenContract.computeId(
+            params.incoming.tokenId
+        );
+        (, uint256 buyout) = getBuyout(collateralId, params.position);
+
+        uint256 lienId = liens[collateralId][params.position];
+
+        (bool valid, IAstariaRouter.LienDetails memory ld) = params
+            .incoming
+            .lienRequest
+            .validateTerms(COLLATERAL_TOKEN.ownerOf(collateralId));
+
+        if (!valid) {
+            revert("invalid incoming terms");
+        }
+
+        require(
+            ASTARIA_ROUTER.isValidRefinance(lienData[lienId], ld),
+            "invalid refinance"
+        );
+
+        TRANSFER_PROXY.tokenTransferFrom(
+            lienData[lienId].token,
+            address(msg.sender),
+            getPayee(lienId),
+            uint256(buyout)
+        );
+
+        lienData[lienId].last = uint32(block.timestamp);
+        lienData[lienId].start = uint32(block.timestamp);
+        lienData[lienId].rate = uint32(ld.rate);
+        lienData[lienId].duration = uint32(ld.duration);
+        lienData[lienId].vault = params.incoming.lienRequest.strategy.vault;
+
+        _transfer(ownerOf(lienId), address(params.receiver), lienId);
+    }
+
+    function getInterest(uint256 collateralId, uint256 position)
+        public
+        view
+        returns (uint256)
+    {
+        uint256 lien = liens[collateralId][position];
+        if (!lienData[lien].active) {
+            return uint256(0);
+        }
+        return _getInterest(lienData[lien], block.timestamp);
+    }
+
+    function _getInterest(Lien memory lien, uint256 timestamp)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 delta_t = uint256(uint32(timestamp) - lien.last);
+
+        return (delta_t * lien.rate * lien.amount) / 1e18;
+    }
+
+    function stopLiens(uint256 collateralId)
+        external
+        requiresAuth
+        returns (
+            uint256 reserve,
+            uint256[] memory amounts,
+            uint256[] memory lienIds
+        )
+    {
+        reserve = 0;
+        lienIds = liens[collateralId];
+        amounts = new uint256[](liens[collateralId].length);
+        for (uint256 i = 0; i < lienIds.length; ++i) {
+            ILienToken.Lien storage lien = lienData[lienIds[i]];
+            unchecked {
+                lien.amount += _getInterest(lien, block.timestamp);
+                reserve += lien.amount;
+            }
+            amounts[i] = lien.amount;
+            lien.active = false;
+        }
+    }
+
+    //undo solmate change for now
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override
+        returns (string memory)
+    {
+        return "";
+    }
+
+    function createLien(ILienBase.LienActionEncumber memory params)
+        external
+        requiresAuth
+        returns (uint256 lienId)
+    {
+        // require that the auction is not under way
+
+        uint256 collateralId = params.tokenContract.computeId(params.tokenId);
+
+        require(
+            !AUCTION_HOUSE.auctionExists(collateralId),
+            "collateralId is being liquidated, cannot open new liens"
+        );
+
+        if (params.validateSlip) {
+            (address tokenContract, ) = COLLATERAL_TOKEN.getUnderlying(
+                collateralId
+            );
+            require(
+                tokenContract != address(0),
+                "Collateral must be deposited before you can request a lien"
+            );
+        }
+
+        uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
+        uint256 impliedRate = getImpliedRate(collateralId);
+
+        require(
+            params.terms.maxSeniorDebt >= totalDebt,
+            "too much debt to take this loan"
+        );
+
+        require(
+            params.terms.maxInterestRate >= impliedRate,
+            "current implied rate is too high"
+        );
+
+        lienId = uint256(
+            keccak256(
+                abi.encodePacked(
+                    abi.encode(
+                        bytes32(collateralId),
+                        params.vault,
+                        WETH,
+                        params.terms.maxAmount,
+                        params.terms.maxSeniorDebt,
+                        params.terms.rate,
+                        params.terms.maxInterestRate,
+                        params.terms.duration
+                    ),
+                    params.obligationRoot
+                )
+            )
+        );
+
+        uint8 newPosition = uint8(liens[collateralId].length);
+
+        _mint(VaultImplementation(params.vault).recipient(), lienId);
+        lienData[lienId] = Lien({
+            token: WETH,
+            collateralId: collateralId,
+            position: newPosition,
+            amount: params.amount,
+            active: true,
+            rate: uint32(params.terms.rate),
+            vault: params.vault,
+            last: uint32(block.timestamp),
+            start: uint32(block.timestamp),
+            duration: uint32(params.terms.duration)
+        });
+
+        liens[collateralId].push(lienId);
+
+        emit NewLien(lienId, collateralId, newPosition, params.obligationRoot);
+    }
+
+    function removeLiens(uint256 collateralId) external requiresAuth {
+        delete liens[collateralId];
+        emit RemovedLiens(collateralId);
+    }
+
+    function getLiens(uint256 collateralId)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        return liens[collateralId];
+    }
+
+    function getLien(uint256 lienId) external view returns (Lien memory) {
+        return lienData[lienId];
+    }
+
+    function getLien(uint256 collateralId, uint256 position)
+        public
+        view
+        returns (Lien memory)
+    {
+        uint256 lienId = liens[collateralId][position];
+        return lienData[lienId];
+    }
+
+    function getBuyout(uint256 collateralId, uint256 index)
+        public
+        returns (uint256, uint256)
+    {
+        Lien memory lien = getLien(collateralId, index);
+        uint256 owed = _getOwed(lien);
+        uint256 remainingInterest = _getRemainingInterest(lien);
+
+        return (
+            owed,
+            owed +
+                remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator)
+        );
+    }
+
+    function makePayment(uint256 collateralId, uint256 paymentAmount) public {
+        uint256[] memory openLiens = liens[collateralId];
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            paymentAmount = _payment(
+                collateralId,
+                i,
+                paymentAmount,
+                address(msg.sender)
+            );
+        }
+    }
+
+    function makePayment(
+        uint256 collateralId,
+        uint256 paymentAmount,
+        uint256 index
+    ) external {
+        _payment(collateralId, index, paymentAmount, address(msg.sender));
+    }
+
+    function makePayment(
+        uint256 collateralId,
+        uint256 paymentAmount,
+        address payer
+    ) external requiresAuth {
+        uint256[] memory openLiens = liens[collateralId];
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            paymentAmount = _payment(collateralId, i, paymentAmount, payer);
+        }
+    }
+
+    // TODO change to (aggregate) rate?
+
+    function calculateSlope(uint256 lienId) public view returns (uint256) {
+        Lien memory lien = lienData[lienId];
+        uint256 end = (lien.start + lien.duration);
+        // return (end - lien.last) / (lien.amount * lien.rate * end - lien.amount); // TODO check
+
+        return
+            (lien.amount * lien.rate * end - lien.amount).mulDivDown(
+                1,
+                end - lien.last
+            );
+    }
+
+    function changeInSlope(uint256 lienId, uint256 paymentAmount)
+        public
+        view
+        returns (
+            // view
+            uint256 slope
+        )
+    {
+        Lien memory lien = lienData[lienId];
+        uint256 end = (lien.start + lien.duration);
+        uint256 oldSlope = calculateSlope(lienId);
+        uint256 newAmount = (lien.amount - paymentAmount);
+
+        uint256 newSlope = ((newAmount * lien.rate * end) - newAmount)
+            .mulDivDown(1, end - block.timestamp);
+
+        slope = oldSlope - newSlope;
+    }
+
+    function _afterPayment(uint256 lienId, uint256 amount) internal virtual {}
+
+    function getTotalDebtForCollateralToken(uint256 collateralId)
+        public
+        view
+        returns (uint256 totalDebt)
+    {
+        uint256[] memory openLiens = getLiens(collateralId);
+        totalDebt = 0;
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            totalDebt += _getOwed(lienData[openLiens[i]]);
+        }
+    }
+
+    function getTotalDebtForCollateralToken(
+        uint256 collateralId,
+        uint256 timestamp
+    ) public view returns (uint256 totalDebt) {
+        uint256[] memory openLiens = getLiens(collateralId);
+        totalDebt = 0;
+
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            totalDebt += _getOwed(lienData[openLiens[i]], timestamp);
+        }
+    }
+
+    // per seconds
+    function getImpliedRate(uint256 collateralId)
+        public
+        view
+        returns (uint256 impliedRate)
+    {
+        uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
+        uint256[] memory openLiens = getLiens(collateralId);
+        impliedRate = 0;
+        for (uint256 i = 0; i < openLiens.length; ++i) {
+            Lien memory lien = lienData[openLiens[i]];
+            unchecked {
+                impliedRate += uint256(lien.rate) * lien.amount;
+            }
+        }
+
+        if (totalDebt > uint256(0)) {
+            impliedRate = impliedRate.mulDivDown(1, totalDebt);
+        }
+    }
+
+    function _getOwed(Lien memory lien) internal view returns (uint256) {
+        return lien.amount += _getInterest(lien, block.timestamp);
+    }
+
+    function _getOwed(Lien memory lien, uint256 timestamp)
+        internal
+        pure
+        returns (uint256)
+    {
+        return lien.amount += _getInterest(lien, timestamp);
+    }
+
+    function _getRemainingInterest(Lien memory lien)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 end = lien.start + lien.duration;
+        if (lien.start + lien.duration > block.timestamp + 60 days) {
+            end = block.timestamp + 60 days;
+        }
+
+        uint256 delta_t = uint256(uint32(end) - block.timestamp);
+
+        return (delta_t * lien.rate * lien.amount) / 1e18;
+    }
+
+    function _payment(
+        uint256 collateralId,
+        uint256 index,
+        uint256 paymentAmount,
+        address payer
+    ) internal returns (uint256) {
+        if (paymentAmount == uint256(0)) {
+            return uint256(0);
+        }
+        address lienOwner = ownerOf(liens[collateralId][index]);
+        if (
+            IPublicVault(lienOwner).supportsInterface(
+                type(IPublicVault).interfaceId
+            )
+        ) {
+            // was lienOwner.supportsinterface(PublicVault)
+            IPublicVault(lienOwner).beforePayment(
+                liens[collateralId][index],
+                paymentAmount
+            );
+        }
+        Lien storage lien = lienData[liens[collateralId][index]];
+        uint256 maxPayment = _getOwed(lien);
+        // address owner = ownerOf(liens[collateralId][position]);
+
+        if (maxPayment < paymentAmount) {
+            lien.amount -= paymentAmount;
+            lien.last = uint32(block.timestamp);
+        } else {
+            paymentAmount = maxPayment;
+            _burn(liens[collateralId][index]);
+            delete liens[collateralId][index];
+        }
+
+        TRANSFER_PROXY.tokenTransferFrom(
+            lien.token,
+            payer,
+            getPayee(liens[collateralId][index]),
+            paymentAmount
+        );
+
+        return paymentAmount;
+    }
+
+    function getPayee(uint256 lienId) public view returns (address) {
+        return payees[lienId] != address(0) ? payees[lienId] : ownerOf(lienId);
+    }
+
+    // TODO change what's passed in
+    function setPayee(uint256 lienId, address newPayee) public {
+        require(
+            !AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId),
+            "collateralId is being liquidated, cannot change payee from LiquidationAccountant"
+        );
+        require(msg.sender == ownerOf(lienId));
+
+        payees[lienId] = newPayee;
+    }
+}

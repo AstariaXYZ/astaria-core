@@ -2,15 +2,16 @@ name: slither-analysis
 
 # Controls when the workflow will run
 on:
-  push:
   pull_request:
     branches: [ master, develop, release/* ]
+  push:
+    branches: [ develop ]
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
     outputs:
-      markdown: results.md
+      markdown: '${{ steps.slither.outputs.markdown }}'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -28,10 +29,28 @@ jobs:
         with:
           target: './src'
           node-version: 16
-          markdown: results.markdown
           slither-config: '.slither.config.json'
-
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v2
+          slither-args: '--checklist --markdown-root "https://github.com/astariaxyz/nft-bond-vault/blob/$(git rev-parse HEAD)" --filter-paths "lib"'
+          markdown: results.md
+      # - name: Checkout
+        # uses: actions/checkout@v2
+      - uses: popsiclestick/gist-sync-action@v1.2.0
+        id: sync
         with:
-          sarif_file: ${{ steps.slither.outputs.sarif }}
+          auth: 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
+          gist_url: https://gist.github.com/SantiagoGregory/4a2d82e7fc788d8696fe13a5106a67e4
+          gist_title: astaria_slither.md
+          gist_description: Hosted slither output logs
+          github_file: results.md
+      - name: "Post to PR"
+        uses: EliLillyCo/github-actions-post-to-pr@main
+        with:
+          github_token: ${{ secrets.MY_REPO_PAT }}
+          post_to_pr_definition: |
+            [
+              {
+                "message_file": "${{ steps.slither.outputs.markdown }}",
+                "title": "Slither Analysis"
+              }
+            ]
+      

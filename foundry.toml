@@ -1,11 +1,12 @@
-[default]
+[profile.default]
 src = 'src'
 out = 'out'
 libs = ['lib']
 remappings = [
     'solmate/=lib/solmate/src/',
-    'ds-test/=lib/ds-test/src/',
     'openzeppelin/=lib/openzeppelin-contracts/contracts/',
-    'auction/=lib/auction-house/src/'
+    'gpl/=lib/gpl/src/',
+    'clones-with-immutable-args/=lib/clones-with-immutable-args/src/',
+    'seaport/=lib/seaport/contracts'
 ]
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

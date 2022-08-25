@@ -1,4 +1,4 @@
-on: [push, pull_request]
+on: [ push, pull_request ]
 
 name: test
 
@@ -7,9 +7,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
           submodules: recursive
+          token: ${{ secrets.MY_REPO_PAT }}
 
       - uses: actions/setup-node@v2
       - run: yarn
@@ -17,5 +19,5 @@ jobs:
       - uses: onbjerg/foundry-toolchain@v1
         with:
           version: nightly
-  
-      - run: forge test --ffi
+
+      - run: forge test --ffi --no-match-contract ForkedTest
