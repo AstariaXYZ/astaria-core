@@ -8,7 +8,7 @@ interface ILienBase {
         uint256 amount; //32
         uint256 collateralId; //32
         address token; // 20
-        uint32 rate; // 4
+        uint256 rate; // 4
         uint32 start; // 4
         uint32 last; // 4
         address vault; // 20

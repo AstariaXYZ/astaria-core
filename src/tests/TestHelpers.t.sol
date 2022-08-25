@@ -1,7 +1,7 @@
 pragma solidity ^0.8.16;
 
 import "forge-std/Test.sol";
-
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
@@ -61,8 +61,8 @@ contract TestHelpers is Test {
     LoanTerms defaultTerms = LoanTerms({
         maxAmount: uint256(10 ether),
         maxDebt: uint256(1 ether),
-        interestRate: uint256(5),
-        maxInterestRate: uint256(6),
+        interestRate: FixedPointMathLib.mulWadDown(uint256(0.05 ether), 365 * 86400),
+        maxInterestRate: FixedPointMathLib.mulWadDown(uint256(0.06 ether), 31556952),
         duration: uint256(block.timestamp + 10 days),
         amount: uint256(0.5 ether)
     });
@@ -70,8 +70,8 @@ contract TestHelpers is Test {
     LoanTerms refinanceTerms = LoanTerms({
         maxAmount: uint256(10 ether),
         maxDebt: uint256(10 ether),
-        interestRate: uint256(3),
-        maxInterestRate: uint256(7),
+        interestRate: FixedPointMathLib.mulWadDown(uint256(0.03 ether), 365 * 86400),
+        maxInterestRate: FixedPointMathLib.mulWadDown(uint256(0.06 ether), 365 * 86400),
         duration: uint256(block.timestamp + 10 days),
         amount: uint256(0.5 ether)
     });
@@ -167,27 +167,12 @@ contract TestHelpers is Test {
         COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
         COLLATERAL_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
 
-        // COLLATERAL_TOKEN.setBondController(address(ASTARIA_ROUTER));
-        // COLLATERAL_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
-
         LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
         LIEN_TOKEN.file(bytes32("setCollateralToken"), abi.encode(address(COLLATERAL_TOKEN)));
         LIEN_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
 
-        // LIEN_TOKEN.setAuctionHouse(address(AUCTION_HOUSE));
-        // LIEN_TOKEN.setCollateralToken(address(COLLATERAL_TOKEN));
         _setupRolesAndCapabilities();
     }
-
-    //    function _setupAppraisers() internal {
-    //        address[] memory appraisers = new address[](2);
-    //        appraisers[0] = appraiserOne;
-    //        appraisers[1] = appraiserTwo;
-    //
-    //        ASTARIA_ROUTER.file(bytes32("setAppraisers"), abi.encode(appraisers));
-    //
-    //        // ASTARIA_ROUTER.setAppraisers(appraisers);
-    //    }
 
     function _setupRolesAndCapabilities() internal {
         MRA.setRoleCapability(uint8(UserRoles.WRAPPER), AuctionHouse.createAuction.selector, true);
@@ -214,8 +199,9 @@ contract TestHelpers is Test {
      */
 
     function _depositNFTs(address tokenContract, uint256 tokenId) internal {
-        ERC721(tokenContract).setApprovalForAll(address(COLLATERAL_TOKEN), true);
-        COLLATERAL_TOKEN.depositERC721(address(this), address(tokenContract), uint256(tokenId));
+        //        ERC721(tokenContract).setApprovalForAll(address(COLLATERAL_TOKEN), true);
+        //        COLLATERAL_TOKEN.depositERC721(address(this), address(tokenContract), uint256(tokenId));
+        ERC721(tokenContract).safeTransferFrom(address(this), address(COLLATERAL_TOKEN), uint256(tokenId), "");
     }
 
     /**
@@ -267,51 +253,6 @@ contract TestHelpers is Test {
         return newVault;
     }
 
-    //    function _generateLoanProof(
-    //        uint256 _collateralId,
-    //        LoanTerms memory terms
-    //    ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
-    //        return
-    //            _generateLoanProof(
-    //                _collateralId,
-    //                terms.maxAmount,
-    //                terms.maxDebt,
-    //                terms.interestRate,
-    //                terms.duration,
-    //                terms.schedule
-    //            );
-    //    }
-
-    //
-    //    function _generateLoanProof(
-    //        uint256 _collateralId,
-    //        uint256 maxAmount,
-    //        uint256 maxDebt,
-    //        uint256 interest,
-    //        uint256 maxInterest,
-    //        uint256 duration,
-    //        uint256 schedule
-    //    ) internal returns (bytes32 rootHash, bytes32[] memory proof) {
-    //        (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN
-    //            .getUnderlying(_collateralId);
-    //        string[] memory inputs = new string[](10);
-    //        //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
-    //
-    //        inputs[0] = "node";
-    //        inputs[1] = "scripts/loanProofGenerator.js";
-    //        inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
-    //        inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
-    //        inputs[4] = abi.encodePacked(maxAmount).toHexString(); //valuation
-    //        inputs[5] = abi.encodePacked(maxDebt).toHexString(); //valuation
-    //        inputs[6] = abi.encodePacked(interest).toHexString(); //interest
-    //        inputs[7] = abi.encodePacked(maxInterest).toHexString(); //interest
-    //        inputs[8] = abi.encodePacked(duration).toHexString(); //stop
-    //        inputs[9] = abi.encodePacked(schedule).toHexString(); //schedule
-    //
-    //        bytes memory res = vm.ffi(inputs);
-    //        (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
-    //    }
-
     struct LoanProofGeneratorParams {
         address strategist;
         address delegate;
@@ -344,38 +285,8 @@ contract TestHelpers is Test {
             inputs[8] = abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
             inputs[9] = abi.encodePacked(address(0)).toHexString(); //borrower
             inputs[10] = abi.encode(terms.lien).toHexString(); //lien details
-
-            //            inputs[9] = abi.encodePacked(terms.lien.maxAmount).toHexString(); //valuation
-            //            inputs[10] = abi
-            //                .encodePacked(terms.lien.maxSeniorDebt)
-            //                .toHexString(); //valuation
-            //            inputs[11] = abi.encodePacked(uint32(0)).toHexString(); //interest will use variable rate if not fixed
-            //            inputs[12] = abi.encodePacked(terms.lien.duration).toHexString(); //stop
-            //            inputs[13] = abi.encodePacked(terms.lien.schedule).toHexString(); //schedule
         }
-        //        } else if (generationType == StrategyTypes.COLLECTION) {
-        //            inputs = new string[](10);
-        //            (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN
-        //                .getUnderlying(_collateralId);
-        //            string[] memory inputs = new string[](11);
-        //            //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
-        //
-        //            IAstariaRouter.Terms memory terms = abi.decode(
-        //                data,
-        //                (IAstariaRouter.Terms)
-        //            );
-        //            inputs[0] = "node";
-        //            inputs[1] = "scripts/loanProofGenerator.js";
-        //            inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
-        //            inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
-        //            inputs[4] = abi.encodePacked(terms.maxAmount).toHexString(); //valuation
-        //            inputs[5] = abi.encodePacked(terms.maxDebt).toHexString(); //valuation
-        //            inputs[6] = abi.encodePacked(terms.interest).toHexString(); //interest
-        //            inputs[7] = abi.encodePacked(terms.maxInterest).toHexString(); //interest
-        //            inputs[8] = abi.encodePacked(terms.duration).toHexString(); //stop
-        //            inputs[9] = abi.encodePacked(terms.schedule).toHexString(); //schedule
-        //            inputs[10] = abi.encodePacked(terms.schedule).toHexString(); //schedule
-        //        } else if (generationType == StrategyTypes.COLLECTION) {} else {}
+
         return inputs;
     }
 
@@ -388,8 +299,6 @@ contract TestHelpers is Test {
         bytes memory res = vm.ffi(inputs);
         (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
     }
-
-    event LoanObligationProof(bytes32[]);
 
     function _generateDefaultCollateralToken() internal returns (uint256 collateralId) {
         Dummy721 loanTest = new Dummy721();
@@ -517,6 +426,7 @@ contract TestHelpers is Test {
         uint256 amount
     )
         internal
+        pure
         returns (LoanProofGeneratorParams memory)
     {
         return LoanProofGeneratorParams(
@@ -531,13 +441,17 @@ contract TestHelpers is Test {
                     tokenContract,
                     tokenId,
                     address(0),
-                    IAstariaRouter.LienDetails(maxAmount, maxDebt, interestRate, maxInterestRate, duration)
+                    IAstariaRouter.LienDetails(
+                        maxAmount,
+                        maxDebt,
+                        interestRate, //convert to rate per second
+                        maxInterestRate,
+                        duration
+                    )
                 )
             )
         );
     }
-
-    // TODO clean up flow, for now makes refinancing more convenient
 
     struct CommitWithoutDeposit {
         address strategist;

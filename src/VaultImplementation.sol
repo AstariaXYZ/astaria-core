@@ -144,7 +144,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     }
 
     function recipient() public view returns (address) {
-        if (BROKER_TYPE() == uint256(2)) {
+        if (VAULT_TYPE() == uint256(2)) {
             return address(this);
         } else {
             return owner();
@@ -182,37 +182,3 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         return newLienId;
     }
 }
-//contract SoloBroker is VaultImplementation, IBroker {
-//    using SafeTransferLib for ERC20;
-//
-//    function _handleAppraiserReward(uint256 shares) internal virtual override {}
-//
-//    function deposit(uint256 amount, address)
-//        external
-//        virtual
-//        returns (uint256)
-//    {
-//        require(
-//            msg.sender == appraiser(),
-//            "only the appraiser can fund this vault"
-//        );
-//        ERC20(underlying()).safeTransferFrom(
-//            address(msg.sender),
-//            address(this),
-//            amount
-//        );
-//        return amount;
-//    }
-//
-//    function withdraw(uint256 amount) external {
-//        require(
-//            msg.sender == appraiser(),
-//            "only the appraiser can exit this vault"
-//        );
-//        ERC20(underlying()).safeTransferFrom(
-//            address(this),
-//            address(msg.sender),
-//            amount
-//        );
-//    }
-//}

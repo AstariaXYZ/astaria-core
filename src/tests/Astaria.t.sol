@@ -45,7 +45,7 @@ contract AstariaTest is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
 
-    event DepositERC721(address indexed from, address indexed tokenContract, uint256 tokenId);
+    event Deposit721(address indexed from, address indexed tokenContract, uint256 tokenId);
 
     event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
 
@@ -80,7 +80,7 @@ contract AstariaTest is TestHelpers {
         //balance of WETH before loan
 
         vm.expectEmit(true, true, false, true);
-        emit DepositERC721(address(this), tokenContract, tokenId);
+        emit Deposit721(address(this), tokenContract, tokenId);
 
         (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
@@ -115,7 +115,7 @@ contract AstariaTest is TestHelpers {
         //balance of WETH before loan
 
         vm.expectEmit(true, true, false, true);
-        emit DepositERC721(address(this), tokenContract, tokenId);
+        emit Deposit721(address(this), tokenContract, tokenId);
 
         (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
 
@@ -158,7 +158,7 @@ contract AstariaTest is TestHelpers {
         uint256 tokenId = uint256(1);
 
         vm.expectEmit(true, true, false, true);
-        emit DepositERC721(address(this), tokenContract, tokenId);
+        emit Deposit721(address(this), tokenContract, tokenId);
         (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms) =
             _commitToLoan(tokenContract, tokenId, defaultTerms);
         vm.expectRevert(bytes("must be no liens or auctions to call this"));
@@ -332,153 +332,6 @@ contract AstariaTest is TestHelpers {
         vm.expectRevert("unsupported/file");
         COLLATERAL_TOKEN.file(bytes32("Justin Bram"), "");
     }
-
-    //    function testRefinanceLoan() public {
-    //        Dummy721 loanTest = new Dummy721();
-    //        address tokenContract = address(loanTest);
-    //        uint256 tokenId = uint256(1);
-    //        vm.expectEmit(true, true, false, true);
-    //        emit DepositERC721(address(this), tokenContract, tokenId);
-    //        (
-    //            bytes32 vaultHash,
-    //            address vault,
-    //            IAstariaRouter.Commitment memory outgoing
-    //        ) = _commitToLoan(tokenContract, tokenId, defaultTerms);
-    //        uint256 collateralId = tokenContract.computeId(tokenId);
-    //        _warpToMaturity(collateralId, uint256(0));
-    //
-    //        // TODO check
-    //        uint256 reserve = ASTARIA_ROUTER.liquidate(
-    //            collateralId,
-    //            uint256(0)
-    //        );
-    //
-    //        LoanTerms memory newTerms = LoanTerms({
-    //            maxAmount: uint256(100000000000000000000),
-    //            maxDebt: uint256(10000000000000000000),
-    //            interestRate: uint256(10000000000000), // interest rate decreased
-    //            duration: uint256(block.timestamp + 1000000000 minutes), // duration doubled
-    //            amount: uint256(1 ether),
-    //            schedule: uint256(50 ether)
-    //        });
-    //
-    //        // TODO fix
-    //        //        IAstariaRouter.Commitment memory outgoing = IAstariaRouter.Commitment({
-    //        //            vault: vault, // broker
-    //        //            token: address(WETH9),
-    //        //            proof: terms.proof, // proof
-    //        //            collateralId: terms.collateralId, // collateralId
-    //        //            maxAmount: defaultTerms.maxAmount,
-    //        //            maxDebt: defaultTerms.maxDebt,
-    //        //            rate: defaultTerms.interestRate, // rate
-    //        //            duration: defaultTerms.duration,
-    //        //            schedule: defaultTerms.schedule
-    //        //        });
-    //
-    //        //        IAstariaRouter.Commitment memory incoming = IAstariaRouter.Terms({
-    //        //            broker: broker, // broker
-    //        //            token: address(WETH9),
-    //        //            proof: terms.proof, // proof
-    //        //            collateralId: terms.collateralId, // collateralId
-    //        //            maxAmount: newTerms.maxAmount,
-    //        //            maxDebt: newTerms.maxDebt,
-    //        //            rate: uint256(0), // used to be newTerms.rate
-    //        //            duration: newTerms.duration,
-    //        //            schedule: newTerms.schedule
-    //        //        });
-    //
-    //        // address tokenContract;
-    //        //        uint256 tokenId;
-    //        //        bytes32[] depositProof;
-    //        //        NewLienRequest nor;
-    //        IAstariaRouter.Commitment memory incoming = IAstariaRouter.Commitment(
-    //            tokenContract,tokenId,
-    //        );
-    //
-    //        IAstariaRouter.RefinanceCheckParams
-    //            memory refinanceCheckParams = IAstariaRouter.RefinanceCheckParams(
-    //                uint256(0),
-    //                incoming
-    //            );
-    //
-    //        assert(ASTARIA_ROUTER.isValidRefinance(refinanceCheckParams));
-    //        _commitWithoutDeposit(tokenContract, tokenId, newTerms); // refinances loan
-    //    }
-
-    //    function testRefinanceLoan() public {
-    //        //------------------------------
-    //
-    //        Dummy721 loanTest = new Dummy721();
-    //        address tokenContract = address(loanTest);
-    //        uint256 tokenId = uint256(1);
-    //
-    //        uint256 collateralId = tokenContract.computeId(tokenId);
-    //        bytes32 outgoingVaultHash;
-    //        bytes32 incomingVaultHash;
-    //        IAstariaRouter.Commitment memory outgoingCommitment;
-    //        IAstariaRouter.Commitment memory incomingCommitment;
-    //        address outgoingVault;
-    //        address incomingVault;
-    //        (
-    //            outgoingVaultHash,
-    //            outgoingCommitment,
-    //            outgoingVault
-    //        ) = _commitWithoutDeposit(
-    //            CommitWithoutDeposit(
-    //                tokenContract,
-    //                tokenId,
-    //                defaultTerms.maxAmount,
-    //                defaultTerms.maxDebt,
-    //                defaultTerms.interestRate,
-    //                defaultTerms.maxInterestRate,
-    //                defaultTerms.duration,
-    //                defaultTerms.amount
-    //            )
-    //        );
-    //
-    //        (
-    //            incomingVaultHash,
-    //            incomingCommitment,
-    //            incomingVault
-    //        ) = _commitWithoutDeposit(
-    //            CommitWithoutDeposit(
-    //                tokenContract,
-    //                tokenId,
-    //                refinanceTerms.maxAmount,
-    //                refinanceTerms.maxDebt,
-    //                refinanceTerms.interestRate,
-    //                refinanceTerms.maxInterestRate,
-    //                refinanceTerms.duration,
-    //                refinanceTerms.amount
-    //            )
-    //        );
-    //
-    ////        IAstariaRouter.RefinanceCheckParams
-    ////            memory refinanceCheckParams = IAstariaRouter.RefinanceCheckParams(
-    ////                incoming
-    ////            );
-    //
-    ////        ASTARIA_ROUTER.isValidRefinance(refinanceCheckParams);
-    //
-    ////        _refinanceLoan(tokenContract, tokenId, defaultTerms, loanTerms);
-    //
-    //        (bytes32 outgoing, IAstariaRouter.Terms memory terms) = _commitToLoan(
-    //            tokenContract,
-    //            tokenId,
-    //            defaultTerms
-    //        );
-    //
-    //        _commitWithoutDeposit(
-    //            tokenContract,
-    //            tokenId,
-    //            loanDetails2[0],
-    //            loanDetails2[1], //interestRate
-    //            loanDetails2[2], //duration
-    //            loanDetails2[3], // amount
-    //            loanDetails2[4], //lienPosition
-    //            loanDetails2[5] //schedule
-    //        );
-    //    }
 
     // lienToken testing
 

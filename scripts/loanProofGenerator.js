@@ -97,7 +97,6 @@ const merkleTree = new MerkleTree(
 const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
 const treeLeaves = merkleTree.getHexLeaves();
-console.error(treeLeaves);
 const proof = merkleTree.getHexProof(digest);
 console.error(proof);
 console.error(merkleTree.toString());

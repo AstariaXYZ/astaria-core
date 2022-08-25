@@ -23,7 +23,7 @@ interface IAstariaRouter is IPausable {
     struct LienDetails {
         uint256 maxAmount;
         uint256 maxSeniorDebt;
-        uint256 rate;
+        uint256 rate; //rate per second
         uint256 maxInterestRate; //max at origination
         uint256 duration;
     }

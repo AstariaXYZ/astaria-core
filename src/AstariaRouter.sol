@@ -231,7 +231,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         IVault(vault).deposit(amount, address(msg.sender));
     }
 
-    function canLiquidate(uint256 collateralId, uint256 position) public view whenNotPaused returns (bool) {
+    function canLiquidate(uint256 collateralId, uint256 position) public view returns (bool) {
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
 
         // uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
@@ -241,47 +241,37 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(uint256 collateralId, uint256 position) external whenNotPaused returns (uint256 reserve) {
+    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve) {
         require(canLiquidate(collateralId, position), "liquidate: borrow is healthy");
-
-        // 0x
 
         // if expiration will be past epoch boundary, then create a LiquidationAccountant
 
-        uint256 epochCap = 0; // no cap when no epochs
+        uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
 
-        if (
-            VaultImplementation(VAULT_IMPLEMENTATION).BROKER_TYPE() == uint256(2)
-                && PublicVault(VAULT_IMPLEMENTATION).hasWithdrawProxy()
-                && PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd() < COLLATERAL_TOKEN.AUCTION_WINDOW()
-        ) {
-            uint64 currentEpoch = PublicVault(VAULT_IMPLEMENTATION).getCurrentEpoch();
+        for (uint256 i = 0; i < liens.length; ++i) {
+            uint256 currentLien = liens[i];
 
-            epochCap = block.timestamp + PublicVault(VAULT_IMPLEMENTATION).timeToEpochEnd()
-                + PublicVault(VAULT_IMPLEMENTATION).EPOCH_LENGTH();
+            ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
 
-            address accountant = PublicVault(VAULT_IMPLEMENTATION).getLiquidationAccountant(currentEpoch);
+            if (
+                VaultImplementation(lien.vault).VAULT_TYPE() == uint256(2)
+                    && PublicVault(lien.vault).timeToEpochEnd() <= COLLATERAL_TOKEN.AUCTION_WINDOW()
+            ) {
+                uint64 currentEpoch = PublicVault(lien.vault).getCurrentEpoch();
 
-            if (accountant == address(0)) {
-                accountant = PublicVault(VAULT_IMPLEMENTATION).deployLiquidationAccountant();
-            } else {
-                // LiquidationAccountant(accountant).updateAuctionEnd(COLLATERAL_TOKEN.AUCTION_WINDOW());
-            }
-            uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
+                address accountant = PublicVault(lien.vault).getLiquidationAccountant(currentEpoch);
 
-            // TODO check
-            for (uint256 i = 0; i < liens.length; ++i) {
-                uint256 currentLien = liens[i];
-
-                // LIEN_TOKEN.setPayee(LIEN_TOKEN.getLien(liens[i]).collateralId, accountant); // or use token address?
+                if (accountant == address(0)) {
+                    accountant = PublicVault(lien.vault).deployLiquidationAccountant();
+                }
                 LIEN_TOKEN.setPayee(currentLien, accountant);
                 LiquidationAccountant(accountant).handleNewLiquidation(
-                    LIEN_TOKEN.getLien(currentLien).amount, currentLien
+                    lien.amount, COLLATERAL_TOKEN.AUCTION_WINDOW() + 1 days
                 );
             }
         }
 
-        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT, epochCap);
+        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT);
 
         emit Liquidation(collateralId, position, reserve);
     }

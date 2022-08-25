@@ -133,7 +133,12 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     function processEpoch(uint256[] memory collateralIds, uint256[] memory positions) external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
-
+        if (liquidationAccountants[currentEpoch] != address(0)) {
+            require(
+                LiquidationAccountant(liquidationAccountants[currentEpoch]).finalAuctionEnd() < block.timestamp,
+                "Final auction not ended"
+            );
+        }
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
@@ -161,7 +166,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
 
             // TODO when to claim()?
             if (liquidationAccountants[currentEpoch] != address(0)) {
-                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawAmount(
+                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawRatio(
                     withdrawProxies[currentEpoch]
                 );
             }
@@ -295,10 +300,6 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         }
 
         return block.timestamp - epochEnd; //
-    }
-
-    function hasWithdrawProxy() public view returns (bool) {
-        return withdrawProxies[currentEpoch] != address(0);
     }
 
     function getLiquidationAccountant(uint64 epoch) public view returns (address) {

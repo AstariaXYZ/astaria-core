@@ -33,30 +33,28 @@ contract LiquidationAccountant is LiquidationBase {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for ERC20;
 
-    uint256 withdrawProxyAmount;
+    uint256 withdrawProxyRatio;
 
-    uint256 finalAuctionEnd;
     uint256 expected;
-    uint256 finalLienId; // when this is deleted, we know the final auction is over
+    uint256 public finalAuctionEnd; // when this is deleted, we know the final auction is over
 
     address withdrawProxy;
 
     function claim() public {
-        require(ILienToken(LIEN_TOKEN()).getLiens(finalLienId).length == 0);
+        //        require(ILienToken(LIEN_TOKEN()).getLiens(finalAuctionEnd).length == 0);
 
-        require(withdrawProxy != address(0), "calculateWithdrawAmount not called at epoch boundary");
-
-        // TODO require liquidation is over?
+        require(block.timestamp > finalAuctionEnd || finalAuctionEnd == uint256(0), "final auction has not ended");
 
         uint256 balance = ERC20(underlying()).balanceOf(address(this));
         // would happen if there was no WithdrawProxy for current epoch
-        if (withdrawProxyAmount == uint256(0)) {
+        if (withdrawProxyRatio == uint256(0)) {
             ERC20(underlying()).safeTransfer(VAULT(), balance);
         } else {
-            ERC20(underlying()).safeTransfer(withdrawProxy, withdrawProxyAmount);
+            uint256 transferAmount = withdrawProxyRatio * balance;
+            ERC20(underlying()).safeTransfer(withdrawProxy, transferAmount);
 
             unchecked {
-                balance -= withdrawProxyAmount;
+                balance -= transferAmount;
             }
 
             ERC20(underlying()).safeTransfer(VAULT(), balance);
@@ -64,21 +62,23 @@ contract LiquidationAccountant is LiquidationBase {
 
         uint256 oldYIntercept = PublicVault(VAULT()).getYIntercept();
         PublicVault(VAULT()).setYIntercept(
-            oldYIntercept - (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(1 - withdrawProxyAmount, 1)
+            oldYIntercept - (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(1 - withdrawProxyRatio, 1)
         ); // TODO check, definitely looks wrong
     }
 
     // pass in withdrawproxy address here instead of constructor in case liquidation called before first marked withdraw
     // called on epoch boundary (maybe rename)
-    function calculateWithdrawAmount(address proxy) public {
-        withdrawProxy = proxy;
-        withdrawProxyAmount =
-            WithdrawProxy(withdrawProxy).totalSupply().mulDivDown(1, PublicVault(VAULT()).totalSupply()); // TODO check
+    function calculateWithdrawRatio(address proxy) public {
+        if (proxy != address(0)) {
+            withdrawProxy = proxy;
+            withdrawProxyRatio =
+                WithdrawProxy(withdrawProxy).totalSupply().mulDivDown(1, PublicVault(VAULT()).totalSupply()); // TODO check
+        }
     }
 
-    function handleNewLiquidation(uint256 newLienExpectedValue, uint256 id) public {
+    function handleNewLiquidation(uint256 newLienExpectedValue, uint256 finalAuctionTimestamp) public {
         require(msg.sender == ROUTER());
         expected += newLienExpectedValue;
-        finalLienId = id;
+        finalAuctionEnd = finalAuctionTimestamp;
     }
 }
