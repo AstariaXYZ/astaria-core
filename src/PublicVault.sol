@@ -263,7 +263,6 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
 
     function afterDeposit(uint256 assets, uint256 shares) internal virtual override whenNotPaused {
         yIntercept += assets;
-        _handleAppraiserReward(shares);
     }
 
     function _handleAppraiserReward(uint256 amount) internal virtual override {
