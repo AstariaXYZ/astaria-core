@@ -66,6 +66,11 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         return interfaceId == type(ICollateralToken).interfaceId || super.supportsInterface(interfaceId);
     }
 
+    /**
+     * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use, as well as the securityHook.
+     * @param what The identifier for what is being filed.
+     * @param data The encoded address data to be decoded and filed.
+     */
     function file(bytes32 what, bytes calldata data) external requiresAuth {
         if (what == "AUCTION_WINDOW") {
             uint256 window = abi.decode(data, (uint256));
@@ -97,6 +102,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         _;
     }
 
+    /**
+     * @notice Executes a FlashAction using locked collateral. A valid FlashAction performs a specified action with the collateral within a single transaction and must end with the collateral being returned to the Vault it was locked in.
+     * @param receiver The FlashAction to execute.
+     * @param collateralId The ID of the CollateralToken to temporarily unwrap.
+     * @param data Input data used in the FlashAction.
+     */
     function flashAction(IFlashAction receiver, uint256 collateralId, bytes calldata data)
         external
         onlyOwner(collateralId)
@@ -128,12 +139,22 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         require(nft.ownerOf(tokenId) == address(this), "flashAction: NFT not returned");
     }
 
+    /**
+     * @notice Unlocks the NFT for a CollateralToken and sends it to a specified address.
+     * @param collateralId The ID for the CollateralToken of the NFT to unlock.
+     * @param releaseTo The address to send the NFT to.
+     */
     function releaseToAddress(uint256 collateralId, address releaseTo) public releaseCheck(collateralId) {
         //check liens
         require(msg.sender == ownerOf(collateralId), "You don't have permission to call this");
         _releaseToAddress(collateralId, releaseTo);
     }
 
+    /**
+     * @dev Transfers locked collateral to a specified address and deletes the reference to the CollateralToken for that NFT.
+     * @param collateralId The ID for the CollateralToken of the NFT to unlock.
+     * @param releaseTo The address to send the NFT to.
+     */
     function _releaseToAddress(uint256 collateralId, address releaseTo) internal {
         (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
         IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
@@ -141,16 +162,27 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
     }
 
+    /**
+     * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.
+     * @param collateralId The ID of the CollateralToken wrapping the NFT.
+     * @return The address and tokenId of the underlying NFT.
+     */
     function getUnderlying(uint256 collateralId) public view returns (address, uint256) {
         Asset memory underlying = idToUnderlying[collateralId];
         return (underlying.tokenContract, underlying.tokenId);
     }
 
+    /**
+     * @notice Retrieve the tokenURI for a CollateralToken.
+     * @param collateralId The ID of the CollateralToken.
+     * @return the URI of the CollateralToken.
+     */
     function tokenURI(uint256 collateralId) public view virtual override returns (string memory) {
         (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 
+    // TODO natspec
     function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
         external
         override
@@ -180,6 +212,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         _;
     }
 
+    /**
+     * @notice Deposit an NFT to wrap with a CollateralToken and take out a loan.
+     * @param depositFor_ The owner of the NFT.
+     * @param tokenContract_ The address of the NFT.
+     * @param tokenId_ The ID of the NFT.
+     */
     function depositERC721(address depositFor_, address tokenContract_, uint256 tokenId_) external whenNotPaused {
         uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract_, tokenId_)));
 
@@ -191,6 +229,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         emit Deposit721(depositFor_, tokenContract_, tokenId_);
     }
 
+    /**
+     * @notice Begins an auction for the NFT of a liquidated CollateralToken.
+     * @param collateralId The ID of the CollateralToken being liquidated.
+     * @param liquidator The address of the user that triggered the liquidation.
+     * @param liquidationFee The fee earned to the liquidator. TODO elaborate
+     */
     function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee)
         external
         whenNotPaused
@@ -201,12 +245,20 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         reserve = AUCTION_HOUSE.createAuction(collateralId, AUCTION_WINDOW, liquidator, liquidationFee);
     }
 
+    /**
+     * @notice Cancels the auction for a CollateralToken and returns the NFT to the borrower. TODO check
+     * @param tokenId The ID of the CollateralToken to cancel the auction for.
+     */
     function cancelAuction(uint256 tokenId) external onlyOwner(tokenId) {
         require(AUCTION_HOUSE.auctionExists(tokenId), "Auction doesn't exist");
 
         AUCTION_HOUSE.cancelAuction(tokenId, msg.sender);
     }
 
+    /**
+     * @notice Ends the auction for a CollateralToken.
+     * @param tokenId The ID of the CollateralToken to stop the auction for.
+     */
     function endAuction(uint256 tokenId) external {
         require(AUCTION_HOUSE.auctionExists(tokenId), "Auction doesn't exist");
 

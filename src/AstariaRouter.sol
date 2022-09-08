@@ -21,14 +21,16 @@ import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {PublicVault} from "./PublicVault.sol";
 
 interface IInvoker {
-    function onBorrowAndBuy(
-        bytes calldata data,
-        address token,
-        uint256 amount,
-        address payable recipient
-    ) external returns (bool);
+    function onBorrowAndBuy(bytes calldata data, address token, uint256 amount, address payable recipient)
+        external
+        returns (bool);
 }
 
+/**
+ * @title AstariaRouter
+ * @author androolloyd
+ * @notice This contract manages the deployment of Vaults and universal Astaria actions.
+ */
 contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
@@ -60,6 +62,16 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     // See https://eips.ethereum.org/EIPS/eip-191
 
+    /**
+     * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
+     * @param _AUTHORITY The authority manager.
+     * @param _WETH The WETH address to use for transfers.
+     * @param _COLLATERAL_TOKEN The address of the deployed CollateralToken contract.
+     * @param _LIEN_TOKEN The address of the deployed LienToken contract.
+     * @param _TRANSFER_PROXY The address of the deployed TransferProxy contract.
+     * @param _VAULT_IMPL The address of a base implementation of VaultImplementation for cloning.
+     * @param _SOLO_IMPL The address of a base implementation of a PrivateVault for cloning.
+     */
     constructor(
         Authority _AUTHORITY,
         address _WETH,
@@ -68,7 +80,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         address _TRANSFER_PROXY,
         address _VAULT_IMPL,
         address _SOLO_IMPL
-    ) Auth(address(msg.sender), _AUTHORITY) {
+    )
+        Auth(address(msg.sender), _AUTHORITY)
+    {
         WETH = ERC20(_WETH);
         COLLATERAL_TOKEN = ICollateralToken(_COLLATERAL_TOKEN);
         LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
@@ -82,24 +96,25 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         MIN_DURATION_INCREASE = 14 days;
     }
 
+    /**
+     * @dev Enables _pause, freezing functions with the whenNotPaused modifier. TODO specify affected contracts?
+     */
     function __emergencyPause() external requiresAuth whenNotPaused {
         _pause();
     }
 
+    /**
+     * @dev Disables _pause, un-freezing functions with the whenNotPaused modifier.
+     */
     function __emergencyUnpause() external requiresAuth whenPaused {
         _unpause();
     }
 
-    function file(bytes32[] memory what, bytes[] calldata data)
-        external
-        requiresAuth
-    {
-        require(what.length == data.length, "data length mismatch");
-        for (uint256 i = 0; i < what.length; i++) {
-            file(what[i], data[i]);
-        }
-    }
-
+    /**
+     * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+     * @param what The identifier for what is being filed.
+     * @param data The encoded address data to be decoded and filed.
+     */
     function file(bytes32 what, bytes calldata data) public requiresAuth {
         if (what == "LIQUIDATION_FEE_PERCENT") {
             uint256 value = abi.decode(data, (uint256));
@@ -140,18 +155,32 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         }
     }
 
+    /**
+     * @notice Files multiple parameters and/or addresses at once.
+     * @param what The identifiers for what is being filed.
+     * @param data The encoded address data to be decoded and filed.
+     */
+    function file(bytes32[] memory what, bytes[] calldata data) external requiresAuth {
+        require(what.length == data.length, "data length mismatch");
+        for (uint256 i = 0; i < what.length; i++) {
+            file(what[i], data[i]);
+        }
+    }
+
     // MODIFIERS
     modifier onlyVaults() {
-        require(
-            vaults[msg.sender] != address(0),
-            "this vault has not been initialized"
-        );
+        require(vaults[msg.sender] != address(0), "this vault has not been initialized");
         _;
     }
 
     //PUBLIC
 
     //todo: check all incoming obligations for validity
+    /**
+     * @notice Deposits collateral and requests loans for multiple NFTs at once.
+     * @param commitments The commitment proofs and requested loan data for each loan.
+     * @return totalBorrowed The total amount borrowed by the requested loans.
+     */
     function commitToLoans(IAstariaRouter.Commitment[] calldata commitments)
         external
         whenNotPaused
@@ -159,38 +188,32 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     {
         totalBorrowed = 0;
         for (uint256 i = 0; i < commitments.length; ++i) {
-            _transferAndDepositAsset(
-                commitments[i].tokenContract,
-                commitments[i].tokenId
-            );
+            _transferAndDepositAsset(commitments[i].tokenContract, commitments[i].tokenId);
             totalBorrowed += _executeCommitment(commitments[i]);
 
-            uint256 collateralId = commitments[i].tokenContract.computeId(
-                commitments[i].tokenId
-            );
+            uint256 collateralId = commitments[i].tokenContract.computeId(commitments[i].tokenId);
             _returnCollateral(collateralId, address(msg.sender));
         }
         WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
-        TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(this),
-            address(msg.sender),
-            totalBorrowed
-        );
+        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(this), address(msg.sender), totalBorrowed);
     }
 
     // verifies the signature on the root of the merkle tree to be the appraiser
     // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
 
+    /**
+     * @notice Deploys a new PrivateVault.
+     * @return The address of the new PrivateVault.
+     */
     function newVault() external whenNotPaused returns (address) {
         return _newBondVault(uint256(0));
     }
 
-    function newPublicVault(uint256 epochLength)
-        external
-        whenNotPaused
-        returns (address)
-    {
+    /**
+     * @notice Deploys a new PublicVault.
+     * @param epochLength The length of each epoch for the new PublicVault.
+     */
+    function newPublicVault(uint256 epochLength) external whenNotPaused returns (address) {
         return _newBondVault(epochLength);
     }
 
@@ -223,18 +246,28 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     //        }
     //    }
 
+    /**
+     * @notice Buy out a lien to replace it with new terms.
+     * @param position The position of the lien to be replaced.
+     * @param incomingTerms The terms of the new lien.
+     */
     function buyoutLien(
         uint256 position,
         IAstariaRouter.Commitment memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralId, //            outgoingTerms.position //        )
-    ) external whenNotPaused {
-        VaultImplementation(incomingTerms.lienRequest.strategy.vault)
-            .buyoutLien(
-                incomingTerms.tokenContract.computeId(incomingTerms.tokenId),
-                position,
-                incomingTerms
-            );
+    )
+        external
+        whenNotPaused
+    {
+        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
+            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
+        );
     }
 
+    /**
+     * @notice Create a new lien against a CollateralToken.
+     * @param params The valid proof and lien details for the new loan.
+     * @return The ID of the created lien.
+     */
     function requestLienPosition(ILienBase.LienActionEncumber calldata params)
         external
         whenNotPaused
@@ -244,48 +277,43 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         return LIEN_TOKEN.createLien(params);
     }
 
+    /**
+     * @notice Lend to a PublicVault.
+     * @param vault The address of the PublicVault.
+     * @param amount The amount to lend.
+     */
     function lendToVault(address vault, uint256 amount) external whenNotPaused {
-        TRANSFER_PROXY.tokenTransferFrom(
-            address(WETH),
-            address(msg.sender),
-            address(this),
-            amount
-        );
+        TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), address(this), amount);
 
-        require(
-            vaults[vault] != address(0),
-            "lendToVault: vault doesn't exist"
-        );
+        require(vaults[vault] != address(0), "lendToVault: vault doesn't exist");
         WETH.safeApprove(vault, amount);
         IVault(vault).deposit(amount, address(msg.sender));
     }
 
-    function canLiquidate(uint256 collateralId, uint256 position)
-        public
-        view
-        returns (bool)
-    {
-        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(
-            collateralId,
-            position
-        );
+    /**
+     * @notice Returns whether a specific lien can be liquidated.
+     * @param collateralId The ID of the underlying CollateralToken.
+     * @param position The specified lien position.
+     * @return A boolean value indicating whether the specified lien can be liquidated.
+     */
+    function canLiquidate(uint256 collateralId, uint256 position) public view returns (bool) {
+        ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
 
         // uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
         // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
-        return (lien.start + lien.duration <= block.timestamp &&
-            lien.amount > 0);
+        return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
     }
 
     // person calling liquidate should get some incentive from the auction
-    function liquidate(uint256 collateralId, uint256 position)
-        external
-        returns (uint256 reserve)
-    {
-        require(
-            canLiquidate(collateralId, position),
-            "liquidate: borrow is healthy"
-        );
+    /**
+     * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
+     * @param collateralId The ID of the CollateralToken.
+     * @param position The position of the defaulted lien.
+     * @return reserve The amount owed on all liens for against the collateral being liquidated, including accrued interest.
+     */
+    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve) {
+        require(canLiquidate(collateralId, position), "liquidate: borrow is healthy");
 
         // if expiration will be past epoch boundary, then create a LiquidationAccountant
 
@@ -297,70 +325,76 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
 
             if (
-                VaultImplementation(lien.vault).VAULT_TYPE() == uint256(2) &&
-                PublicVault(lien.vault).timeToEpochEnd() <=
-                COLLATERAL_TOKEN.AUCTION_WINDOW()
+                VaultImplementation(lien.vault).VAULT_TYPE() == uint256(2)
+                    && PublicVault(lien.vault).timeToEpochEnd() <= COLLATERAL_TOKEN.AUCTION_WINDOW()
             ) {
                 uint64 currentEpoch = PublicVault(lien.vault).getCurrentEpoch();
 
-                address accountant = PublicVault(lien.vault)
-                    .getLiquidationAccountant(currentEpoch);
+                address accountant = PublicVault(lien.vault).getLiquidationAccountant(currentEpoch);
 
                 if (accountant == address(0)) {
-                    accountant = PublicVault(lien.vault)
-                        .deployLiquidationAccountant();
+                    accountant = PublicVault(lien.vault).deployLiquidationAccountant();
                 }
                 LIEN_TOKEN.setPayee(currentLien, accountant);
                 LiquidationAccountant(accountant).handleNewLiquidation(
-                    lien.amount,
-                    COLLATERAL_TOKEN.AUCTION_WINDOW() + 1 days
+                    lien.amount, COLLATERAL_TOKEN.AUCTION_WINDOW() + 1 days
                 );
             }
         }
 
-        reserve = COLLATERAL_TOKEN.auctionVault(
-            collateralId,
-            address(msg.sender),
-            LIQUIDATION_FEE_PERCENT
-        );
+        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT);
 
         emit Liquidation(collateralId, position, reserve);
     }
 
+    /**
+     * @notice Retrieves the fee PublicVault strategists earn on loan origination.
+     * @return The numerator and denominator used to compute the percentage fee strategists earn by receiving minted vault shares. TODO reword
+     */
     function getStrategistFee() external view returns (uint256, uint256) {
-        return (
-            STRATEGIST_ORIGINATION_FEE_NUMERATOR,
-            STRATEGIST_ORIGINATION_FEE_BASE
-        );
+        return (STRATEGIST_ORIGINATION_FEE_NUMERATOR, STRATEGIST_ORIGINATION_FEE_BASE);
     }
 
+    /**
+     * @notice Returns whether a given address is that of a Vault.
+     * @param vault The Vault address.
+     * @return A boolean representing whether the address exists as a Vault.
+     */
     function isValidVault(address vault) external view returns (bool) {
         return vaults[vault] != address(0);
     }
 
     event Data(uint256 rate, uint256 bps);
 
-    function isValidRefinance(
-        ILienToken.Lien memory lien,
-        LienDetails memory newLien
-    ) external returns (bool) {
+    /**
+     * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
+     * @param lien The Lien to be refinanced.
+     * @param newLien The new Lien to replace the existing one.
+     * @return A boolean representing whether the potential refinance is valid.
+     */
+    function isValidRefinance(ILienToken.Lien memory lien, LienDetails memory newLien) external returns (bool) {
         uint256 minNewRate = uint256(lien.rate) - MIN_INTEREST_BPS;
 
-        return (newLien.rate <= minNewRate &&
-            ((block.timestamp + newLien.duration - lien.start + lien.duration) >
-                MIN_DURATION_INCREASE));
+        return (
+            newLien.rate <= minNewRate
+                && ((block.timestamp + newLien.duration - lien.start + lien.duration) > MIN_DURATION_INCREASE)
+        );
     }
 
     //INTERNAL FUNCS
 
+    /**
+     * @dev Deploys a new PublicVault.
+     * @param epochLength The length of each epoch for the new PublicVault.
+     * @return The address for the new PublicVault.
+     */
     function _newBondVault(uint256 epochLength) internal returns (address) {
         uint256 brokerType;
 
         address implementation;
         if (epochLength > uint256(0)) {
             require(
-                epochLength >= MIN_EPOCH_LENGTH ||
-                    epochLength <= MAX_EPOCH_LENGTH,
+                epochLength >= MIN_EPOCH_LENGTH || epochLength <= MAX_EPOCH_LENGTH,
                 "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
             );
             implementation = VAULT_IMPLEMENTATION;
@@ -391,50 +425,30 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         return vaultAddr;
     }
 
-    function _executeCommitment(IAstariaRouter.Commitment memory c)
-        internal
-        returns (uint256)
-    {
+    function _executeCommitment(IAstariaRouter.Commitment memory c) internal returns (uint256) {
         uint256 collateralId = c.tokenContract.computeId(c.tokenId);
-        require(
-            msg.sender == COLLATERAL_TOKEN.ownerOf(collateralId),
-            "invalid sender for collateralId"
-        );
+        require(msg.sender == COLLATERAL_TOKEN.ownerOf(collateralId), "invalid sender for collateralId");
         return _borrow(c, address(this));
     }
 
-    function _borrow(IAstariaRouter.Commitment memory c, address receiver)
-        internal
-        returns (uint256)
-    {
+    function _borrow(IAstariaRouter.Commitment memory c, address receiver) internal returns (uint256) {
         //router must be approved for the star nft to take a loan,
-        VaultImplementation(c.lienRequest.strategy.vault).commitToLoan(
-            c,
-            receiver
-        );
+        VaultImplementation(c.lienRequest.strategy.vault).commitToLoan(c, receiver);
         if (receiver == address(this)) {
             return c.lienRequest.amount;
         }
         return uint256(0);
     }
 
-    function _transferAndDepositAsset(address tokenContract, uint256 tokenId)
-        internal
-    {
-        IERC721(tokenContract).transferFrom(
-            address(msg.sender),
-            address(this),
-            tokenId
-        );
+    function _transferAndDepositAsset(address tokenContract, uint256 tokenId) internal {
+        IERC721(tokenContract).transferFrom(address(msg.sender), address(this), tokenId);
 
         IERC721(tokenContract).approve(address(COLLATERAL_TOKEN), tokenId);
 
         COLLATERAL_TOKEN.depositERC721(address(this), tokenContract, tokenId);
     }
 
-    function _returnCollateral(uint256 collateralId, address receiver)
-        internal
-    {
+    function _returnCollateral(uint256 collateralId, address receiver) internal {
         COLLATERAL_TOKEN.transferFrom(address(this), receiver, collateralId);
     }
 

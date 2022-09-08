@@ -29,6 +29,12 @@ abstract contract LiquidationBase is Clone {
     }
 }
 
+/**
+ * @title LiquidationAccountant
+ * @author santiagogregory
+ * @notice This contract collects funds from liquidations that overlap with an epoch boundary where liquidity providers are exiting. When the final auction being tracked by a LiquidationAccountant for a given epoch is completed, claim() proportionally pays out auction funds to withdrawing liquidity providers and the PublicVault.
+ *
+ */
 contract LiquidationAccountant is LiquidationBase {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for ERC20;
@@ -40,6 +46,9 @@ contract LiquidationAccountant is LiquidationBase {
 
     address withdrawProxy;
 
+    /**
+     * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
+     */
     function claim() public {
         //        require(ILienToken(LIEN_TOKEN()).getLiens(finalAuctionEnd).length == 0);
 
@@ -68,7 +77,13 @@ contract LiquidationAccountant is LiquidationBase {
 
     // pass in withdrawproxy address here instead of constructor in case liquidation called before first marked withdraw
     // called on epoch boundary (maybe rename)
+
+    /**
+     * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
+     * @param proxy The address of the WithdrawProxy accruing funds for the end of the next epoch.
+     */
     function calculateWithdrawRatio(address proxy) public {
+        require(msg.sender == VAULT());
         if (proxy != address(0)) {
             withdrawProxy = proxy;
             withdrawProxyRatio =
@@ -76,6 +91,11 @@ contract LiquidationAccountant is LiquidationBase {
         }
     }
 
+    /**
+     * @notice Adds an auction scheduled to end in a new epoch to this LiquidationAccountant.
+     * @param newLienExpectedValue The expected auction value for the lien being auctioned.
+     * @param finalAuctionTimestamp The timestamp by which the auction being added is guaranteed to end. As new auctions are added to the LiquidationAccountant, this value will strictly increase as all auctions have the same maximum duration.
+     */
     function handleNewLiquidation(uint256 newLienExpectedValue, uint256 finalAuctionTimestamp) public {
         require(msg.sender == ROUTER());
         expected += newLienExpectedValue;

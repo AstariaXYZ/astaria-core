@@ -19,6 +19,10 @@ interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
 }
 
+/**
+ * @title Vault
+ * @author androolloyd
+ */
 contract Vault is VaultImplementation, IVault {
     using SafeTransferLib for ERC20;
 
@@ -44,6 +48,11 @@ contract Vault is VaultImplementation, IVault {
     }
 }
 
+/*
+ * @title PublicVault
+ * @author androolloyd
+ * @notice 
+*/
 contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for ERC20;
