@@ -28,15 +28,29 @@ interface IAstariaRouter is IPausable {
         uint256 duration;
     }
 
-    enum ObligationType {
+    enum LienRequestType {
         STANDARD,
-        COLLECTION
+        COLLECTION,
+        UNIV3_LIQUIDITY
     }
 
     struct CollectionDetails {
         uint8 version;
         address token;
         address borrower;
+        LienDetails lien;
+    }
+
+    struct UNIV3LiquidityDetails {
+        uint8 version;
+        address token;
+        address[] assets;
+        uint24 fee;
+        int24 tickLower;
+        int24 tickUpper;
+        uint128 minLiquidity;
+        address borrower;
+        address resolver;
         LienDetails lien;
     }
 
@@ -96,13 +110,9 @@ interface IAstariaRouter is IPausable {
 
     function feeTo() external returns (address);
 
-    function commitToLoans(Commitment[] calldata)
-        external
-        returns (uint256 totalBorrowed);
+    function commitToLoans(Commitment[] calldata) external returns (uint256 totalBorrowed);
 
-    function requestLienPosition(ILienBase.LienActionEncumber calldata params)
-        external
-        returns (uint256);
+    function requestLienPosition(ILienBase.LienActionEncumber calldata params) external returns (uint256);
 
     function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -122,20 +132,13 @@ interface IAstariaRouter is IPausable {
 
     function lendToVault(address vault, uint256 amount) external;
 
-    function liquidate(uint256 collateralId, uint256 position)
-        external
-        returns (uint256 reserve);
+    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve);
 
-    function canLiquidate(uint256 collateralId, uint256 position)
-        external
-        view
-        returns (bool);
+    function canLiquidate(uint256 collateralId, uint256 position) external view returns (bool);
 
     function isValidVault(address) external view returns (bool);
 
-    function isValidRefinance(ILienBase.Lien memory, LienDetails memory)
-        external
-        returns (bool);
+    function isValidRefinance(ILienBase.Lien memory, LienDetails memory) external returns (bool);
 
     event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);
