@@ -80,7 +80,7 @@
 //         uint256 minListingPrice = listingPrice + (listingFee * 2);
 //         //        vm.expectEmit(true, true, false, true);
 //         //        emit DepositERC721(address(this), tokenContract, tokenId);
-//         (bytes32 vaultHash, IAstariaRouter.Terms memory terms) = _commitToLoan(
+//         (bytes32 vaultHash, IAstariaRouter.Terms memory terms) = _commitToLien(
 //             tokenContract,
 //             tokenId,
 //             defaultTerms
@@ -269,7 +269,7 @@
 
 //     //     //balance of WETH before loan
 
-//     //     (bytes32 vaultHash, ) = _commitToLoan(
+//     //     (bytes32 vaultHash, ) = _commitToLien(
 //     //         APE_ADDRESS,
 //     //         tokenId,
 //     //         defaultTerms
@@ -305,7 +305,7 @@
 
 //         //balance of WETH before loan
 
-//         (bytes32 vaultHash, ) = _commitToLoan(
+//         (bytes32 vaultHash, ) = _commitToLien(
 //             APE_ADDRESS,
 //             tokenId,
 //             defaultTerms

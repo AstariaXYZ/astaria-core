@@ -96,7 +96,7 @@ interface IAstariaRouter is IPausable {
 
     function feeTo() external returns (address);
 
-    function commitToLoans(Commitment[] calldata) external returns (uint256 totalBorrowed);
+    function commitToLiens(Commitment[] calldata) external returns (uint256 totalBorrowed);
 
     function requestLienPosition(ILienBase.LienActionEncumber calldata params) external returns (uint256);
 

@@ -11,8 +11,6 @@ interface ICollateralBase {
     function AUCTION_WINDOW() external view returns (uint256);
 
     function getUnderlying(uint256) external view returns (address, uint256);
-
-    function depositERC721(address depositFor_, address tokenContract_, uint256 tokenId_) external;
 }
 
 interface ICollateralToken is ICollateralBase, IERC721 {}

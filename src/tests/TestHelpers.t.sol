@@ -304,7 +304,7 @@ contract TestHelpers is Test {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLien(tokenContract, tokenId, defaultTerms);
 
         collateralId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
 
@@ -320,7 +320,7 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
-    function _commitToLoan(
+    function _commitToLien(
         address tokenContract,
         uint256 tokenId,
         uint256 maxAmount,
@@ -360,13 +360,13 @@ contract TestHelpers is Test {
 
         // vm.expectEmit(true, true, false, false);
         // emit NewTermCommitment(vaultHash, collateralId, amount);
-        VaultImplementation(broker).commitToLoan(terms, address(this));
+        VaultImplementation(broker).commitToLien(terms, address(this));
         // BrokerVault(broker).withdraw(0 ether);
 
         return (vaultHash, terms);
     }
 
-    function _commitToLoan(address tokenContract, uint256 tokenId, LoanTerms memory loanTerms)
+    function _commitToLien(address tokenContract, uint256 tokenId, LoanTerms memory loanTerms)
         internal
         returns (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms)
     {
@@ -387,7 +387,7 @@ contract TestHelpers is Test {
         );
         emit LogCommitment(terms);
 
-        VaultImplementation(vault).commitToLoan(terms, address(this));
+        VaultImplementation(vault).commitToLien(terms, address(this));
 
         return (vaultHash, vault, terms);
     }
@@ -568,7 +568,7 @@ contract TestHelpers is Test {
     )
         internal
     {
-        _commitToLoan(tokenContract, tokenId, oldTerms);
+        _commitToLien(tokenContract, tokenId, oldTerms);
 
         _commitWithoutDeposit(tokenContract, tokenId, newTerms);
     }

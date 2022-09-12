@@ -30,7 +30,7 @@ contract BorrowAndRedeposit is IFlashAction, TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        _commitToLoan(tokenContract, tokenId, defaultTerms);
+        _commitToLien(tokenContract, tokenId, defaultTerms);
         return bytes32(keccak256("FlashAction.onFlashAction"));
     }
 }
@@ -82,7 +82,7 @@ contract AstariaTest is TestHelpers {
         vm.expectEmit(true, true, false, true);
         emit Deposit721(address(this), tokenContract, tokenId);
 
-        (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash,,) = _commitToLien(tokenContract, tokenId, defaultTerms);
 
         // BrokerVault(ASTARIA_ROUTER.getBroker(testBondVaultHash)).withdraw(50 ether);
 
@@ -117,7 +117,7 @@ contract AstariaTest is TestHelpers {
         vm.expectEmit(true, true, false, true);
         emit Deposit721(address(this), tokenContract, tokenId);
 
-        (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash,,) = _commitToLien(tokenContract, tokenId, defaultTerms);
 
         // BrokerVault(ASTARIA_ROUTER.getBroker(testBondVaultHash)).withdraw(50 ether);
 
@@ -160,7 +160,7 @@ contract AstariaTest is TestHelpers {
         vm.expectEmit(true, true, false, true);
         emit Deposit721(address(this), tokenContract, tokenId);
         (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms) =
-            _commitToLoan(tokenContract, tokenId, defaultTerms);
+            _commitToLien(tokenContract, tokenId, defaultTerms);
         vm.expectRevert(bytes("must be no liens or auctions to call this"));
 
         COLLATERAL_TOKEN.releaseToAddress(uint256(keccak256(abi.encodePacked(tokenContract, tokenId))), address(this));
@@ -190,7 +190,7 @@ contract AstariaTest is TestHelpers {
     //        (
     //            bytes32 vaultHash,
     //            IAstariaRouter.Commitment memory terms
-    //        ) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+    //        ) = _commitToLien(tokenContract, tokenId, defaultTerms);
     //        uint256 collateralId = uint256(
     //            keccak256(abi.encodePacked(tokenContract, tokenId))
     //        );
@@ -341,7 +341,7 @@ contract AstariaTest is TestHelpers {
         uint256 tokenId = uint256(1);
 
         (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms) =
-            _commitToLoan(tokenContract, tokenId, defaultTerms);
+            _commitToLien(tokenContract, tokenId, defaultTerms);
 
         (bytes32 incomingVaultHash, IAstariaRouter.Commitment memory incomingTerms, address incomingVault) =
         _commitWithoutDeposit(
@@ -430,7 +430,7 @@ contract AstariaTest is TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash,,) = _commitToLien(tokenContract, tokenId, defaultTerms);
 
         uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
         IFlashAction borrowAndRedeposit = new BorrowAndRedeposit();
@@ -472,7 +472,7 @@ contract AstariaTest is TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
         vm.prank(address(1));
-        (bytes32 vaultHash,,) = _commitToLoan(tokenContract, tokenId, defaultTerms);
+        (bytes32 vaultHash,,) = _commitToLien(tokenContract, tokenId, defaultTerms);
     }
 
     function testFailSoloLendNotAppraiser() public {

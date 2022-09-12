@@ -181,7 +181,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param commitments The commitment proofs and requested loan data for each loan.
      * @return totalBorrowed The total amount borrowed by the requested loans.
      */
-    function commitToLoans(IAstariaRouter.Commitment[] calldata commitments)
+    function commitToLiens(IAstariaRouter.Commitment[] calldata commitments)
         external
         whenNotPaused
         returns (uint256 totalBorrowed)
@@ -425,6 +425,11 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         return vaultAddr;
     }
 
+    /**
+     * @dev validates msg sender is owner
+     * @param c The commitment Data
+     * @return the amount borrowed
+     */
     function _executeCommitment(IAstariaRouter.Commitment memory c) internal returns (uint256) {
         uint256 collateralId = c.tokenContract.computeId(c.tokenId);
         require(msg.sender == COLLATERAL_TOKEN.ownerOf(collateralId), "invalid sender for collateralId");
@@ -432,8 +437,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
 
     function _borrow(IAstariaRouter.Commitment memory c, address receiver) internal returns (uint256) {
-        //router must be approved for the star nft to take a loan,
-        VaultImplementation(c.lienRequest.strategy.vault).commitToLoan(c, receiver);
+        //router must be approved for the collateral to take a loan,
+        VaultImplementation(c.lienRequest.strategy.vault).commitToLien(c, receiver);
         if (receiver == address(this)) {
             return c.lienRequest.amount;
         }
@@ -441,11 +446,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
 
     function _transferAndDepositAsset(address tokenContract, uint256 tokenId) internal {
-        IERC721(tokenContract).transferFrom(address(msg.sender), address(this), tokenId);
-
-        IERC721(tokenContract).approve(address(COLLATERAL_TOKEN), tokenId);
-
-        COLLATERAL_TOKEN.depositERC721(address(this), tokenContract, tokenId);
+        IERC721(tokenContract).safeTransferFrom(address(msg.sender), address(COLLATERAL_TOKEN), tokenId, "");
     }
 
     function _returnCollateral(uint256 collateralId, address receiver) internal {

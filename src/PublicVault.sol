@@ -34,7 +34,7 @@ contract Vault is VaultImplementation, IVault {
         return string(abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol()));
     }
 
-    function _handleAppraiserReward(uint256 shares) internal virtual override {}
+    function _handleStrategistReward(uint256 shares) internal virtual override {}
 
     function deposit(uint256 amount, address) public virtual override returns (uint256) {
         require(msg.sender == owner(), "only the appraiser can fund this vault");
@@ -224,7 +224,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         withdrawReserve -= withdraw;
     }
 
-    function _afterCommitToLoan(uint256 lienId, uint256 amount) internal virtual override {
+    function _afterCommitToLien(uint256 lienId, uint256 amount) internal virtual override {
         // increment slope for the new lien
         unchecked {
             slope += LIEN_TOKEN().calculateSlope(lienId);
@@ -274,7 +274,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         yIntercept += assets;
     }
 
-    function _handleAppraiserReward(uint256 amount) internal virtual override {
+    function _handleStrategistReward(uint256 amount) internal virtual override {
         (uint256 appraiserRate, uint256 appraiserBase) = IAstariaRouter(ROUTER()).getStrategistFee();
         _mint(owner(), convertToShares(amount).mulDivDown(appraiserRate, appraiserBase));
     }

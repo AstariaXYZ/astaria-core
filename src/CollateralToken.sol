@@ -182,7 +182,13 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 
-    // TODO natspec
+    /**
+     * @dev Mints a new CollateralToken wrapping an NFT.
+     * @param operator_ the approved sender that called safeTransferFrom
+     * @param from_ the owner of the collateral deposited
+     * @param data_ calldata that is apart of the callback
+     * @return a static return of the receive signature
+     */
     function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
         external
         override
@@ -210,23 +216,6 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
             revert("protocol is paused");
         }
         _;
-    }
-
-    /**
-     * @notice Deposit an NFT to wrap with a CollateralToken and take out a loan.
-     * @param depositFor_ The owner of the NFT.
-     * @param tokenContract_ The address of the NFT.
-     * @param tokenId_ The ID of the NFT.
-     */
-    function depositERC721(address depositFor_, address tokenContract_, uint256 tokenId_) external whenNotPaused {
-        uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract_, tokenId_)));
-
-        ERC721(tokenContract_).safeTransferFrom(depositFor_, address(this), tokenId_, "");
-
-        _mint(depositFor_, collateralId);
-        idToUnderlying[collateralId] = Asset({tokenContract: tokenContract_, tokenId: tokenId_});
-
-        emit Deposit721(depositFor_, tokenContract_, tokenId_);
     }
 
     /**

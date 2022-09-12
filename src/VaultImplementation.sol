@@ -32,7 +32,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
 
     //    event RedeemBond(bytes32 bondVault, uint256 amount, address indexed redeemer);
 
-    // TODO natspec
+    /**
+     * @notice receive hook for ERC721 tokens, nothing special done
+     */
     function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
         external
         pure
@@ -49,7 +51,10 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         _;
     }
 
-    function _handleAppraiserReward(uint256) internal virtual {}
+    /**
+     * @dev hook to allow inheriting contracts to perform payout for strategist
+     */
+    function _handleStrategistReward(uint256) internal virtual {}
 
     /**
      * @dev Decodes loan obligation data into structs.
@@ -78,6 +83,12 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
 
     /**
      * @dev Validates the terms for a requested loan.
+     * Who is requesting the borrow, is it a smart contract? or is it a user?
+     * if a smart contract, then ensure that the contract is approved to borrow and is also receiving the funds.
+     * if a user, then ensure that the user is approved to borrow and is also receiving the funds.
+     * The terms are hashed and signed by the borrower, and the signature validated against the strategist's address
+     * lien details are decoded from the obligation data and validated the collateral
+     *
      * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
      * @param receiver The address of the prospective borrower.
      */
@@ -126,18 +137,20 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         //check that we aren't paused from reserves being too low
     }
 
-    function _afterCommitToLoan(uint256 lienId, uint256 amount) internal virtual {}
+    function _afterCommitToLien(uint256 lienId, uint256 amount) internal virtual {}
 
     /**
-     * @notice Deposit collateral and take out a lien against it.
-     * @param params The identifiers for the underlying CollateralToken and data of the strategist whose term sheet is being used. TODO reword
+     * @notice Pipeline for lifecycle of new loan origination.
+     * Origination consists of a few phases: pre-commitment validation, lien token issuance, strategist reward, and after commitment actions
+     * Starts by depositing collateral and take out a lien against it. Next, verifies the merkle proof for a loan commitment. Vault owners are then rewarded fees for successful loan origination.
+     * @param params Commitment data for the incoming lien request
      * @param receiver The borrower receiving the loan.
      */
-    function commitToLoan(IAstariaRouter.Commitment memory params, address receiver) external whenNotPaused {
+    function commitToLien(IAstariaRouter.Commitment memory params, address receiver) external whenNotPaused {
         _validateCommitment(params, receiver);
         uint256 lienId = _requestLienAndIssuePayout(params, receiver);
-        _handleAppraiserReward(params.lienRequest.amount);
-        _afterCommitToLoan(lienId, params.lienRequest.amount);
+        _handleStrategistReward(params.lienRequest.amount);
+        _afterCommitToLien(lienId, params.lienRequest.amount);
         emit NewObligation(
             params.lienRequest.obligationRoot, params.tokenContract, params.tokenId, params.lienRequest.amount
             );

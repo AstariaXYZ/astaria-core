@@ -40,7 +40,7 @@ contract Fuzzers is TestHelpers {
         _;
     }
 
-    function _commitToLoan(address tokenContract, uint256 tokenId, FuzzInputs memory args)
+    function _commitToLien(address tokenContract, uint256 tokenId, FuzzInputs memory args)
         internal
         returns (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms)
     {
@@ -52,7 +52,7 @@ contract Fuzzers is TestHelpers {
             duration: args.duration,
             amount: args.amount
         });
-        return _commitToLoan(tokenContract, tokenId, loanTerms);
+        return _commitToLien(tokenContract, tokenId, loanTerms);
     }
 
     function testFuzzCommitToLoan(FuzzInputs memory args) public validateInputs(args) {
@@ -60,7 +60,7 @@ contract Fuzzers is TestHelpers {
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
 
-        _commitToLoan(tokenContract, tokenId, args);
+        _commitToLien(tokenContract, tokenId, args);
     }
 
     // lien testing
@@ -68,7 +68,7 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, args);
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLien(tokenContract, tokenId, args);
 
         uint256 collateralId = tokenContract.computeId(tokenId);
 
@@ -84,7 +84,7 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, args);
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLien(tokenContract, tokenId, args);
         uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(tokenContract.computeId(tokenId));
         // TODO calcs
         assert(args.amount <= totalDebt);
@@ -94,7 +94,7 @@ contract Fuzzers is TestHelpers {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (,, IAstariaRouter.Commitment memory terms) = _commitToLoan(tokenContract, tokenId, args);
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLien(tokenContract, tokenId, args);
 
         (uint256 owed, uint256 owedPlus) = LIEN_TOKEN.getBuyout(tokenContract.computeId(tokenId), uint256(0));
 
@@ -122,7 +122,7 @@ contract Fuzzers is TestHelpers {
             amount: args.amount
         });
 
-        _commitToLoan(tokenContract, tokenId, args);
+        _commitToLien(tokenContract, tokenId, args);
         _commitWithoutDeposit(tokenContract, tokenId, newTerms);
     }
 
@@ -133,7 +133,7 @@ contract Fuzzers is TestHelpers {
     //        address tokenContract = address(lienTest);
     //        uint256 tokenId = uint256(1);
     //
-    //        bytes32 vaultHash = _commitToLoan(tokenContract, tokenId);
+    //        bytes32 vaultHash = _commitToLien(tokenContract, tokenId);
     //
     //        // _createBondVault(vaultHash);
     //        vm.deal(lender, 1000 ether);
