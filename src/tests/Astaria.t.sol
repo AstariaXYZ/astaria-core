@@ -178,90 +178,63 @@ contract AstariaTest is TestHelpers {
         uint256 reserve;
     }
 
-    //    function testAuctionVault()
-    //        public
-    //        returns (TestAuctionVaultResponse memory)
-    //    {
-    //        Dummy721 loanTest = new Dummy721();
-    //        address tokenContract = address(loanTest);
-    //        uint256 tokenId = uint256(1);
-    //        vm.expectEmit(true, true, false, true);
-    //        emit DepositERC721(address(this), tokenContract, tokenId);
-    //        (
-    //            bytes32 vaultHash,
-    //            IAstariaRouter.Commitment memory terms
-    //        ) = _commitToLien(tokenContract, tokenId, defaultTerms);
-    //        uint256 collateralId = uint256(
-    //            keccak256(abi.encodePacked(tokenContract, tokenId))
-    //        );
-    //        _warpToMaturity(collateralId, uint256(0));
-    //        address broker = ASTARIA_ROUTER.getBroker(vaultHash);
-    //
-    //        vm.expectEmit(false, false, false, false);
-    //
-    //        emit Liquidation(terms.collateralId, uint256(0), uint256(0)); // not calculating/checking reserve
-    //
-    //        uint256 reserve = ASTARIA_ROUTER.liquidate(
-    //            terms.collateralId,
-    //            uint256(0)
-    //        );
-    //
-    //        //        return (vaultHash, collateralId, reserve);
-    //        return TestAuctionVaultResponse(vaultHash, collateralId, reserve);
-    //    }
+    function testAuctionVault() public returns (TestAuctionVaultResponse memory) {
+        Dummy721 loanTest = new Dummy721();
+        address tokenContract = address(loanTest);
+        uint256 tokenId = uint256(1);
+        (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms) =
+            _commitToLien(tokenContract, tokenId, defaultTerms);
+        uint256 collateralId = tokenContract.computeId(tokenId);
+        _warpToMaturity(collateralId, uint256(0));
+
+        //            vm.expectEmit(false, false, false, false);
+
+        emit Liquidation(collateralId, uint256(0), uint256(0)); // not calculating/checking reserve
+
+        uint256 reserve = ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
+
+        //        return (vaultHash, collateralId, reserve);
+        return TestAuctionVaultResponse(vaultHash, collateralId, reserve);
+    }
 
     /**
      * Ensure that owner of the token can cancel the auction by repaying the reserve(sum of debt + fee)
      * ensure that we're emitting the correct events
      */
     // expect emit cancelAuction
-    //    function testCancelAuction() public {
-    //        TestAuctionVaultResponse memory response = testAuctionVault();
-    //        vm.deal(address(this), response.reserve);
-    //        WETH9.deposit{value: response.reserve}();
-    //        WETH9.approve(address(TRANSFER_PROXY), response.reserve);
-    //
-    //        vm.expectEmit(true, false, false, false);
-    //
-    //        emit AuctionCanceled(response.collateralId);
-    //
-    //        COLLATERAL_TOKEN.cancelAuction(response.collateralId);
-    //    }
-    //
-    //    function testEndAuctionWithBids() public {
-    //        TestAuctionVaultResponse memory response = testAuctionVault();
-    //
-    //        vm.expectEmit(true, false, false, false);
-    //
-    //        // uint256 indexed tokenId, address sender, uint256 value, bool firstBid, bool extended
-    //        emit AuctionBid(
-    //            response.collateralId,
-    //            address(this),
-    //            response.reserve,
-    //            true,
-    //            true
-    //        ); // TODO check (non-indexed data check failing)
-    //
-    //        _createBid(bidderOne, response.collateralId, response.reserve);
-    //        _createBid(
-    //            bidderTwo,
-    //            response.collateralId,
-    //            response.reserve += ((response.reserve * 5) / 100)
-    //        );
-    //        _createBid(
-    //            bidderOne,
-    //            response.collateralId,
-    //            response.reserve += ((response.reserve * 30) / 100)
-    //        );
-    //        _warpToAuctionEnd(response.collateralId);
-    //
-    //        vm.expectEmit(false, false, false, false);
-    //
-    //        uint256[] memory dummyRecipients;
-    //        emit AuctionEnded(uint256(0), address(0), uint256(0), dummyRecipients);
-    //
-    //        COLLATERAL_TOKEN.endAuction(response.collateralId);
-    //    }
+    function testCancelAuction() public {
+        TestAuctionVaultResponse memory response = testAuctionVault();
+        vm.deal(address(this), response.reserve);
+        WETH9.deposit{value: response.reserve}();
+        WETH9.approve(address(TRANSFER_PROXY), response.reserve);
+
+        vm.expectEmit(true, false, false, false);
+
+        emit AuctionCanceled(response.collateralId);
+
+        COLLATERAL_TOKEN.cancelAuction(response.collateralId);
+    }
+
+    function testEndAuctionWithBids() public {
+        TestAuctionVaultResponse memory response = testAuctionVault();
+
+        vm.expectEmit(true, false, false, false);
+
+        // uint256 indexed tokenId, address sender, uint256 value, bool firstBid, bool extended
+//        emit AuctionBid(response.collateralId, address(this), response.reserve, true, true); // TODO check (non-indexed data check failing)
+
+        _createBid(bidderOne, response.collateralId, response.reserve);
+        _createBid(bidderTwo, response.collateralId, response.reserve += ((response.reserve * 5) / 100));
+        _createBid(bidderOne, response.collateralId, response.reserve += ((response.reserve * 30) / 100));
+        _warpToAuctionEnd(response.collateralId);
+
+//        vm.expectEmit(false, false, false, false);
+
+        uint256[] memory dummyRecipients;
+        emit AuctionEnded(uint256(0), address(0), uint256(0), dummyRecipients);
+
+        COLLATERAL_TOKEN.endAuction(response.collateralId);
+    }
 
     function testAstariaRouterFileSetup() public {
         bytes memory newLiquidationFeePercent = abi.encode(uint256(0));

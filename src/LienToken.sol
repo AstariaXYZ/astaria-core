@@ -326,7 +326,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
      * @param paymentAmount The amount to pay against the debt. TODO reword?
      * @param payer The account to make the payment.
      */
-    function makePayment(uint256 collateralId, uint256 paymentAmount, address payer) external requiresAuth {
+    function makePayment(uint256 collateralId, uint256 paymentAmount, address payer) external {
         uint256[] memory openLiens = liens[collateralId];
         for (uint256 i = 0; i < openLiens.length; ++i) {
             paymentAmount = _payment(collateralId, i, paymentAmount, payer);
@@ -520,7 +520,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
             !AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId),
             "collateralId is being liquidated, cannot change payee from LiquidationAccountant"
         );
-        require(msg.sender == ownerOf(lienId));
+        require(msg.sender == ownerOf(lienId) || msg.sender == address(ASTARIA_ROUTER), "invalid owner");
 
         payees[lienId] = newPayee;
     }

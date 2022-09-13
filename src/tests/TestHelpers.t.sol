@@ -575,8 +575,7 @@ contract TestHelpers is Test {
 
     function _warpToMaturity(uint256 collateralId, uint256 position) internal {
         ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
-        //        vm.warp(block.timestamp + lien.start + lien.duration + 2 days);
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(block.timestamp + lien.start + lien.duration + 2 days);
     }
 
     function _warpToAuctionEnd(uint256 collateralId) internal {

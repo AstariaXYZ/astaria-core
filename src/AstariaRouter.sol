@@ -28,7 +28,6 @@ interface IInvoker {
 
 /**
  * @title AstariaRouter
- * @author androolloyd
  * @notice This contract manages the deployment of Vaults and universal Astaria actions.
  */
 contract AstariaRouter is Auth, Pausable, IAstariaRouter {
@@ -206,7 +205,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @return The address of the new PrivateVault.
      */
     function newVault() external whenNotPaused returns (address) {
-        return _newBondVault(uint256(0));
+        return _newVault(uint256(0));
     }
 
     /**
@@ -214,7 +213,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param epochLength The length of each epoch for the new PublicVault.
      */
     function newPublicVault(uint256 epochLength) external whenNotPaused returns (address) {
-        return _newBondVault(epochLength);
+        return _newVault(epochLength);
     }
 
     //    function borrowAndBuy(BorrowAndBuyParams memory params) external {
@@ -388,7 +387,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param epochLength The length of each epoch for the new PublicVault.
      * @return The address for the new PublicVault.
      */
-    function _newBondVault(uint256 epochLength) internal returns (address) {
+    function _newVault(uint256 epochLength) internal returns (address) {
         uint256 brokerType;
 
         address implementation;
@@ -451,9 +450,5 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     function _returnCollateral(uint256 collateralId, address receiver) internal {
         COLLATERAL_TOKEN.transferFrom(address(this), receiver, collateralId);
-    }
-
-    function _addLien(ILienBase.LienActionEncumber memory params) internal {
-        LIEN_TOKEN.createLien(params);
     }
 }
