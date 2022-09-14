@@ -11,7 +11,7 @@ import {Strings} from "openzeppelin/utils/Strings.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
-import {V3PositionManager} from "../interfaces/V3PositionManager.sol";
+import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
@@ -39,8 +39,8 @@ contract V3SecurityHook {
     }
 
     function getState(address tokenContract, uint256 tokenId) external view returns (bytes memory) {
-        (uint96 nonce, address operator,  ,  ,  ,  ,  , uint128 liquidity,  ,  ,  ,  ) =
-            V3PositionManager(positionManager).positions(tokenId);
+        (uint96 nonce, address operator,,,,,, uint128 liquidity,,,,) =
+            IV3PositionManager(positionManager).positions(tokenId);
         return abi.encode(nonce, operator, liquidity);
     }
 }
@@ -181,7 +181,9 @@ contract TestHelpers is Test {
 
         COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
         COLLATERAL_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
-        V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88));
+        V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(
+            address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88)
+        );
         COLLATERAL_TOKEN.file(
             bytes32("setSecurityHook"),
             abi.encode(address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88), address(V3_SECURITY_HOOK))
@@ -306,10 +308,10 @@ contract TestHelpers is Test {
             inputs[8] = abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
             inputs[9] = abi.encodePacked(address(0)).toHexString(); //borrower
             inputs[10] = abi.encode(terms.lien).toHexString(); //lien details
-        } else if (params.generationType == uint8(IAstariaRouter.LienRequestType.STANDARD)) {} else if (
+        } else if (params.generationType == uint8(IAstariaRouter.LienRequestType.COLLECTION)) {} else if (
             params.generationType == uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY)
         ) {
-            inputs = new string[](11);
+            inputs = new string[](16);
 
             uint256 collateralId = uint256(keccak256(abi.encodePacked(params.tokenContract, params.tokenId)));
 
@@ -321,17 +323,19 @@ contract TestHelpers is Test {
             inputs[0] = "node";
             inputs[1] = "scripts/loanProofGenerator.js";
             inputs[2] = abi.encodePacked(params.tokenContract).toHexString(); //tokenContract
-            inputs[3] = abi.encodePacked(uint256(0)).toHexString(); //tokenId
             inputs[4] = abi.encodePacked(params.strategist).toHexString(); //appraiserOne
             inputs[5] = abi.encodePacked(params.delegate).toHexString(); //appraiserTwo
             inputs[6] = abi.encodePacked(true).toHexString(); //public
             inputs[7] = abi.encodePacked(address(0)).toHexString(); //vault
             //vault details
             inputs[8] = abi.encodePacked(uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY)).toHexString(); //type
-            inputs[9] = abi.encodePacked(address(0)).toHexString(); //borrower
+            inputs[10] = abi.encodePacked(terms.assets).toHexString(); // [token0, token1]
+            inputs[11] = abi.encodePacked(terms.fee).toHexString(); //lien details
+            inputs[12] = abi.encodePacked(terms.tickLower).toHexString(); //lien details
+            inputs[13] = abi.encodePacked(terms.tickUpper).toHexString(); //lien details
+            inputs[14] = abi.encodePacked(address(0)).toHexString(); //borrower
 
-            inputs[10] = abi.encode(terms.lien).toHexString(); //lien details
-            inputs[10] = abi.encode(terms.lien).toHexString(); //lien details
+            inputs[15] = abi.encode(terms.lien).toHexString(); //lien details
         }
 
         return inputs;
@@ -500,14 +504,11 @@ contract TestHelpers is Test {
         );
     }
 
-    function _generateV3Terms(
-        CommitV3WithoutDeposit memory params
-    )
+    function _generateV3Terms(CommitV3WithoutDeposit memory params)
         internal
         pure
         returns (LoanProofGeneratorParams memory)
     {
-
         return LoanProofGeneratorParams(
             params.strategist,
             address(0), // delegate
@@ -516,7 +517,15 @@ contract TestHelpers is Test {
             uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY),
             abi.encode(
                 IAstariaRouter.UNIV3LiquidityDetails(
-                    uint8(1), params.tokenContract, params.assets, params.fee, params.tickLower, params.tickUpper, params.minLiquidity, params.borrower, params.details
+                    uint8(1),
+                    params.tokenContract,
+                    params.assets,
+                    params.fee,
+                    params.tickLower,
+                    params.tickUpper,
+                    params.minLiquidity,
+                    params.borrower,
+                    params.details
                 )
             )
         );
@@ -533,6 +542,7 @@ contract TestHelpers is Test {
         uint256 duration;
         uint256 amount;
     }
+
     struct CommitV3WithoutDeposit {
         address strategist;
         address tokenContract;
@@ -542,7 +552,6 @@ contract TestHelpers is Test {
         int24 tickUpper;
         uint128 minLiquidity;
         address borrower;
-        address resolver;
         IAstariaRouter.LienDetails details;
         uint256 amount;
     }
@@ -586,11 +595,8 @@ contract TestHelpers is Test {
         internal
         returns (bytes32 obligationRoot, IAstariaRouter.Commitment memory terms, address vault)
     {
-
         bytes32[] memory obligationProof;
-        LoanProofGeneratorParams memory proofParams = _generateV3Terms(
-            params
-        );
+        LoanProofGeneratorParams memory proofParams = _generateV3Terms(params);
         (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
 
         vault = _createBondVault(obligationRoot, true);
@@ -602,7 +608,7 @@ contract TestHelpers is Test {
         bytes32 s;
         (v, r, s) = vm.sign(uint256(appraiserOnePK), obligationRoot);
         IAstariaRouter.Commitment memory terms =
-        _generateV3Commitment(params, vault, obligationRoot, obligationProof, v, r, s);
+            _generateV3Commitment(params, vault, obligationRoot, obligationProof, v, r, s);
         return (obligationRoot, terms, vault);
     }
 
@@ -657,6 +663,7 @@ contract TestHelpers is Test {
             )
         );
     }
+
     function _generateV3Commitment(
         CommitV3WithoutDeposit memory params,
         address vault,
@@ -669,7 +676,7 @@ contract TestHelpers is Test {
         internal
         returns (IAstariaRouter.Commitment memory)
     {
-//        emit LogCommitWithoutDeposit(params);
+        //        emit LogCommitWithoutDeposit(params);
         return IAstariaRouter.Commitment(
             params.tokenContract,
             uint256(0),
@@ -703,7 +710,7 @@ contract TestHelpers is Test {
                         params.tickUpper, //tickUpper
                         params.minLiquidity, //minLiquidity
                         params.borrower, //borrower
-                            params.details //lienDetails
+                        params.details //lienDetails
                     )
                 ), //obligationDetails
                 obligationRoot, //obligationRoot

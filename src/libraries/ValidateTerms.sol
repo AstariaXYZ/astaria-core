@@ -2,7 +2,7 @@ pragma solidity ^0.8.16;
 
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
-import {V3PositionManager} from "../interfaces/V3PositionManager.sol";
+import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 
 library ValidateTerms {
     function validateTerms(
@@ -76,7 +76,7 @@ library ValidateTerms {
 
             require(details.token == collateralTokenContract, "invalid token contract");
 
-            V3PositionManager v3Manager = V3PositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
+            IV3PositionManager v3Manager = IV3PositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
             (,, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity,,,,) =
                 v3Manager.positions(collateralTokenId);
 
@@ -121,45 +121,42 @@ library ValidateTerms {
     function getLienDetails(IAstariaRouter.NewLienRequest memory params)
         internal
         pure
-        returns (IAstariaRouter.LienDetails memory)
+        returns (IAstariaRouter.LienDetails memory lienDetails)
     {
         if (params.obligationType == uint8(IAstariaRouter.LienRequestType.STANDARD)) {
-            IAstariaRouter.CollateralDetails memory cd =
-                abi.decode(params.obligationDetails, (IAstariaRouter.CollateralDetails));
-            return (cd.lien);
+            lienDetails = (getCollateralDetails(params.obligationDetails).lien);
         } else if (params.obligationType == uint8(IAstariaRouter.LienRequestType.COLLECTION)) {
-            IAstariaRouter.CollectionDetails memory cd =
-                abi.decode(params.obligationDetails, (IAstariaRouter.CollectionDetails));
-            return (cd.lien);
+            lienDetails = (getCollectionDetails(params.obligationDetails).lien);
+        } else if (params.obligationType == uint256(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY)) {
+            lienDetails = (getUNIV3LiquidityDetails(params.obligationDetails).lien);
         } else {
             revert("unknown obligation type");
         }
     }
 
     //decode obligationData into structs
-    function getCollateralDetails(uint8 obligationType, bytes memory obligationData)
+    function getCollateralDetails(bytes memory obligationData)
         internal
         pure
         returns (IAstariaRouter.CollateralDetails memory)
     {
-        if (obligationType == uint8(IAstariaRouter.LienRequestType.STANDARD)) {
-            IAstariaRouter.CollateralDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollateralDetails));
-            return (cd);
-        } else {
-            revert("unknown obligation type");
-        }
+        return abi.decode(obligationData, (IAstariaRouter.CollateralDetails));
     }
 
-    function getCollectionDetails(uint8 obligationType, bytes memory obligationData)
+    //decode obligationData into structs
+    function getUNIV3LiquidityDetails(bytes memory obligationData)
+        internal
+        pure
+        returns (IAstariaRouter.UNIV3LiquidityDetails memory)
+    {
+        return abi.decode(obligationData, (IAstariaRouter.UNIV3LiquidityDetails));
+    }
+
+    function getCollectionDetails(bytes memory obligationData)
         internal
         pure
         returns (IAstariaRouter.CollectionDetails memory)
     {
-        if (obligationType == uint8(IAstariaRouter.LienRequestType.COLLECTION)) {
-            IAstariaRouter.CollectionDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollectionDetails));
-            return (cd);
-        } else {
-            revert("unknown obligation type");
-        }
+        return abi.decode(obligationData, (IAstariaRouter.CollectionDetails));
     }
 }

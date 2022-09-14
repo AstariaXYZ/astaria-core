@@ -19,12 +19,9 @@ import {Strings2} from "./utils/Strings2.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
-import {Consideration} from "seaport/lib/Consideration.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
-import {FulfillBasicOrderTest} from "../../lib/seaport/test/foundry/FulfillBasicOrderTest.t.sol";
-import {BaseOrderTest} from "../../lib/seaport/test/foundry/utils/BaseOrderTest.sol";
 
-// import "../ValidatorAsset.sol";
+import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -32,29 +29,70 @@ address constant AIRDROP_GRAPES_TOKEN = 0x025C6da5BD0e6A5dd1350fda9e3B6a614B205a
 address constant APE_HOLDER = 0x8742fa292AFfB6e5eA88168539217f2e132294f9;
 address constant APE_ADDRESS = 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D; // TODO check
 
-contract ApeCoinClaim is IFlashAction {
+//contract ApeCoinClaim is IFlashAction {
+//    address vault;
+//
+//    constructor(address _vault) {
+//        vault = _vault;
+//    }
+//
+//    function onFlashAction(uint256 collateralVault, bytes calldata data)
+//        external
+//        returns (bytes32)
+//    {
+//        AIRDROP_GRAPES_TOKEN.call(
+//            abi.encodePacked(bytes4((keccak256("claimTokens()"))))
+//        );
+//        ERC721 ape = ERC721(APE_ADDRESS);
+//        ape.transferFrom(address(this), vault, collateralVault);
+//        return bytes32(keccak256("FlashAction.onFlashAction"));
+//    }
+//}
+
+contract V3FeesClaim is IFlashAction {
     address vault;
 
     constructor(address _vault) {
         vault = _vault;
     }
 
-    function onFlashAction(bytes calldata data) external returns (bytes32) {
-        AIRDROP_GRAPES_TOKEN.call(abi.encodePacked(bytes4((keccak256("claimTokens()")))));
-        ERC721 ape = ERC721(APE_ADDRESS);
-        ape.transferFrom(address(this), vault, uint256(10));
+    function onFlashAction(
+        IFlashAction.Underlying calldata underlying,
+        bytes calldata data
+    ) external returns (bytes32) {
+        IV3PositionManager v3 = IV3PositionManager(
+            0xC36442b4a4522E871399CD717aBDD847Ab11FE88
+        );
+        address receiver = abi.decode(data, (address));
+        if (receiver == address(0)) {
+            receiver = msg.sender;
+        }
+        v3.collect(
+            IV3PositionManager.CollectParams(
+                underlying.tokenId,
+                receiver,
+                type(uint128).max,
+                type(uint128).max
+            )
+        );
+        ERC721 liquidity = ERC721(underlying.token);
+        liquidity.transferFrom(address(this), vault, underlying.tokenId);
         return bytes32(keccak256("FlashAction.onFlashAction"));
     }
 }
 
-contract ForkedTest is TestHelpers, BaseOrderTest {
-    function setUp() public override (TestHelpers, BaseOrderTest) {
+contract ForkedTest is TestHelpers {
+    function setUp() public override(TestHelpers) {
         TestHelpers.setUp();
         // BaseOrderTest.setUp();
     }
 
     // 10,094 tokens
-    event AirDrop(address indexed account, uint256 indexed amount, uint256 timestamp);
+    event AirDrop(
+        address indexed account,
+        uint256 indexed amount,
+        uint256 timestamp
+    );
 
     //     function testListUnderlying() public {
     //         Dummy721 loanTest = new Dummy721();
@@ -236,69 +274,142 @@ contract ForkedTest is TestHelpers, BaseOrderTest {
     //     return abi.encodePacked(r, s, v);
     // }
 
-    // function testFlashApeClaim() public {
-    //     uint256 tokenId = uint256(10);
+    //    function testFlashApeClaim() public {
+    //        uint256 tokenId = uint256(10);
+    //
+    //        _hijackNFT(APE_ADDRESS, tokenId);
+    //
+    //        vm.roll(9699885); // March 18, 2020
+    //        // vm.roll(14404760);
+    //
+    //        address tokenContract = APE_ADDRESS;
+    //
+    //        // uint256 maxAmount = uint256(100000000000000000000);
+    //        // uint256 interestRate = uint256(50000000000000000000);
+    //        // uint256 duration = uint256(block.timestamp + 10 minutes);
+    //        // uint256 amount = uint256(1 ether);
+    //        // uint8 lienPosition = uint8(0);
+    //        // uint256 schedule = uint256(50);
+    //
+    //        //balance of WETH before loan
+    //
+    //        (bytes32 vaultHash, , ) = _commitToLien(
+    //            APE_ADDRESS,
+    //            tokenId,
+    //            defaultTerms
+    //        );
+    //
+    //        uint256 collateralId = uint256(
+    //            keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
+    //        );
+    //
+    //        IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_TOKEN));
+    //
+    //        // vm.expectEmit(false, false, false, false);
+    //        // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
+    //        COLLATERAL_TOKEN.flashAction(apeCoinClaim, collateralId, "");
+    //    }
 
-    //     _hijackNFT(APE_ADDRESS, tokenId);
-
-    //     vm.roll(9699885); // March 18, 2020
-    //     // vm.roll(14404760);
-
-    //     address tokenContract = APE_ADDRESS;
-
-    //     // uint256 maxAmount = uint256(100000000000000000000);
-    //     // uint256 interestRate = uint256(50000000000000000000);
-    //     // uint256 duration = uint256(block.timestamp + 10 minutes);
-    //     // uint256 amount = uint256(1 ether);
-    //     // uint8 lienPosition = uint8(0);
-    //     // uint256 schedule = uint256(50);
-
-    //     //balance of WETH before loan
-
-    //     (bytes32 vaultHash, ) = _commitToLien(
-    //         APE_ADDRESS,
-    //         tokenId,
-    //         defaultTerms
-    //     );
-
-    //     uint256 collateralId = uint256(
-    //         keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
-    //     );
-
-    //     IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_TOKEN));
-
-    //     // vm.expectEmit(false, false, false, false);
-    //     // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
-    //     COLLATERAL_TOKEN.flashAction(apeCoinClaim, collateralId, "");
-    // }
-
-    function testFlashApeClaim() public {
+    function testV3Lending() public {
         uint256 tokenId = uint256(10);
 
+        //TODO: find an NFT in a range that we wanna loan for
         _hijackNFT(APE_ADDRESS, tokenId);
 
-        vm.roll(9699885); // March 18, 2020
-        // vm.roll(14404760);
-
         address tokenContract = APE_ADDRESS;
-
-        // uint256 maxAmount = uint256(100000000000000000000);
-        // uint256 interestRate = uint256(50000000000000000000);
-        // uint256 duration = uint256(block.timestamp + 10 minutes);
-        // uint256 amount = uint256(1 ether);
-        // uint8 lienPosition = uint8(0);
-        // uint256 schedule = uint256(50);
-
         //balance of WETH before loan
 
-        (bytes32 vaultHash,,) = _commitToLien(APE_ADDRESS, tokenId, defaultTerms);
+        _depositNFTs(
+            tokenContract, //based ghoul
+            tokenId
+        );
 
-        uint256 collateralId = uint256(keccak256(abi.encodePacked(APE_ADDRESS, tokenId)));
+        address[] memory assets = new address[](2);
+        assets[0] = address(WETH9);
+        assets[1] = address(0); // TODO: the address of the pair we care about
 
-        IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_TOKEN));
+        uint24 fee = uint24(3000);
+
+        int24 tickLower = int24(-887220);
+        int24 tickUpper = int24(-887219);
+        uint128 minLiquidity = uint128(0);
+        address borrower = address(0);
+        IAstariaRouter.Commitment memory terms;
+        address vault;
+        (, terms, vault) = _commitV3WithoutDeposit(
+            CommitV3WithoutDeposit(
+                appraiserOne,
+                tokenContract,
+                assets,
+                fee,
+                tickLower,
+                tickUpper,
+                minLiquidity,
+                borrower,
+                IAstariaRouter.LienDetails(
+                    defaultTerms.maxAmount,
+                    defaultTerms.maxDebt,
+                    defaultTerms.interestRate,
+                    defaultTerms.maxInterestRate,
+                    defaultTerms.duration
+                ),
+                defaultTerms.amount
+            )
+        );
+
+        // vm.expectEmit(true, true, false, false);
+        // emit NewTermCommitment(vaultHash, collateralId, amount);
+        VaultImplementation(vault).commitToLien(terms, address(this));
+        // BrokerVault(broker).withdraw(0 ether);
+
+        uint256 collateralId = uint256(
+            keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
+        );
+
+        IFlashAction v3FeeClaim = new V3FeesClaim(address(COLLATERAL_TOKEN));
 
         // vm.expectEmit(false, false, false, false);
         // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
-        COLLATERAL_TOKEN.flashAction(apeCoinClaim, collateralId, "");
+        COLLATERAL_TOKEN.flashAction(
+            v3FeeClaim,
+            collateralId,
+            abi.encode(address(this))
+        );
     }
+
+    //    function testFlashApeClaim() public {
+    //        uint256 tokenId = uint256(10);
+    //
+    //        _hijackNFT(APE_ADDRESS, tokenId);
+    //
+    //        vm.roll(9699885); // March 18, 2020
+    //        // vm.roll(14404760);
+    //
+    //        address tokenContract = APE_ADDRESS;
+    //
+    //        // uint256 maxAmount = uint256(100000000000000000000);
+    //        // uint256 interestRate = uint256(50000000000000000000);
+    //        // uint256 duration = uint256(block.timestamp + 10 minutes);
+    //        // uint256 amount = uint256(1 ether);
+    //        // uint8 lienPosition = uint8(0);
+    //        // uint256 schedule = uint256(50);
+    //
+    //        //balance of WETH before loan
+    //
+    //        (bytes32 vaultHash, , ) = _commitToLien(
+    //            APE_ADDRESS,
+    //            tokenId,
+    //            defaultTerms
+    //        );
+    //
+    //        uint256 collateralId = uint256(
+    //            keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
+    //        );
+    //
+    //        IFlashAction apeCoinClaim = new ApeCoinClaim(address(COLLATERAL_TOKEN));
+    //
+    //        // vm.expectEmit(false, false, false, false);
+    //        // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
+    //        COLLATERAL_TOKEN.flashAction(apeCoinClaim, collateralId, "");
+    //    }
 }

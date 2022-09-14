@@ -102,16 +102,26 @@ if (detailsType === 0) {
       "uint8",
       "address",
       "address[]",
+      "uint24",
       "int24",
       "int24",
       "uint128",
       "address",
-      "address",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
+      "uint256",
     ],
     [
       "2", // type
       getAddress(args.shift()), // token
-      getAddress(args.shift()), // borrower
+      args.shift(), // assets
+      args.shift(), // fee
+      args.shift(), // tickLower
+      args.shift(), // tickUpper
+      args.shift(), // minLiquidity
+      args.shift(), // borrower
       ...defaultAbiCoder
         .decode(
           ["uint256", "uint256", "uint256", "uint256", "uint256"],
