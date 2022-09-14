@@ -84,6 +84,43 @@ if (detailsType === 0) {
     ],
   ];
   leaves.push(solidityKeccak256(...details));
+} else if (detailsType === 2) {
+  //UNIV3LiquidityDetails
+
+  //uint8 version;
+  //         address token;
+  //         address[] assets;
+  //         uint24 fee;
+  //         int24 tickLower;
+  //         int24 tickUpper;
+  //         uint128 minLiquidity;
+  //         address borrower;
+  //         address resolver;
+
+  details = [
+    [
+      "uint8",
+      "address",
+      "address[]",
+      "int24",
+      "int24",
+      "uint128",
+      "address",
+      "address",
+    ],
+    [
+      "2", // type
+      getAddress(args.shift()), // token
+      getAddress(args.shift()), // borrower
+      ...defaultAbiCoder
+        .decode(
+          ["uint256", "uint256", "uint256", "uint256", "uint256"],
+          args.shift()
+        )
+        .map((x) => BigNumber.from(x).toString()),
+    ],
+  ];
+  leaves.push(solidityKeccak256(...details));
 }
 
 // Create tree

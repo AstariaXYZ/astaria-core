@@ -67,19 +67,20 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         pure
         returns (IAstariaRouter.LienDetails memory)
     {
-        if (obligationType == uint8(IAstariaRouter.ObligationType.STANDARD)) {
+        if (obligationType == uint8(IAstariaRouter.LienRequestType.STANDARD)) {
             IAstariaRouter.CollateralDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollateralDetails));
             return (cd.lien);
-        } else if (obligationType == uint8(IAstariaRouter.ObligationType.COLLECTION)) {
+        } else if (obligationType == uint8(IAstariaRouter.LienRequestType.COLLECTION)) {
             IAstariaRouter.CollectionDetails memory cd = abi.decode(obligationData, (IAstariaRouter.CollectionDetails));
+            return (cd.lien);
+        } else if (obligationType == uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY)) {
+            IAstariaRouter.UNIV3LiquidityDetails memory cd =
+                abi.decode(obligationData, (IAstariaRouter.UNIV3LiquidityDetails));
             return (cd.lien);
         } else {
             revert("unknown obligation type");
         }
     }
-
-    event LogNor(IAstariaRouter.NewLienRequest);
-    event LogLien(IAstariaRouter.LienDetails);
 
     /**
      * @dev Validates the terms for a requested loan.
@@ -114,7 +115,8 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             owner() != address(0), "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
         );
 
-        (bool valid, IAstariaRouter.LienDetails memory ld) = params.lienRequest.validateTerms(holder);
+        (bool valid, IAstariaRouter.LienDetails memory ld) =
+            params.lienRequest.validateTerms(holder, params.tokenContract, params.tokenId);
 
         require(
             valid, "Vault._validateTerms(): Verification of provided merkle branch failed for the vault and parameters"

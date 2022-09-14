@@ -114,6 +114,13 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param what The identifier for what is being filed.
      * @param data The encoded address data to be decoded and filed.
      */
+    function fileBatch(bytes32[] memory what, bytes[] calldata data) external requiresAuth {
+        require(what.length == data.length, "data length mismatch");
+        for (uint256 i = 0; i < what.length; i++) {
+            file(what[i], data[i]);
+        }
+    }
+
     function file(bytes32 what, bytes calldata data) public requiresAuth {
         if (what == "LIQUIDATION_FEE_PERCENT") {
             uint256 value = abi.decode(data, (uint256));
@@ -304,7 +311,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
     }
 
-    // person calling liquidate should get some incentive from the auction
     /**
      * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
      * @param collateralId The ID of the CollateralToken.

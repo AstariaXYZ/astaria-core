@@ -221,14 +221,14 @@ contract AstariaTest is TestHelpers {
         vm.expectEmit(true, false, false, false);
 
         // uint256 indexed tokenId, address sender, uint256 value, bool firstBid, bool extended
-//        emit AuctionBid(response.collateralId, address(this), response.reserve, true, true); // TODO check (non-indexed data check failing)
+        //        emit AuctionBid(response.collateralId, address(this), response.reserve, true, true); // TODO check (non-indexed data check failing)
 
         _createBid(bidderOne, response.collateralId, response.reserve);
         _createBid(bidderTwo, response.collateralId, response.reserve += ((response.reserve * 5) / 100));
         _createBid(bidderOne, response.collateralId, response.reserve += ((response.reserve * 30) / 100));
         _warpToAuctionEnd(response.collateralId);
 
-//        vm.expectEmit(false, false, false, false);
+        //        vm.expectEmit(false, false, false, false);
 
         uint256[] memory dummyRecipients;
         emit AuctionEnded(uint256(0), address(0), uint256(0), dummyRecipients);
@@ -332,7 +332,7 @@ contract AstariaTest is TestHelpers {
         );
         uint256 collateralId = tokenContract.computeId(tokenId);
 
-        _warpToMaturity(collateralId, uint256(0));
+        _warpForBuyout();
 
         vm.startPrank(appraiserTwo);
         vm.deal(appraiserTwo, 50 ether);

@@ -51,6 +51,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     mapping(uint256 => address) public payees;
 
     event NewLien(uint256 lienId, uint256, uint8, bytes32 rootHash);
+    event NewLien(Lien lien);
     event RemovedLiens(uint256 lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
 
@@ -107,8 +108,9 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
         uint256 lienId = liens[collateralId][params.position];
 
-        (bool valid, IAstariaRouter.LienDetails memory ld) =
-            params.incoming.lienRequest.validateTerms(COLLATERAL_TOKEN.ownerOf(collateralId));
+        (bool valid, IAstariaRouter.LienDetails memory ld) = params.incoming.lienRequest.validateTerms(
+            COLLATERAL_TOKEN.ownerOf(collateralId), params.incoming.tokenContract, params.incoming.tokenId
+        );
 
         if (!valid) {
             revert("invalid incoming terms");
@@ -245,6 +247,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         liens[collateralId].push(lienId);
 
         emit NewLien(lienId, collateralId, newPosition, params.obligationRoot);
+        emit NewLien(lienData[lienId]);
     }
 
     /**
@@ -292,6 +295,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
      */
     function getBuyout(uint256 collateralId, uint256 position) public returns (uint256, uint256) {
         Lien memory lien = getLien(collateralId, position);
+
         uint256 owed = _getOwed(lien);
         uint256 remainingInterest = _getRemainingInterest(lien);
 
@@ -412,6 +416,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
      * @param collateralId The ID of the underlying CollateralToken.
      * @return impliedRate The aggregate rate for all loans against the specified collateral.
      */
+
     function getImpliedRate(uint256 collateralId) public view returns (uint256 impliedRate) {
         uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
         uint256[] memory openLiens = getLiens(collateralId);

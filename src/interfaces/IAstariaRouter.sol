@@ -28,14 +28,27 @@ interface IAstariaRouter is IPausable {
         uint256 duration;
     }
 
-    enum ObligationType {
+    enum LienRequestType {
         STANDARD,
-        COLLECTION
+        COLLECTION,
+        UNIV3_LIQUIDITY
     }
 
     struct CollectionDetails {
         uint8 version;
         address token;
+        address borrower;
+        LienDetails lien;
+    }
+
+    struct UNIV3LiquidityDetails {
+        uint8 version;
+        address token;
+        address[] assets;
+        uint24 fee;
+        int24 tickLower;
+        int24 tickUpper;
+        uint128 minLiquidity;
         address borrower;
         LienDetails lien;
     }
