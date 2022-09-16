@@ -15,6 +15,7 @@ library ValidateTerms {
         returns (bool, IAstariaRouter.LienDetails memory ld)
     {
         bytes32 leaf;
+
         if (params.obligationType == uint8(IAstariaRouter.LienRequestType.STANDARD)) {
             IAstariaRouter.CollateralDetails memory cd =
                 abi.decode(params.obligationDetails, (IAstariaRouter.CollateralDetails));
@@ -29,19 +30,7 @@ library ValidateTerms {
                 require(cd.tokenId == collateralTokenId, "invalid token id");
             }
 
-            leaf = keccak256(
-                abi.encodePacked(
-                    cd.version,
-                    cd.token,
-                    cd.tokenId,
-                    cd.borrower,
-                    cd.lien.maxAmount,
-                    cd.lien.maxSeniorDebt,
-                    cd.lien.rate,
-                    cd.lien.maxInterestRate,
-                    cd.lien.duration
-                )
-            );
+            leaf = keccak256(_encodeCollateralDetails(cd));
 
             ld = cd.lien;
         } else if (params.obligationType == uint8(IAstariaRouter.LienRequestType.COLLECTION)) {
@@ -53,18 +42,7 @@ library ValidateTerms {
             }
             require(cd.token == collateralTokenContract, "invalid token contract");
 
-            leaf = keccak256(
-                abi.encodePacked(
-                    cd.version, // 1 is the version of the structure
-                    cd.token, // token address
-                    cd.borrower, // borrower address
-                    cd.lien.maxAmount, // max amount
-                    cd.lien.maxSeniorDebt, // max senior debt
-                    cd.lien.rate, // rate
-                    cd.lien.maxInterestRate, // max implied rate
-                    cd.lien.duration // duration
-                )
-            );
+            leaf = keccak256(_encodeCollectionDetails(cd));
             ld = cd.lien;
         } else if (params.obligationType == uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY)) {
             IAstariaRouter.UNIV3LiquidityDetails memory details =
@@ -92,6 +70,41 @@ library ValidateTerms {
             ld = details.lien;
         }
         return (MerkleProof.verify(params.obligationProof, params.obligationRoot, leaf), ld);
+    }
+
+    function _encodeCollateralDetails(IAstariaRouter.CollateralDetails memory details)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(
+            details.version,
+            details.token,
+            details.tokenId,
+            details.borrower,
+            details.lien.maxAmount,
+            details.lien.maxSeniorDebt,
+            details.lien.rate,
+            details.lien.maxInterestRate,
+            details.lien.duration
+        );
+    }
+
+    function _encodeCollectionDetails(IAstariaRouter.CollectionDetails memory details)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(
+            details.version, // 1 is the version of the structure
+            details.token, // token address
+            details.borrower, // borrower address
+            details.lien.maxAmount, // max amount
+            details.lien.maxSeniorDebt, // max senior debt
+            details.lien.rate, // rate
+            details.lien.maxInterestRate, // max implied rate
+            details.lien.duration // duration
+        );
     }
 
     function _encodeUNIV3LiquidityDetails(IAstariaRouter.UNIV3LiquidityDetails memory details)

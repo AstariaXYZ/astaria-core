@@ -231,9 +231,9 @@ contract TestHelpers is Test {
      * Ensure that we can create a new bond vault and we emit the correct events
      */
 
-    function _createBondVault(bytes32 vaultHash, bool vault) internal returns (address) {
+    function _createVault(bytes32 vaultHash, bool vault) internal returns (address) {
         if (vault) {
-            return _createBondVault(
+            return _createVault(
                 appraiserTwo, // appraiserTwo for vault
                 address(0), // appraiserTwo for vault
                 //                    block.timestamp + 30 days, //expiration
@@ -242,7 +242,7 @@ contract TestHelpers is Test {
                 appraiserTwoPK
             );
         } else {
-            return _createBondVault(
+            return _createVault(
                 appraiserOne, // appraiserOne for solo vault
                 address(0), // appraiserOne for solo vault
                 //                block.timestamp + 30 days, //expiration
@@ -253,7 +253,7 @@ contract TestHelpers is Test {
         }
     }
 
-    function _createBondVault(
+    function _createVault(
         address appraiser,
         address delegate,
         //        uint256 expiration,
@@ -578,7 +578,7 @@ contract TestHelpers is Test {
         );
         (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
 
-        vault = _createBondVault(obligationRoot, true);
+        vault = _createVault(obligationRoot, true);
 
         _lendToVault(vault, uint256(20 ether), appraiserTwo);
 
@@ -599,7 +599,7 @@ contract TestHelpers is Test {
         LoanProofGeneratorParams memory proofParams = _generateV3Terms(params);
         (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
 
-        vault = _createBondVault(obligationRoot, true);
+        vault = _createVault(obligationRoot, true);
 
         _lendToVault(vault, uint256(20 ether), appraiserTwo);
 

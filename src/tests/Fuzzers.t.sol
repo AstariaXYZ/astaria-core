@@ -135,7 +135,7 @@ contract Fuzzers is TestHelpers {
     //
     //        bytes32 vaultHash = _commitToLien(tokenContract, tokenId);
     //
-    //        // _createBondVault(vaultHash);
+    //        // _createVault(vaultHash);
     //        vm.deal(lender, 1000 ether);
     //        vm.startPrank(lender);
     //        WETH9.deposit{value: 50 ether}();

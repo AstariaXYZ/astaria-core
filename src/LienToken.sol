@@ -51,7 +51,8 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     mapping(uint256 => address) public payees;
 
     event NewLien(uint256 lienId, uint256, uint8, bytes32 rootHash);
-    event NewLien(Lien lien);
+    event NewLien(uint256 lienId, Lien lien);
+    event Payment(uint256 lienId, uint256 amount);
     event RemovedLiens(uint256 lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
 
@@ -246,8 +247,8 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
         liens[collateralId].push(lienId);
 
-        emit NewLien(lienId, collateralId, newPosition, params.obligationRoot);
-        emit NewLien(lienData[lienId]);
+        //        emit NewLien(lienId, collateralId, newPosition, params.obligationRoot);
+        emit NewLien(lienId, lienData[lienId]);
     }
 
     /**
@@ -501,7 +502,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         }
 
         TRANSFER_PROXY.tokenTransferFrom(lien.token, payer, getPayee(liens[collateralId][position]), paymentAmount);
-
+        emit Payment(liens[collateralId][position], paymentAmount);
         return paymentAmount;
     }
 
