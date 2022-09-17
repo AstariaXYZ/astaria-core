@@ -268,9 +268,9 @@ contract TestHelpers is Test {
         address newVault;
         vm.startPrank(appraiser);
         if (appraiser == appraiserOne) {
-            newVault = ASTARIA_ROUTER.newVault();
+            newVault = ASTARIA_ROUTER.newVault(address(0));
         } else {
-            newVault = ASTARIA_ROUTER.newPublicVault(uint256(14 days));
+            newVault = ASTARIA_ROUTER.newPublicVault(uint256(14 days), address(0));
         }
         vm.stopPrank();
         return newVault;
@@ -406,7 +406,15 @@ contract TestHelpers is Test {
 
         (vaultHash, terms, broker) = _commitWithoutDeposit(
             CommitWithoutDeposit(
-                appraiserOne, tokenContract, tokenId, maxAmount, maxDebt, interestRate, maxInterestRate, duration, amount
+                appraiserOne,
+                tokenContract,
+                tokenId,
+                maxAmount,
+                maxDebt,
+                interestRate,
+                maxInterestRate,
+                duration,
+                amount
             )
         );
 

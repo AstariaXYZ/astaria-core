@@ -211,16 +211,16 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @notice Deploys a new PrivateVault.
      * @return The address of the new PrivateVault.
      */
-    function newVault() external whenNotPaused returns (address) {
-        return _newVault(uint256(0));
+    function newVault(address delegate) external whenNotPaused returns (address) {
+        return _newVault(uint256(0), delegate);
     }
 
     /**
      * @notice Deploys a new PublicVault.
      * @param epochLength The length of each epoch for the new PublicVault.
      */
-    function newPublicVault(uint256 epochLength) external whenNotPaused returns (address) {
-        return _newVault(epochLength);
+    function newPublicVault(uint256 epochLength, address delegate) external whenNotPaused returns (address) {
+        return _newVault(epochLength, delegate);
     }
 
     //    function borrowAndBuy(BorrowAndBuyParams memory params) external {
@@ -393,7 +393,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param epochLength The length of each epoch for the new PublicVault.
      * @return The address for the new PublicVault.
      */
-    function _newVault(uint256 epochLength) internal returns (address) {
+    function _newVault(uint256 epochLength, address delegate) internal returns (address) {
         uint256 brokerType;
 
         address implementation;
@@ -409,6 +409,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             brokerType = 1;
         }
 
+        //immutable data
         address vaultAddr = ClonesWithImmutableArgs.clone(
             implementation,
             abi.encodePacked(
@@ -422,6 +423,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 brokerType
             )
         );
+
+        //mutable data
+        VaultImplementation(vaultAddr).init(VaultImplementation.InitParams(delegate));
 
         vaults[vaultAddr] = msg.sender;
 

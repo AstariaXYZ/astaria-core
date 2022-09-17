@@ -25,6 +25,8 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     using ValidateTerms for IAstariaRouter.NewLienRequest;
     using FixedPointMathLib for uint256;
 
+    address public delegate; //account connected to the daemon
+
     event NewObligation(bytes32 strategyRoot, address tokenContract, uint256 tokenId, uint256 amount);
 
     event Payment(uint256 collateralId, uint256 index, uint256 amount);
@@ -82,6 +84,27 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         }
     }
 
+    struct InitParams {
+        address delegate;
+    }
+
+    function init(InitParams calldata params) external virtual {
+        require(msg.sender == address(ROUTER()), "only router");
+
+        if (params.delegate != address(0)) {
+            delegate = params.delegate;
+        }
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner(), "only strategist");
+        _;
+    }
+
+    function setDelegate(address delegate_) public onlyOwner {
+        delegate = delegate_;
+    }
+
     /**
      * @dev Validates the terms for a requested loan.
      * Who is requesting the borrow, is it a smart contract? or is it a user?
@@ -112,8 +135,14 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         }
 
         require(
-            owner() != address(0), "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
+            owner() != address(0),
+            "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
         );
+
+        address recovered = ecrecover(
+            params.lienRequest.obligationRoot, params.lienRequest.v, params.lienRequest.r, params.lienRequest.s
+        );
+        require(recovered == owner() || recovered == delegate, "invalid signature");
 
         (bool valid, IAstariaRouter.LienDetails memory ld) =
             params.lienRequest.validateTerms(holder, params.tokenContract, params.tokenId);

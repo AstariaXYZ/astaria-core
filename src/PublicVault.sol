@@ -51,8 +51,8 @@ contract Vault is VaultImplementation, IVault {
 /*
  * @title PublicVault
  * @author androolloyd
- * @notice 
-*/
+ * @notice
+ */
 contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for ERC20;

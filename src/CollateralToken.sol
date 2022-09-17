@@ -135,7 +135,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         nft.transferFrom(address(this), address(receiver), tokenId);
         // invoke the call passed by the msg.sender
         require(
-            receiver.onFlashAction(IFlashAction.Underlying(addr, tokenId), data) == keccak256("FlashAction.onFlashAction"),
+            receiver.onFlashAction(IFlashAction.Underlying(addr, tokenId), data)
+                == keccak256("FlashAction.onFlashAction"),
             "flashAction: callback failed"
         );
 

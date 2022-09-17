@@ -69,6 +69,7 @@ library ValidateTerms {
             leaf = keccak256(_encodeUNIV3LiquidityDetails(details));
             ld = details.lien;
         }
+
         return (MerkleProof.verify(params.obligationProof, params.obligationRoot, leaf), ld);
     }
 

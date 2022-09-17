@@ -67,6 +67,8 @@ contract AstariaDeploy {
             address(vaultImpl),
             address(soloImpl)
         );
+        emit Deployed(address(ASTARIA_ROUTER));
+
         //
         AuctionHouse AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
@@ -75,6 +77,8 @@ contract AstariaDeploy {
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY)
         );
+        emit Deployed(address(AUCTION_HOUSE));
+
         COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
         COLLATERAL_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
         LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
