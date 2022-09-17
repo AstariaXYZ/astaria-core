@@ -105,6 +105,11 @@ interface IAstariaRouter is IPausable {
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
     }
 
+    function strategistNonce(address strategist)
+        external
+        view
+        returns (uint256);
+
     function newPublicVault(uint256, address) external returns (address);
 
     function newVault(address) external returns (address);
@@ -133,7 +138,9 @@ interface IAstariaRouter is IPausable {
 
     function MIN_INTEREST_BPS() external view returns (uint256);
 
-    function getStrategistFee() external view returns (uint256, uint256);
+    function getStrategistFee(uint256) external view returns (uint256);
+
+    function getProtocolFee(uint256) external view returns (uint256);
 
     function lendToVault(address vault, uint256 amount) external;
 

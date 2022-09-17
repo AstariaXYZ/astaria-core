@@ -839,7 +839,7 @@ contract TestHelpers is Test {
                         uint8(0),
                         appraiserOne,
                         address(0),
-                        ASTARIA_ROUTER.appraiserNonce(appraiserOne), //nonce
+                        ASTARIA_ROUTER.strategistNonce(appraiserOne), //nonce
                         vault
                     ),
                     uint8(IAstariaRouter.LienRequestType.STANDARD), //obligationType
@@ -887,7 +887,7 @@ contract TestHelpers is Test {
                         uint8(0),
                         appraiserOne,
                         address(0),
-                        ASTARIA_ROUTER.appraiserNonce(appraiserOne), //nonce
+                        ASTARIA_ROUTER.strategistNonce(appraiserOne), //nonce
                         vault
                     ),
                     uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY), //obligationType

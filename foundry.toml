@@ -2,6 +2,7 @@
 src = 'src'
 out = 'out'
 libs = ['lib']
+fs_permissions = [{ access = "read-write", path = "./"}]
 remappings = [
     'solmate/=lib/solmate/src/',
     'openzeppelin/=lib/openzeppelin-contracts/contracts/',

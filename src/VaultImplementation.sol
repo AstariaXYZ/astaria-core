@@ -137,6 +137,16 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         IAstariaRouter.Commitment memory params,
         address receiver
     ) internal {
+        require(
+            owner() != address(0),
+            "VaultImplementation._validateCommitment(): Attempting to transact on an unitialized vault"
+        );
+        require(
+            params.lienRequest.strategy.nonce ==
+                IAstariaRouter(ROUTER()).strategistNonce(owner()),
+            "invalid nonce"
+        );
+
         uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
         address operator = ERC721(COLLATERAL_TOKEN()).getApproved(collateralId);
@@ -155,11 +165,6 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             );
         }
 
-        require(
-            owner() != address(0),
-            "VaultImplementation._validateTerms(): Attempting to instantiate an unitialized vault"
-        );
-
         address recovered = ecrecover(
             params.lienRequest.nlrRoot,
             params.lienRequest.v,
@@ -177,12 +182,12 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
 
         require(
             valid,
-            "Vault._validateTerms(): Verification of provided merkle branch failed for the vault and parameters"
+            "Vault._validateCommitment(): Verification of provided merkle branch failed for the vault and parameters"
         );
 
         require(
             ld.maxAmount >= params.lienRequest.amount,
-            "Vault._validateTerms(): Attempting to borrow more than maxAmount available for this asset"
+            "Vault._validateCommitment(): Attempting to borrow more than maxAmount available for this asset"
         );
 
         uint256 seniorDebt = IAstariaRouter(ROUTER())
@@ -192,12 +197,12 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             );
         require(
             seniorDebt <= ld.maxSeniorDebt,
-            "Vault._validateTerms(): too much debt already for this loan"
+            "Vault._validateCommitment(): too much debt already for this loan"
         );
         require(
             params.lienRequest.amount <=
                 ERC20(underlying()).balanceOf(address(this)),
-            "Vault._validateTerms():  Attempting to borrow more than available in the specified vault"
+            "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
         );
 
         //check that we aren't paused from reserves being too low
@@ -318,11 +323,13 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         bool feeOn = feeTo != address(0);
         if (feeOn) {
             // uint256 rake = (amount * 997) / 1000;
-            uint256 rake = c.lienRequest.amount.mulDivDown(997, 1000); // TODO don't hardcode
-            ERC20(underlying()).safeTransfer(feeTo, rake);
+            uint256 fee = IAstariaRouter(ROUTER()).getProtocolFee(
+                c.lienRequest.amount
+            );
             unchecked {
-                c.lienRequest.amount -= rake;
+                c.lienRequest.amount -= fee;
             }
+            ERC20(underlying()).safeTransfer(feeTo, fee);
         }
         ERC20(underlying()).safeTransfer(receiver, c.lienRequest.amount);
         return newLienId;
