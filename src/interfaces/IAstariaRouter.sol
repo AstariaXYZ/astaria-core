@@ -29,7 +29,7 @@ interface IAstariaRouter is IPausable {
     }
 
     enum LienRequestType {
-        STANDARD,
+        UNIQUE,
         COLLECTION,
         UNIV3_LIQUIDITY
     }
@@ -64,8 +64,8 @@ interface IAstariaRouter is IPausable {
     struct StrategyDetails {
         uint8 version;
         address strategist;
-        address delegate;
-        uint256 nonce;
+        uint256 nonce; //nonce of the owner of the vault
+        uint256 deadline;
         address vault;
     }
 

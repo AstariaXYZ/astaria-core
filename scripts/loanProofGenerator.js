@@ -11,23 +11,25 @@ const strategyData = [
   // BigNumber.from(0).toString(), // type
   parseInt(BigNumber.from(0).toString()), // version
   getAddress(args.shift()), // strategist
-  getAddress(args.shift()), // delegate
-  parseInt(BigNumber.from(args.shift()).toString()), // public
   parseInt(BigNumber.from(0).toString()), // nonce
+  parseInt(BigNumber.from(args.shift()).toString()), // deadline
   getAddress(args.shift()), // vault
 ];
 
 const strategyDetails = [
-  ["uint8", "address", "address", "bool", "uint256", "address"],
+  ["uint8", "address", "uint256", "uint256", "address"],
   strategyData,
 ];
-leaves.push(solidityKeccak256(...strategyDetails));
+console.error(strategyDetails);
+// leaves.push();
+const strategyDigest = solidityKeccak256(...strategyDetails);
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
 let digest;
 if (detailsType === 0) {
   details = [
     [
+      "bytes32",
       "uint8",
       "address",
       "uint256",
@@ -39,6 +41,7 @@ if (detailsType === 0) {
       "uint256",
     ],
     [
+      strategyDigest,
       parseInt(BigNumber.from(1).toString()), // version
       getAddress(tokenAddress), // token
       tokenId, // tokenId
@@ -53,7 +56,7 @@ if (detailsType === 0) {
   ];
   digest = solidityKeccak256(...details);
   const clone = details.map((x) => x.map((y) => y));
-  clone[1][8] = "1000";
+  clone[1][9] = "1000";
 
   const digest2 = solidityKeccak256(...clone);
 
@@ -62,6 +65,7 @@ if (detailsType === 0) {
 } else if (detailsType === 1) {
   details = [
     [
+      "bytes32",
       "uint8",
       "address",
       "address",
@@ -72,6 +76,7 @@ if (detailsType === 0) {
       "uint256",
     ],
     [
+      strategyDigest,
       "2", // type
       getAddress(args.shift()), // token
       getAddress(args.shift()), // borrower
@@ -99,6 +104,7 @@ if (detailsType === 0) {
 
   details = [
     [
+      "bytes32",
       "uint8",
       "address",
       "address[]",
@@ -114,6 +120,7 @@ if (detailsType === 0) {
       "uint256",
     ],
     [
+      strategyDigest,
       "2", // type
       getAddress(args.shift()), // token
       args.shift(), // assets

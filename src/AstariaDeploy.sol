@@ -33,7 +33,17 @@ contract AstariaDeploy {
 
     event Deployed(address);
 
-    constructor() {
+    WEth WETH9;
+    MultiRolesAuthority MRA;
+    TransferProxy TRANSFER_PROXY;
+    LienToken LIEN_TOKEN;
+    CollateralToken COLLATERAL_TOKEN;
+    Vault SOLO_IMPLEMENTATION;
+    PublicVault VAULT_IMPLEMENTATION;
+    AstariaRouter ASTARIA_ROUTER;
+    AuctionHouse AUCTION_HOUSE;
+
+    function deploy() external {
         WEth WETH9 = new WEth("Wrapped Ether Test", "WETH", uint8(18));
         emit Deployed(address(WETH9));
         MultiRolesAuthority MRA = new MultiRolesAuthority(
@@ -79,26 +89,133 @@ contract AstariaDeploy {
         );
         emit Deployed(address(AUCTION_HOUSE));
 
-        COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
-        COLLATERAL_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
-        LIEN_TOKEN.file(bytes32("setAuctionHouse"), abi.encode(address(AUCTION_HOUSE)));
-        MRA.setRoleCapability(uint8(UserRoles.COLLATERAL_TOKEN), AuctionHouse.createAuction.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.COLLATERAL_TOKEN), AuctionHouse.endAuction.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.COLLATERAL_TOKEN), AuctionHouse.cancelAuction.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), CollateralToken.auctionVault.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), TRANSFER_PROXY.tokenTransferFrom.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.ASTARIA_ROUTER), TRANSFER_PROXY.tokenTransferFrom.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), TRANSFER_PROXY.tokenTransferFrom.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.AUCTION_HOUSE), LienToken.stopLiens.selector, true);
-        MRA.setRoleCapability(uint8(UserRoles.LIEN_TOKEN), TRANSFER_PROXY.tokenTransferFrom.selector, true);
-        MRA.setUserRole(address(ASTARIA_ROUTER), uint8(UserRoles.ASTARIA_ROUTER), true);
-        MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.COLLATERAL_TOKEN), true);
-        MRA.setUserRole(address(AUCTION_HOUSE), uint8(UserRoles.AUCTION_HOUSE), true);
-        MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
+        _setRolesCapabilities();
+        _setOwner();
+    }
 
+    function _setRolesCapabilities() internal {
+        COLLATERAL_TOKEN.file(
+            bytes32("setAstariaRouter"),
+            abi.encode(address(ASTARIA_ROUTER))
+        );
+        COLLATERAL_TOKEN.file(
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
+        );
+        LIEN_TOKEN.file(
+            bytes32("setAuctionHouse"),
+            abi.encode(address(AUCTION_HOUSE))
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.COLLATERAL_TOKEN),
+            AuctionHouse.createAuction.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.COLLATERAL_TOKEN),
+            AuctionHouse.endAuction.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.COLLATERAL_TOKEN),
+            AuctionHouse.cancelAuction.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.ASTARIA_ROUTER),
+            CollateralToken.auctionVault.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.ASTARIA_ROUTER),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.ASTARIA_ROUTER),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.AUCTION_HOUSE),
+            LienToken.stopLiens.selector,
+            true
+        );
+        MRA.setRoleCapability(
+            uint8(UserRoles.LIEN_TOKEN),
+            TRANSFER_PROXY.tokenTransferFrom.selector,
+            true
+        );
+        MRA.setUserRole(
+            address(ASTARIA_ROUTER),
+            uint8(UserRoles.ASTARIA_ROUTER),
+            true
+        );
+        MRA.setUserRole(
+            address(COLLATERAL_TOKEN),
+            uint8(UserRoles.COLLATERAL_TOKEN),
+            true
+        );
+        MRA.setUserRole(
+            address(AUCTION_HOUSE),
+            uint8(UserRoles.AUCTION_HOUSE),
+            true
+        );
+        MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
+    }
+
+    function _setOwner() internal {
         MRA.setOwner(address(msg.sender));
         ASTARIA_ROUTER.setOwner(address(msg.sender));
         LIEN_TOKEN.setOwner(address(msg.sender));
         COLLATERAL_TOKEN.setOwner(address(msg.sender));
     }
+
+    //    function subgraph() {
+    //        //we need some nfts
+    //        ERC721 dummyNFT = new ERC721("Dummy NFT", "DUMMY");
+    //        dummyNFT.mint(address(this), 1);
+    //        //we need some collateral tokens
+    //        dummyNFT.safeTransferFrom(address(this), address(COLLATERAL_TOKEN), 1);
+    //
+    //        //we need to create an offer that is valid
+    //
+    //        //struct StrategyDetails {
+    //        //        uint8 version;
+    //        //        address strategist;
+    //        //        address delegate;
+    //        //        uint256 nonce;
+    //        //        address vault;
+    //        //    }
+    //        address delegate = address(msg.sender);
+    //        AstariaRouter.NewLienRequest memory nlr = AstariaRouter.NewLienRequest(
+    //            AstariaRouter.StrategyDetails(
+    //                1,
+    //                address(strategist),
+    //                address(delegate),
+    //                1,
+    //                address(VAULT_IMPLEMENTATION)
+    //            ),
+    //            0,
+    //            abi.encode(address(dummyNFT), 1),
+    //            bytes32(0),
+    //            new bytes32[](0),
+    //            1,
+    //            0,
+    //            bytes32(0),
+    //            bytes32(0)
+    //        );
+    //        //we need some lien tokens
+    //
+    //        //we need some auctions
+    //        //we need some vaults
+    //        //we need some transfers
+    //        //we need some users
+    //        //we need some transactions
+    //    }
 }

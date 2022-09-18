@@ -11,9 +11,12 @@ library ValidateTerms {
         address collateralTokenContract,
         uint256 collateralTokenId
     ) internal returns (bool, IAstariaRouter.LienDetails memory ld) {
+        bytes32 strategyLeaf;
         bytes32 leaf;
 
-        if (params.nlrType == uint8(IAstariaRouter.LienRequestType.STANDARD)) {
+        strategyLeaf = keccak256(_encodeStrategyDetails(params.strategy));
+
+        if (params.nlrType == uint8(IAstariaRouter.LienRequestType.UNIQUE)) {
             IAstariaRouter.CollateralDetails memory cd = abi.decode(
                 params.nlrDetails,
                 (IAstariaRouter.CollateralDetails)
@@ -35,7 +38,7 @@ library ValidateTerms {
                 require(cd.tokenId == collateralTokenId, "invalid token id");
             }
 
-            leaf = keccak256(_encodeCollateralDetails(cd));
+            leaf = keccak256(_encodeCollateralDetails(strategyLeaf, cd));
 
             ld = cd.lien;
         } else if (
@@ -57,7 +60,7 @@ library ValidateTerms {
                 "invalid token contract"
             );
 
-            leaf = keccak256(_encodeCollectionDetails(cd));
+            leaf = keccak256(_encodeCollectionDetails(strategyLeaf, cd));
             ld = cd.lien;
         } else if (
             params.nlrType ==
@@ -116,18 +119,35 @@ library ValidateTerms {
                 "insufficient liquidity"
             );
 
-            leaf = keccak256(_encodeUNIV3LiquidityDetails(details));
+            leaf = keccak256(
+                _encodeUNIV3LiquidityDetails(strategyLeaf, details)
+            );
             ld = details.lien;
         }
 
         return (MerkleProof.verify(params.nlrProof, params.nlrRoot, leaf), ld);
     }
 
+    function _encodeStrategyDetails(
+        IAstariaRouter.StrategyDetails memory params
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encodePacked(
+                params.version,
+                params.strategist,
+                params.nonce,
+                params.deadline,
+                params.vault
+            );
+    }
+
     function _encodeCollateralDetails(
+        bytes32 strategyLeaf,
         IAstariaRouter.CollateralDetails memory details
     ) internal pure returns (bytes memory) {
         return
             abi.encodePacked(
+                strategyLeaf,
                 details.version,
                 details.token,
                 details.tokenId,
@@ -141,10 +161,12 @@ library ValidateTerms {
     }
 
     function _encodeCollectionDetails(
+        bytes32 strategyLeaf,
         IAstariaRouter.CollectionDetails memory details
     ) internal pure returns (bytes memory) {
         return
             abi.encodePacked(
+                strategyLeaf,
                 details.version, // 1 is the version of the structure
                 details.token, // token address
                 details.borrower, // borrower address
@@ -157,10 +179,12 @@ library ValidateTerms {
     }
 
     function _encodeUNIV3LiquidityDetails(
+        bytes32 strategyLeaf,
         IAstariaRouter.UNIV3LiquidityDetails memory details
     ) internal pure returns (bytes memory) {
         return
             abi.encodePacked(
+                strategyLeaf,
                 details.version,
                 details.token,
                 details.fee,
@@ -184,7 +208,7 @@ library ValidateTerms {
         pure
         returns (IAstariaRouter.LienDetails memory lienDetails)
     {
-        if (params.nlrType == uint8(IAstariaRouter.LienRequestType.STANDARD)) {
+        if (params.nlrType == uint8(IAstariaRouter.LienRequestType.UNIQUE)) {
             lienDetails = (getCollateralDetails(params.nlrDetails).lien);
         } else if (
             params.nlrType == uint8(IAstariaRouter.LienRequestType.COLLECTION)

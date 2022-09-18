@@ -73,7 +73,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         uint8 obligationType,
         bytes memory obligationData
     ) internal pure returns (IAstariaRouter.LienDetails memory) {
-        if (obligationType == uint8(IAstariaRouter.LienRequestType.STANDARD)) {
+        if (obligationType == uint8(IAstariaRouter.LienRequestType.UNIQUE)) {
             IAstariaRouter.CollateralDetails memory cd = abi.decode(
                 obligationData,
                 (IAstariaRouter.CollateralDetails)
@@ -105,6 +105,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         address delegate;
     }
 
+    //TODO: set initializer
     function init(InitParams calldata params) external virtual {
         require(msg.sender == address(ROUTER()), "only router");
 
@@ -138,13 +139,25 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         address receiver
     ) internal {
         require(
-            owner() != address(0),
-            "VaultImplementation._validateCommitment(): Attempting to transact on an unitialized vault"
-        );
-        require(
             params.lienRequest.strategy.nonce ==
                 IAstariaRouter(ROUTER()).strategistNonce(owner()),
             "invalid nonce"
+        );
+
+        require(
+            params.lienRequest.strategy.deadline >= block.timestamp,
+            "deadline passed"
+        );
+
+        require(
+            params.lienRequest.strategy.nonce ==
+                IAstariaRouter(ROUTER()).strategistNonce(address(owner())),
+            "invalid nonce"
+        );
+
+        require(
+            params.lienRequest.strategy.vault == address(this),
+            "invalid vault"
         );
 
         uint256 collateralId = params.tokenContract.computeId(params.tokenId);
@@ -172,8 +185,12 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             params.lienRequest.s
         );
         require(
+            recovered == params.lienRequest.strategy.strategist,
+            "strategist must match signature"
+        );
+        require(
             recovered == owner() || recovered == delegate,
-            "invalid signature"
+            "invalid strategist"
         );
 
         (bool valid, IAstariaRouter.LienDetails memory ld) = params
