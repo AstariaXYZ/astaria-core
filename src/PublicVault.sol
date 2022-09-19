@@ -124,7 +124,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         address receiver,
         address owner
     ) public virtual override returns (uint256 assets) {
-        assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
+        assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
 
     function redeemFutureEpoch(
@@ -142,7 +142,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         }
 
         // check to ensure that the requested epoch is not the current epoch or in the past
-        require(epoch >= currentEpoch + 1, "Exit epoch too low");
+        require(epoch >= currentEpoch, "Exit epoch too low");
 
         // check for rounding error since we round down in previewRedeem.
         require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
