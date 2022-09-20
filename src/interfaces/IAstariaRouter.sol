@@ -7,19 +7,6 @@ import {ITransferProxy} from "./ITransferProxy.sol";
 import {IPausable} from "../utils/Pausable.sol";
 
 interface IAstariaRouter is IPausable {
-    struct Terms {
-        address broker;
-        address token;
-        bytes32[] proof;
-        uint256 collateralId;
-        uint256 maxAmount;
-        uint256 maxDebt;
-        uint256 rate;
-        uint256 maxRate;
-        uint256 duration;
-        uint256 schedule;
-    }
-
     struct LienDetails {
         uint256 maxAmount;
         uint256 maxSeniorDebt;
@@ -34,32 +21,32 @@ interface IAstariaRouter is IPausable {
         UNIV3_LIQUIDITY
     }
 
-    struct CollectionDetails {
-        uint8 version;
-        address token;
-        address borrower;
-        LienDetails lien;
-    }
+    //    struct CollectionDetails {
+    //        uint8 version;
+    //        address token;
+    //        address borrower;
+    //        LienDetails lien;
+    //    }
 
-    struct UNIV3LiquidityDetails {
-        uint8 version;
-        address token;
-        address[] assets;
-        uint24 fee;
-        int24 tickLower;
-        int24 tickUpper;
-        uint128 minLiquidity;
-        address borrower;
-        LienDetails lien;
-    }
+    //    struct UNIV3LiquidityDetails {
+    //        uint8 version;
+    //        address token;
+    //        address[] assets;
+    //        uint24 fee;
+    //        int24 tickLower;
+    //        int24 tickUpper;
+    //        uint128 minLiquidity;
+    //        address borrower;
+    //        LienDetails lien;
+    //    }
 
-    struct CollateralDetails {
-        uint8 version;
-        address token;
-        uint256 tokenId;
-        address borrower;
-        LienDetails lien;
-    }
+    //    struct CollateralDetails {
+    //        uint8 version;
+    //        address token;
+    //        uint256 tokenId;
+    //        address borrower;
+    //        LienDetails lien;
+    //    }
 
     struct StrategyDetails {
         uint8 version;
@@ -69,12 +56,17 @@ interface IAstariaRouter is IPausable {
         address vault;
     }
 
+    struct MultiMerkleData {
+        bytes32 root;
+        bytes32[] proofs;
+        bool[] flags;
+    }
+
     struct NewLienRequest {
         StrategyDetails strategy;
         uint8 nlrType;
         bytes nlrDetails;
-        bytes32 nlrRoot;
-        bytes32[] nlrProof;
+        MultiMerkleData merkle;
         uint256 amount;
         uint8 v;
         bytes32 r;
@@ -110,6 +102,11 @@ interface IAstariaRouter is IPausable {
         view
         returns (uint256);
 
+    function validateCommitment(Commitment calldata, address)
+        external
+        view
+        returns (bool, IAstariaRouter.LienDetails memory);
+
     function newPublicVault(uint256, address) external returns (address);
 
     function newVault(address) external returns (address);
@@ -120,7 +117,7 @@ interface IAstariaRouter is IPausable {
         external
         returns (uint256 totalBorrowed);
 
-    function requestLienPosition(ILienBase.LienActionEncumber calldata params)
+    function requestLienPosition(IAstariaRouter.Commitment calldata, address)
         external
         returns (uint256);
 

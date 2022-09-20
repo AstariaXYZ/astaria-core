@@ -16,12 +16,17 @@ import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
+import {UniqueValidator, IUniqueValidator} from "../strategies/UniqueValidator.sol";
+import {ICollectionValidator, CollectionValidator} from "../strategies/CollectionValidator.sol";
+import {UNI_V3Validator, IUNI_V3Validator} from "../strategies/UNI_V3Validator.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {Vault, PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
-
+import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
+import "../strategies/CollectionValidator.sol";
+import "../strategies/CollectionValidator.sol";
 string constant weth9Artifact = "src/tests/WETH9.json";
 
 contract Dummy721 is MockERC721 {
@@ -228,6 +233,26 @@ contract TestHelpers is Test {
         V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(
             address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88)
         );
+
+        //strategy unique
+        UniqueValidator UNIQUE_STRATEGY_VALIDATOR = new UniqueValidator();
+        //strategy collection
+        CollectionValidator COLLECTION_STRATEGY_VALIDATOR = new CollectionValidator();
+        //strategy univ3
+        UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
+
+        ASTARIA_ROUTER.file(
+            "setStrategyValidator",
+            abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
+        );
+        ASTARIA_ROUTER.file(
+            "setStrategyValidator",
+            abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
+        );
+        ASTARIA_ROUTER.file(
+            "setStrategyValidator",
+            abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
+        );
         COLLATERAL_TOKEN.file(
             bytes32("setSecurityHook"),
             abi.encode(
@@ -398,10 +423,9 @@ contract TestHelpers is Test {
                     abi.encodePacked(params.tokenContract, params.tokenId)
                 )
             );
-
-            IAstariaRouter.CollateralDetails memory terms = abi.decode(
+            ICollectionValidator.Details memory terms = abi.decode(
                 params.data,
-                (IAstariaRouter.CollateralDetails)
+                (ICollectionValidator.Details)
             );
             inputs[0] = "node";
             inputs[1] = "scripts/loanProofGenerator.js";
@@ -425,9 +449,9 @@ contract TestHelpers is Test {
         ) {
             inputs = new string[](10);
 
-            IAstariaRouter.CollateralDetails memory terms = abi.decode(
+            IUniqueValidator.Details memory terms = abi.decode(
                 params.data,
-                (IAstariaRouter.CollateralDetails)
+                (IUniqueValidator.Details)
             );
             inputs[0] = "node";
             inputs[1] = "scripts/loanProofGenerator.js";
@@ -458,9 +482,9 @@ contract TestHelpers is Test {
             //string[] memory inputs = new string[](10);
             //address, tokenId, maxAmount, interest, duration, lienPosition, schedule
 
-            IAstariaRouter.UNIV3LiquidityDetails memory terms = abi.decode(
+            IUNI_V3Validator.Details memory terms = abi.decode(
                 params.data,
-                (IAstariaRouter.UNIV3LiquidityDetails)
+                (IUNI_V3Validator.Details)
             );
             inputs[0] = "node";
             inputs[1] = "scripts/loanProofGenerator.js";
@@ -489,12 +513,19 @@ contract TestHelpers is Test {
 
     function _generateLoanProof(LoanProofGeneratorParams memory params)
         internal
-        returns (bytes32 rootHash, bytes32[] memory proof)
+        returns (
+            bytes32 rootHash,
+            bytes32[] memory proof,
+            bool[] memory proofFlags
+        )
     {
         string[] memory inputs = _generateInputs(params);
 
         bytes memory res = vm.ffi(inputs);
-        (rootHash, proof) = abi.decode(res, (bytes32, bytes32[]));
+        (rootHash, proof, proofFlags) = abi.decode(
+            res,
+            (bytes32, bytes32[], bool[])
+        );
     }
 
     function _generateDefaultCollateralToken()
@@ -689,7 +720,7 @@ contract TestHelpers is Test {
                 params.tokenId,
                 uint8(IAstariaRouter.LienRequestType.UNIQUE),
                 abi.encode(
-                    IAstariaRouter.CollateralDetails(
+                    IUniqueValidator.Details(
                         uint8(1),
                         params.tokenContract,
                         params.tokenId,
@@ -720,7 +751,7 @@ contract TestHelpers is Test {
                 uint256(0),
                 uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY),
                 abi.encode(
-                    IAstariaRouter.UNIV3LiquidityDetails(
+                    IUNI_V3Validator.Details(
                         uint8(1),
                         params.tokenContract,
                         params.assets,
@@ -776,13 +807,18 @@ contract TestHelpers is Test {
         uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
         bytes32[] memory obligationProof;
+        bool[] memory obligationProofFlags;
         LoanProofGeneratorParams
             memory proofParams = _generateLoanGeneratorParams(params);
         vault = _createVault(true, params.strategist);
 
         proofParams.vault = vault;
 
-        (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
+        (
+            obligationRoot,
+            obligationProof,
+            obligationProofFlags
+        ) = _generateLoanProof(proofParams);
 
         _lendToVault(vault, uint256(20 ether), params.strategist);
 
@@ -798,6 +834,7 @@ contract TestHelpers is Test {
             vault,
             obligationRoot,
             obligationProof,
+            obligationProofFlags,
             v,
             r,
             s
@@ -814,10 +851,15 @@ contract TestHelpers is Test {
         )
     {
         bytes32[] memory obligationProof;
+        bool[] memory obligationProofFlags;
         LoanProofGeneratorParams memory proofParams = _generateV3Terms(params);
         vault = _createVault(true, params.strategist);
         proofParams.vault = vault;
-        (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
+        (
+            obligationRoot,
+            obligationProof,
+            obligationProofFlags
+        ) = _generateLoanProof(proofParams);
 
         _lendToVault(vault, uint256(20 ether), appraiserTwo);
 
@@ -830,6 +872,7 @@ contract TestHelpers is Test {
             vault,
             obligationRoot,
             obligationProof,
+            obligationProofFlags,
             v,
             r,
             s
@@ -843,7 +886,8 @@ contract TestHelpers is Test {
         CommitWithoutDeposit memory params,
         address vault,
         bytes32 obligationRoot,
-        bytes32[] memory obligationProof,
+        bytes32[] memory obligationProofs,
+        bool[] memory obligationProofFlags,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -863,7 +907,7 @@ contract TestHelpers is Test {
                     ),
                     uint8(IAstariaRouter.LienRequestType.UNIQUE), //obligationType
                     abi.encode(
-                        IAstariaRouter.CollateralDetails(
+                        IUniqueValidator.Details(
                             uint8(1), //version
                             params.tokenContract, // tokenContract
                             params.tokenId, //tokenId
@@ -877,8 +921,11 @@ contract TestHelpers is Test {
                             })
                         )
                     ), //obligationDetails
-                    obligationRoot, //obligationRoot
-                    obligationProof, //obligationProof
+                    IAstariaRouter.MultiMerkleData({
+                        root: obligationRoot,
+                        proofs: obligationProofs,
+                        flags: obligationProofFlags
+                    }),
                     params.amount, //amount
                     v, //v
                     r, //r
@@ -891,7 +938,8 @@ contract TestHelpers is Test {
         CommitV3WithoutDeposit memory params,
         address vault,
         bytes32 obligationRoot,
-        bytes32[] memory obligationProof,
+        bytes32[] memory obligationProofs,
+        bool[] memory obligationProofFlags,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -922,7 +970,7 @@ contract TestHelpers is Test {
                     //        LienDetails lien;
                     //    }
                     abi.encode(
-                        IAstariaRouter.UNIV3LiquidityDetails(
+                        IUNI_V3Validator.Details(
                             uint8(1), //version
                             params.tokenContract, // tokenContract
                             params.assets, //assets
@@ -934,8 +982,11 @@ contract TestHelpers is Test {
                             params.details //lienDetails
                         )
                     ), //obligationDetails
-                    obligationRoot, //obligationRoot
-                    obligationProof, //obligationProof
+                    IAstariaRouter.MultiMerkleData({
+                        root: obligationRoot,
+                        proofs: obligationProofs,
+                        flags: obligationProofFlags
+                    }),
                     params.amount, //amount
                     v, //v
                     r, //r

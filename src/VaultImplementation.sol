@@ -10,7 +10,6 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IVault, VaultBase} from "gpl/ERC4626-Cloned.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
-import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 
@@ -22,7 +21,6 @@ import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
-    using ValidateTerms for IAstariaRouter.NewLienRequest;
     using FixedPointMathLib for uint256;
 
     address public delegate; //account connected to the daemon
@@ -63,44 +61,6 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
      */
     function _handleStrategistReward(uint256) internal virtual {}
 
-    /**
-     * @dev Decodes loan obligation data into structs.
-     * @param obligationType The type of the obligation (STANDARD or COLLECTION)
-     * @param obligationData The loan obligation data to decode.
-     * @return The decoded Lien data.
-     */
-    function _decodeObligationData(
-        uint8 obligationType,
-        bytes memory obligationData
-    ) internal pure returns (IAstariaRouter.LienDetails memory) {
-        if (obligationType == uint8(IAstariaRouter.LienRequestType.UNIQUE)) {
-            IAstariaRouter.CollateralDetails memory cd = abi.decode(
-                obligationData,
-                (IAstariaRouter.CollateralDetails)
-            );
-            return (cd.lien);
-        } else if (
-            obligationType == uint8(IAstariaRouter.LienRequestType.COLLECTION)
-        ) {
-            IAstariaRouter.CollectionDetails memory cd = abi.decode(
-                obligationData,
-                (IAstariaRouter.CollectionDetails)
-            );
-            return (cd.lien);
-        } else if (
-            obligationType ==
-            uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY)
-        ) {
-            IAstariaRouter.UNIV3LiquidityDetails memory cd = abi.decode(
-                obligationData,
-                (IAstariaRouter.UNIV3LiquidityDetails)
-            );
-            return (cd.lien);
-        } else {
-            revert("unknown obligation type");
-        }
-    }
-
     struct InitParams {
         address delegate;
     }
@@ -139,23 +99,6 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         address receiver
     ) internal {
         require(
-            params.lienRequest.strategy.nonce ==
-                IAstariaRouter(ROUTER()).strategistNonce(owner()),
-            "invalid nonce"
-        );
-
-        require(
-            params.lienRequest.strategy.deadline >= block.timestamp,
-            "deadline passed"
-        );
-
-        require(
-            params.lienRequest.strategy.nonce ==
-                IAstariaRouter(ROUTER()).strategistNonce(address(owner())),
-            "invalid nonce"
-        );
-
-        require(
             params.lienRequest.strategy.vault == address(this),
             "invalid vault"
         );
@@ -179,7 +122,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         }
 
         address recovered = ecrecover(
-            params.lienRequest.nlrRoot,
+            params.lienRequest.merkle.root,
             params.lienRequest.v,
             params.lienRequest.r,
             params.lienRequest.s
@@ -193,9 +136,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             "invalid strategist"
         );
 
-        (bool valid, IAstariaRouter.LienDetails memory ld) = params
-            .lienRequest
-            .validateTerms(holder, params.tokenContract, params.tokenId);
+        (bool valid, IAstariaRouter.LienDetails memory ld) = IAstariaRouter(
+            ROUTER()
+        ).validateCommitment(params, holder);
 
         require(
             valid,
@@ -246,7 +189,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         _handleStrategistReward(params.lienRequest.amount);
         _afterCommitToLien(lienId, params.lienRequest.amount);
         emit NewObligation(
-            params.lienRequest.nlrRoot,
+            params.lienRequest.merkle.root,
             params.tokenContract,
             params.tokenId,
             params.lienRequest.amount
@@ -321,20 +264,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         IAstariaRouter.Commitment memory c,
         address receiver
     ) internal returns (uint256) {
-        IAstariaRouter.LienDetails memory terms = c
-            .lienRequest
-            .getLienDetails();
-
         uint256 newLienId = IAstariaRouter(ROUTER()).requestLienPosition(
-            ILienBase.LienActionEncumber(
-                c.tokenContract,
-                c.tokenId,
-                terms,
-                c.lienRequest.nlrRoot,
-                c.lienRequest.amount,
-                c.lienRequest.strategy.vault,
-                true
-            )
+            c,
+            receiver
         );
         address feeTo = IAstariaRouter(ROUTER()).feeTo();
         bool feeOn = feeTo != address(0);

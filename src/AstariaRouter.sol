@@ -1,4 +1,6 @@
 pragma solidity ^0.8.16;
+import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
+import {IStrategyValidator} from "./interfaces/IStrategyValidator.sol";
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -17,7 +19,6 @@ import {IVault, VaultImplementation} from "./VaultImplementation.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Pausable} from "./utils/Pausable.sol";
-import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {PublicVault} from "./PublicVault.sol";
 
 interface IInvoker {
@@ -37,7 +38,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
     using FixedPointMathLib for uint256;
-    using ValidateTerms for NewLienRequest;
 
     ERC20 public immutable WETH;
     ICollateralToken public immutable COLLATERAL_TOKEN;
@@ -63,6 +63,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     //public vault contract => strategist
     mapping(address => address) public vaults;
     mapping(address => uint256) public strategistNonce;
+    mapping(uint8 => address) public strategyValidators;
 
     // See https://eips.ethereum.org/EIPS/eip-191
 
@@ -147,9 +148,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         } else if (what == "MIN_DURATION_INCREASE") {
             uint256 value = abi.decode(data, (uint256));
             MIN_DURATION_INCREASE = uint64(value);
-        } else if (what == "feeTo") {
-            address addr = abi.decode(data, (address));
-            feeTo = addr;
         } else if (what == "WITHDRAW_IMPLEMENTATION") {
             address addr = abi.decode(data, (address));
             WITHDRAW_IMPLEMENTATION = addr;
@@ -166,23 +164,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             MIN_EPOCH_LENGTH = abi.decode(data, (uint256));
         } else if (what == "MAX_EPOCH_LENGTH") {
             MAX_EPOCH_LENGTH = abi.decode(data, (uint256));
+        } else if (what == "feeTo") {
+            address addr = abi.decode(data, (address));
+            feeTo = addr;
+        } else if (what == "setStrategyValidator") {
+            (uint8 TYPE, address addr) = abi.decode(data, (uint8, address));
+            strategyValidators[TYPE] = addr;
         } else {
             revert("unsupported/file");
-        }
-    }
-
-    /**
-     * @notice Files multiple parameters and/or addresses at once.
-     * @param what The identifiers for what is being filed.
-     * @param data The encoded address data to be decoded and filed.
-     */
-    function file(bytes32[] memory what, bytes[] calldata data)
-        external
-        requiresAuth
-    {
-        require(what.length == data.length, "data length mismatch");
-        for (uint256 i = 0; i < what.length; i++) {
-            file(what[i], data[i]);
         }
     }
 
@@ -196,6 +185,47 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
 
     //PUBLIC
+
+    function validateCommitment(
+        IAstariaRouter.Commitment memory commitment,
+        address borrower
+    ) public view returns (bool valid, IAstariaRouter.LienDetails memory ld) {
+        require(
+            strategyValidators[commitment.lienRequest.nlrType] != address(0),
+            "invalid strategy type"
+        );
+
+        require(
+            commitment.lienRequest.strategy.deadline >= block.timestamp,
+            "deadline passed"
+        );
+
+        require(
+            commitment.lienRequest.strategy.nonce ==
+                strategistNonce[commitment.lienRequest.strategy.strategist],
+            "invalid nonce"
+        );
+
+        bytes32[] memory leaves;
+        (leaves, ld) = IStrategyValidator(
+            strategyValidators[commitment.lienRequest.nlrType]
+        ).validateAndParse(
+                commitment.lienRequest,
+                borrower,
+                commitment.tokenContract,
+                commitment.tokenId
+            );
+
+        return (
+            MerkleProof.multiProofVerify(
+                commitment.lienRequest.merkle.proofs,
+                commitment.lienRequest.merkle.flags,
+                commitment.lienRequest.merkle.root,
+                leaves
+            ),
+            ld
+        );
+    }
 
     //todo: check all incoming obligations for validity
     /**
@@ -308,13 +338,26 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param params The valid proof and lien details for the new loan.
      * @return The ID of the created lien.
      */
-    function requestLienPosition(ILienBase.LienActionEncumber calldata params)
-        external
-        whenNotPaused
-        onlyVaults
-        returns (uint256)
-    {
-        return LIEN_TOKEN.createLien(params);
+    function requestLienPosition(
+        IAstariaRouter.Commitment calldata params,
+        address borrower
+    ) external whenNotPaused onlyVaults returns (uint256) {
+        bool valid;
+        IAstariaRouter.LienDetails memory terms;
+        (valid, terms) = validateCommitment(params, borrower);
+
+        return
+            LIEN_TOKEN.createLien(
+                ILienBase.LienActionEncumber(
+                    params.tokenContract,
+                    params.tokenId,
+                    terms,
+                    params.lienRequest.merkle.root,
+                    params.lienRequest.amount,
+                    params.lienRequest.strategy.vault,
+                    true
+                )
+            );
     }
 
     /**
@@ -353,9 +396,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             collateralId,
             position
         );
-
-        // uint256 interestAccrued = LIEN_TOKEN.getInterest(collateralId, position);
-        // uint256 maxInterest = (lien.amount * lien.schedule) / 100
 
         return (lien.start + lien.duration <= block.timestamp &&
             lien.amount > 0);

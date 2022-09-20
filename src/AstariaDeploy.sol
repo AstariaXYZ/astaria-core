@@ -44,43 +44,40 @@ contract AstariaDeploy {
     AuctionHouse AUCTION_HOUSE;
 
     function deploy() external {
-        WEth WETH9 = new WEth("Wrapped Ether Test", "WETH", uint8(18));
+        WETH9 = new WEth("Wrapped Ether Test", "WETH", uint8(18));
         emit Deployed(address(WETH9));
-        MultiRolesAuthority MRA = new MultiRolesAuthority(
-            address(this),
-            Authority(address(0))
-        );
+        MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
         emit Deployed(address(MRA));
 
-        TransferProxy TRANSFER_PROXY = new TransferProxy(MRA);
-        LienToken LIEN_TOKEN = new LienToken(
+        TRANSFER_PROXY = new TransferProxy(MRA);
+        LIEN_TOKEN = new LienToken(
             MRA,
             address(TRANSFER_PROXY),
             address(WETH9)
         );
         emit Deployed(address(TRANSFER_PROXY));
-        CollateralToken COLLATERAL_TOKEN = new CollateralToken(
+        COLLATERAL_TOKEN = new CollateralToken(
             MRA,
             address(TRANSFER_PROXY),
             address(LIEN_TOKEN)
         );
         emit Deployed(address(COLLATERAL_TOKEN));
 
-        Vault soloImpl = new Vault();
-        PublicVault vaultImpl = new PublicVault();
-        AstariaRouter ASTARIA_ROUTER = new AstariaRouter(
+        SOLO_IMPLEMENTATION = new Vault();
+        VAULT_IMPLEMENTATION = new PublicVault();
+        ASTARIA_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
             address(COLLATERAL_TOKEN),
             address(LIEN_TOKEN),
             address(TRANSFER_PROXY),
-            address(vaultImpl),
-            address(soloImpl)
+            address(VAULT_IMPLEMENTATION),
+            address(SOLO_IMPLEMENTATION)
         );
         emit Deployed(address(ASTARIA_ROUTER));
 
         //
-        AuctionHouse AUCTION_HOUSE = new AuctionHouse(
+        AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
             address(MRA),
             address(COLLATERAL_TOKEN),
@@ -176,12 +173,17 @@ contract AstariaDeploy {
         COLLATERAL_TOKEN.setOwner(address(msg.sender));
     }
 
-    //    function subgraph() {
+    //    function subgraph() external payable {
     //        //we need some nfts
     //        ERC721 dummyNFT = new ERC721("Dummy NFT", "DUMMY");
     //        dummyNFT.mint(address(this), 1);
     //        //we need some collateral tokens
-    //        dummyNFT.safeTransferFrom(address(this), address(COLLATERAL_TOKEN), 1);
+    //        dummyNFT.safeTransferFrom(
+    //            address(this),
+    //            address(COLLATERAL_TOKEN),
+    //            1,
+    //            ""
+    //        );
     //
     //        //we need to create an offer that is valid
     //

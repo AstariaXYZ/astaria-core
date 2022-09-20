@@ -20,16 +20,16 @@ const strategyDetails = [
   ["uint8", "address", "uint256", "uint256", "address"],
   strategyData,
 ];
-console.error(strategyDetails);
-// leaves.push();
+// console.error(strategyDetails);
 const strategyDigest = solidityKeccak256(...strategyDetails);
+leaves.push(strategyDigest);
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
 let digest;
 if (detailsType === 0) {
   details = [
     [
-      "bytes32",
+      // "bytes32",
       "uint8",
       "address",
       "uint256",
@@ -41,7 +41,7 @@ if (detailsType === 0) {
       "uint256",
     ],
     [
-      strategyDigest,
+      // strategyDigest,
       parseInt(BigNumber.from(1).toString()), // version
       getAddress(tokenAddress), // token
       tokenId, // tokenId
@@ -56,7 +56,7 @@ if (detailsType === 0) {
   ];
   digest = solidityKeccak256(...details);
   const clone = details.map((x) => x.map((y) => y));
-  clone[1][9] = "1000";
+  clone[1][8] = "1000";
 
   const digest2 = solidityKeccak256(...clone);
 
@@ -142,19 +142,30 @@ if (detailsType === 0) {
 
 // Create tree
 
+console.error(leaves);
 const merkleTree = new MerkleTree(
   leaves.map((x) => x),
-  keccak256,
-  { sortPairs: true }
+  keccak256
 );
 // Get root
 const rootHash = merkleTree.getHexRoot();
 // Pretty-print tree
-const treeLeaves = merkleTree.getHexLeaves();
-const proof = merkleTree.getHexProof(digest);
+const treeLeaves = merkleTree.getLeaves();
+// const indicies = merkleTree.getProofIndices([0, 1]);
+const proof = merkleTree.getHexMultiProof([0, 1]);
+const proofFlags = merkleTree.getProofFlags(
+  [Buffer.from(treeLeaves[0]), Buffer.from(treeLeaves[1])],
+  proof
+);
 console.error(proof);
-console.error(merkleTree.toString());
-console.error(merkleTree.verify(proof, digest, rootHash));
+console.error(proofFlags);
+// console.error(merkleTree.toString());
+console.error(
+  merkleTree.verifyMultiProofWithFlags(rootHash, treeLeaves, proof, proofFlags)
+);
 console.log(
-  defaultAbiCoder.encode(["bytes32", "bytes32[]"], [rootHash, proof])
+  defaultAbiCoder.encode(
+    ["bytes32", "bytes32[]", "bool[]"],
+    [rootHash, proof, proofFlags]
+  )
 );
