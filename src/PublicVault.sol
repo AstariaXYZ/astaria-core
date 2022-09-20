@@ -280,9 +280,10 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         }
 
         // prevents transfer to a non-existent WithdrawProxy
-        if (withdrawProxies[currentEpoch] != address(0)) {
+        // withdrawProxies are indexed by the epoch where they're deployed
+        if (withdrawProxies[currentEpoch + 1] != address(0)) {
             ERC20(underlying()).safeTransfer(
-                withdrawProxies[currentEpoch],
+                withdrawProxies[currentEpoch + 1],
                 withdraw
             );
         }
