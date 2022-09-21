@@ -426,12 +426,10 @@ contract AstariaTest is TestHelpers {
                     block.timestamp + 2 days,
                     tokenContract,
                     tokenId,
-                    refinanceTerms.maxAmount,
-                    refinanceTerms.maxDebt,
                     refinanceTerms.interestRate,
-                    refinanceTerms.maxInterestRate,
                     refinanceTerms.duration,
-                    refinanceTerms.amount
+                    refinanceTerms.amount,
+                    refinanceTerms.maxPotentialDebt
                 )
             );
         uint256 collateralId = tokenContract.computeId(tokenId);

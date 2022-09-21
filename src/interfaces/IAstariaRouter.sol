@@ -7,25 +7,11 @@ import {ITransferProxy} from "./ITransferProxy.sol";
 import {IPausable} from "../utils/Pausable.sol";
 
 interface IAstariaRouter is IPausable {
-    struct Terms {
-        address broker;
-        address token;
-        bytes32[] proof;
-        uint256 collateralId;
-        uint256 maxAmount;
-        uint256 maxDebt;
-        uint256 rate;
-        uint256 maxRate;
-        uint256 duration;
-        uint256 schedule;
-    }
 
     struct LienDetails {
-        uint256 maxAmount;
-        uint256 maxSeniorDebt;
         uint256 rate; //rate per second
-        uint256 maxInterestRate; //max at origination
         uint256 duration;
+        uint256 maxPotentialDebt;
     }
 
     enum LienRequestType {

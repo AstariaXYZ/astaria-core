@@ -81,38 +81,26 @@ contract TestHelpers is Test {
     }
 
     struct LoanTerms {
-        uint256 maxAmount;
-        uint256 maxDebt;
         uint256 interestRate;
-        uint256 maxInterestRate;
         uint256 duration;
         uint256 amount;
+        uint256 maxPotentialDebt;
     }
 
     LoanTerms defaultTerms =
         LoanTerms({
-            maxAmount: uint256(10 ether),
-            maxDebt: uint256(1 ether),
             interestRate: ((uint256(0.05 ether) / 365) * 1 days),
-            maxInterestRate: FixedPointMathLib.mulWadDown(
-                uint256(0.06 ether),
-                365 * 1 days
-            ),
             duration: uint256(block.timestamp + 10 days),
-            amount: uint256(0.5 ether)
+            amount: uint256(0.5 ether),
+            maxPotentialDebt: uint256(50 ether)
         });
 
     LoanTerms refinanceTerms =
         LoanTerms({
-            maxAmount: uint256(10 ether),
-            maxDebt: uint256(10 ether),
             interestRate: uint256(0.03 ether) / uint256(365 * 1 days),
-            maxInterestRate: FixedPointMathLib.mulWadDown(
-                uint256(0.06 ether),
-                365 * 86400
-            ),
             duration: uint256(block.timestamp + 10 days),
-            amount: uint256(0.5 ether)
+            amount: uint256(0.5 ether),
+            maxPotentialDebt: uint256(50 ether)
         });
 
     // modifier validateLoanTerms(LoanTerms memory terms) {
@@ -547,12 +535,10 @@ contract TestHelpers is Test {
     function _commitToLien(
         address tokenContract,
         uint256 tokenId,
-        uint256 maxAmount,
-        uint256 maxDebt,
         uint256 interestRate,
-        uint256 maxInterestRate,
         uint256 duration,
-        uint256 amount
+        uint256 amount,
+        uint256 maxPotentialDebt
     )
         internal
         returns (bytes32 vaultHash, IAstariaRouter.Commitment memory terms)
@@ -582,12 +568,10 @@ contract TestHelpers is Test {
                 block.timestamp + 2 days,
                 tokenContract,
                 tokenId,
-                maxAmount,
-                maxDebt,
                 interestRate,
-                maxInterestRate,
                 duration,
-                amount
+                amount,
+                maxPotentialDebt
             )
         );
 
@@ -620,12 +604,10 @@ contract TestHelpers is Test {
                 block.timestamp + 2 days,
                 tokenContract,
                 tokenId,
-                loanTerms.maxAmount,
-                loanTerms.maxDebt,
                 loanTerms.interestRate,
-                loanTerms.maxInterestRate,
                 loanTerms.duration,
-                loanTerms.amount
+                loanTerms.amount,
+                loanTerms.maxPotentialDebt
             )
         );
         emit LogCommitment(terms);
@@ -656,12 +638,10 @@ contract TestHelpers is Test {
                     block.timestamp + 2 days,
                     tokenContract,
                     tokenId,
-                    loanTerms.maxAmount,
-                    loanTerms.maxDebt,
                     loanTerms.interestRate,
-                    loanTerms.maxInterestRate,
                     loanTerms.duration,
-                    loanTerms.amount
+                    loanTerms.amount,
+                    loanTerms.maxPotentialDebt
                 )
             );
     }
@@ -695,11 +675,9 @@ contract TestHelpers is Test {
                         params.tokenId,
                         address(0),
                         IAstariaRouter.LienDetails(
-                            params.maxAmount,
-                            params.maxDebt,
                             params.interestRate, //convert to rate per second
-                            params.maxInterestRate,
-                            params.duration
+                            params.duration,
+                            params.maxPotentialDebt
                         )
                     )
                 ),
@@ -741,12 +719,10 @@ contract TestHelpers is Test {
         uint256 deadline;
         address tokenContract;
         uint256 tokenId;
-        uint256 maxAmount;
-        uint256 maxDebt;
         uint256 interestRate;
-        uint256 maxInterestRate;
         uint256 duration;
         uint256 amount;
+        uint256 maxPotentialDebt;
     }
 
     struct CommitV3WithoutDeposit {
@@ -869,11 +845,9 @@ contract TestHelpers is Test {
                             params.tokenId, //tokenId
                             address(0), // borrower
                             IAstariaRouter.LienDetails({
-                                maxAmount: params.maxAmount,
-                                maxSeniorDebt: params.maxDebt,
                                 rate: params.interestRate,
-                                maxInterestRate: params.maxInterestRate,
-                                duration: params.duration //lienDetails
+                                duration: params.duration, //lienDetails
+                                maxPotentialDebt: params.maxPotentialDebt
                             })
                         )
                     ), //obligationDetails

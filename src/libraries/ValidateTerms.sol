@@ -152,11 +152,9 @@ library ValidateTerms {
                 details.token,
                 details.tokenId,
                 details.borrower,
-                details.lien.maxAmount,
-                details.lien.maxSeniorDebt,
                 details.lien.rate,
-                details.lien.maxInterestRate,
-                details.lien.duration
+                details.lien.duration,
+                details.lien.maxPotentialDebt
             );
     }
 
@@ -170,11 +168,9 @@ library ValidateTerms {
                 details.version, // 1 is the version of the structure
                 details.token, // token address
                 details.borrower, // borrower address
-                details.lien.maxAmount, // max amount
-                details.lien.maxSeniorDebt, // max senior debt
                 details.lien.rate, // rate
-                details.lien.maxInterestRate, // max implied rate
-                details.lien.duration // duration
+                details.lien.duration, // duration
+                details.lien.maxPotentialDebt
             );
     }
 
@@ -194,11 +190,9 @@ library ValidateTerms {
                 details.tickUpper,
                 details.minLiquidity,
                 details.borrower,
-                details.lien.maxAmount,
-                details.lien.maxSeniorDebt,
                 details.lien.rate,
-                details.lien.maxInterestRate,
-                details.lien.duration
+                details.lien.duration,
+                details.lien.maxPotentialDebt
             );
     }
 

@@ -207,9 +207,13 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
         uint256 impliedRate = getImpliedRate(collateralId);
 
-        require(params.terms.maxSeniorDebt >= totalDebt, "too much debt to take this loan");
+        uint256 potentialDebt = (impliedRate + 1) * totalDebt * params.terms.duration;
 
-        require(params.terms.maxInterestRate >= impliedRate, "current implied rate is too high");
+        require(params.terms.maxPotentialDebt >= potentialDebt, "loan could potentially take on too much debt");
+
+        // require(params.terms.maxSeniorDebt >= totalDebt, "too much debt to take this loan");
+
+        // require(params.terms.maxInterestRate >= impliedRate, "current implied rate is too high");
 
         lienId = uint256(
             keccak256(
@@ -218,11 +222,9 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
                         bytes32(collateralId),
                         params.vault,
                         WETH,
-                        params.terms.maxAmount,
-                        params.terms.maxSeniorDebt,
                         params.terms.rate,
-                        params.terms.maxInterestRate,
-                        params.terms.duration
+                        params.terms.duration,
+                        params.terms.maxPotentialDebt
                     ),
                     params.obligationRoot
                 )

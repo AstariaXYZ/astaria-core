@@ -203,8 +203,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         );
 
         require(
-            ld.maxAmount >= params.lienRequest.amount,
-            "Vault._validateCommitment(): Attempting to borrow more than maxAmount available for this asset"
+            params.lienRequest.amount <=
+                ERC20(underlying()).balanceOf(address(this)),
+            "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
         );
 
         uint256 seniorDebt = IAstariaRouter(ROUTER())
@@ -212,15 +213,14 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             .getTotalDebtForCollateralToken(
                 params.tokenContract.computeId(params.tokenId)
             );
-        require(
-            seniorDebt <= ld.maxSeniorDebt,
-            "Vault._validateCommitment(): too much debt already for this loan"
-        );
-        require(
-            params.lienRequest.amount <=
-                ERC20(underlying()).balanceOf(address(this)),
-            "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
-        );
+
+        // require(
+        //     seniorDebt <= ld.maxSeniorDebt,
+        //     "Vault._validateCommitment(): too much debt already for this loan"
+        // );
+        
+        uint256 potentialDebt = seniorDebt * (ld.rate + 1) * ld.duration;
+        require(potentialDebt <= ld.maxPotentialDebt, "Vault._validateCommitment(): Attempting to initiate a loan with debt potentially higher than maxPotentialDebt");
 
         //check that we aren't paused from reserves being too low
     }
