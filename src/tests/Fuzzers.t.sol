@@ -45,6 +45,7 @@ contract Fuzzers is TestHelpers {
         returns (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms)
     {
         LoanTerms memory loanTerms = LoanTerms({
+            maxAmount: defaultTerms.maxAmount,
             interestRate: args.interestRate,
             duration: args.duration,
             amount: args.amount,
@@ -112,6 +113,7 @@ contract Fuzzers is TestHelpers {
         uint256 tokenId = uint256(1);
 
         LoanTerms memory newTerms = LoanTerms({
+            maxAmount: defaultTerms.maxAmount,
             interestRate: newInterestRate,
             duration: newDuration,
             amount: args.amount,

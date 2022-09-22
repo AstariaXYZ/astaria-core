@@ -222,6 +222,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
                         bytes32(collateralId),
                         params.vault,
                         WETH,
+                        params.terms.maxAmount,
                         params.terms.rate,
                         params.terms.duration,
                         params.terms.maxPotentialDebt

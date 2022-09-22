@@ -348,6 +348,7 @@ contract ForkedTest is TestHelpers {
                 minLiquidity,
                 borrower,
                 IAstariaRouter.LienDetails(
+                    defaultTerms.maxAmount,
                     defaultTerms.interestRate,
                     defaultTerms.duration,
                     defaultTerms.maxPotentialDebt

@@ -9,6 +9,7 @@ import {IPausable} from "../utils/Pausable.sol";
 interface IAstariaRouter is IPausable {
 
     struct LienDetails {
+        uint256 maxAmount;
         uint256 rate; //rate per second
         uint256 duration;
         uint256 maxPotentialDebt;

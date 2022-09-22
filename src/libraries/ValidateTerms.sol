@@ -152,6 +152,7 @@ library ValidateTerms {
                 details.token,
                 details.tokenId,
                 details.borrower,
+                details.lien.maxAmount,
                 details.lien.rate,
                 details.lien.duration,
                 details.lien.maxPotentialDebt
@@ -168,6 +169,7 @@ library ValidateTerms {
                 details.version, // 1 is the version of the structure
                 details.token, // token address
                 details.borrower, // borrower address
+                details.lien.maxAmount,
                 details.lien.rate, // rate
                 details.lien.duration, // duration
                 details.lien.maxPotentialDebt
@@ -190,6 +192,7 @@ library ValidateTerms {
                 details.tickUpper,
                 details.minLiquidity,
                 details.borrower,
+                details.lien.maxAmount,
                 details.lien.rate,
                 details.lien.duration,
                 details.lien.maxPotentialDebt

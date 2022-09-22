@@ -208,6 +208,11 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
         );
 
+        require(
+            ld.maxAmount >= params.lienRequest.amount,
+            "Vault._validateCommitment(): Attempting to borrow more than maxAmount available for this asset"
+        );
+
         uint256 seniorDebt = IAstariaRouter(ROUTER())
             .LIEN_TOKEN()
             .getTotalDebtForCollateralToken(

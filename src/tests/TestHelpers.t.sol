@@ -81,6 +81,7 @@ contract TestHelpers is Test {
     }
 
     struct LoanTerms {
+        uint256 maxAmount;
         uint256 interestRate;
         uint256 duration;
         uint256 amount;
@@ -89,6 +90,7 @@ contract TestHelpers is Test {
 
     LoanTerms defaultTerms =
         LoanTerms({
+            maxAmount: uint256(10 ether),
             interestRate: ((uint256(0.05 ether) / 365) * 1 days),
             duration: uint256(block.timestamp + 10 days),
             amount: uint256(0.5 ether),
@@ -97,6 +99,7 @@ contract TestHelpers is Test {
 
     LoanTerms refinanceTerms =
         LoanTerms({
+            maxAmount: uint256(10 ether),
             interestRate: uint256(0.03 ether) / uint256(365 * 1 days),
             duration: uint256(block.timestamp + 10 days),
             amount: uint256(0.5 ether),
@@ -535,6 +538,7 @@ contract TestHelpers is Test {
     function _commitToLien(
         address tokenContract,
         uint256 tokenId,
+        uint256 maxAmount,
         uint256 interestRate,
         uint256 duration,
         uint256 amount,
@@ -568,6 +572,7 @@ contract TestHelpers is Test {
                 block.timestamp + 2 days,
                 tokenContract,
                 tokenId,
+                maxAmount,
                 interestRate,
                 duration,
                 amount,
@@ -604,6 +609,7 @@ contract TestHelpers is Test {
                 block.timestamp + 2 days,
                 tokenContract,
                 tokenId,
+                loanTerms.maxAmount,
                 loanTerms.interestRate,
                 loanTerms.duration,
                 loanTerms.amount,
@@ -638,6 +644,7 @@ contract TestHelpers is Test {
                     block.timestamp + 2 days,
                     tokenContract,
                     tokenId,
+                    loanTerms.maxAmount,
                     loanTerms.interestRate,
                     loanTerms.duration,
                     loanTerms.amount,
@@ -675,6 +682,7 @@ contract TestHelpers is Test {
                         params.tokenId,
                         address(0),
                         IAstariaRouter.LienDetails(
+                            params.maxAmount,
                             params.interestRate, //convert to rate per second
                             params.duration,
                             params.maxPotentialDebt
@@ -719,6 +727,7 @@ contract TestHelpers is Test {
         uint256 deadline;
         address tokenContract;
         uint256 tokenId;
+        uint256 maxAmount;
         uint256 interestRate;
         uint256 duration;
         uint256 amount;
@@ -845,6 +854,7 @@ contract TestHelpers is Test {
                             params.tokenId, //tokenId
                             address(0), // borrower
                             IAstariaRouter.LienDetails({
+                                maxAmount: params.maxAmount,
                                 rate: params.interestRate,
                                 duration: params.duration, //lienDetails
                                 maxPotentialDebt: params.maxPotentialDebt

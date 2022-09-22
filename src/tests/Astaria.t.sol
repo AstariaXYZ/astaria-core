@@ -426,6 +426,7 @@ contract AstariaTest is TestHelpers {
                     block.timestamp + 2 days,
                     tokenContract,
                     tokenId,
+                    refinanceTerms.maxAmount,
                     refinanceTerms.interestRate,
                     refinanceTerms.duration,
                     refinanceTerms.amount,
