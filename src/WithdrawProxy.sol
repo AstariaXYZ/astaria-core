@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -21,16 +21,30 @@ contract WithdrawProxy is ERC20Cloned {
      * @notice Public view function to return the name of this WithdrawProxy.
      * @return The name of this WithdrawProxy.
      */
-    function name() public view override (IBase) returns (string memory) {
-        return string(abi.encodePacked("AST-WithdrawVault-", ERC20(underlying()).symbol()));
+    function name() public view override(IBase) returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "AST-WithdrawVault-",
+                    ERC20(underlying()).symbol()
+                )
+            );
     }
 
     /**
      * @notice Public view function to return the symbol of this WithdrawProxy.
      * @return The symbol of this WithdrawProxy.
      */
-    function symbol() public view override (IBase) returns (string memory) {
-        return string(abi.encodePacked("AST-W", owner(), "-", ERC20(underlying()).symbol()));
+    function symbol() public view override(IBase) returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "AST-W",
+                    owner(),
+                    "-",
+                    ERC20(underlying()).symbol()
+                )
+            );
     }
 
     /**
@@ -41,7 +55,9 @@ contract WithdrawProxy is ERC20Cloned {
         require(balanceOf[msg.sender] >= amount, "insufficient balance");
         _burn(msg.sender, amount);
         ERC20(underlying()).safeTransfer(
-            msg.sender, (amount.mulDivDown(1, totalSupply)) * ERC20(underlying()).balanceOf(address(this))
+            msg.sender,
+            (amount.mulDivDown(1, totalSupply)) *
+                ERC20(underlying()).balanceOf(address(this))
         );
     }
 
