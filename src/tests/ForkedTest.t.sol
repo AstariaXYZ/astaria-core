@@ -51,25 +51,16 @@ contract V3FeesClaim is IFlashAction {
         vault = _vault;
     }
 
-    function onFlashAction(
-        IFlashAction.Underlying calldata underlying,
-        bytes calldata data
-    ) external returns (bytes32) {
-        IV3PositionManager v3 = IV3PositionManager(
-            0xC36442b4a4522E871399CD717aBDD847Ab11FE88
-        );
+    function onFlashAction(IFlashAction.Underlying calldata underlying, bytes calldata data)
+        external
+        returns (bytes32)
+    {
+        IV3PositionManager v3 = IV3PositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
         address receiver = abi.decode(data, (address));
         if (receiver == address(0)) {
             receiver = msg.sender;
         }
-        v3.collect(
-            IV3PositionManager.CollectParams(
-                underlying.tokenId,
-                receiver,
-                type(uint128).max,
-                type(uint128).max
-            )
-        );
+        v3.collect(IV3PositionManager.CollectParams(underlying.tokenId, receiver, type(uint128).max, type(uint128).max));
         ERC721 liquidity = ERC721(underlying.token);
         liquidity.transferFrom(address(this), vault, underlying.tokenId);
         return bytes32(keccak256("FlashAction.onFlashAction"));
@@ -77,17 +68,13 @@ contract V3FeesClaim is IFlashAction {
 }
 
 contract ForkedTest is TestHelpers {
-    function setUp() public override(TestHelpers) {
+    function setUp() public override (TestHelpers) {
         TestHelpers.setUp();
         // BaseOrderTest.setUp();
     }
 
     // 10,094 tokens
-    event AirDrop(
-        address indexed account,
-        uint256 indexed amount,
-        uint256 timestamp
-    );
+    event AirDrop(address indexed account, uint256 indexed amount, uint256 timestamp);
 
     //     function testListUnderlying() public {
     //         Dummy721 loanTest = new Dummy721();
@@ -358,19 +345,13 @@ contract ForkedTest is TestHelpers {
         VaultImplementation(vault).commitToLien(terms, address(this));
         // BrokerVault(broker).withdraw(0 ether);
 
-        uint256 collateralId = uint256(
-            keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
-        );
+        uint256 collateralId = uint256(keccak256(abi.encodePacked(APE_ADDRESS, tokenId)));
 
         IFlashAction v3FeeClaim = new V3FeesClaim(address(COLLATERAL_TOKEN));
 
         // vm.expectEmit(false, false, false, false);
         // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
-        COLLATERAL_TOKEN.flashAction(
-            v3FeeClaim,
-            collateralId,
-            abi.encode(address(this))
-        );
+        COLLATERAL_TOKEN.flashAction(v3FeeClaim, collateralId, abi.encode(address(this)));
     }
 
     //    function testFlashApeClaim() public {

@@ -24,11 +24,7 @@ library MerkleProof {
      * sibling hashes on the branch from the leaf to the root of the tree. Each
      * pair of leaves and each pair of pre-images are assumed to be sorted.
      */
-    function verify(
-        bytes32[] memory proof,
-        bytes32 root,
-        bytes32 leaf
-    ) internal pure returns (bool) {
+    function verify(bytes32[] memory proof, bytes32 root, bytes32 leaf) internal pure returns (bool) {
         return processProof(proof, leaf) == root;
     }
 
@@ -37,11 +33,7 @@ library MerkleProof {
      *
      * _Available since v4.7._
      */
-    function verifyCalldata(
-        bytes32[] calldata proof,
-        bytes32 root,
-        bytes32 leaf
-    ) internal pure returns (bool) {
+    function verifyCalldata(bytes32[] calldata proof, bytes32 root, bytes32 leaf) internal pure returns (bool) {
         return processProofCalldata(proof, leaf) == root;
     }
 
@@ -53,11 +45,7 @@ library MerkleProof {
      *
      * _Available since v4.4._
      */
-    function processProof(bytes32[] memory proof, bytes32 leaf)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function processProof(bytes32[] memory proof, bytes32 leaf) internal pure returns (bytes32) {
         bytes32 computedHash = leaf;
         for (uint256 i = 0; i < proof.length; i++) {
             computedHash = _hashPair(computedHash, proof[i]);
@@ -70,11 +58,7 @@ library MerkleProof {
      *
      * _Available since v4.7._
      */
-    function processProofCalldata(bytes32[] calldata proof, bytes32 leaf)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function processProofCalldata(bytes32[] calldata proof, bytes32 leaf) internal pure returns (bytes32) {
         bytes32 computedHash = leaf;
         for (uint256 i = 0; i < proof.length; i++) {
             computedHash = _hashPair(computedHash, proof[i]);
@@ -88,12 +72,11 @@ library MerkleProof {
      *
      * _Available since v4.7._
      */
-    function multiProofVerify(
-        bytes32[] memory proof,
-        bool[] memory proofFlags,
-        bytes32 root,
-        bytes32[] memory leaves
-    ) internal pure returns (bool) {
+    function multiProofVerify(bytes32[] memory proof, bool[] memory proofFlags, bytes32 root, bytes32[] memory leaves)
+        internal
+        pure
+        returns (bool)
+    {
         return processMultiProof(proof, proofFlags, leaves) == root;
     }
 
@@ -118,11 +101,11 @@ library MerkleProof {
      *
      * _Available since v4.7._
      */
-    function processMultiProof(
-        bytes32[] memory proof,
-        bool[] memory proofFlags,
-        bytes32[] memory leaves
-    ) internal pure returns (bytes32 merkleRoot) {
+    function processMultiProof(bytes32[] memory proof, bool[] memory proofFlags, bytes32[] memory leaves)
+        internal
+        pure
+        returns (bytes32 merkleRoot)
+    {
         // This function rebuild the root hash by traversing the tree up from the leaves. The root is rebuilt by
         // consuming and producing values on a queue. The queue starts with the `leaves` array, then goes onto the
         // `hashes` array. At the end of the process, the last hash in the `hashes` array should contain the root of
@@ -131,10 +114,7 @@ library MerkleProof {
         uint256 totalHashes = proofFlags.length;
 
         // Check proof validity.
-        require(
-            leavesLen + proof.length - 1 == totalHashes,
-            "MerkleProof: invalid multiproof"
-        );
+        require(leavesLen + proof.length - 1 == totalHashes, "MerkleProof: invalid multiproof");
 
         // The xxxPos values are "pointers" to the next value to consume in each array. All accesses are done using
         // `xxx[xxxPos++]`, which return the current value and increment the pointer, thus mimicking a queue's "pop".
@@ -148,12 +128,8 @@ library MerkleProof {
         // - depending on the flag, either another value for the "main queue" (merging branches) or an element from the
         //   `proof` array.
         for (uint256 i = 0; i < totalHashes; i++) {
-            bytes32 a = leafPos < leavesLen
-                ? leaves[leafPos++]
-                : hashes[hashPos++];
-            bytes32 b = proofFlags[i]
-                ? leafPos < leavesLen ? leaves[leafPos++] : hashes[hashPos++]
-                : proof[proofPos++];
+            bytes32 a = leafPos < leavesLen ? leaves[leafPos++] : hashes[hashPos++];
+            bytes32 b = proofFlags[i] ? leafPos < leavesLen ? leaves[leafPos++] : hashes[hashPos++] : proof[proofPos++];
             hashes[i] = _hashPair(a, b);
         }
 
@@ -171,11 +147,11 @@ library MerkleProof {
      *
      * _Available since v4.7._
      */
-    function processMultiProofCalldata(
-        bytes32[] calldata proof,
-        bool[] calldata proofFlags,
-        bytes32[] memory leaves
-    ) internal pure returns (bytes32 merkleRoot) {
+    function processMultiProofCalldata(bytes32[] calldata proof, bool[] calldata proofFlags, bytes32[] memory leaves)
+        internal
+        pure
+        returns (bytes32 merkleRoot)
+    {
         // This function rebuild the root hash by traversing the tree up from the leaves. The root is rebuilt by
         // consuming and producing values on a queue. The queue starts with the `leaves` array, then goes onto the
         // `hashes` array. At the end of the process, the last hash in the `hashes` array should contain the root of
@@ -184,10 +160,7 @@ library MerkleProof {
         uint256 totalHashes = proofFlags.length;
 
         // Check proof validity.
-        require(
-            leavesLen + proof.length - 1 == totalHashes,
-            "MerkleProof: invalid multiproof"
-        );
+        require(leavesLen + proof.length - 1 == totalHashes, "MerkleProof: invalid multiproof");
 
         // The xxxPos values are "pointers" to the next value to consume in each array. All accesses are done using
         // `xxx[xxxPos++]`, which return the current value and increment the pointer, thus mimicking a queue's "pop".
@@ -201,12 +174,8 @@ library MerkleProof {
         // - depending on the flag, either another value for the "main queue" (merging branches) or an element from the
         //   `proof` array.
         for (uint256 i = 0; i < totalHashes; i++) {
-            bytes32 a = leafPos < leavesLen
-                ? leaves[leafPos++]
-                : hashes[hashPos++];
-            bytes32 b = proofFlags[i]
-                ? leafPos < leavesLen ? leaves[leafPos++] : hashes[hashPos++]
-                : proof[proofPos++];
+            bytes32 a = leafPos < leavesLen ? leaves[leafPos++] : hashes[hashPos++];
+            bytes32 b = proofFlags[i] ? leafPos < leavesLen ? leaves[leafPos++] : hashes[hashPos++] : proof[proofPos++];
             hashes[i] = _hashPair(a, b);
         }
 
@@ -223,11 +192,7 @@ library MerkleProof {
         return a < b ? _efficientHash(a, b) : _efficientHash(b, a);
     }
 
-    function _efficientHash(bytes32 a, bytes32 b)
-        private
-        pure
-        returns (bytes32 value)
-    {
+    function _efficientHash(bytes32 a, bytes32 b) private pure returns (bytes32 value) {
         /// @solidity memory-safe-assembly
         assembly {
             mstore(0x00, a)
