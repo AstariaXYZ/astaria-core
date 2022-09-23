@@ -145,7 +145,10 @@ if (detailsType === 0) {
 console.error(leaves);
 const merkleTree = new MerkleTree(
   leaves.map((x) => x),
-  keccak256
+  keccak256,
+  {
+    sortPairs: true,
+  }
 );
 // Get root
 const rootHash = merkleTree.getHexRoot();

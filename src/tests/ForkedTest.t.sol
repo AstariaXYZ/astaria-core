@@ -4,10 +4,6 @@ import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
-import {ERC721} from "solmate/tokens/ERC721.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
 import {CollateralToken, IFlashAction} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
@@ -18,12 +14,11 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
-import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
+
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 
 import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
-
-string constant weth9Artifact = "src/tests/WETH9.json";
+import "./TestHelpers.t.sol";
 
 address constant AIRDROP_GRAPES_TOKEN = 0x025C6da5BD0e6A5dd1350fda9e3B6a614B205a1F;
 address constant APE_HOLDER = 0x8742fa292AFfB6e5eA88168539217f2e132294f9;

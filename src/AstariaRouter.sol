@@ -1,5 +1,6 @@
 pragma solidity ^0.8.16;
-import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
+import {MerkleProof} from "./utils/MerkleProof.sol";
+
 import {IStrategyValidator} from "./interfaces/IStrategyValidator.sol";
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
@@ -63,7 +64,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     //public vault contract => strategist
     mapping(address => address) public vaults;
     mapping(address => uint256) public strategistNonce;
-    mapping(uint8 => address) public strategyValidators;
+    mapping(uint16 => address) public strategyValidators;
 
     // See https://eips.ethereum.org/EIPS/eip-191
 
@@ -187,7 +188,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     //PUBLIC
 
     function validateCommitment(
-        IAstariaRouter.Commitment memory commitment,
+        IAstariaRouter.Commitment calldata commitment,
         address borrower
     ) public view returns (bool valid, IAstariaRouter.LienDetails memory ld) {
         require(
@@ -287,34 +288,34 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         return _newVault(epochLength, delegate);
     }
 
-    //    function borrowAndBuy(BorrowAndBuyParams memory params) external {
-    //        uint256 spendableBalance;
-    //        for (uint256 i = 0; i < params.commitments.length; ++i) {
-    //            _executeCommitment(params.commitments[i]);
-    //            spendableBalance += params.commitments[i].amount; //amount borrowed
-    //        }
-    //        require(
-    //            params.purchasePrice <= spendableBalance,
-    //            "purchase price cannot be for more than your aggregate loan"
-    //        );
-    //
-    //        WETH.safeApprove(params.invoker, params.purchasePrice);
-    //        require(
-    //            IInvoker(params.invoker).onBorrowAndBuy(
-    //                params.purchaseData, // calldata for the invoker
-    //                address(WETH), // token
-    //                params.purchasePrice, //max approval
-    //                payable(msg.sender) // recipient
-    //            ),
-    //            "borrow and buy failed"
-    //        );
-    //        if (spendableBalance - params.purchasePrice > uint256(0)) {
-    //            WETH.safeTransfer(
-    //                msg.sender,
-    //                spendableBalance - params.purchasePrice
-    //            );
-    //        }
-    //    }
+    function borrowAndBuy(BorrowAndBuyParams memory params) external {
+        uint256 spendableBalance;
+        for (uint256 i = 0; i < params.commitments.length; ++i) {
+            _executeCommitment(params.commitments[i]);
+            spendableBalance += params.commitments[i].lienRequest.amount; //amount borrowed
+        }
+        require(
+            params.purchasePrice <= spendableBalance,
+            "purchase price cannot be for more than your aggregate loan"
+        );
+
+        WETH.safeApprove(params.invoker, params.purchasePrice);
+        require(
+            IInvoker(params.invoker).onBorrowAndBuy(
+                params.purchaseData, // calldata for the invoker
+                address(WETH), // token
+                params.purchasePrice, //max approval
+                payable(msg.sender) // recipient
+            ),
+            "borrow and buy failed"
+        );
+        if (spendableBalance - params.purchasePrice > uint256(0)) {
+            WETH.safeTransfer(
+                msg.sender,
+                spendableBalance - params.purchasePrice
+            );
+        }
+    }
 
     /**
      * @notice Buy out a lien to replace it with new terms.
@@ -323,7 +324,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      */
     function buyoutLien(
         uint256 position,
-        IAstariaRouter.Commitment memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralId, //            outgoingTerms.position //        )
+        IAstariaRouter.Commitment memory incomingTerms
     ) external whenNotPaused {
         VaultImplementation(incomingTerms.lienRequest.strategy.vault)
             .buyoutLien(

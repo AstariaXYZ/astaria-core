@@ -4,10 +4,9 @@ import "forge-std/Test.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
+import {Strings} from "./utils/Strings.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
@@ -16,17 +15,16 @@ import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
+import {UNI_V3Validator, IUNI_V3Validator} from "../strategies/UNI_V3Validator.sol";
 import {UniqueValidator, IUniqueValidator} from "../strategies/UniqueValidator.sol";
 import {ICollectionValidator, CollectionValidator} from "../strategies/CollectionValidator.sol";
-import {UNI_V3Validator, IUNI_V3Validator} from "../strategies/UNI_V3Validator.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {Vault, PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
-import "../strategies/CollectionValidator.sol";
-import "../strategies/CollectionValidator.sol";
+
 string constant weth9Artifact = "src/tests/WETH9.json";
 
 contract Dummy721 is MockERC721 {

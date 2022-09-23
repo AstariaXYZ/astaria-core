@@ -3,8 +3,6 @@ import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
 import {BaseValidatorV1} from "./BaseValidator.sol";
 
 interface IUniqueValidator {
-    //decode obligationData into structs
-
     struct Details {
         uint8 version;
         address token;

@@ -45,7 +45,13 @@ contract Vault is VaultImplementation, IVault {
             );
     }
 
-    function _handleStrategistReward(uint256 shares)
+    function _handleStrategistOriginationReward(uint256 shares)
+        internal
+        virtual
+        override
+    {}
+
+    function _handleStrategistInterestReward(uint256 shares)
         internal
         virtual
         override
@@ -99,25 +105,12 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
     uint256 slope;
 
     // block.timestamp of first epoch
-    //        uint256 immutable start; //-> add into Base
-    //    uint256 immutable epoch_length(); add into Base
     uint64 currentEpoch = 0;
     uint256 withdrawReserve = 0;
     uint256 liquidationWithdrawRatio = 0;
 
     mapping(uint64 => address) withdrawProxies;
     mapping(uint64 => address) liquidationAccountants;
-
-    //    constructor(
-    //        uint256 _epoch_length(),
-    //        address _LIEN_TOKEN,
-    //        address _WETH
-    //    ) {
-    //        start() = block.timestamp;
-    //        epoch_length() = _epoch_length();
-    //        LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
-    //        WETH = IERC20(_WETH);
-    //    }
 
     function redeem(
         uint256 shares,
@@ -267,7 +260,7 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         return
             interfaceId == type(IPublicVault).interfaceId ||
             interfaceId == type(IVault).interfaceId ||
-            interfaceId == type(ERC4626Cloned).interfaceId;
+            interfaceId == type(ERC4626Cloned).interfaceId; //TODO: set this to a normal erc4626 interface id
     }
 
     function transferWithdrawReserve() public {
@@ -362,7 +355,11 @@ contract PublicVault is ERC4626Cloned, Vault, IPublicVault {
         yIntercept += assets;
     }
 
-    function _handleStrategistReward(uint256 amount) internal virtual override {
+    function _handleStrategistOriginationReward(uint256 amount)
+        internal
+        virtual
+        override
+    {
         uint256 fee = IAstariaRouter(ROUTER()).getStrategistFee(amount);
         _mint(owner(), convertToShares(fee));
     }

@@ -2,7 +2,7 @@ pragma solidity ^0.8.16;
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {IERC20} from "./interfaces/IERC20.sol";
 // import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {CollateralToken} from "./CollateralToken.sol";

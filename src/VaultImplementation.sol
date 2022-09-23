@@ -9,7 +9,6 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IVault, VaultBase} from "gpl/ERC4626-Cloned.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 
@@ -59,7 +58,12 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     /**
      * @dev hook to allow inheriting contracts to perform payout for strategist
      */
-    function _handleStrategistReward(uint256) internal virtual {}
+    function _handleStrategistOriginationReward(uint256) internal virtual {}
+
+    /**
+     * @dev hook to allow inheriting contracts to perform payout for strategist
+     */
+    function _handleStrategistInterestReward(uint256) internal virtual {}
 
     struct InitParams {
         address delegate;
@@ -186,7 +190,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     ) external whenNotPaused {
         _validateCommitment(params, receiver);
         uint256 lienId = _requestLienAndIssuePayout(params, receiver);
-        _handleStrategistReward(params.lienRequest.amount);
+        _handleStrategistOriginationReward(params.lienRequest.amount);
         _afterCommitToLien(lienId, params.lienRequest.amount);
         emit NewObligation(
             params.lienRequest.merkle.root,
@@ -268,19 +272,23 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             c,
             receiver
         );
+
+        uint256 payout = _handleProtocolFee(c.lienRequest.amount);
+        ERC20(underlying()).safeTransfer(receiver, payout);
+        return newLienId;
+    }
+
+    function _handleProtocolFee(uint256 amount) internal returns (uint256) {
         address feeTo = IAstariaRouter(ROUTER()).feeTo();
         bool feeOn = feeTo != address(0);
         if (feeOn) {
             // uint256 rake = (amount * 997) / 1000;
-            uint256 fee = IAstariaRouter(ROUTER()).getProtocolFee(
-                c.lienRequest.amount
-            );
+            uint256 fee = IAstariaRouter(ROUTER()).getProtocolFee(amount);
             unchecked {
-                c.lienRequest.amount -= fee;
+                amount -= fee;
             }
             ERC20(underlying()).safeTransfer(feeTo, fee);
         }
-        ERC20(underlying()).safeTransfer(receiver, c.lienRequest.amount);
-        return newLienId;
+        return amount;
     }
 }
