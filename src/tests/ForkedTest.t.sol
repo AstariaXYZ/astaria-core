@@ -1,13 +1,9 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
-import {ERC721} from "solmate/tokens/ERC721.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
 import {CollateralToken, IFlashAction} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
@@ -18,12 +14,11 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
-import {TestHelpers, Dummy721, IWETH9} from "./TestHelpers.t.sol";
+
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 
 import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
-
-string constant weth9Artifact = "src/tests/WETH9.json";
+import "./TestHelpers.t.sol";
 
 address constant AIRDROP_GRAPES_TOKEN = 0x025C6da5BD0e6A5dd1350fda9e3B6a614B205a1F;
 address constant APE_HOLDER = 0x8742fa292AFfB6e5eA88168539217f2e132294f9;
@@ -56,16 +51,25 @@ contract V3FeesClaim is IFlashAction {
         vault = _vault;
     }
 
-    function onFlashAction(IFlashAction.Underlying calldata underlying, bytes calldata data)
-        external
-        returns (bytes32)
-    {
-        IV3PositionManager v3 = IV3PositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
+    function onFlashAction(
+        IFlashAction.Underlying calldata underlying,
+        bytes calldata data
+    ) external returns (bytes32) {
+        IV3PositionManager v3 = IV3PositionManager(
+            0xC36442b4a4522E871399CD717aBDD847Ab11FE88
+        );
         address receiver = abi.decode(data, (address));
         if (receiver == address(0)) {
             receiver = msg.sender;
         }
-        v3.collect(IV3PositionManager.CollectParams(underlying.tokenId, receiver, type(uint128).max, type(uint128).max));
+        v3.collect(
+            IV3PositionManager.CollectParams(
+                underlying.tokenId,
+                receiver,
+                type(uint128).max,
+                type(uint128).max
+            )
+        );
         ERC721 liquidity = ERC721(underlying.token);
         liquidity.transferFrom(address(this), vault, underlying.tokenId);
         return bytes32(keccak256("FlashAction.onFlashAction"));
@@ -73,13 +77,17 @@ contract V3FeesClaim is IFlashAction {
 }
 
 contract ForkedTest is TestHelpers {
-    function setUp() public override (TestHelpers) {
+    function setUp() public override(TestHelpers) {
         TestHelpers.setUp();
         // BaseOrderTest.setUp();
     }
 
     // 10,094 tokens
-    event AirDrop(address indexed account, uint256 indexed amount, uint256 timestamp);
+    event AirDrop(
+        address indexed account,
+        uint256 indexed amount,
+        uint256 timestamp
+    );
 
     //     function testListUnderlying() public {
     //         Dummy721 loanTest = new Dummy721();
@@ -349,13 +357,19 @@ contract ForkedTest is TestHelpers {
         VaultImplementation(vault).commitToLien(terms, address(this));
         // BrokerVault(broker).withdraw(0 ether);
 
-        uint256 collateralId = uint256(keccak256(abi.encodePacked(APE_ADDRESS, tokenId)));
+        uint256 collateralId = uint256(
+            keccak256(abi.encodePacked(APE_ADDRESS, tokenId))
+        );
 
         IFlashAction v3FeeClaim = new V3FeesClaim(address(COLLATERAL_TOKEN));
 
         // vm.expectEmit(false, false, false, false);
         // emit AirDrop(APE_HOLDER, uint256(0), uint256(0));
-        COLLATERAL_TOKEN.flashAction(v3FeeClaim, collateralId, abi.encode(address(this)));
+        COLLATERAL_TOKEN.flashAction(
+            v3FeeClaim,
+            collateralId,
+            abi.encode(address(this))
+        );
     }
 
     //    function testFlashApeClaim() public {

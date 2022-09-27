@@ -29,7 +29,6 @@ let digest;
 if (detailsType === 0) {
   details = [
     [
-      // "bytes32",
       "uint8",
       "address",
       "uint256",
@@ -38,73 +37,45 @@ if (detailsType === 0) {
       "uint256",
       "uint256",
       "uint256",
-      "uint256",
     ],
     [
-      // strategyDigest,
       parseInt(BigNumber.from(1).toString()), // version
       getAddress(tokenAddress), // token
       tokenId, // tokenId
       getAddress(args.shift()), // borrower
       ...defaultAbiCoder
-        .decode(
-          ["uint256", "uint256", "uint256", "uint256", "uint256"],
-          args.shift()
-        )
+        .decode(["uint256", "uint256", "uint256", "uint256"], args.shift())
         .map((x) => BigNumber.from(x).toString()),
     ],
   ];
   digest = solidityKeccak256(...details);
   const clone = details.map((x) => x.map((y) => y));
-  clone[1][8] = "1000";
+  clone[1][7] = "1000";
 
   const digest2 = solidityKeccak256(...clone);
 
   leaves.push(digest);
-  leaves.push(digest2);
+  // leaves.push(digest2);
+  // leaves.push(digest2);
+  // leaves.push(digest2);
+  // leaves.push(digest2);
+  // leaves.push(digest2);
 } else if (detailsType === 1) {
   details = [
+    ["uint8", "address", "address", "uint256", "uint256", "uint256", "uint256"],
     [
-      "bytes32",
-      "uint8",
-      "address",
-      "address",
-      "uint256",
-      "uint256",
-      "uint256",
-      "uint256",
-      "uint256",
-    ],
-    [
-      strategyDigest,
       "2", // type
       getAddress(args.shift()), // token
       getAddress(args.shift()), // borrower
       ...defaultAbiCoder
-        .decode(
-          ["uint256", "uint256", "uint256", "uint256", "uint256"],
-          args.shift()
-        )
+        .decode(["uint256", "uint256", "uint256", "uint256"], args.shift())
         .map((x) => BigNumber.from(x).toString()),
     ],
   ];
   leaves.push(solidityKeccak256(...details));
 } else if (detailsType === 2) {
-  //UNIV3LiquidityDetails
-
-  //uint8 version;
-  //         address token;
-  //         address[] assets;
-  //         uint24 fee;
-  //         int24 tickLower;
-  //         int24 tickUpper;
-  //         uint128 minLiquidity;
-  //         address borrower;
-  //         address resolver;
-
   details = [
     [
-      "bytes32",
       "uint8",
       "address",
       "address[]",
@@ -117,10 +88,8 @@ if (detailsType === 0) {
       "uint256",
       "uint256",
       "uint256",
-      "uint256",
     ],
     [
-      strategyDigest,
       "2", // type
       getAddress(args.shift()), // token
       args.shift(), // assets
@@ -130,10 +99,7 @@ if (detailsType === 0) {
       args.shift(), // minLiquidity
       args.shift(), // borrower
       ...defaultAbiCoder
-        .decode(
-          ["uint256", "uint256", "uint256", "uint256", "uint256"],
-          args.shift()
-        )
+        .decode(["uint256", "uint256", "uint256", "uint256"], args.shift())
         .map((x) => BigNumber.from(x).toString()),
     ],
   ];
@@ -145,7 +111,10 @@ if (detailsType === 0) {
 console.error(leaves);
 const merkleTree = new MerkleTree(
   leaves.map((x) => x),
-  keccak256
+  keccak256,
+  {
+    sortPairs: true,
+  }
 );
 // Get root
 const rootHash = merkleTree.getHexRoot();
@@ -153,13 +122,11 @@ const rootHash = merkleTree.getHexRoot();
 const treeLeaves = merkleTree.getLeaves();
 // const indicies = merkleTree.getProofIndices([0, 1]);
 const proof = merkleTree.getHexMultiProof([0, 1]);
-const proofFlags = merkleTree.getProofFlags(
-  [Buffer.from(treeLeaves[0]), Buffer.from(treeLeaves[1])],
-  proof
-);
+const proofFlags = merkleTree.getProofFlags(treeLeaves, proof);
 console.error(proof);
 console.error(proofFlags);
-// console.error(merkleTree.toString());
+console.error(strategyDetails);
+console.error(details);
 console.error(
   merkleTree.verifyMultiProofWithFlags(rootHash, treeLeaves, proof, proofFlags)
 );

@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {ILienBase, ILienToken} from "./ILienToken.sol";
@@ -19,33 +19,6 @@ interface IAstariaRouter is IPausable {
         COLLECTION,
         UNIV3_LIQUIDITY
     }
-
-    //    struct CollectionDetails {
-    //        uint8 version;
-    //        address token;
-    //        address borrower;
-    //        LienDetails lien;
-    //    }
-
-    //    struct UNIV3LiquidityDetails {
-    //        uint8 version;
-    //        address token;
-    //        address[] assets;
-    //        uint24 fee;
-    //        int24 tickLower;
-    //        int24 tickUpper;
-    //        uint128 minLiquidity;
-    //        address borrower;
-    //        LienDetails lien;
-    //    }
-
-    //    struct CollateralDetails {
-    //        uint8 version;
-    //        address token;
-    //        uint256 tokenId;
-    //        address borrower;
-    //        LienDetails lien;
-    //    }
 
     struct StrategyDetails {
         uint8 version;
@@ -96,11 +69,13 @@ interface IAstariaRouter is IPausable {
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
     }
 
-    function strategistNonce(address strategist) external view returns (uint256);
+    function strategistNonce(address strategist)
+        external
+        view
+        returns (uint256);
 
     function validateCommitment(Commitment calldata, address)
         external
-        view
         returns (bool, IAstariaRouter.LienDetails memory);
 
     function newPublicVault(uint256, address) external returns (address);
@@ -109,9 +84,13 @@ interface IAstariaRouter is IPausable {
 
     function feeTo() external returns (address);
 
-    function commitToLiens(Commitment[] calldata) external returns (uint256 totalBorrowed);
+    function commitToLiens(Commitment[] calldata)
+        external
+        returns (uint256 totalBorrowed);
 
-    function requestLienPosition(IAstariaRouter.Commitment calldata, address) external returns (uint256);
+    function requestLienPosition(IAstariaRouter.Commitment calldata, address)
+        external
+        returns (uint256);
 
     function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -133,13 +112,20 @@ interface IAstariaRouter is IPausable {
 
     function lendToVault(address vault, uint256 amount) external;
 
-    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve);
+    function liquidate(uint256 collateralId, uint256 position)
+        external
+        returns (uint256 reserve);
 
-    function canLiquidate(uint256 collateralId, uint256 position) external view returns (bool);
+    function canLiquidate(uint256 collateralId, uint256 position)
+        external
+        view
+        returns (bool);
 
     function isValidVault(address) external view returns (bool);
 
-    function isValidRefinance(ILienBase.Lien memory, LienDetails memory) external returns (bool);
+    function isValidRefinance(ILienBase.Lien memory, LienDetails memory)
+        external
+        returns (bool);
 
     event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);

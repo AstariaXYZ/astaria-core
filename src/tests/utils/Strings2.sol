@@ -1,7 +1,11 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 library Strings2 {
-    function toHexString(bytes memory input) public pure returns (string memory) {
+    function toHexString(bytes memory input)
+        public
+        pure
+        returns (string memory)
+    {
         require(input.length < type(uint256).max / 2 - 1);
         bytes16 symbols = "0123456789abcdef";
         bytes memory hex_buffer = new bytes(2 * input.length + 2);

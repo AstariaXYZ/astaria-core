@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {IAstariaRouter} from "./IAstariaRouter.sol";
@@ -35,40 +35,70 @@ interface ILienBase {
 
     function calculateSlope(uint256 lienId) external returns (uint256 slope);
 
-    function changeInSlope(uint256 lienId, uint256 paymentAmount) external returns (uint256 slope);
+    function changeInSlope(uint256 lienId, uint256 paymentAmount)
+        external
+        returns (uint256 slope);
 
     function stopLiens(uint256 collateralId)
         external
-        returns (uint256 reserve, uint256[] memory amounts, uint256[] memory lienIds);
+        returns (
+            uint256 reserve,
+            uint256[] memory amounts,
+            uint256[] memory lienIds
+        );
 
-    function getBuyout(uint256 collateralId, uint256 index) external returns (uint256, uint256);
+    function getBuyout(uint256 collateralId, uint256 index)
+        external
+        returns (uint256, uint256);
 
     function removeLiens(uint256 collateralId) external;
 
-    function getInterest(uint256 collateralId, uint256 position) external view returns (uint256);
+    function getInterest(uint256 collateralId, uint256 position)
+        external
+        view
+        returns (uint256);
 
-    function getLiens(uint256 _collateralId) external view returns (uint256[] memory);
+    function getLiens(uint256 _collateralId)
+        external
+        view
+        returns (uint256[] memory);
 
     function getLien(uint256 lienId) external view returns (Lien memory);
 
-    function getLien(uint256 collateralId, uint256 position) external view returns (Lien memory);
+    function getLien(uint256 collateralId, uint256 position)
+        external
+        view
+        returns (Lien memory);
 
-    function createLien(LienActionEncumber calldata params) external returns (uint256 lienId);
+    function createLien(LienActionEncumber calldata params)
+        external
+        returns (uint256 lienId);
 
     function buyoutLien(LienActionBuyout calldata params) external;
 
     function makePayment(uint256 collateralId, uint256 paymentAmount) external;
 
-    function makePayment(uint256 collateralId, uint256 paymentAmount, address payer) external;
+    function makePayment(
+        uint256 collateralId,
+        uint256 paymentAmount,
+        address payer
+    ) external;
 
-    function makePayment(uint256 collateralId, uint256 paymentAmount, uint256 index) external;
+    function makePayment(
+        uint256 collateralId,
+        uint256 paymentAmount,
+        uint256 index
+    ) external;
 
-    function getTotalDebtForCollateralToken(uint256 collateralId) external view returns (uint256 totalDebt);
-
-    function getTotalDebtForCollateralToken(uint256 collateralId, uint256 timestamp)
+    function getTotalDebtForCollateralToken(uint256 collateralId)
         external
         view
         returns (uint256 totalDebt);
+
+    function getTotalDebtForCollateralToken(
+        uint256 collateralId,
+        uint256 timestamp
+    ) external view returns (uint256 totalDebt);
 
     function getPayee(uint256 lienId) external view returns (address);
 
