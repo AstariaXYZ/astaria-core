@@ -377,10 +377,7 @@ contract TestHelpers is Test {
         uint256 duration,
         uint256 amount,
         uint256 maxPotentialDebt
-    )
-        internal
-        returns (bytes32 vaultHash, IAstariaRouter.Commitment memory terms)
-    {
+    ) internal returns (bytes32 vaultHash, IAstariaRouter.Commitment memory terms) {
         _depositNFTs(
             tokenContract, //based ghoul
             tokenId
@@ -624,10 +621,7 @@ contract TestHelpers is Test {
         uint8 v,
         bytes32 r,
         bytes32 s
-    )
-        internal
-        returns (IAstariaRouter.Commitment memory)
-    {
+    ) internal returns (IAstariaRouter.Commitment memory) {
         emit LogCommitWithoutDeposit(params);
         return IAstariaRouter.Commitment(
             params.tokenContract,
@@ -677,10 +671,7 @@ contract TestHelpers is Test {
         uint8 v,
         bytes32 r,
         bytes32 s
-    )
-        internal
-        returns (IAstariaRouter.Commitment memory)
-    {
+    ) internal returns (IAstariaRouter.Commitment memory) {
         //        emit LogCommitWithoutDeposit(params);
         return IAstariaRouter.Commitment(
             params.tokenContract,
@@ -745,9 +736,7 @@ contract TestHelpers is Test {
         uint256 tokenId,
         LoanTerms memory oldTerms,
         LoanTerms memory newTerms
-    )
-        internal
-    {
+    ) internal {
         _commitToLien(appraiserOne, tokenContract, tokenId, oldTerms);
 
         _commitWithoutDeposit(tokenContract, tokenId, newTerms);

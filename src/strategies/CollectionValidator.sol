@@ -34,12 +34,7 @@ contract CollectionValidator is BaseValidatorV1, ICollectionValidator {
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    )
-        external
-        view
-        override
-        returns (bytes32[] memory leaves, IAstariaRouter.LienDetails memory ld)
-    {
+    ) external view override returns (bytes32[] memory leaves, IAstariaRouter.LienDetails memory ld) {
         leaves = new bytes32[](2);
         if (params.nlrType == uint8(IAstariaRouter.LienRequestType.COLLECTION)) {
             ICollectionValidator.Details memory cd = getLeafDetails(params.nlrDetails);

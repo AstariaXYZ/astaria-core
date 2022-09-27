@@ -40,12 +40,7 @@ contract UniqueValidator is BaseValidatorV1, IUniqueValidator {
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    )
-        external
-        view
-        override
-        returns (bytes32[] memory leaves, IAstariaRouter.LienDetails memory ld)
-    {
+    ) external view override returns (bytes32[] memory leaves, IAstariaRouter.LienDetails memory ld) {
         leaves = new bytes32[](2);
         if (params.nlrType == uint8(IAstariaRouter.LienRequestType.UNIQUE)) {
             Details memory cd = getLeafDetails(params.nlrDetails);

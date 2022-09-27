@@ -49,12 +49,7 @@ contract UNI_V3Validator is BaseValidatorV1, IUNI_V3Validator {
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    )
-        external
-        view
-        override
-        returns (bytes32[] memory leaves, IAstariaRouter.LienDetails memory ld)
-    {
+    ) external view override returns (bytes32[] memory leaves, IAstariaRouter.LienDetails memory ld) {
         leaves = new bytes32[](2);
         if (params.nlrType == uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY)) {
             IUNI_V3Validator.Details memory details = getLeafDetails(params.nlrDetails);

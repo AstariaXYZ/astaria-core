@@ -203,11 +203,12 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
         uint256 impliedRate = getImpliedRate(collateralId);
 
-
         uint256 potentialDebt = totalDebt * (impliedRate + 1) * params.terms.duration;
 
-        require(params.terms.maxPotentialDebt >= potentialDebt, "too much debt could potentially be accrued against this collateral");
-
+        require(
+            params.terms.maxPotentialDebt >= potentialDebt,
+            "too much debt could potentially be accrued against this collateral"
+        );
 
         lienId = uint256(
             keccak256(

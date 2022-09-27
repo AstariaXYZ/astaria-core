@@ -83,9 +83,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         address _TRANSFER_PROXY,
         address _VAULT_IMPL,
         address _SOLO_IMPL
-    )
-        Auth(address(msg.sender), _AUTHORITY)
-    {
+    ) Auth(address(msg.sender), _AUTHORITY) {
         WETH = ERC20(_WETH);
         COLLATERAL_TOKEN = ICollateralToken(_COLLATERAL_TOKEN);
         LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
@@ -289,10 +287,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     function buyoutLien(
         uint256 position,
         IAstariaRouter.Commitment memory incomingTerms //        onlyNetworkBrokers( //            outgoingTerms.collateralId, //            outgoingTerms.position //        )
-    )
-        external
-        whenNotPaused
-    {
+    ) external whenNotPaused {
         VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
             incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
         );
