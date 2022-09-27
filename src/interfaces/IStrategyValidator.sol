@@ -9,8 +9,5 @@ interface IStrategyValidator {
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    )
-        external
-        virtual
-        returns (bytes32[] memory, IAstariaRouter.LienDetails memory);
+    ) external virtual returns (bytes32[] memory, IAstariaRouter.LienDetails memory);
 }

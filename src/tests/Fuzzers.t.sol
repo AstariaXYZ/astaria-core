@@ -30,30 +30,14 @@ contract Fuzzers is TestHelpers {
     modifier validateInputs(FuzzInputs memory args) {
         args.amount = bound(args.amount, 1 ether, 100000000000000000000);
         args.interestRate = bound(args.interestRate, 1e10, 1e12);
-        args.duration = bound(
-            args.duration,
-            block.timestamp + 1 minutes,
-            block.timestamp + 10 minutes
-        );
-        args.maxPotentialDebt = bound(
-            args.amount,
-            1 ether,
-            200000000000000000000
-        );
+        args.duration = bound(args.duration, block.timestamp + 1 minutes, block.timestamp + 10 minutes);
+        args.maxPotentialDebt = bound(args.amount, 1 ether, 200000000000000000000);
         _;
     }
 
-    function _commitToLien(
-        address tokenContract,
-        uint256 tokenId,
-        FuzzInputs memory args
-    )
+    function _commitToLien(address tokenContract, uint256 tokenId, FuzzInputs memory args)
         internal
-        returns (
-            bytes32 vaultHash,
-            address vault,
-            IAstariaRouter.Commitment memory terms
-        )
+        returns (bytes32 vaultHash, address vault, IAstariaRouter.Commitment memory terms)
     {
         LoanTerms memory loanTerms = LoanTerms({
             maxAmount: defaultTerms.maxAmount,
@@ -65,10 +49,7 @@ contract Fuzzers is TestHelpers {
         return _commitToLien(tokenContract, tokenId, loanTerms);
     }
 
-    function testFuzzCommitToLoan(FuzzInputs memory args)
-        public
-        validateInputs(args)
-    {
+    function testFuzzCommitToLoan(FuzzInputs memory args) public validateInputs(args) {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
@@ -77,18 +58,11 @@ contract Fuzzers is TestHelpers {
     }
 
     // lien testing
-    function testFuzzLienGetInterest(FuzzInputs memory args)
-        public
-        validateInputs(args)
-    {
+    function testFuzzLienGetInterest(FuzzInputs memory args) public validateInputs(args) {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (, , IAstariaRouter.Commitment memory terms) = _commitToLien(
-            tokenContract,
-            tokenId,
-            args
-        );
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLien(tokenContract, tokenId, args);
 
         uint256 collateralId = tokenContract.computeId(tokenId);
 
@@ -100,58 +74,34 @@ contract Fuzzers is TestHelpers {
         // interest = LIEN_TOKEN.getInterest(terms.collateralId, uint256(0));
     }
 
-    function testFuzzLienGetTotalDebtForCollateralToken(FuzzInputs memory args)
-        public
-        validateInputs(args)
-    {
+    function testFuzzLienGetTotalDebtForCollateralToken(FuzzInputs memory args) public validateInputs(args) {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (, , IAstariaRouter.Commitment memory terms) = _commitToLien(
-            tokenContract,
-            tokenId,
-            args
-        );
-        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(
-            tokenContract.computeId(tokenId)
-        );
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLien(tokenContract, tokenId, args);
+        uint256 totalDebt = LIEN_TOKEN.getTotalDebtForCollateralToken(tokenContract.computeId(tokenId));
         // TODO calcs
         assert(args.amount <= totalDebt);
     }
 
-    function testFuzzLienGetBuyout(FuzzInputs memory args)
-        public
-        validateInputs(args)
-    {
+    function testFuzzLienGetBuyout(FuzzInputs memory args) public validateInputs(args) {
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);
         uint256 tokenId = uint256(1);
-        (, , IAstariaRouter.Commitment memory terms) = _commitToLien(
-            tokenContract,
-            tokenId,
-            args
-        );
+        (,, IAstariaRouter.Commitment memory terms) = _commitToLien(tokenContract, tokenId, args);
 
-        (uint256 owed, uint256 owedPlus) = LIEN_TOKEN.getBuyout(
-            tokenContract.computeId(tokenId),
-            uint256(0)
-        );
+        (uint256 owed, uint256 owedPlus) = LIEN_TOKEN.getBuyout(tokenContract.computeId(tokenId), uint256(0));
 
         assertLt(owed, owedPlus);
     }
 
     // TODO once isValidRefinance() hooked in, vm.assume better terms
-    function testFuzzRefinanceLoan(
-        FuzzInputs memory args,
-        uint256 newInterestRate,
-        uint256 newDuration
-    ) public validateInputs(args) {
+    function testFuzzRefinanceLoan(FuzzInputs memory args, uint256 newInterestRate, uint256 newDuration)
+        public
+        validateInputs(args)
+    {
         newInterestRate = bound(newInterestRate, 1e10, 1e12);
-        newDuration = bound(
-            newDuration,
-            block.timestamp + 1 minutes,
-            block.timestamp + 10 minutes
-        );
+        newDuration = bound(newDuration, block.timestamp + 1 minutes, block.timestamp + 10 minutes);
 
         Dummy721 loanTest = new Dummy721();
         address tokenContract = address(loanTest);

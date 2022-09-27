@@ -35,17 +35,10 @@ contract AstariaTest2 is TestHelpers {
 
         uint256 initialBalance = WETH9.balanceOf(address(this));
 
-        address publicVault = _createPublicVault({
-            strategist: strategistOne,
-            delegate: strategistTwo,
-            epochLength: 14 days
-        });
+        address publicVault =
+            _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
-        _lendToVault(Lender({
-            addr: address(1),
-            amountToLend: 50 ether,
-            lendingDuration: 0 days
-        }), publicVault);
+        _lendToVault(Lender({addr: address(1), amountToLend: 50 ether, lendingDuration: 0 days}), publicVault);
 
         _commitToLien({
             vault: publicVault,
@@ -63,7 +56,5 @@ contract AstariaTest2 is TestHelpers {
         });
     }
 
-    function testBasicPrivateVaultLoan() public {
-
-    }
+    function testBasicPrivateVaultLoan() public {}
 }

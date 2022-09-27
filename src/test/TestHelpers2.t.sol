@@ -279,8 +279,6 @@ contract TestHelpers is Test {
         (rootHash, merkleProof, proofFlags) = abi.decode(res, (bytes32, bytes32[], bool[]));
     }
 
-    
-
     function _commitToLien(
         address vault, // address of deployed Vault
         address strategist,
@@ -297,16 +295,14 @@ contract TestHelpers is Test {
         // address vault = _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
         bytes memory validatorDetails = abi.encode(
-                    IUniqueValidator.Details({
-                        version: uint8(1),
-                        token: tokenContract,
-                        tokenId: tokenId,
-                        borrower: address(0),
-                        lien: lienDetails
-                    }));
-                
-
-        
+            IUniqueValidator.Details({
+                version: uint8(1),
+                token: tokenContract,
+                tokenId: tokenId,
+                borrower: address(0),
+                lien: lienDetails
+            })
+        );
 
         (bytes32 rootHash, bytes32[] memory merkleProof, bool[] memory proofFlags) = _generateLoanMerkleProof({
             strategist: strategist,
@@ -332,11 +328,7 @@ contract TestHelpers is Test {
                 }),
                 nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE), // TODO support others?
                 nlrDetails: validatorDetails,
-                merkle: IAstariaRouter.MultiMerkleData({
-                    root: rootHash,
-                    proofs: merkleProof,
-                    flags: proofFlags
-                }),
+                merkle: IAstariaRouter.MultiMerkleData({root: rootHash, proofs: merkleProof, flags: proofFlags}),
                 amount: amount,
                 v: v,
                 r: r,
