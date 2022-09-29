@@ -244,7 +244,6 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
         liens[collateralId].push(lienId);
 
-        //        emit NewLien(lienId, collateralId, newPosition, params.obligationRoot);
         emit NewLien(lienId, lienData[lienId]);
     }
 

@@ -87,12 +87,8 @@ contract AstariaTest is TestHelpers {
 
         //assert weth balance is before + 1 ether532
 
-        emit Balance(balanceBefore);
-        emit Balance(WETH9.balanceOf(address(this)));
         assert(WETH9.balanceOf(address(this)) == balanceBefore + defaultTerms.amount);
     }
-
-    event Balance(uint256);
 
     function testSoloLend() public {
         address vault = _createVault(false, appraiserOne);

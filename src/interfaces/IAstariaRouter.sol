@@ -51,6 +51,11 @@ interface IAstariaRouter is IPausable {
         NewLienRequest lienRequest;
     }
 
+    struct RefinanceCheckParams {
+        uint256 position;
+        Commitment incoming;
+    }
+
     struct BorrowAndBuyParams {
         Commitment[] commitments;
         address invoker;
