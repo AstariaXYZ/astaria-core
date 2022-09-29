@@ -93,7 +93,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         }
 
         // check to ensure that the requested epoch is not the current epoch or in the past
-        require(epoch >= currentEpoch + 1, "Exit epoch too low");
+        require(epoch >= currentEpoch, "Exit epoch too low");
 
         // check for rounding error since we round down in previewRedeem.
         require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
@@ -207,8 +207,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         }
 
         // prevents transfer to a non-existent WithdrawProxy
-        if (withdrawProxies[currentEpoch] != address(0)) {
-            ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch], withdraw);
+        // withdrawProxies are indexed by the epoch where they're deployed
+        if (withdrawProxies[currentEpoch + 1] != address(0)) {
+            ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch + 1], withdraw);
         }
 
         // decrement the withdraw from the withdraw reserve
