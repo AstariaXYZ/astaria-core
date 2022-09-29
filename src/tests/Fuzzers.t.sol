@@ -1,14 +1,9 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
-import {ERC721} from "gpl/ERC721.sol";
-// import {ERC721} from "solmate/tokens/ERC721.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
@@ -28,15 +23,15 @@ contract Fuzzers is TestHelpers {
     struct FuzzInputs {
         uint256 amount;
         uint256 interestRate;
-        uint256 maxInterestRate;
         uint256 duration;
+        uint256 maxPotentialDebt;
     }
 
     modifier validateInputs(FuzzInputs memory args) {
         args.amount = bound(args.amount, 1 ether, 100000000000000000000);
         args.interestRate = bound(args.interestRate, 1e10, 1e12);
-        args.maxInterestRate = bound(args.maxInterestRate * 2, 1e10, 1e12);
         args.duration = bound(args.duration, block.timestamp + 1 minutes, block.timestamp + 10 minutes);
+        args.maxPotentialDebt = bound(args.amount, 1 ether, 200000000000000000000);
         _;
     }
 
@@ -46,11 +41,10 @@ contract Fuzzers is TestHelpers {
     {
         LoanTerms memory loanTerms = LoanTerms({
             maxAmount: defaultTerms.maxAmount,
-            maxDebt: defaultTerms.maxDebt,
             interestRate: args.interestRate,
-            maxInterestRate: args.maxInterestRate,
             duration: args.duration,
-            amount: args.amount
+            amount: args.amount,
+            maxPotentialDebt: args.maxPotentialDebt
         });
         return _commitToLien(tokenContract, tokenId, loanTerms);
     }
@@ -115,11 +109,10 @@ contract Fuzzers is TestHelpers {
 
         LoanTerms memory newTerms = LoanTerms({
             maxAmount: defaultTerms.maxAmount,
-            maxDebt: defaultTerms.maxDebt,
             interestRate: newInterestRate,
-            maxInterestRate: newInterestRate * 2,
             duration: newDuration,
-            amount: args.amount
+            amount: args.amount,
+            maxPotentialDebt: args.maxPotentialDebt
         });
 
         _commitToLien(tokenContract, tokenId, args);

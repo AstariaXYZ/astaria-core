@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -6,8 +6,6 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {WithdrawProxy} from "./WithdrawProxy.sol";
 import {PublicVault} from "./PublicVault.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
-
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {Clone} from "clones-with-immutable-args/Clone.sol";
 
@@ -32,8 +30,9 @@ abstract contract LiquidationBase is Clone {
 /**
  * @title LiquidationAccountant
  * @author santiagogregory
- * @notice This contract collects funds from liquidations that overlap with an epoch boundary where liquidity providers are exiting. When the final auction being tracked by a LiquidationAccountant for a given epoch is completed, claim() proportionally pays out auction funds to withdrawing liquidity providers and the PublicVault.
- *
+ * @notice This contract collects funds from liquidations that overlap with an epoch boundary where liquidity providers are exiting.
+ * When the final auction being tracked by a LiquidationAccountant for a given epoch is completed,
+ * claim() proportionally pays out auction funds to withdrawing liquidity providers and the PublicVault.
  */
 contract LiquidationAccountant is LiquidationBase {
     using FixedPointMathLib for uint256;
@@ -59,6 +58,8 @@ contract LiquidationAccountant is LiquidationBase {
         if (withdrawProxyRatio == uint256(0)) {
             ERC20(underlying()).safeTransfer(VAULT(), balance);
         } else {
+            //should be wad multiplication
+            // declining
             uint256 transferAmount = withdrawProxyRatio * balance;
             ERC20(underlying()).safeTransfer(withdrawProxy, transferAmount);
 
@@ -88,7 +89,7 @@ contract LiquidationAccountant is LiquidationBase {
         if (proxy != address(0)) {
             withdrawProxy = proxy;
             withdrawProxyRatio =
-                WithdrawProxy(withdrawProxy).totalSupply().mulDivDown(1, PublicVault(VAULT()).totalSupply()); // TODO check
+                WithdrawProxy(withdrawProxy).totalSupply().mulDivDown(10e18, PublicVault(VAULT()).totalSupply()); // TODO check
         }
     }
 

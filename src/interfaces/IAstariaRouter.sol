@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {ILienBase, ILienToken} from "./ILienToken.sol";
@@ -7,58 +7,17 @@ import {ITransferProxy} from "./ITransferProxy.sol";
 import {IPausable} from "../utils/Pausable.sol";
 
 interface IAstariaRouter is IPausable {
-    struct Terms {
-        address broker;
-        address token;
-        bytes32[] proof;
-        uint256 collateralId;
-        uint256 maxAmount;
-        uint256 maxDebt;
-        uint256 rate;
-        uint256 maxRate;
-        uint256 duration;
-        uint256 schedule;
-    }
-
     struct LienDetails {
         uint256 maxAmount;
-        uint256 maxSeniorDebt;
         uint256 rate; //rate per second
-        uint256 maxInterestRate; //max at origination
         uint256 duration;
+        uint256 maxPotentialDebt;
     }
 
     enum LienRequestType {
         UNIQUE,
         COLLECTION,
         UNIV3_LIQUIDITY
-    }
-
-    struct CollectionDetails {
-        uint8 version;
-        address token;
-        address borrower;
-        LienDetails lien;
-    }
-
-    struct UNIV3LiquidityDetails {
-        uint8 version;
-        address token;
-        address[] assets;
-        uint24 fee;
-        int24 tickLower;
-        int24 tickUpper;
-        uint128 minLiquidity;
-        address borrower;
-        LienDetails lien;
-    }
-
-    struct CollateralDetails {
-        uint8 version;
-        address token;
-        uint256 tokenId;
-        address borrower;
-        LienDetails lien;
     }
 
     struct StrategyDetails {
@@ -69,12 +28,17 @@ interface IAstariaRouter is IPausable {
         address vault;
     }
 
+    struct MultiMerkleData {
+        bytes32 root;
+        bytes32[] proof;
+        bool[] flags;
+    }
+
     struct NewLienRequest {
         StrategyDetails strategy;
         uint8 nlrType;
         bytes nlrDetails;
-        bytes32 nlrRoot;
-        bytes32[] nlrProof;
+        MultiMerkleData merkle;
         uint256 amount;
         uint8 v;
         bytes32 r;
@@ -105,10 +69,9 @@ interface IAstariaRouter is IPausable {
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
     }
 
-    function strategistNonce(address strategist)
-        external
-        view
-        returns (uint256);
+    function strategistNonce(address strategist) external view returns (uint256);
+
+    function validateCommitment(Commitment calldata) external returns (bool, IAstariaRouter.LienDetails memory);
 
     function newPublicVault(uint256, address) external returns (address);
 
@@ -116,13 +79,9 @@ interface IAstariaRouter is IPausable {
 
     function feeTo() external returns (address);
 
-    function commitToLiens(Commitment[] calldata)
-        external
-        returns (uint256 totalBorrowed);
+    function commitToLiens(Commitment[] calldata) external returns (uint256 totalBorrowed);
 
-    function requestLienPosition(ILienBase.LienActionEncumber calldata params)
-        external
-        returns (uint256);
+    function requestLienPosition(IAstariaRouter.Commitment calldata) external returns (uint256);
 
     function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -144,20 +103,13 @@ interface IAstariaRouter is IPausable {
 
     function lendToVault(address vault, uint256 amount) external;
 
-    function liquidate(uint256 collateralId, uint256 position)
-        external
-        returns (uint256 reserve);
+    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve);
 
-    function canLiquidate(uint256 collateralId, uint256 position)
-        external
-        view
-        returns (bool);
+    function canLiquidate(uint256 collateralId, uint256 position) external view returns (bool);
 
     function isValidVault(address) external view returns (bool);
 
-    function isValidRefinance(ILienBase.Lien memory, LienDetails memory)
-        external
-        returns (bool);
+    function isValidRefinance(ILienBase.Lien memory, LienDetails memory) external returns (bool);
 
     event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);

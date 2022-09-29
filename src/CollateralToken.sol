@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
-import {IERC721Receiver} from "openzeppelin/token/ERC721/IERC721Receiver.sol";
-import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
+import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {IERC165} from "./interfaces/IERC721.sol";
+
+import {IERC721Receiver} from "./interfaces/IERC721Receiver.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {ICollateralBase, ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
-import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";

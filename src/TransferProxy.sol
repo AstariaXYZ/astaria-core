@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";

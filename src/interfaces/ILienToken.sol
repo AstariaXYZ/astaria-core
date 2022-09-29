@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {IAstariaRouter} from "./IAstariaRouter.sol";

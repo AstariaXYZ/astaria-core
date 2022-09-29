@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
 import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
-import {ValidateTerms} from "./libraries/ValidateTerms.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {Base64} from "./libraries/Base64.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -35,7 +33,6 @@ contract TransferAgent {
  * @notice This contract handles the creation, payments, buyouts, and liquidations of tokenized NFT-collateralized debt (liens). Vaults which originate loans against supported collateral are issued a LienToken representing the right to loan repayments and auctioned funds on liquidation.
  */
 contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
-    using ValidateTerms for IAstariaRouter.NewLienRequest;
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
 
@@ -50,7 +47,6 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     mapping(uint256 => uint256[]) public liens;
     mapping(uint256 => address) public payees;
 
-    event NewLien(uint256 lienId, uint256, uint8, bytes32 rootHash);
     event NewLien(uint256 lienId, Lien lien);
     event Payment(uint256 lienId, uint256 amount);
     event RemovedLiens(uint256 lienId);
@@ -105,13 +101,12 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
      */
     function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
         uint256 collateralId = params.incoming.tokenContract.computeId(params.incoming.tokenId);
-        (, uint256 buyout) = getBuyout(collateralId, params.position);
+        (uint256 owed, uint256 buyout) = getBuyout(collateralId, params.position);
 
         uint256 lienId = liens[collateralId][params.position];
 
-        (bool valid, IAstariaRouter.LienDetails memory ld) = params.incoming.lienRequest.validateTerms(
-            COLLATERAL_TOKEN.ownerOf(collateralId), params.incoming.tokenContract, params.incoming.tokenId
-        );
+        (bool valid, IAstariaRouter.LienDetails memory ld) = ASTARIA_ROUTER.validateCommitment(params.incoming);
+        require(ld.maxAmount <= owed, "LienToken: buyout amount exceeds owed");
 
         if (!valid) {
             revert("invalid incoming terms");
@@ -207,9 +202,12 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
         uint256 impliedRate = getImpliedRate(collateralId);
 
-        require(params.terms.maxSeniorDebt >= totalDebt, "too much debt to take this loan");
+        uint256 potentialDebt = totalDebt * (impliedRate + 1) * params.terms.duration;
 
-        require(params.terms.maxInterestRate >= impliedRate, "current implied rate is too high");
+        require(
+            params.terms.maxPotentialDebt >= potentialDebt,
+            "too much debt could potentially be accrued against this collateral"
+        );
 
         lienId = uint256(
             keccak256(
@@ -219,10 +217,9 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
                         params.vault,
                         WETH,
                         params.terms.maxAmount,
-                        params.terms.maxSeniorDebt,
                         params.terms.rate,
-                        params.terms.maxInterestRate,
-                        params.terms.duration
+                        params.terms.duration,
+                        params.terms.maxPotentialDebt
                     ),
                     params.obligationRoot
                 )
@@ -247,7 +244,6 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
         liens[collateralId].push(lienId);
 
-        //        emit NewLien(lienId, collateralId, newPosition, params.obligationRoot);
         emit NewLien(lienId, lienData[lienId]);
     }
 
