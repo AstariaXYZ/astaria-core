@@ -26,9 +26,7 @@ interface IFlashAction {
         uint256 tokenId;
     }
 
-    function onFlashAction(Underlying calldata, bytes calldata)
-        external
-        returns (bytes32);
+    function onFlashAction(Underlying calldata, bytes calldata) external returns (bytes32);
 }
 
 interface ISecurityHook {
@@ -54,25 +52,14 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
     uint256 public AUCTION_WINDOW;
 
     event Deposit721(
-        address indexed tokenContract,
-        uint256 indexed tokenId,
-        uint256 indexed collateralId,
-        address depositedFor
+        address indexed tokenContract, uint256 indexed tokenId, uint256 indexed collateralId, address depositedFor
     );
-    event ReleaseTo(
-        address indexed underlyingAsset,
-        uint256 assetId,
-        address indexed to
-    );
+    event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
 
     error AssetNotSupported(address);
     error AuctionStartedForCollateral(uint256);
 
-    constructor(
-        Authority AUTHORITY_,
-        address TRANSFER_PROXY_,
-        address LIEN_TOKEN_
-    )
+    constructor(Authority AUTHORITY_, address TRANSFER_PROXY_, address LIEN_TOKEN_)
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria Collateral Token", "ACT")
     {
@@ -82,15 +69,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         AUCTION_WINDOW = uint256(2 days);
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721)
-        returns (bool)
-    {
-        return
-            interfaceId == type(ICollateralToken).interfaceId ||
-            super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view override (ERC721) returns (bool) {
+        return interfaceId == type(ICollateralToken).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /**
@@ -109,10 +89,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
             address addr = abi.decode(data, (address));
             AUCTION_HOUSE = IAuctionHouse(addr);
         } else if (what == "setSecurityHook") {
-            (address target, address hook) = abi.decode(
-                data,
-                (address, address)
-            );
+            (address target, address hook) = abi.decode(data, (address, address));
             securityHooks[target] = hook;
         } else {
             revert("unsupported/file");
@@ -121,18 +98,14 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
 
     modifier releaseCheck(uint256 collateralId) {
         require(
-            uint256(0) == LIEN_TOKEN.getLiens(collateralId).length &&
-                !AUCTION_HOUSE.auctionExists(collateralId),
+            uint256(0) == LIEN_TOKEN.getLiens(collateralId).length && !AUCTION_HOUSE.auctionExists(collateralId),
             "must be no liens or auctions to call this"
         );
         _;
     }
 
     modifier onlyOwner(uint256 collateralId) {
-        require(
-            ownerOf(collateralId) == msg.sender,
-            "onlyOwner: only the owner"
-        );
+        require(ownerOf(collateralId) == msg.sender, "onlyOwner: only the owner");
         _;
     }
 
@@ -142,11 +115,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param collateralId The ID of the CollateralToken to temporarily unwrap.
      * @param data Input data used in the FlashAction.
      */
-    function flashAction(
-        IFlashAction receiver,
-        uint256 collateralId,
-        bytes calldata data
-    ) external onlyOwner(collateralId) {
+    function flashAction(IFlashAction receiver, uint256 collateralId, bytes calldata data)
+        external
+        onlyOwner(collateralId)
+    {
         address addr;
         uint256 tokenId;
         (addr, tokenId) = getUnderlying(collateralId);
@@ -156,41 +128,27 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         //look to see if we have a security handler for this asset
 
         if (securityHooks[addr] != address(0)) {
-            preTransferState = ISecurityHook(securityHooks[addr]).getState(
-                addr,
-                tokenId
-            );
+            preTransferState = ISecurityHook(securityHooks[addr]).getState(addr, tokenId);
         }
         // transfer the NFT to the destination optimistically
 
         nft.transferFrom(address(this), address(receiver), tokenId);
         // invoke the call passed by the msg.sender
         require(
-            receiver.onFlashAction(
-                IFlashAction.Underlying(addr, tokenId),
-                data
-            ) == keccak256("FlashAction.onFlashAction"),
+            receiver.onFlashAction(IFlashAction.Underlying(addr, tokenId), data)
+                == keccak256("FlashAction.onFlashAction"),
             "flashAction: callback failed"
         );
 
         if (securityHooks[addr] != address(0)) {
             require(
-                keccak256(preTransferState) ==
-                    keccak256(
-                        ISecurityHook(securityHooks[addr]).getState(
-                            addr,
-                            tokenId
-                        )
-                    ),
+                keccak256(preTransferState) == keccak256(ISecurityHook(securityHooks[addr]).getState(addr, tokenId)),
                 "flashAction: Data must be the same"
             );
         }
 
         // validate that the NFT returned after the call
-        require(
-            nft.ownerOf(tokenId) == address(this),
-            "flashAction: NFT not returned"
-        );
+        require(nft.ownerOf(tokenId) == address(this), "flashAction: NFT not returned");
     }
 
     /**
@@ -198,15 +156,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param collateralId The ID for the CollateralToken of the NFT to unlock.
      * @param releaseTo The address to send the NFT to.
      */
-    function releaseToAddress(uint256 collateralId, address releaseTo)
-        public
-        releaseCheck(collateralId)
-    {
+    function releaseToAddress(uint256 collateralId, address releaseTo) public releaseCheck(collateralId) {
         //check liens
-        require(
-            msg.sender == ownerOf(collateralId),
-            "You don't have permission to call this"
-        );
+        require(msg.sender == ownerOf(collateralId), "You don't have permission to call this");
         _releaseToAddress(collateralId, releaseTo);
     }
 
@@ -215,17 +167,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param collateralId The ID for the CollateralToken of the NFT to unlock.
      * @param releaseTo The address to send the NFT to.
      */
-    function _releaseToAddress(uint256 collateralId, address releaseTo)
-        internal
-    {
-        (address underlyingAsset, uint256 assetId) = getUnderlying(
-            collateralId
-        );
-        IERC721(underlyingAsset).transferFrom(
-            address(this),
-            releaseTo,
-            assetId
-        );
+    function _releaseToAddress(uint256 collateralId, address releaseTo) internal {
+        (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
+        IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
         delete idToUnderlying[collateralId];
         _burn(collateralId);
         emit ReleaseTo(underlyingAsset, assetId, releaseTo);
@@ -236,11 +180,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param collateralId The ID of the CollateralToken wrapping the NFT.
      * @return The address and tokenId of the underlying NFT.
      */
-    function getUnderlying(uint256 collateralId)
-        public
-        view
-        returns (address, uint256)
-    {
+    function getUnderlying(uint256 collateralId) public view returns (address, uint256) {
         Asset memory underlying = idToUnderlying[collateralId];
         return (underlying.tokenContract, underlying.tokenId);
     }
@@ -250,16 +190,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param collateralId The ID of the CollateralToken.
      * @return the URI of the CollateralToken.
      */
-    function tokenURI(uint256 collateralId)
-        public
-        view
-        virtual
-        override
-        returns (string memory)
-    {
-        (address underlyingAsset, uint256 assetId) = getUnderlying(
-            collateralId
-        );
+    function tokenURI(uint256 collateralId) public view virtual override returns (string memory) {
+        (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
         return ERC721(underlyingAsset).tokenURI(assetId);
     }
 
@@ -270,18 +202,17 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param data_ calldata that is apart of the callback
      * @return a static return of the receive signature
      */
-    function onERC721Received(
-        address operator_,
-        address from_,
-        uint256 tokenId_,
-        bytes calldata data_
-    ) external override returns (bytes4) {
+    function onERC721Received(address operator_, address from_, uint256 tokenId_, bytes calldata data_)
+        external
+        override
+        returns (bytes4)
+    {
         if (msg.sender == address(this) || msg.sender == address(LIEN_TOKEN)) {
             revert("system assets are not valid collateral");
         }
         uint256 collateralId = msg.sender.computeId(tokenId_);
 
-        (address underlyingAsset, ) = getUnderlying(collateralId);
+        (address underlyingAsset,) = getUnderlying(collateralId);
 
         if (underlyingAsset == address(0)) {
             address depositFor = operator_;
@@ -292,10 +223,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
 
             _mint(depositFor, collateralId);
 
-            idToUnderlying[collateralId] = Asset({
-                tokenContract: msg.sender,
-                tokenId: tokenId_
-            });
+            idToUnderlying[collateralId] = Asset({tokenContract: msg.sender, tokenId: tokenId_});
 
             emit Deposit721(msg.sender, tokenId_, collateralId, depositFor);
         }
@@ -315,21 +243,14 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param liquidator The address of the user that triggered the liquidation.
      * @param liquidationFee The fee earned to the liquidator. TODO elaborate
      */
-    function auctionVault(
-        uint256 collateralId,
-        address liquidator,
-        uint256 liquidationFee
-    ) external whenNotPaused requiresAuth returns (uint256 reserve) {
-        require(
-            !AUCTION_HOUSE.auctionExists(collateralId),
-            "auctionVault: auction already exists"
-        );
-        reserve = AUCTION_HOUSE.createAuction(
-            collateralId,
-            AUCTION_WINDOW,
-            liquidator,
-            liquidationFee
-        );
+    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee)
+        external
+        whenNotPaused
+        requiresAuth
+        returns (uint256 reserve)
+    {
+        require(!AUCTION_HOUSE.auctionExists(collateralId), "auctionVault: auction already exists");
+        reserve = AUCTION_HOUSE.createAuction(collateralId, AUCTION_WINDOW, liquidator, liquidationFee);
     }
 
     /**

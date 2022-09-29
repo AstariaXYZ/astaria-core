@@ -30,7 +30,7 @@ interface IAstariaRouter is IPausable {
 
     struct MultiMerkleData {
         bytes32 root;
-        bytes32[] proofs;
+        bytes32[] proof;
         bool[] flags;
     }
 
@@ -51,11 +51,6 @@ interface IAstariaRouter is IPausable {
         NewLienRequest lienRequest;
     }
 
-    struct RefinanceCheckParams {
-        uint256 position;
-        Commitment incoming;
-    }
-
     struct BorrowAndBuyParams {
         Commitment[] commitments;
         address invoker;
@@ -69,14 +64,9 @@ interface IAstariaRouter is IPausable {
         uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
     }
 
-    function strategistNonce(address strategist)
-        external
-        view
-        returns (uint256);
+    function strategistNonce(address strategist) external view returns (uint256);
 
-    function validateCommitment(Commitment calldata, address)
-        external
-        returns (bool, IAstariaRouter.LienDetails memory);
+    function validateCommitment(Commitment calldata) external returns (bool, IAstariaRouter.LienDetails memory);
 
     function newPublicVault(uint256, address) external returns (address);
 
@@ -84,13 +74,9 @@ interface IAstariaRouter is IPausable {
 
     function feeTo() external returns (address);
 
-    function commitToLiens(Commitment[] calldata)
-        external
-        returns (uint256 totalBorrowed);
+    function commitToLiens(Commitment[] calldata) external returns (uint256 totalBorrowed);
 
-    function requestLienPosition(IAstariaRouter.Commitment calldata, address)
-        external
-        returns (uint256);
+    function requestLienPosition(IAstariaRouter.Commitment calldata) external returns (uint256);
 
     function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -112,20 +98,13 @@ interface IAstariaRouter is IPausable {
 
     function lendToVault(address vault, uint256 amount) external;
 
-    function liquidate(uint256 collateralId, uint256 position)
-        external
-        returns (uint256 reserve);
+    function liquidate(uint256 collateralId, uint256 position) external returns (uint256 reserve);
 
-    function canLiquidate(uint256 collateralId, uint256 position)
-        external
-        view
-        returns (bool);
+    function canLiquidate(uint256 collateralId, uint256 position) external view returns (bool);
 
     function isValidVault(address) external view returns (bool);
 
-    function isValidRefinance(ILienBase.Lien memory, LienDetails memory)
-        external
-        returns (bool);
+    function isValidRefinance(ILienBase.Lien memory, LienDetails memory) external returns (bool);
 
     event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);
