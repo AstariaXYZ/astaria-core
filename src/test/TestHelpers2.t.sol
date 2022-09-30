@@ -352,4 +352,18 @@ contract TestHelpers is Test {
         PublicVault(vault).deposit(lender.amountToLend, lender.addr);
         vm.stopPrank();
     }
+
+    function _lendToVault(Lender[] memory lenders, address vault) internal {
+        for(uint256 i = 0; i < lenders.length; i++) {
+            _lendToVault(lenders[i], vault);
+        }
+    }
+
+    function _bid(address bidder, uitn256 tokenId, uint256 amount) internal {
+        vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
+        vm.startPrank(bidder);
+        WETH9.deposit{value: amount}();
+        WETH9.approve(address(TRANSFER_PROXY), amount);
+        vm.stopPrank();
+    }
 }
