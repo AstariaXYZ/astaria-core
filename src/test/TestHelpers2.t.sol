@@ -4,13 +4,14 @@ import "forge-std/Test.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
+
 import {ERC721} from "gpl/ERC721.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
+import {ILienToken} from "../interfaces/ILienToken.sol";
+import {ITransferProxy} from "../interfaces/ITransferProxy.sol";
 import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
@@ -119,13 +120,13 @@ contract TestHelpers is Test {
         TRANSFER_PROXY = new TransferProxy(MRA);
         LIEN_TOKEN = new LienToken(
             MRA,
-            address(TRANSFER_PROXY),
+            TRANSFER_PROXY,
             address(WETH9)
         );
         COLLATERAL_TOKEN = new CollateralToken(
             MRA,
-            address(TRANSFER_PROXY),
-            address(LIEN_TOKEN)
+            TRANSFER_PROXY,
+            ILienToken(address(LIEN_TOKEN))
         );
 
         PUBLIC_VAULT = new PublicVault();
@@ -134,19 +135,19 @@ contract TestHelpers is Test {
         ASTARIA_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
-            address(COLLATERAL_TOKEN),
-            address(LIEN_TOKEN),
-            address(TRANSFER_PROXY),
+            ICollateralToken(address(COLLATERAL_TOKEN)),
+            ILienToken(address(LIEN_TOKEN)),
+            ITransferProxy(address(TRANSFER_PROXY)),
             address(PUBLIC_VAULT),
             address(SOLO_VAULT)
         );
 
         AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
-            address(MRA),
-            address(COLLATERAL_TOKEN),
-            address(LIEN_TOKEN),
-            address(TRANSFER_PROXY)
+                MRA,
+                ICollateralToken(address(COLLATERAL_TOKEN)),
+                ILienToken(address(LIEN_TOKEN)),
+                TRANSFER_PROXY
         );
 
         COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
@@ -256,7 +257,7 @@ contract TestHelpers is Test {
             if (requestType == IAstariaRouter.LienRequestType.COLLECTION) {
                 ICollectionValidator.Details memory terms = abi.decode(data, (ICollectionValidator.Details));
 
-                inputs[6] = abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
+                inputs[6] = abi.encodePacked(uint8(StrategyTypes.COLLECTION)).toHexString(); //type
                 inputs[7] = abi.encodePacked(address(0)).toHexString(); //borrower
                 inputs[8] = abi.encode(terms.lien).toHexString(); //lien details
             } else {

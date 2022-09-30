@@ -12,7 +12,10 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Vault, PublicVault} from "./PublicVault.sol";
 import {TransferProxy} from "./TransferProxy.sol";
 import {WEth} from "foundry_eip-4626/WEth.sol";
-
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
+import {ILienToken} from "./interfaces/ILienToken.sol";
+import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 // import {WEth} from "./WEth.sol";
 
 interface IWETH9 is IERC20 {
@@ -52,14 +55,14 @@ contract AstariaDeploy {
         TRANSFER_PROXY = new TransferProxy(MRA);
         LIEN_TOKEN = new LienToken(
             MRA,
-            address(TRANSFER_PROXY),
+            TRANSFER_PROXY,
             address(WETH9)
         );
         emit Deployed(address(TRANSFER_PROXY));
         COLLATERAL_TOKEN = new CollateralToken(
             MRA,
-            address(TRANSFER_PROXY),
-            address(LIEN_TOKEN)
+            TRANSFER_PROXY,
+            ILienToken(address(LIEN_TOKEN))
         );
         emit Deployed(address(COLLATERAL_TOKEN));
 
@@ -68,9 +71,10 @@ contract AstariaDeploy {
         ASTARIA_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
-            address(COLLATERAL_TOKEN),
-            address(LIEN_TOKEN),
-            address(TRANSFER_PROXY),
+
+            ICollateralToken(address(COLLATERAL_TOKEN)),
+            ILienToken(address(LIEN_TOKEN)),
+            ITransferProxy(address(TRANSFER_PROXY)),
             address(VAULT_IMPLEMENTATION),
             address(SOLO_IMPLEMENTATION)
         );
@@ -79,10 +83,10 @@ contract AstariaDeploy {
         //
         AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
-            address(MRA),
-            address(COLLATERAL_TOKEN),
-            address(LIEN_TOKEN),
-            address(TRANSFER_PROXY)
+            MRA,
+            ICollateralToken(address(COLLATERAL_TOKEN)),
+            ILienToken(address(LIEN_TOKEN)),
+            TRANSFER_PROXY
         );
         emit Deployed(address(AUCTION_HOUSE));
 

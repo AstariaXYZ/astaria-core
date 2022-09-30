@@ -6,10 +6,14 @@ import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {ERC721} from "gpl/ERC721.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+
 import {Strings} from "./utils/Strings.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
+import {ILienToken} from "../interfaces/ILienToken.sol";
+import {ITransferProxy} from "../interfaces/ITransferProxy.sol";
 import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
@@ -120,7 +124,6 @@ contract TestHelpers is Test {
     MultiRolesAuthority MRA;
     AuctionHouse AUCTION_HOUSE;
 
-    bytes32 testBondVaultHash = bytes32(0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798);
     uint256 appraiserOnePK = uint256(0x1339);
     uint256 appraiserTwoPK = uint256(0x1344);
     address appraiserOne = vm.addr(appraiserOnePK);
@@ -145,13 +148,13 @@ contract TestHelpers is Test {
         TRANSFER_PROXY = new TransferProxy(MRA);
         LIEN_TOKEN = new LienToken(
             MRA,
-            address(TRANSFER_PROXY),
+            TRANSFER_PROXY,
             address(WETH9)
         );
         COLLATERAL_TOKEN = new CollateralToken(
             MRA,
-            address(TRANSFER_PROXY),
-            address(LIEN_TOKEN)
+            TRANSFER_PROXY,
+            ILienToken(address(LIEN_TOKEN))
         );
 
         PUBLIC_VAULT = new PublicVault();
@@ -160,19 +163,19 @@ contract TestHelpers is Test {
         ASTARIA_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
-            address(COLLATERAL_TOKEN),
-            address(LIEN_TOKEN),
-            address(TRANSFER_PROXY),
+            ICollateralToken(address(COLLATERAL_TOKEN)),
+            ILienToken(address(LIEN_TOKEN)),
+            ITransferProxy(address(TRANSFER_PROXY)),
             address(PUBLIC_VAULT),
             address(SOLO_VAULT)
         );
 
         AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
-            address(MRA),
-            address(COLLATERAL_TOKEN),
-            address(LIEN_TOKEN),
-            address(TRANSFER_PROXY)
+            MRA,
+            ICollateralToken(address(COLLATERAL_TOKEN)),
+            ILienToken(address(LIEN_TOKEN)),
+            TRANSFER_PROXY
         );
 
         COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));

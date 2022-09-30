@@ -64,11 +64,6 @@ interface IAstariaRouter is IPausable {
         address receiver;
     }
 
-    struct BondVault {
-        address appraiser; // address of the appraiser for the BondVault
-        uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
-    }
-
     function strategistNonce(address strategist) external view returns (uint256);
 
     function validateCommitment(Commitment calldata) external returns (bool, IAstariaRouter.LienDetails memory);

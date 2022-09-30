@@ -1,26 +1,24 @@
 pragma solidity ^0.8.17;
 
-import {MerkleProof} from "./utils/MerkleProof.sol";
+import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
+import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
+import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
 import {IStrategyValidator} from "./interfaces/IStrategyValidator.sol";
+import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {IERC721} from "gpl/interfaces/IERC721.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
-import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
-import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
-import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
-import {LiquidationAccountant} from "./LiquidationAccountant.sol";
-import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {IVault, VaultImplementation} from "./VaultImplementation.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {IVault, VaultImplementation} from "./VaultImplementation.sol";
+import {LiquidationAccountant} from "./LiquidationAccountant.sol";
+import {MerkleProof} from "./utils/MerkleProof.sol";
 import {Pausable} from "./utils/Pausable.sol";
 import {PublicVault} from "./PublicVault.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 interface IInvoker {
     function onBorrowAndBuy(bytes calldata data, address token, uint256 amount, address payable recipient)
@@ -42,22 +40,21 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     ICollateralToken public immutable COLLATERAL_TOKEN;
     ILienToken public immutable LIEN_TOKEN;
     ITransferProxy public immutable TRANSFER_PROXY;
-    address public VAULT_IMPLEMENTATION;
-    address public SOLO_IMPLEMENTATION;
-    address public WITHDRAW_IMPLEMENTATION;
+
     address public LIQUIDATION_IMPLEMENTATION;
-
+    address public SOLO_IMPLEMENTATION;
+    address public VAULT_IMPLEMENTATION;
+    address public WITHDRAW_IMPLEMENTATION;
     address public feeTo;
-
     uint256 public LIQUIDATION_FEE_PERCENT;
-    uint256 public STRATEGIST_ORIGINATION_FEE_NUMERATOR;
-    uint256 public STRATEGIST_ORIGINATION_FEE_BASE;
-    uint256 public PROTOCOL_FEE_NUMERATOR;
-    uint256 public PROTOCOL_FEE_BASE;
-    uint256 public MIN_INTEREST_BPS; // was uint64
-    uint64 public MIN_DURATION_INCREASE;
-    uint256 public MIN_EPOCH_LENGTH;
     uint256 public MAX_EPOCH_LENGTH;
+    uint256 public MIN_EPOCH_LENGTH;
+    uint256 public MIN_INTEREST_BPS; // was uint64
+    uint256 public PROTOCOL_FEE_BASE;
+    uint256 public PROTOCOL_FEE_NUMERATOR;
+    uint256 public STRATEGIST_ORIGINATION_FEE_BASE;
+    uint256 public STRATEGIST_ORIGINATION_FEE_NUMERATOR;
+    uint64 public MIN_DURATION_INCREASE;
 
     //public vault contract => strategist
     mapping(address => address) public vaults;
@@ -79,16 +76,16 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     constructor(
         Authority _AUTHORITY,
         address _WETH,
-        address _COLLATERAL_TOKEN,
-        address _LIEN_TOKEN,
-        address _TRANSFER_PROXY,
+        ICollateralToken _COLLATERAL_TOKEN,
+        ILienToken _LIEN_TOKEN,
+        ITransferProxy _TRANSFER_PROXY,
         address _VAULT_IMPL,
         address _SOLO_IMPL
     ) Auth(address(msg.sender), _AUTHORITY) {
         WETH = ERC20(_WETH);
-        COLLATERAL_TOKEN = ICollateralToken(_COLLATERAL_TOKEN);
-        LIEN_TOKEN = ILienToken(_LIEN_TOKEN);
-        TRANSFER_PROXY = ITransferProxy(_TRANSFER_PROXY);
+        COLLATERAL_TOKEN = _COLLATERAL_TOKEN;
+        LIEN_TOKEN = _LIEN_TOKEN;
+        TRANSFER_PROXY = _TRANSFER_PROXY;
         VAULT_IMPLEMENTATION = _VAULT_IMPL;
         SOLO_IMPLEMENTATION = _SOLO_IMPL;
         LIQUIDATION_FEE_PERCENT = 13;

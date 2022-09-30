@@ -59,12 +59,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
     error AssetNotSupported(address);
     error AuctionStartedForCollateral(uint256);
 
-    constructor(Authority AUTHORITY_, address TRANSFER_PROXY_, address LIEN_TOKEN_)
+    constructor(Authority AUTHORITY_, ITransferProxy TRANSFER_PROXY_, ILienToken LIEN_TOKEN_)
         Auth(msg.sender, Authority(AUTHORITY_))
         ERC721("Astaria Collateral Token", "ACT")
     {
-        TRANSFER_PROXY = ITransferProxy(TRANSFER_PROXY_);
-        LIEN_TOKEN = ILienToken(LIEN_TOKEN_);
+        TRANSFER_PROXY = TRANSFER_PROXY_;
+        LIEN_TOKEN = LIEN_TOKEN_;
 
         AUCTION_WINDOW = uint256(2 days);
     }

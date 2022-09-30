@@ -21,8 +21,8 @@ contract TransferAgent {
     address public immutable WETH;
     ITransferProxy public immutable TRANSFER_PROXY;
 
-    constructor(address _TRANSFER_PROXY, address _WETH) {
-        TRANSFER_PROXY = ITransferProxy(_TRANSFER_PROXY);
+    constructor(ITransferProxy _TRANSFER_PROXY, address _WETH) {
+        TRANSFER_PROXY = _TRANSFER_PROXY;
         WETH = _WETH;
     }
 }
@@ -58,7 +58,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
      * @param _TRANSFER_PROXY The TransferProxy for balance transfers.
      * @param _WETH The WETH address to use for transfers.
      */
-    constructor(Authority _AUTHORITY, address _TRANSFER_PROXY, address _WETH)
+    constructor(Authority _AUTHORITY, ITransferProxy _TRANSFER_PROXY, address _WETH)
         Auth(address(msg.sender), _AUTHORITY)
         TransferAgent(_TRANSFER_PROXY, _WETH)
         ERC721("Astaria Lien Token", "ALT")
