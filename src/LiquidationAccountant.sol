@@ -25,6 +25,11 @@ abstract contract LiquidationBase is Clone {
     function LIEN_TOKEN() public view returns (address) {
         return _getArgAddress(60);
     }
+
+    function WITHDRAW_PROXY() public view returns (address) {
+        // TODO fix
+        return _getArgAddress(80);
+    }
 }
 
 /**
@@ -55,7 +60,7 @@ contract LiquidationAccountant is LiquidationBase {
 
         uint256 balance = ERC20(underlying()).balanceOf(address(this));
         // would happen if there was no WithdrawProxy for current epoch
-        if (withdrawProxyRatio == uint256(0)) {
+        if (withdrawAmount == uint256(0)) {
             ERC20(underlying()).safeTransfer(VAULT(), balance);
         } else {
             //should be wad multiplication
@@ -91,6 +96,17 @@ contract LiquidationAccountant is LiquidationBase {
             withdrawProxyRatio =
                 WithdrawProxy(withdrawProxy).totalSupply().mulDivDown(10e18, PublicVault(VAULT()).totalSupply()); // TODO check
         }
+    }
+
+    /**
+     * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
+     * @param proxy The address of the WithdrawProxy accruing funds for the end of the next epoch.
+     */
+    function calculateWithdrawRatio() public {
+        require(msg.sender == VAULT());
+        uint256 withdrawSupply = WithdrawProxy(WITHDRAW_PROXY()).totalSupply();
+
+        withdrawRatio = withdrawSupply.mulDivDown(10e18, PublicVault(VAULT()).totalSupply() + withdrawSupply);
     }
 
     /**

@@ -235,6 +235,7 @@ contract TestHelpers is Test {
             inputs = new string[](10);
         }
 
+        // TODO make readable
         inputs[0] = "node";
         inputs[1] = "scripts/loanProofGenerator.js";
         inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
@@ -354,7 +355,7 @@ contract TestHelpers is Test {
     }
 
     function _lendToVault(Lender[] memory lenders, address vault) internal {
-        for(uint256 i = 0; i < lenders.length; i++) {
+        for (uint256 i = 0; i < lenders.length; i++) {
             _lendToVault(lenders[i], vault);
         }
     }

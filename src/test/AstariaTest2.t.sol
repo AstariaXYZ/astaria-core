@@ -58,7 +58,6 @@ contract AstariaTest2 is TestHelpers {
         });
     }
 
-    
     function testBasicPrivateVaultLoan() public {
         Dummy721 nft = new Dummy721();
         address tokenContract = address(nft);
