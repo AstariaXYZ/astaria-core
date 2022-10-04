@@ -90,9 +90,8 @@ contract LiquidationAccountant is LiquidationBase {
      */
     function calculateWithdrawRatio() public {
         require(msg.sender == VAULT());
-        uint256 withdrawSupply = WithdrawProxy(WITHDRAW_PROXY()).totalSupply();
 
-        withdrawRatio = withdrawSupply.mulDivDown(10e18, PublicVault(VAULT()).totalSupply() + withdrawSupply);
+        withdrawRatio = WithdrawProxy(WITHDRAW_PROXY()).totalSupply().mulDivDown(1, PublicVault(VAULT()).totalSupply());
     }
 
     /**
