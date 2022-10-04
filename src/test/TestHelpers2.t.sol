@@ -360,7 +360,7 @@ contract TestHelpers is Test {
         }
     }
 
-    function _bid(address bidder, uitn256 tokenId, uint256 amount) internal {
+    function _bid(address bidder, uint256 tokenId, uint256 amount) internal {
         vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
         vm.startPrank(bidder);
         WETH9.deposit{value: amount}();

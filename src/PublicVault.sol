@@ -206,6 +206,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // prevent transfer of more assets then are available
         if (withdrawReserve <= withdraw) {
             withdraw = withdrawReserve;
+            withdrawReserve = 0;
+        } else {
+            withdrawReserve -= withdraw;
         }
 
         // prevents transfer to a non-existent WithdrawProxy
@@ -213,9 +216,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         if (withdrawProxies[currentEpoch + 1] != address(0)) {
             ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch + 1], withdraw);
         }
-
-        // decrement the withdraw from the withdraw reserve
-        withdrawReserve -= withdraw;
     }
 
     function _afterCommitToLien(uint256 lienId, uint256 amount) internal virtual override {

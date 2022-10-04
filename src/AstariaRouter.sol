@@ -379,7 +379,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
 
             if (
-                VaultImplementation(lien.vault).VAULT_TYPE() == uint256(2)
+                VaultImplementation(lien.vault).VAULT_TYPE() == uint256(2) // TODO supportsinterface
                     && PublicVault(lien.vault).timeToEpochEnd() <= COLLATERAL_TOKEN.AUCTION_WINDOW()
             ) {
                 uint64 currentEpoch = PublicVault(lien.vault).getCurrentEpoch();

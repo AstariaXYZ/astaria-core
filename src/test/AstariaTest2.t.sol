@@ -4,7 +4,7 @@ import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+// import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 // import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ERC721} from "gpl/ERC721.sol";
@@ -56,6 +56,8 @@ contract AstariaTest2 is TestHelpers {
             }),
             amount: 10 ether
         });
+
+        vm.warp(block.timestamp + 10 days);
     }
 
     function testBasicPrivateVaultLoan() public {
@@ -123,7 +125,7 @@ contract AstariaTest2 is TestHelpers {
 
         assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
-        vm.warp(14 days);
+        vm.warp(block.timestamp + 14 days);
 
         uint256[] memory collateralIds = new uint[](1);
         collateralIds[1] = collateralId;
@@ -133,7 +135,7 @@ contract AstariaTest2 is TestHelpers {
 
         PublicVault(publicVault).processEpoch(collateralIds, positions);
 
-        vm.warp(13 days);
+        vm.warp(block.timestamp + 13 days);
         vm.startPrank(address(1));
         WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
         vm.stopPrank();
@@ -160,7 +162,7 @@ contract AstariaTest2 is TestHelpers {
             lienDetails: IAstariaRouter.LienDetails({
                 maxAmount: 50 ether,
                 rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: uint256(block.timestamp + 10 days),
+                duration: uint256(block.timestamp + 13 days),
                 maxPotentialDebt: 50 ether
             }),
             amount: 10 ether
@@ -174,11 +176,17 @@ contract AstariaTest2 is TestHelpers {
 
         // assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
-        vm.warp(10 days);
+        vm.warp(block.timestamp + 13 days); // end of loan
 
         ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
 
-        vm.warp(14 days);
+        assertTrue(
+            PublicVault(publicVault).liquidationAccountants(0) != address(0), "LiquidationAccountant not deployed"
+        ); // or maybe 1st epoch?
+
+        _bid(address(2), tokenId, 20 ether);
+
+        vm.warp(block.timestamp + 1 days); // epoch boundary
 
         uint256[] memory collateralIds = new uint[](1);
         collateralIds[1] = collateralId;
@@ -188,9 +196,11 @@ contract AstariaTest2 is TestHelpers {
 
         PublicVault(publicVault).processEpoch(collateralIds, positions);
 
-        vm.warp(13 days);
+        vm.warp(block.timestamp + 13 days);
         vm.startPrank(address(1));
         WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
         vm.stopPrank();
+
+        assertEq(WETH9.balanceOf(address(1)), 70 ether);
     }
 }

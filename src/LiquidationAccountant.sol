@@ -76,10 +76,11 @@ contract LiquidationAccountant is LiquidationBase {
         }
 
         uint256 oldYIntercept = PublicVault(VAULT()).getYIntercept();
+
+        //
         PublicVault(VAULT()).setYIntercept(
-            oldYIntercept
-                - (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(1 - withdrawRatio, 1)
-        ); // TODO check, definitely looks wrong
+            oldYIntercept - (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(1 - withdrawRatio, 1)
+        );
     }
 
     // pass in withdrawproxy address here instead of constructor in case liquidation called before first marked withdraw
