@@ -78,7 +78,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     mapping(uint64 => address) public liquidationAccountants;
 
     function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256 assets) {
-        assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
+        assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
 
     function redeemFutureEpoch(uint256 shares, address receiver, address owner, uint64 epoch)
@@ -211,10 +211,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             withdrawReserve -= withdraw;
         }
 
+        address currentWithdrawProxy = withdrawProxies[currentEpoch]; // 
         // prevents transfer to a non-existent WithdrawProxy
         // withdrawProxies are indexed by the epoch where they're deployed
-        if (withdrawProxies[currentEpoch + 1] != address(0)) {
-            ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch + 1], withdraw);
+        if (currentWithdrawProxy != address(0)) {
+            ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
         }
     }
 
