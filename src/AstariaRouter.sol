@@ -481,7 +481,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         address implementation;
         if (epochLength > uint256(0)) {
             require(
-                epochLength >= MIN_EPOCH_LENGTH || epochLength <= MAX_EPOCH_LENGTH,
+                epochLength >= MIN_EPOCH_LENGTH && epochLength <= MAX_EPOCH_LENGTH,
                 "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
             );
             implementation = VAULT_IMPLEMENTATION;
