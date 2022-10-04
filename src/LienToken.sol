@@ -43,6 +43,8 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     uint256 public buyoutNumerator;
     uint256 public buyoutDenominator;
 
+    uint256 INTEREST_DENOMINATOR = 1e18;
+
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
     mapping(uint256 => address) public payees;
@@ -146,7 +148,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     function _getInterest(Lien memory lien, uint256 timestamp) internal pure returns (uint256) {
         uint256 delta_t = uint256(uint32(timestamp) - lien.last);
 
-        return (delta_t * lien.rate * lien.amount) / 1e18;
+        return (delta_t * lien.rate * lien.amount) / INTEREST_DENOMINATOR;
     }
 
     // TODO improve this
@@ -461,7 +463,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
         uint256 delta_t = uint256(uint32(end) - block.timestamp);
 
-        return (delta_t * lien.rate * lien.amount) / 1e18;
+        return (delta_t * lien.rate * lien.amount) / INTEREST_DENOMINATOR;
     }
 
     /**
