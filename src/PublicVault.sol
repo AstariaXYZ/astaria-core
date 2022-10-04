@@ -77,6 +77,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     mapping(uint64 => address) public withdrawProxies;
     mapping(uint64 => address) public liquidationAccountants;
 
+    event YInterceptChanged(uint256 newYintercept);
+    event WithdrawReserveTransferred(uint256 amount);
+
     function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256 assets) {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
@@ -216,7 +219,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // withdrawProxies are indexed by the epoch where they're deployed
         if (currentWithdrawProxy != address(0)) {
             ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
+            emit WithdrawReserveTransferred(withdraw);
         }
+
+        
     }
 
     function _afterCommitToLien(uint256 lienId, uint256 amount) internal virtual override {
@@ -294,6 +300,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     function setYIntercept(uint256 _yIntercept) public {
         require(msg.sender == liquidationAccountants[currentEpoch]);
         yIntercept = _yIntercept;
+        emit YInterceptChanged(_yIntercept);
     }
 
     function getLast() public view returns (uint256) {
