@@ -87,20 +87,6 @@ contract LiquidationAccountant is LiquidationBase {
 
     /**
      * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
-     * @param proxy The address of the WithdrawProxy accruing funds for the end of the next epoch.
-     */
-    function calculateWithdrawRatio(address proxy) public {
-        require(msg.sender == VAULT());
-        if (proxy != address(0)) {
-            withdrawProxy = proxy;
-            withdrawProxyRatio =
-                WithdrawProxy(withdrawProxy).totalSupply().mulDivDown(10e18, PublicVault(VAULT()).totalSupply()); // TODO check
-        }
-    }
-
-    /**
-     * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
-     * @param proxy The address of the WithdrawProxy accruing funds for the end of the next epoch.
      */
     function calculateWithdrawRatio() public {
         require(msg.sender == VAULT());
