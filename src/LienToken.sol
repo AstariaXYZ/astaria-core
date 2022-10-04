@@ -480,13 +480,12 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
             return uint256(0);
         }
         address lienOwner = ownerOf(liens[collateralId][position]);
-        if (IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId)) {
-            // was lienOwner.supportsinterface(PublicVault)
+        bool isPublicVault = IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId);
+        if (isPublicVault) {
             IPublicVault(lienOwner).beforePayment(liens[collateralId][position], paymentAmount);
         }
         Lien storage lien = lienData[liens[collateralId][position]];
         uint256 maxPayment = _getOwed(lien);
-        // address owner = ownerOf(liens[collateralId][position]);
 
         if (maxPayment < paymentAmount) {
             lien.amount -= paymentAmount;
@@ -498,6 +497,9 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         }
 
         TRANSFER_PROXY.tokenTransferFrom(lien.token, payer, getPayee(liens[collateralId][position]), paymentAmount);
+        if (isPublicVault) {
+            IPublicVault(lienOwner).afterPayment(liens[collateralId][position]);
+        }
         emit Payment(liens[collateralId][position], paymentAmount);
         return paymentAmount;
     }

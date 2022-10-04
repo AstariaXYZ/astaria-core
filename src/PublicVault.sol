@@ -258,8 +258,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
         yIntercept = totalAssets() - amount;
-        slope -= LIEN_TOKEN().changeInSlope(lienId, amount);
+        slope -= LIEN_TOKEN().calculateSlope(lienId);
         last = block.timestamp;
+    }
+
+    function afterPayment(uint256 lienId) public onlyLienToken {
+        slope += LIEN_TOKEN().calculateSlope(lienId);
     }
 
     modifier onlyLienToken() {
