@@ -43,7 +43,7 @@ contract LiquidationAccountant is LiquidationBase {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for ERC20;
 
-    uint256 withdrawProxyRatio;
+    uint256 withdrawRatio;
 
     uint256 expected;
     uint256 public finalAuctionEnd; // when this is deleted, we know the final auction is over
@@ -60,12 +60,12 @@ contract LiquidationAccountant is LiquidationBase {
 
         uint256 balance = ERC20(underlying()).balanceOf(address(this));
         // would happen if there was no WithdrawProxy for current epoch
-        if (withdrawAmount == uint256(0)) {
+        if (withdrawRatio == uint256(0)) {
             ERC20(underlying()).safeTransfer(VAULT(), balance);
         } else {
             //should be wad multiplication
             // declining
-            uint256 transferAmount = withdrawProxyRatio * balance;
+            uint256 transferAmount = withdrawRatio * balance;
             ERC20(underlying()).safeTransfer(withdrawProxy, transferAmount);
 
             unchecked {
@@ -78,7 +78,7 @@ contract LiquidationAccountant is LiquidationBase {
         uint256 oldYIntercept = PublicVault(VAULT()).getYIntercept();
         PublicVault(VAULT()).setYIntercept(
             oldYIntercept
-                - (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(1 - withdrawProxyRatio, 1)
+                - (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(1 - withdrawRatio, 1)
         ); // TODO check, definitely looks wrong
     }
 
