@@ -421,9 +421,8 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         impliedRate = 0;
         for (uint256 i = 0; i < openLiens.length; ++i) {
             Lien memory lien = lienData[openLiens[i]];
-            unchecked {
-                impliedRate += uint256(lien.rate) * lien.amount;
-            }
+
+            impliedRate += lien.rate * lien.amount;
         }
 
         if (totalDebt > uint256(0)) {
