@@ -84,14 +84,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         virtual
         returns (uint256 assets)
     {
-        if (msg.sender != owner) {
-            uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
-
-            if (allowed != type(uint256).max) {
-                allowance[owner][msg.sender] = allowed - shares;
-            }
-        }
-
         // check to ensure that the requested epoch is not the current epoch or in the past
         require(epoch >= currentEpoch, "Exit epoch too low");
 
