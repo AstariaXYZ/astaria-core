@@ -346,9 +346,8 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     function calculateSlope(uint256 lienId) public view returns (uint256) {
         Lien memory lien = lienData[lienId];
         uint256 end = (lien.start + lien.duration);
-        // return (end - lien.last) / (lien.amount * lien.rate * end - lien.amount); // TODO check
 
-        return (lien.amount * lien.rate * end - lien.amount).mulDivDown(1, end - lien.last);
+        return (lien.amount.mulDivDown(lien.rate, 1).mulDivDown(end, 1) - 1).mulDivDown(1, end - lien.last);
     }
 
     /**
