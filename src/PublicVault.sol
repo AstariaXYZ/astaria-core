@@ -228,7 +228,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         virtual
         returns (bool)
     {
-        require(collateralIds.length == positions.length, "must provide an equal amount of collateral IDs and associated lien positions");
+        require(
+            collateralIds.length > 0 && collateralIds.length == positions.length,
+            "must provide an equal non-zero amount of collateral IDs and associated lien positions"
+        );
+
         // was returns (uint256 balance)
         for (uint256 i = 0; i < collateralIds.length; i++) {
             uint256 lienId = LIEN_TOKEN().getLiens(collateralIds[i])[positions[i]];
