@@ -148,7 +148,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     function _getInterest(Lien memory lien, uint256 timestamp) internal pure returns (uint256) {
         uint256 delta_t = uint256(uint32(timestamp) - lien.last);
 
-        return (delta_t * lien.rate * lien.amount) / INTEREST_DENOMINATOR;
+        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, INTEREST_DENOMINATOR);
     }
 
     // TODO improve this
@@ -463,7 +463,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
 
         uint256 delta_t = uint256(uint32(end) - block.timestamp);
 
-        return (delta_t * lien.rate * lien.amount) / INTEREST_DENOMINATOR;
+        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, INTEREST_DENOMINATOR);
     }
 
     /**
