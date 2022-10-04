@@ -4,28 +4,28 @@ import "forge-std/Test.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "../interfaces/IERC20.sol";
+import {IERC20} from "../../interfaces/IERC20.sol";
 
 import {ERC721} from "gpl/ERC721.sol";
-import {CollateralToken} from "../CollateralToken.sol";
-import {LienToken} from "../LienToken.sol";
-import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
-import {ILienToken} from "../interfaces/ILienToken.sol";
-import {ITransferProxy} from "../interfaces/ITransferProxy.sol";
-import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
-import {CollateralLookup} from "../libraries/CollateralLookup.sol";
-import {ILienToken} from "../interfaces/ILienToken.sol";
+import {CollateralToken} from "../../CollateralToken.sol";
+import {LienToken} from "../../LienToken.sol";
+import {ICollateralToken} from "../../interfaces/ICollateralToken.sol";
+import {ILienToken} from "../../interfaces/ILienToken.sol";
+import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {IV3PositionManager} from "../../interfaces/IV3PositionManager.sol";
+import {CollateralLookup} from "../../libraries/CollateralLookup.sol";
+import {ILienToken} from "../../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {UniqueValidator, IUniqueValidator} from "../strategies/UniqueValidator.sol";
-import {ICollectionValidator, CollectionValidator} from "../strategies/CollectionValidator.sol";
-import {UNI_V3Validator, IUNI_V3Validator} from "../strategies/UNI_V3Validator.sol";
+import {IAstariaRouter, AstariaRouter} from "../../AstariaRouter.sol";
+import {UniqueValidator, IUniqueValidator} from "../../strategies/UniqueValidator.sol";
+import {ICollectionValidator, CollectionValidator} from "../../strategies/CollectionValidator.sol";
+import {UNI_V3Validator, IUNI_V3Validator} from "../../strategies/UNI_V3Validator.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
-import {Vault, PublicVault} from "../PublicVault.sol";
-import {TransferProxy} from "../TransferProxy.sol";
-import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
+import {IVault, VaultImplementation} from "../../VaultImplementation.sol";
+import {Vault, PublicVault} from "../../PublicVault.sol";
+import {TransferProxy} from "../../TransferProxy.sol";
+import {IStrategyValidator} from "../../interfaces/IStrategyValidator.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -278,6 +278,64 @@ contract TestHelpers is Test {
         (rootHash, merkleProof, proofFlags) = abi.decode(res, (bytes32, bytes32[], bool[]));
     }
 
+    function _generateLoanMerkleProof2(
+        address strategist,
+        address tokenContract,
+        uint256 tokenId,
+        IAstariaRouter.LienRequestType requestType,
+        bytes memory data,
+        address vault
+    ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof, bool[] memory proofFlags) {
+        uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
+
+        string[] memory inputs;
+        if (requestType == IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY) {
+            inputs = new string[](13);
+        } else {
+            inputs = new string[](10);
+        }
+
+        inputs[0] = "node";
+        inputs[1] = "scripts/loanProofGenerator.js";
+        //        inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
+        inputs[2] = abi.encode(
+            IAstariaRouter.StrategyDetails({
+                version: uint8(1),
+                strategist: strategist,
+                nonce: uint256(0),
+                deadline: block.timestamp + 2 days,
+                vault: vault
+            })
+        ).toHexString();
+        if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
+            //            inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
+            //            inputs[4] = abi.encodePacked(strategist).toHexString(); //appraiserOne
+            //            inputs[5] = abi.encodePacked(block.timestamp + 2 days).toHexString(); //fixed for 2 days atm
+            //            inputs[6] = abi.encodePacked(vault).toHexString(); //vault
+
+            IUniqueValidator.Details memory terms = abi.decode(data, (IUniqueValidator.Details));
+            inputs[3] = abi.encodePacked(uint8(0)).toHexString(); //type
+            inputs[4] = abi.encode(terms).toHexString();
+            //vault details
+            //            inputs[7] = abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
+            //            inputs[8] = abi.encodePacked(address(0)).toHexString(); //borrower
+            //            inputs[9] = abi.encode(terms.lien).toHexString(); //lien details
+        } else if (requestType == IAstariaRouter.LienRequestType.COLLECTION) {
+            ICollectionValidator.Details memory terms = abi.decode(data, (ICollectionValidator.Details));
+            inputs[3] = abi.encodePacked(uint8(1)).toHexString(); //type
+            inputs[4] = abi.encode(terms).toHexString();
+        } else if (requestType == IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY) {
+            IUNI_V3Validator.Details memory terms = abi.decode(data, (IUNI_V3Validator.Details));
+            inputs[3] = abi.encodePacked(uint8(2)).toHexString(); //type
+            inputs[4] = abi.encode(terms).toHexString();
+        } else {
+            revert("unsupported");
+        }
+
+        bytes memory res = vm.ffi(inputs);
+        (rootHash, merkleProof, proofFlags) = abi.decode(res, (bytes32, bytes32[], bool[]));
+    }
+
     function _commitToLien(
         address vault, // address of deployed Vault
         address strategist,
@@ -312,6 +370,7 @@ contract TestHelpers is Test {
             vault: vault
         });
 
+        // setup 712 signature
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(strategistPK, rootHash);
 
         IAstariaRouter.Commitment memory terms = IAstariaRouter.Commitment({

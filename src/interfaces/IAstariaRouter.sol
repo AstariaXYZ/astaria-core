@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {ILienBase, ILienToken} from "./ILienToken.sol";
 import {ICollateralToken} from "./ICollateralToken.sol";
-import {ITransferProxy} from "./ITransferProxy.sol";
+import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {IPausable} from "../utils/Pausable.sol";
 
 interface IAstariaRouter is IPausable {

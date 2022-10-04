@@ -6,7 +6,7 @@ import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
 import {IStrategyValidator} from "./interfaces/IStrategyValidator.sol";
-import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
+import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
@@ -56,7 +56,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256 public STRATEGIST_ORIGINATION_FEE_NUMERATOR;
     uint64 public MIN_DURATION_INCREASE;
 
-    //public vault contract => strategist
+
+    //deployed 4626 vault to strategist;
     mapping(address => address) public vaults;
     mapping(address => uint256) public strategistNonce;
     mapping(uint16 => address) public strategyValidators;
@@ -88,10 +89,25 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         TRANSFER_PROXY = _TRANSFER_PROXY;
         VAULT_IMPLEMENTATION = _VAULT_IMPL;
         SOLO_IMPLEMENTATION = _SOLO_IMPL;
+//        protocolParams.liquidationFeeNumerator = 13;
+//        protocolParams.liquidationFeeDenominator = 100;
+//        protocolParams.protocolFeeNumerator = 3;
+//        protocolParams.protocolFeeDenominator = 1000;
+//        protocolParams.strategistFeeNumerator = 200;
+//        protocolParams.strategistFeeDenominator = 1000;
+//        protocolParams.minInterestBPS = uint256(0.0005 ether) / uint256(365 * 1 days); //5 bips / second
+//        protocolParams.minEpochLength = 7 days;
+//        protocolParams.maxEpochLength = 45 days;
+//        protocolParams.maxInterestBuyoutWindow = 60 days;
+//        protocolParams.minDurationIncrease = 15 days;
         LIQUIDATION_FEE_PERCENT = 13;
-        MIN_INTEREST_BPS = uint256(0.0005 ether) / uint256(365 * 1 days); //5 bips / second
+        MIN_INTEREST_BPS = uint256(0.0005 ether) / uint256(365 days); //5 bips / second
+        MIN_EPOCH_LENGTH = 7 days;
+        MAX_EPOCH_LENGTH = 45 days;
         STRATEGIST_ORIGINATION_FEE_NUMERATOR = 200;
         STRATEGIST_ORIGINATION_FEE_BASE = 1000;
+        STRATEGIST_ORIGINATION_INTEREST_FEE_NUMERATOR = 200;
+        STRATEGIST_ORIGINATION_INTEREST_FEE_BASE = 1000;
         MIN_DURATION_INCREASE = 14 days;
     }
 
@@ -399,6 +415,15 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT);
 
         emit Liquidation(collateralId, position, reserve);
+    }
+
+
+    /**
+     * @notice getProtocolFeeReceiver.
+     * @return A boolean value indicating whether the commitment is valid.
+     */
+    function getFeeTo() external view returns (address) {
+        return protocolParams.feeTo;
     }
 
     /**

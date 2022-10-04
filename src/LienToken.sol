@@ -40,17 +40,15 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     IAstariaRouter public ASTARIA_ROUTER;
     ICollateralToken public COLLATERAL_TOKEN;
 
-    uint256 public buyoutNumerator;
-    uint256 public buyoutDenominator;
-
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
-    mapping(uint256 => address) public payees;
 
-    event NewLien(uint256 lienId, Lien lien);
-    event Payment(uint256 lienId, uint256 amount);
-    event RemovedLiens(uint256 lienId);
+    event NewLien(uint256 indexed lienId, Lien lien);
+    event Payment(uint256 indexed lienId, uint256 amount);
+    event RemovedLiens(uint256 indexed lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
+    event PayeeChanged(uint256 indexed lienId, address indexed payee);
+    event File(bytes32 indexed what, bytes data);
 
     /**
      * @dev Setup transfer authority and initialize the buyoutNumerator and buyoutDenominator for the lien buyout premium.
@@ -63,8 +61,6 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         TransferAgent(_TRANSFER_PROXY, _WETH)
         ERC721("Astaria Lien Token", "ALT")
     {
-        buyoutNumerator = 10;
-        buyoutDenominator = 100;
     }
 
     /**
@@ -85,6 +81,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         } else {
             revert("unsupported/file");
         }
+        emit File(what, data);
     }
 
     // TODO plagiarism from seaport?
@@ -161,7 +158,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
     {
         reserve = 0;
         lienIds = liens[collateralId];
-        amounts = new uint256[](liens[collateralId].length);
+        amounts = new uint256[](lienIds.length);
         for (uint256 i = 0; i < lienIds.length; ++i) {
             ILienToken.Lien storage lien = lienData[lienIds[i]];
             unchecked {
@@ -239,7 +236,8 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
             vault: params.vault,
             last: uint32(block.timestamp),
             start: uint32(block.timestamp),
-            duration: uint32(params.terms.duration)
+            duration: uint32(params.terms.duration),
+            payee: address(0)
         });
 
         liens[collateralId].push(lienId);
@@ -296,7 +294,8 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         uint256 owed = _getOwed(lien);
         uint256 remainingInterest = _getRemainingInterest(lien);
 
-        return (owed, owed + remainingInterest.mulDivDown(buyoutNumerator, buyoutDenominator));
+        IAstariaRouter.ProtocolParams memory params = ASTARIA_ROUTER.getProtocolParams();
+        return (owed, owed + remainingInterest.mulDivDown(params.buyoutFeeNumerator, params.buyoutFeeDenominator));
     }
 
     /**
@@ -368,12 +367,11 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         uint256 oldSlope = calculateSlope(lienId);
         uint256 newAmount = (lien.amount - paymentAmount);
 
-        uint256 newSlope = ((newAmount * lien.rate * end) - newAmount).mulDivDown(1, end - block.timestamp);
+        uint256 newSlope = (newAmount * lien.rate * end - newAmount).mulDivDown(1, end - block.timestamp); //TODO: check again
 
         slope = oldSlope - newSlope;
     }
 
-    function _afterPayment(uint256 lienId, uint256 amount) internal virtual {}
 
     /**
      * @notice Computes the total amount owed on all liens against a CollateralToken.
@@ -455,11 +453,11 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
      */
     function _getRemainingInterest(Lien memory lien) internal view returns (uint256) {
         uint256 end = lien.start + lien.duration;
-        if (lien.start + lien.duration > block.timestamp + 60 days) {
-            end = block.timestamp + 60 days;
+        if (lien.start + lien.duration >= block.timestamp + IAstariaRouter(ASTARIA_ROUTER).getProtocolParams().maxInterestBuyoutWindow) {
+            end = block.timestamp + IAstariaRouter(ASTARIA_ROUTER).getProtocolParams().maxInterestBuyoutWindow;
         }
 
-        uint256 delta_t = uint256(uint32(end) - block.timestamp);
+        uint256 delta_t = end - block.timestamp;
 
         return (delta_t * lien.rate * lien.amount) / 1e18;
     }
@@ -508,7 +506,7 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
      * @return The address of the payee for the Lien.
      */
     function getPayee(uint256 lienId) public view returns (address) {
-        return payees[lienId] != address(0) ? payees[lienId] : ownerOf(lienId);
+        return lienData[lienId].payee != address(0) ? lienData[lienId].payee : ownerOf(lienId);
     }
 
     // TODO change what's passed in
@@ -524,6 +522,8 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         );
         require(msg.sender == ownerOf(lienId) || msg.sender == address(ASTARIA_ROUTER), "invalid owner");
 
-        payees[lienId] = newPayee;
+        lienData[lienId].payee = newPayee;
+        emit PayeeChanged(lienId, newPayee);
     }
+
 }

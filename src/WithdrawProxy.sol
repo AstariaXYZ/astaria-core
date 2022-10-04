@@ -2,7 +2,7 @@ pragma solidity ^0.8.17;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {ERC20Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
+import {ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -55,11 +55,11 @@ contract WithdrawProxy is ERC20Cloned {
         _mint(receiver, shares);
     }
 
-    /**
-     * @notice Burns WithdrawTokens, stops accruing funds for the liquidity provider to withdraw, and reinvests any accrued funds back into the liquidity provider's PublicVault.
-     * @param amount The amount of WithdrawTokens the user wishes to burn.
-     */
-    function undoWithdraw(uint256 amount) public {
-        require(ERC20(underlying()).balanceOf(msg.sender) >= amount);
-    }
+//    /**
+//     * @notice Burns WithdrawTokens, stops accruing funds for the liquidity provider to withdraw, and reinvests any accrued funds back into the liquidity provider's PublicVault.
+//     * @param amount The amount of WithdrawTokens the user wishes to burn.
+//     */
+//    function undoWithdraw(uint256 amount) public {
+//        require(ERC20(underlying()).balanceOf(msg.sender) >= amount);
+//    }
 }

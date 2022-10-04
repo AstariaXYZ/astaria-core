@@ -7,7 +7,9 @@ import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 contract TransferProxy is Auth, ITransferProxy {
     using SafeTransferLib for ERC20;
 
-    constructor(Authority _AUTHORITY) Auth(address(msg.sender), _AUTHORITY) {}
+    constructor(Authority _AUTHORITY) Auth(address(msg.sender), _AUTHORITY) {
+        //only constructor we care about is  Auth
+    }
 
     function tokenTransferFrom(address token, address from, address to, uint256 amount) external requiresAuth {
         ERC20(token).safeTransferFrom(from, to, amount);

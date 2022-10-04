@@ -19,7 +19,7 @@ import {ERC721} from "gpl/ERC721.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
-
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 interface IFlashAction {
     struct Underlying {
         address token;
@@ -55,9 +55,6 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         address indexed tokenContract, uint256 indexed tokenId, uint256 indexed collateralId, address depositedFor
     );
     event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
-
-    error AssetNotSupported(address);
-    error AuctionStartedForCollateral(uint256);
 
     constructor(Authority AUTHORITY_, ITransferProxy TRANSFER_PROXY_, ILienToken LIEN_TOKEN_)
         Auth(msg.sender, Authority(AUTHORITY_))
@@ -241,9 +238,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @notice Begins an auction for the NFT of a liquidated CollateralToken.
      * @param collateralId The ID of the CollateralToken being liquidated.
      * @param liquidator The address of the user that triggered the liquidation.
-     * @param liquidationFee The fee earned to the liquidator. TODO elaborate
      */
-    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee)
+    function auctionVault(uint256 collateralId, address liquidator)
         external
         whenNotPaused
         requiresAuth

@@ -15,6 +15,7 @@ interface ILienBase {
         uint32 duration; // 4
         uint8 position; // 1
         bool active; // 1
+        address payee;
     }
 
     struct LienActionEncumber {

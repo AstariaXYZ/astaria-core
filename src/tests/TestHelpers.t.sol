@@ -13,7 +13,7 @@ import {CollateralToken} from "../CollateralToken.sol";
 import {LienToken} from "../LienToken.sol";
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
-import {ITransferProxy} from "../interfaces/ITransferProxy.sol";
+import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";

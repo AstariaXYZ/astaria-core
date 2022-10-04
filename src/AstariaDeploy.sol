@@ -15,7 +15,7 @@ import {WEth} from "foundry_eip-4626/WEth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
-import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
+import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 // import {WEth} from "./WEth.sol";
 
 interface IWETH9 is IERC20 {
