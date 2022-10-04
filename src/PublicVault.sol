@@ -72,8 +72,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 withdrawReserve = 0;
     uint256 liquidationWithdrawRatio = 0;
 
-    mapping(uint64 => address) withdrawProxies;
-    mapping(uint64 => address) liquidationAccountants;
+    // WithdrawProxies and LiquidationAccountants for each epoch.
+    // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
+    mapping(uint64 => address) public withdrawProxies;
+    mapping(uint64 => address) public liquidationAccountants;
 
     function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256 assets) {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
