@@ -365,11 +365,11 @@ contract LienToken is ERC721, ILienBase, Auth, TransferAgent {
         )
     {
         Lien memory lien = lienData[lienId];
-        uint256 end = (lien.start + lien.duration);
         uint256 oldSlope = calculateSlope(lienId);
         uint256 newAmount = (lien.amount - paymentAmount);
 
-        uint256 newSlope = ((newAmount * lien.rate * end) - newAmount).mulDivDown(1, end - block.timestamp);
+        // slope = (rate*time*amount - amount) / time -> amount(rate*time - 1) / time
+        uint256 newSlope = newAmount.mulDivDown((lien.rate.mulDivDown(lien.duration, 1) - 1), lien.duration);
 
         slope = oldSlope - newSlope;
     }
