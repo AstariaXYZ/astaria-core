@@ -20,6 +20,7 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+
 interface IFlashAction {
     struct Underlying {
         address token;
@@ -239,14 +240,14 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param collateralId The ID of the CollateralToken being liquidated.
      * @param liquidator The address of the user that triggered the liquidation.
      */
-    function auctionVault(uint256 collateralId, address liquidator)
+    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidatorFee)
         external
         whenNotPaused
         requiresAuth
         returns (uint256 reserve)
     {
         require(!AUCTION_HOUSE.auctionExists(collateralId), "auctionVault: auction already exists");
-        reserve = AUCTION_HOUSE.createAuction(collateralId, AUCTION_WINDOW, liquidator, liquidationFee);
+        reserve = AUCTION_HOUSE.createAuction(collateralId, AUCTION_WINDOW, liquidator, liquidatorFee);
     }
 
     /**

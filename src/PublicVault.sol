@@ -102,7 +102,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
                     underlying() //token
                 )
             );
-            withdrawProxies[epoch] = address(proxy);
+            withdrawProxies[epoch] = proxy;
         }
 
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
@@ -118,6 +118,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         returns (uint256)
     {
         return super.deposit(amount, receiver);
+    }
+
+    function computeDomainSeparator() internal view override returns (bytes32) {
+        return super.domainSeparator();
     }
 
     // needs to be called in the epoch boundary before the next epoch can start

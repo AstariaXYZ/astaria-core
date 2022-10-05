@@ -7,25 +7,22 @@ interface ILienBase {
     struct Lien {
         uint256 amount; //32
         uint256 collateralId; //32
-        address token; // 20
+        address payee; // 20
         uint256 rate; // 4
         uint32 start; // 4
         uint32 last; // 4
-        address vault; // 20
         uint32 duration; // 4
         uint8 position; // 1
         bool active; // 1
-        address payee;
     }
 
     struct LienActionEncumber {
         address tokenContract;
         uint256 tokenId;
         IAstariaRouter.LienDetails terms;
-        bytes32 obligationRoot;
+        bytes32 strategyRoot;
         uint256 amount;
         address vault;
-        bool validateSlip;
     }
 
     struct LienActionBuyout {
@@ -38,9 +35,7 @@ interface ILienBase {
 
     function changeInSlope(uint256 lienId, uint256 paymentAmount) external returns (uint256 slope);
 
-    function stopLiens(uint256 collateralId)
-        external
-        returns (uint256 reserve, uint256[] memory amounts, uint256[] memory lienIds);
+    function stopLiens(uint256 collateralId) external returns (uint256 reserve, uint256[] memory lienIds);
 
     function getBuyout(uint256 collateralId, uint256 index) external returns (uint256, uint256);
 
@@ -74,6 +69,26 @@ interface ILienBase {
     function getPayee(uint256 lienId) external view returns (address);
 
     function setPayee(uint256 lienId, address payee) external;
+
+    event NewLien(uint256 indexed lienId, Lien lien);
+    event Payment(uint256 indexed lienId, uint256 amount);
+    event RemovedLiens(uint256 indexed lienId);
+    event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
+    event PayeeChanged(uint256 indexed lienId, address indexed payee);
+    event File(bytes32 indexed what, bytes data);
+
+    error UnsupportedFile();
+    error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
+    error InvalidTerms();
+    error InvalidRefinance();
+
+    enum InvalidStates {
+        AUCTION,
+        NO_DEPOSIT,
+        DEBT_LIMIT
+    }
+
+    error InvalidCollateralState(InvalidStates);
 }
 
 interface ILienToken is ILienBase, IERC721 {}

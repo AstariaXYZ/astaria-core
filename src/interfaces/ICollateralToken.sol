@@ -4,7 +4,7 @@ import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 interface ICollateralBase {
-    function auctionVault(uint256 collateralId, address initiator) external returns (uint256);
+    function auctionVault(uint256, address, uint256) external returns (uint256);
 
     function AUCTION_HOUSE() external view returns (IAuctionHouse);
 

@@ -626,11 +626,7 @@ contract TestHelpers is Test {
                     })
                     ),
                 amount: params.amount,
-                merkle: IAstariaRouter.MultiMerkleData({
-                    root: obligationRoot,
-                    proof: obligationProofs,
-                    flags: obligationProofFlags
-                }),
+                merkle: IAstariaRouter.MerkleData({root: obligationRoot, proof: obligationProofs}),
                 v: v,
                 r: r,
                 s: s
@@ -685,11 +681,7 @@ contract TestHelpers is Test {
                         params.details //lienDetails
                     )
                 ), //obligationDetails
-                IAstariaRouter.MultiMerkleData({
-                    root: obligationRoot,
-                    proof: obligationProofs,
-                    flags: obligationProofFlags
-                }),
+                IAstariaRouter.MerkleData({root: obligationRoot, proof: obligationProofs}),
                 params.amount, //amount
                 v, //v
                 r, //r

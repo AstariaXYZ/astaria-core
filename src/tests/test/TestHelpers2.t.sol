@@ -386,7 +386,7 @@ contract TestHelpers is Test {
                 }),
                 nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE), // TODO support others?
                 nlrDetails: validatorDetails,
-                merkle: IAstariaRouter.MultiMerkleData({root: rootHash, proof: merkleProof, flags: proofFlags}),
+                merkle: IAstariaRouter.MerkleData({root: rootHash, proof: merkleProof}),
                 amount: amount,
                 v: v,
                 r: r,

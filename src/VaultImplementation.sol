@@ -26,7 +26,6 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
 
     event NewObligation(bytes32 strategyRoot, address tokenContract, uint256 tokenId, uint256 amount);
 
-    event Payment(uint256 collateralId, uint256 index, uint256 amount);
     event NewVault(address appraiser, address vault);
 
     /**
@@ -46,6 +45,45 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             revert("protocol is paused");
         }
         _;
+    }
+
+    function domainSeparator() public view virtual returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string version,uint256 chainId,address verifyingContract)"),
+                keccak256("1"),
+                block.chainid,
+                address(this)
+            )
+        );
+    }
+
+    /*
+    * @notice encodes the data for a 712 signature
+    * @param tokenContract The address of the token contract
+    * @param tokenId The id of the token
+    * @param amount The amount of the token
+    */
+
+    // cast k "StrategyDetails(uint8 version,uint256 nonce,uint256 deadline,address vault,bytes32 root)"
+    bytes32 private constant STRATEGY_TYPEHASH = 0x13387dabcf46556a3ca406b99acf9197df1698efaab639c7772523bdfd4aa20e;
+
+    function encodeStrategyData(IAstariaRouter.StrategyDetails calldata strategy, bytes32 root)
+        public
+        view
+        returns (bytes memory)
+    {
+        bytes32 hash = keccak256(
+            abi.encode(
+                STRATEGY_TYPEHASH,
+                strategy.version,
+                IAstariaRouter(ROUTER()).strategistNonce(strategy.strategist),
+                strategy.deadline,
+                strategy.vault,
+                root
+            )
+        );
+        return abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), hash);
     }
 
     /**
@@ -91,7 +129,10 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
      * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
      * @param receiver The address of the prospective borrower.
      */
-    function _validateCommitment(IAstariaRouter.Commitment calldata params, address receiver) internal {
+    function _validateCommitment(IAstariaRouter.Commitment calldata params, address receiver)
+        internal
+        returns (IAstariaRouter.LienDetails memory)
+    {
         require(params.lienRequest.strategy.vault == address(this), "invalid vault");
 
         uint256 collateralId = params.tokenContract.computeId(params.tokenId);
@@ -111,8 +152,12 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             );
         }
 
-        address recovered =
-            ecrecover(params.lienRequest.merkle.root, params.lienRequest.v, params.lienRequest.r, params.lienRequest.s);
+        address recovered = ecrecover(
+            keccak256(encodeStrategyData(params.lienRequest.strategy, params.lienRequest.merkle.root)),
+            params.lienRequest.v,
+            params.lienRequest.r,
+            params.lienRequest.s
+        );
         require(recovered == params.lienRequest.strategy.strategist, "strategist must match signature");
         require(recovered == owner() || recovered == delegate, "invalid strategist");
 
@@ -142,7 +187,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
             "Vault._validateCommitment(): Attempting to initiate a loan with debt potentially higher than maxPotentialDebt"
         );
 
-        //check that we aren't paused from reserves being too low
+        return ld;
     }
 
     function _afterCommitToLien(uint256 lienId, uint256 amount) internal virtual {}
@@ -155,8 +200,8 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
      * @param receiver The borrower receiving the loan.
      */
     function commitToLien(IAstariaRouter.Commitment calldata params, address receiver) external whenNotPaused {
-        _validateCommitment(params, receiver);
-        uint256 lienId = _requestLienAndIssuePayout(params, receiver);
+        IAstariaRouter.LienDetails memory ld = _validateCommitment(params, receiver);
+        uint256 lienId = _requestLienAndIssuePayout(ld, params, receiver);
         _handleStrategistOriginationReward(params.lienRequest.amount);
         _afterCommitToLien(lienId, params.lienRequest.amount);
         emit NewObligation(
@@ -214,11 +259,12 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
      * @param receiver The borrower requesting the loan.
      * @return The ID of the created Lien.
      */
-    function _requestLienAndIssuePayout(IAstariaRouter.Commitment calldata c, address receiver)
-        internal
-        returns (uint256)
-    {
-        uint256 newLienId = IAstariaRouter(ROUTER()).requestLienPosition(c);
+    function _requestLienAndIssuePayout(
+        IAstariaRouter.LienDetails memory ld,
+        IAstariaRouter.Commitment calldata c,
+        address receiver
+    ) internal returns (uint256) {
+        uint256 newLienId = IAstariaRouter(ROUTER()).requestLienPosition(ld, c);
 
         uint256 payout = _handleProtocolFee(c.lienRequest.amount);
         ERC20(underlying()).safeTransfer(receiver, payout);

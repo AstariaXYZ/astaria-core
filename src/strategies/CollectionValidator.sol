@@ -1,10 +1,10 @@
 pragma solidity ^0.8.17;
 
 import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
-import {BaseValidatorV1} from "./BaseValidator.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
+import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
 
-interface ICollectionValidator {
+interface ICollectionValidator is IStrategyValidator {
     struct Details {
         uint8 version;
         address token;
@@ -13,9 +13,7 @@ interface ICollectionValidator {
     }
 }
 
-contract CollectionValidator is BaseValidatorV1, ICollectionValidator {
-    uint16 public constant MAX_TOKENS = 100;
-
+contract CollectionValidator is ICollectionValidator {
     function getLeafDetails(bytes memory nlrDetails) internal pure returns (ICollectionValidator.Details memory) {
         return abi.decode(nlrDetails, (ICollectionValidator.Details));
     }
@@ -29,8 +27,7 @@ contract CollectionValidator is BaseValidatorV1, ICollectionValidator {
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    ) external returns (bytes32[] memory leaves, IAstariaRouter.LienDetails memory ld) {
-        leaves = new bytes32[](2);
+    ) external returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld) {
         ICollectionValidator.Details memory cd = getLeafDetails(params.nlrDetails);
 
         if (cd.borrower != address(0)) {
@@ -38,9 +35,7 @@ contract CollectionValidator is BaseValidatorV1, ICollectionValidator {
         }
         require(cd.token == collateralTokenContract, "invalid token contract");
 
-        leaves[0] = keccak256(assembleStrategyLeaf(params.strategy));
-
-        leaves[1] = keccak256(assembleLeaf(cd));
+        leaf = keccak256(assembleLeaf(cd));
         ld = cd.lien;
     }
 }
