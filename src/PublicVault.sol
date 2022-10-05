@@ -18,6 +18,8 @@ import {Pausable} from "./utils/Pausable.sol";
 
 interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
+
+    function afterPayment(uint256 lienId) external;
 }
 
 /**
@@ -170,9 +172,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
             // TODO when to claim()?
             if (liquidationAccountants[currentEpoch] != address(0)) {
-                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawRatio(
-                    withdrawProxies[currentEpoch]
-                );
+                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawRatio();
             }
 
             // compute the withdrawReserve

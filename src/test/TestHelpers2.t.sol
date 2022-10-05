@@ -342,7 +342,6 @@ contract TestHelpers is Test {
     struct Lender {
         address addr;
         uint256 amountToLend;
-        uint256 lendingDuration; // time before scheduled withdraw
     }
 
     function _lendToVault(Lender memory lender, address vault) internal {
@@ -366,5 +365,11 @@ contract TestHelpers is Test {
         WETH9.deposit{value: amount}();
         WETH9.approve(address(TRANSFER_PROXY), amount);
         vm.stopPrank();
+    }
+
+    // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
+    function _signalWithdraw(address lender, address publicVault) internal {
+        uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
+        PublicVault(publicVault).redeem({shares: vaultTokenBalance, receiver: lender, owner: lender});
     }
 }

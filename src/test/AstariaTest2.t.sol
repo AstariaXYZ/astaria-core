@@ -37,11 +37,14 @@ contract AstariaTest2 is TestHelpers {
 
         uint256 initialBalance = WETH9.balanceOf(address(this));
 
+        // create a PublicVault with a 14-day epoch
         address publicVault =
             _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
-        _lendToVault(Lender({addr: address(1), amountToLend: 50 ether, lendingDuration: 0 days}), publicVault);
+        // lend 50 ether to the PublicVault as address(1)
+        _lendToVault(Lender({addr: address(1), amountToLend: 50 ether}), publicVault);
 
+        // borrow 10 eth against the dummy NFT
         _commitToLien({
             vault: publicVault,
             strategist: strategistOne,
@@ -57,6 +60,9 @@ contract AstariaTest2 is TestHelpers {
             amount: 10 ether
         });
 
+        // make sure the borrow was successful
+        assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
+
         vm.warp(block.timestamp + 10 days);
     }
 
@@ -67,13 +73,13 @@ contract AstariaTest2 is TestHelpers {
 
         uint256 initialBalance = WETH9.balanceOf(address(this));
 
-        address publicVault =
-            _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
+        address privateVault =
+            _createPrivateVault({strategist: strategistOne, delegate: strategistTwo});
 
-        _lendToVault(Lender({addr: strategistOne, amountToLend: 50 ether, lendingDuration: 0 days}), publicVault);
+        _lendToVault(Lender({addr: strategistOne, amountToLend: 50 ether}), privateVault);
 
         _commitToLien({
-            vault: publicVault,
+            vault: privateVault,
             strategist: strategistOne,
             strategistPK: strategistOnePK,
             tokenContract: tokenContract,
@@ -98,9 +104,8 @@ contract AstariaTest2 is TestHelpers {
         address publicVault =
             _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
-        _lendToVault(Lender({addr: address(1), amountToLend: 50 ether, lendingDuration: 0 days}), publicVault);
+        _lendToVault(Lender({addr: address(1), amountToLend: 50 ether}), publicVault);
 
-        uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
         _commitToLien({
             vault: publicVault,
@@ -119,7 +124,9 @@ contract AstariaTest2 is TestHelpers {
 
         uint256 collateralId = tokenContract.computeId(tokenId);
 
-        PublicVault(publicVault).redeem({shares: vaultTokenBalance, receiver: address(1), owner: address(1)});
+        uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
+
+        _signalWithdraw(address(1), publicVault);
 
         address withdrawProxy = PublicVault(publicVault).withdrawProxies(1);
 
@@ -128,10 +135,10 @@ contract AstariaTest2 is TestHelpers {
         vm.warp(block.timestamp + 14 days);
 
         uint256[] memory collateralIds = new uint[](1);
-        collateralIds[1] = collateralId;
+        collateralIds[0] = collateralId;
 
         uint256[] memory positions = new uint[](1);
-        positions[1] = uint256(0);
+        positions[0] = uint256(0);
 
         PublicVault(publicVault).processEpoch(collateralIds, positions);
 
@@ -149,7 +156,7 @@ contract AstariaTest2 is TestHelpers {
         address publicVault =
             _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
-        _lendToVault(Lender({addr: address(1), amountToLend: 50 ether, lendingDuration: 0 days}), publicVault);
+        _lendToVault(Lender({addr: address(1), amountToLend: 50 ether}), publicVault);
 
         uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
@@ -170,7 +177,7 @@ contract AstariaTest2 is TestHelpers {
 
         uint256 collateralId = tokenContract.computeId(tokenId);
 
-        PublicVault(publicVault).redeem({shares: vaultTokenBalance, receiver: address(1), owner: address(1)});
+        _signalWithdraw(address(1), publicVault);
 
         address withdrawProxy = PublicVault(publicVault).withdrawProxies(1);
 
@@ -182,7 +189,7 @@ contract AstariaTest2 is TestHelpers {
 
         assertTrue(
             PublicVault(publicVault).liquidationAccountants(0) != address(0), "LiquidationAccountant not deployed"
-        ); // or maybe 1st epoch?
+        );
 
         _bid(address(2), tokenId, 20 ether);
 
@@ -202,5 +209,101 @@ contract AstariaTest2 is TestHelpers {
         vm.stopPrank();
 
         assertEq(WETH9.balanceOf(address(1)), 70 ether);
+    }
+
+    function testEpochProcessionMultipleActors() public {
+        address alice = address(1);
+        address bob = address(2);
+        address charlie = address(3);
+        address devon = address(4);
+        address edgar = address(5);
+
+        Dummy721 nft = new Dummy721();
+        address tokenContract = address(nft);
+        uint256 tokenId = uint256(1);
+
+        address publicVault =
+            _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
+        
+        _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
+
+        _commitToLien({
+            vault: publicVault,
+            strategist: strategistOne,
+            strategistPK: strategistOnePK,
+            tokenContract: tokenContract,
+            tokenId: tokenId,
+            lienDetails: IAstariaRouter.LienDetails({
+                maxAmount: 50 ether,
+                rate: ((uint256(0.05 ether) / 365) * 1 days),
+                duration: uint256(block.timestamp + 13 days),
+                maxPotentialDebt: 50 ether
+            }),
+            amount: 10 ether
+        });
+
+        _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
+
+        _signalWithdraw(bob, publicVault);
+
+        vm.warp(block.timestamp + 14 days);
+
+        uint256 collateralId = tokenContract.computeId(tokenId);
+        uint256[] memory collateralIds = new uint[](1);
+        collateralIds[1] = collateralId;
+
+        uint256[] memory positions = new uint[](1);
+        positions[1] = uint256(0);
+
+        PublicVault(publicVault).processEpoch(collateralIds, positions);
+
+        _lendToVault(Lender({addr: charlie, amountToLend: 50 ether}), publicVault);
+
+        Dummy721 nft2 = new Dummy721();
+        address tokenContract2 = address(nft2);
+        uint256 tokenId2 = uint256(2);
+
+        _commitToLien({
+            vault: publicVault,
+            strategist: strategistOne,
+            strategistPK: strategistOnePK,
+            tokenContract: tokenContract2,
+            tokenId: tokenId2,
+            lienDetails: IAstariaRouter.LienDetails({
+                maxAmount: 50 ether,
+                rate: ((uint256(0.05 ether) / 365) * 1 days),
+                duration: uint256(block.timestamp + 13 days),
+                maxPotentialDebt: 50 ether
+            }),
+            amount: 10 ether
+        });
+
+        _lendToVault(Lender({addr: devon, amountToLend: 50 ether}), publicVault);
+
+        vm.warp(block.timestamp + 14 days);
+
+        uint256 collateralId2 = tokenContract.computeId(tokenId);
+
+        uint256[] memory collateralIds = new uint[](2);
+        collateralIds[0] = collateralId;
+        collateralIds[1] = collateralId2;
+
+        uint256[] memory positions = new uint[](2);
+        positions[0] = uint256(0);
+        positions[1] = uint256(0);
+
+        PublicVault(publicVault).processEpoch(collateralIds, positions);
+
+        _signalWithdraw(alice, publicVault);
+        _signalWithdraw(charlie, publicVault);
+        _signalWithdraw(devon, publicVault);
+        _signalWithdraw(edgar, publicVault);
+
+        vm.warp(block.timestamp + 14 days);
+        PublicVault(publicVault).processEpoch(collateralIds, positions);
+
+        vm.warp(block.timestamp + 14 days);
+        PublicVault(publicVault).processEpoch(collateralIds, positions);
+
     }
 }
