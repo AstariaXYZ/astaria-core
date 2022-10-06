@@ -79,7 +79,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
                 strategy.version,
                 IAstariaRouter(ROUTER()).strategistNonce(strategy.strategist),
                 strategy.deadline,
-                strategy.vault,
+                address(this),
                 root
             )
         );
@@ -133,8 +133,6 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         internal
         returns (IAstariaRouter.LienDetails memory)
     {
-        require(params.lienRequest.strategy.vault == address(this), "invalid vault");
-
         uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
         address operator = ERC721(COLLATERAL_TOKEN()).getApproved(collateralId);

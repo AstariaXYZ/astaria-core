@@ -1,12 +1,6 @@
 [submodule "lib/solmate"]
 	path = lib/solmate
 	url = https://github.com/rari-capital/solmate
-[submodule "lib/openzeppelin-contracts"]
-	path = lib/openzeppelin-contracts
-	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "lib/v3-periphery"]
-	path = lib/v3-periphery
-	url = https://github.com/Uniswap/v3-periphery
 [submodule "lib/gpl"]
 	path = lib/gpl
 	url = https://github.com/AstariaXYZ/astaria-gpl
@@ -23,9 +17,6 @@
 [submodule "lib/assets"]
 	path = lib/assets
 	url = https://github.com/AstariaXYZ/assets
-[submodule "lib/seaport"]
-	path = lib/seaport
-	url = https://github.com/ProjectOpenSea/seaport
 [submodule "lib/ds-test"]
 	path = lib/ds-test
 	url = https://github.com/dapphub/ds-test

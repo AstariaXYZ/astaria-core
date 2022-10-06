@@ -1,13 +1,13 @@
 [profile.default]
 src = 'src'
 out = 'out'
+cache = true
+cache_path = 'cache'
 libs = ['lib']
 fs_permissions = [{ access = "read-write", path = "./"}]
 remappings = [
     'solmate/=lib/solmate/src/',
-    'openzeppelin/=lib/openzeppelin-contracts/contracts/',
     'gpl/=lib/gpl/src/',
     'clones-with-immutable-args/=lib/clones-with-immutable-args/src/',
-    'seaport/=lib/seaport/contracts'
 ]
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

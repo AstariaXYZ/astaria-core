@@ -16,7 +16,7 @@ import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 import {Base64} from "./libraries/Base64.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {IPublicVault} from "./PublicVault.sol";
-import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 contract TransferAgent {
     address public immutable WETH;
@@ -116,7 +116,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
         lienData[lienId].last = block.timestamp.safeCastTo32();
         lienData[lienId].start = block.timestamp.safeCastTo32();
-        lienData[lienId].rate = ld.rate.safeCastTo32();
+        lienData[lienId].rate = ld.rate.safeCastTo240();
         lienData[lienId].duration = ld.duration.safeCastTo32();
 
         _transfer(ownerOf(lienId), address(params.receiver), lienId);
@@ -238,7 +238,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
             position: newPosition,
             amount: params.amount,
             active: true,
-            rate: params.terms.rate.safeCastTo32(),
+            rate: params.terms.rate.safeCastTo240(),
             last: block.timestamp.safeCastTo32(),
             start: block.timestamp.safeCastTo32(),
             duration: params.terms.duration.safeCastTo32(),

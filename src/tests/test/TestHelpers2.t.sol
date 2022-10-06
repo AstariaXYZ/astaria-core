@@ -26,6 +26,7 @@ import {IVault, VaultImplementation} from "../../VaultImplementation.sol";
 import {Vault, PublicVault} from "../../PublicVault.sol";
 import {TransferProxy} from "../../TransferProxy.sol";
 import {IStrategyValidator} from "../../interfaces/IStrategyValidator.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
 
@@ -59,8 +60,8 @@ contract V3SecurityHook {
 contract TestHelpers is Test {
     using CollateralLookup for address;
     using Strings2 for bytes;
+    using SafeCastLib for uint256;
 
-    bytes32 testVaultHash = bytes32(0x54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798); // hashed data for deployment
 
     uint256 strategistOnePK = uint256(0x1339);
     uint256 strategistTwoPK = uint256(0x1344); // strategistTwo is delegate for PublicVault created by strategistOne
@@ -74,7 +75,7 @@ contract TestHelpers is Test {
 
     IAstariaRouter.LienDetails standardLien = IAstariaRouter.LienDetails({
         maxAmount: 10 ether,
-        rate: ((uint256(0.05 ether)) / 365) * 1 days,
+        rate: uint32(((uint256(0.05 ether)) / 365) * 1 days),
         duration: 10 days, // TODO check if should be block.timestamp + duration
         maxPotentialDebt: 50 ether
     });
@@ -225,7 +226,7 @@ contract TestHelpers is Test {
         IAstariaRouter.LienRequestType requestType,
         bytes memory data,
         address vault
-    ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof, bool[] memory proofFlags) {
+    ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
         uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
 
         string[] memory inputs;
@@ -275,7 +276,7 @@ contract TestHelpers is Test {
         }
 
         bytes memory res = vm.ffi(inputs);
-        (rootHash, merkleProof, proofFlags) = abi.decode(res, (bytes32, bytes32[], bool[]));
+        (rootHash, merkleProof) = abi.decode(res, (bytes32, bytes32[]));
     }
 
     function _generateLoanMerkleProof2(
@@ -285,55 +286,31 @@ contract TestHelpers is Test {
         IAstariaRouter.LienRequestType requestType,
         bytes memory data,
         address vault
-    ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof, bool[] memory proofFlags) {
+    ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
         uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
 
-        string[] memory inputs;
-        if (requestType == IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY) {
-            inputs = new string[](13);
-        } else {
-            inputs = new string[](10);
-        }
-
+        string[] memory inputs = new string[](4);
         inputs[0] = "node";
-        inputs[1] = "scripts/loanProofGenerator.js";
-        //        inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
-        inputs[2] = abi.encode(
-            IAstariaRouter.StrategyDetails({
-                version: uint8(1),
-                strategist: strategist,
-                nonce: uint256(0),
-                deadline: block.timestamp + 2 days,
-                vault: vault
-            })
-        ).toHexString();
-        if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
-            //            inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
-            //            inputs[4] = abi.encodePacked(strategist).toHexString(); //appraiserOne
-            //            inputs[5] = abi.encodePacked(block.timestamp + 2 days).toHexString(); //fixed for 2 days atm
-            //            inputs[6] = abi.encodePacked(vault).toHexString(); //vault
+        inputs[1] = "scripts/loanProofGenerator2.js";
 
+        if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
             IUniqueValidator.Details memory terms = abi.decode(data, (IUniqueValidator.Details));
-            inputs[3] = abi.encodePacked(uint8(0)).toHexString(); //type
-            inputs[4] = abi.encode(terms).toHexString();
-            //vault details
-            //            inputs[7] = abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
-            //            inputs[8] = abi.encodePacked(address(0)).toHexString(); //borrower
-            //            inputs[9] = abi.encode(terms.lien).toHexString(); //lien details
+            inputs[2] = abi.encodePacked(uint8(0)).toHexString(); //type
+            inputs[3] = abi.encode(terms).toHexString();
         } else if (requestType == IAstariaRouter.LienRequestType.COLLECTION) {
             ICollectionValidator.Details memory terms = abi.decode(data, (ICollectionValidator.Details));
-            inputs[3] = abi.encodePacked(uint8(1)).toHexString(); //type
-            inputs[4] = abi.encode(terms).toHexString();
+            inputs[2] = abi.encodePacked(uint8(1)).toHexString(); //type
+            inputs[3] = abi.encode(terms).toHexString();
         } else if (requestType == IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY) {
             IUNI_V3Validator.Details memory terms = abi.decode(data, (IUNI_V3Validator.Details));
-            inputs[3] = abi.encodePacked(uint8(2)).toHexString(); //type
-            inputs[4] = abi.encode(terms).toHexString();
+            inputs[2] = abi.encodePacked(uint8(2)).toHexString(); //type
+            inputs[3] = abi.encode(terms).toHexString();
         } else {
             revert("unsupported");
         }
 
         bytes memory res = vm.ffi(inputs);
-        (rootHash, merkleProof, proofFlags) = abi.decode(res, (bytes32, bytes32[], bool[]));
+        (rootHash, merkleProof) = abi.decode(res, (bytes32, bytes32[]));
     }
 
     function _commitToLien(
@@ -361,7 +338,7 @@ contract TestHelpers is Test {
             })
         );
 
-        (bytes32 rootHash, bytes32[] memory merkleProof, bool[] memory proofFlags) = _generateLoanMerkleProof({
+        (bytes32 rootHash, bytes32[] memory merkleProof) = _generateLoanMerkleProof2({
             strategist: strategist,
             tokenContract: tokenContract,
             tokenId: tokenId,
@@ -371,19 +348,23 @@ contract TestHelpers is Test {
         });
 
         // setup 712 signature
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(strategistPK, rootHash);
+
+        IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter.StrategyDetails({
+            version: uint8(0),
+            strategist: strategist,
+            deadline: block.timestamp + 10 days,
+            vault: vault
+        });
+
+        bytes32 termHash = keccak256(VaultImplementation(vault).encodeStrategyData(strategyDetails, rootHash));
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(strategistPK, termHash);
 
         IAstariaRouter.Commitment memory terms = IAstariaRouter.Commitment({
             tokenContract: tokenContract,
             tokenId: tokenId,
             lienRequest: IAstariaRouter.NewLienRequest({
-                strategy: IAstariaRouter.StrategyDetails({
-                    version: uint8(0),
-                    strategist: strategist,
-                    nonce: ASTARIA_ROUTER.strategistNonce(strategist),
-                    deadline: lienDetails.duration, // TODO check if should add block.timestamp
-                    vault: vault
-                }),
+                strategy: strategyDetails,
                 nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE), // TODO support others?
                 nlrDetails: validatorDetails,
                 merkle: IAstariaRouter.MerkleData({root: rootHash, proof: merkleProof}),

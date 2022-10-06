@@ -24,7 +24,6 @@ interface IAstariaRouter is IPausable {
     struct StrategyDetails {
         uint8 version;
         address strategist;
-        uint256 nonce; //nonce of the owner of the vault
         uint256 deadline;
         address vault;
     }

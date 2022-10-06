@@ -14,12 +14,12 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
-
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import "./TestHelpers.t.sol";
 
 contract Fuzzers is TestHelpers {
     using CollateralLookup for address;
-
+    using SafeCastLib for uint256;
     struct FuzzInputs {
         uint256 amount;
         uint256 interestRate;
@@ -30,7 +30,7 @@ contract Fuzzers is TestHelpers {
     modifier validateInputs(FuzzInputs memory args) {
         args.amount = bound(args.amount, 1 ether, 100000000000000000000);
         args.interestRate = bound(args.interestRate, 1e10, 1e12);
-        args.duration = bound(args.duration, block.timestamp + 1 minutes, block.timestamp + 10 minutes);
+        args.duration = bound(args.duration, block.timestamp + 1 minutes, block.timestamp + 10 minutes).safeCastTo32();
         args.maxPotentialDebt = bound(args.amount, 1 ether, 200000000000000000000);
         _;
     }

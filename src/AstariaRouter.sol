@@ -19,7 +19,7 @@ import {MerkleProof} from "./utils/MerkleProof.sol";
 import {Pausable} from "./utils/Pausable.sol";
 import {PublicVault} from "./PublicVault.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 interface IInvoker {
     function onBorrowAndBuy(bytes calldata data, address token, uint256 amount, address payable recipient)
@@ -191,10 +191,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     {
         require(commitment.lienRequest.strategy.deadline >= block.timestamp, "deadline passed");
 
-        require(
-            commitment.lienRequest.strategy.nonce == strategistNonce[commitment.lienRequest.strategy.strategist],
-            "invalid nonce"
-        );
+//        require(
+//            commitment.lienRequest.strategy.nonce == strategistNonce[commitment.lienRequest.strategy.strategist],
+//            "invalid nonce"
+//        );
         require(strategyValidators[commitment.lienRequest.nlrType] != address(0), "invalid strategy type");
 
         bytes32 leaf;
@@ -294,17 +294,17 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             WETH.safeTransfer(msg.sender, spendableBalance - params.purchasePrice);
         }
     }
-
-    /**
-     * @notice Buy out a lien to replace it with new terms.
-     * @param position The position of the lien to be replaced.
-     * @param incomingTerms The terms of the new lien.
-     */
-    function buyoutLien(uint256 position, IAstariaRouter.Commitment calldata incomingTerms) external whenNotPaused {
-        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
-            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
-        );
-    }
+//
+//    /**
+//     * @notice Buy out a lien to replace it with new terms.
+//     * @param position The position of the lien to be replaced.
+//     * @param incomingTerms The terms of the new lien.
+//     */
+//    function buyoutLien(uint256 position, IAstariaRouter.Commitment calldata incomingTerms) external whenNotPaused {
+//        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
+//            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
+//        );
+//    }
 
     /**
      * @notice Create a new lien against a CollateralToken.
@@ -325,7 +325,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 terms: terms,
                 strategyRoot: params.lienRequest.merkle.root,
                 amount: params.lienRequest.amount,
-                vault: params.lienRequest.strategy.vault
+                vault: address(msg.sender)
             })
         );
     }

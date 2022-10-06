@@ -8,12 +8,12 @@ interface ILienBase {
         uint256 amount; //32
         uint256 collateralId; //32
         address payee; // 20
-        uint256 rate; // 4
         uint32 start; // 4
         uint32 last; // 4
         uint32 duration; // 4
-        uint8 position; // 1
+        uint240 rate; // 30
         bool active; // 1
+        uint8 position; // 1
     }
 
     struct LienActionEncumber {

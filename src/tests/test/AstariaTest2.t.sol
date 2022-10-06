@@ -14,13 +14,14 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {IVault, VaultImplementation} from "../../VaultImplementation.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import "./TestHelpers2.t.sol";
 
 contract AstariaTest2 is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
-
+    using SafeCastLib for uint256;
     function testBasicPublicVaultLoan() public {
         Dummy721 nft = new Dummy721();
         address tokenContract = address(nft);
