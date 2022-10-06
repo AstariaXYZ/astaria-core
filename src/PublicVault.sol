@@ -224,14 +224,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         virtual
         returns (bool)
     {
-        // was returns (uint256 balance)
+        ILienToken lt = LIEN_TOKEN();
+        IAstariaRouter router = IAstariaRouter(ROUTER());
         for (uint256 i = 0; i < collateralIds.length; i++) {
-            uint256 lienId = LIEN_TOKEN().getLiens(collateralIds[i])[positions[i]];
+            uint256 lienId = lt.getLiens(collateralIds[i])[positions[i]];
 
-            require(LIEN_TOKEN().ownerOf(lienId) == address(this), "lien not owned by vault");
+            require(lt.ownerOf(lienId) == address(this), "lien not owned by vault");
 
             // check that the lien cannot be liquidated
-            if (IAstariaRouter(ROUTER()).canLiquidate(collateralIds[i], positions[i])) {
+            if (router.canLiquidate(collateralIds[i], positions[i])) {
                 return false;
             }
         }

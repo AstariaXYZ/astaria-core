@@ -43,7 +43,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         uint256 tokenId;
     }
 
+    //mapping of the collateralToken ID and its underlying asset
     mapping(uint256 => Asset) idToUnderlying;
+    //mapping of a security token hook for an nft's token contract address
     mapping(address => address) public securityHooks;
 
     ITransferProxy public TRANSFER_PROXY;
