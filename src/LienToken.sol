@@ -42,6 +42,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     IAstariaRouter public ASTARIA_ROUTER;
     ICollateralToken public COLLATERAL_TOKEN;
 
+    uint256 INTEREST_DENOMINATOR = 1e18;
+
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
 
@@ -137,13 +139,13 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param lien The Lien for the loan to calculate interest for.
      * @param timestamp The timestamp at which to compute interest for.
      */
-    function _getInterest(Lien memory lien, uint256 timestamp) internal pure returns (uint256) {
+    function _getInterest(Lien memory lien, uint256 timestamp) internal view returns (uint256) {
         if (!lien.active) {
             return uint256(0);
         }
         uint256 delta_t = uint256(timestamp.safeCastTo32() - lien.last);
 
-        return (delta_t * lien.rate * lien.amount) / 1e18;
+        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, INTEREST_DENOMINATOR);
     }
 
     // TODO improve this
@@ -347,9 +349,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     function calculateSlope(uint256 lienId) public view returns (uint256) {
         Lien memory lien = lienData[lienId];
         uint256 end = (lien.start + lien.duration);
-        // return (end - lien.last) / (lien.amount * lien.rate * end - lien.amount); // TODO check
 
-        return (lien.amount * lien.rate * end - lien.amount).mulDivDown(1, end - lien.last);
+        return (lien.amount.mulDivDown(lien.rate, 1).mulDivDown(end, 1) - 1).mulDivDown(1, end - lien.last);
     }
 
     /**
@@ -367,11 +368,11 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         )
     {
         Lien memory lien = lienData[lienId];
-        uint256 end = (lien.start + lien.duration);
         uint256 oldSlope = calculateSlope(lienId);
         uint256 newAmount = (lien.amount - paymentAmount);
 
-        uint256 newSlope = (newAmount * lien.rate * end - newAmount).mulDivDown(1, end - block.timestamp); //TODO: check again
+        // slope = (rate*time*amount - amount) / time -> amount(rate*time - 1) / time
+        uint256 newSlope = newAmount.mulDivDown((uint256(lien.rate).mulDivDown(lien.duration, 1) - 1), lien.duration);
 
         slope = oldSlope - newSlope;
     }
@@ -421,9 +422,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         impliedRate = 0;
         for (uint256 i = 0; i < openLiens.length; ++i) {
             Lien memory lien = lienData[openLiens[i]];
-            unchecked {
-                impliedRate += uint256(lien.rate) * lien.amount;
-            }
+
+            impliedRate += lien.rate * lien.amount;
         }
 
         if (totalDebt > uint256(0)) {
@@ -445,7 +445,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param lien The specified Lien.
      * @return The amount owed to the Lien at the specified timestamp.
      */
-    function _getOwed(Lien memory lien, uint256 timestamp) internal pure returns (uint256) {
+    function _getOwed(Lien memory lien, uint256 timestamp) internal view returns (uint256) {
         return lien.amount += _getInterest(lien, timestamp);
     }
 
@@ -466,7 +466,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
         uint256 delta_t = end - block.timestamp;
 
-        return (delta_t * lien.rate * lien.amount) / 1e18;
+        return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, INTEREST_DENOMINATOR);
     }
 
     function getInterest(uint256 lienId) public view returns (uint256) {
@@ -489,13 +489,12 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
             return uint256(0);
         }
         address lienOwner = ownerOf(liens[collateralId][position]);
-        if (IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId)) {
-            // was lienOwner.supportsinterface(PublicVault)
+        bool isPublicVault = IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId);
+        if (isPublicVault) {
             IPublicVault(lienOwner).beforePayment(liens[collateralId][position], paymentAmount);
         }
         Lien storage lien = lienData[liens[collateralId][position]];
         uint256 maxPayment = _getOwed(lien);
-        // address owner = ownerOf(liens[collateralId][position]);
 
         if (maxPayment < paymentAmount) {
             lien.amount -= paymentAmount;
@@ -507,6 +506,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         }
 
         TRANSFER_PROXY.tokenTransferFrom(WETH, payer, getPayee(liens[collateralId][position]), paymentAmount);
+
+        if (isPublicVault) {
+            IPublicVault(lienOwner).afterPayment(liens[collateralId][position]);
+        }
         emit Payment(liens[collateralId][position], paymentAmount);
         return paymentAmount;
     }

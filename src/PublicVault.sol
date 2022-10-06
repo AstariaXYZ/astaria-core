@@ -18,6 +18,8 @@ import {Pausable} from "./utils/Pausable.sol";
 
 interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
+
+    function afterPayment(uint256 lienId) external;
 }
 
 /**
@@ -69,12 +71,18 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 withdrawReserve = 0;
     uint256 liquidationWithdrawRatio = 0;
     uint256 strategistUnclaimedShares = 0;
-    uint64 currentEpoch = 0;
-    mapping(uint64 => address) withdrawProxies;
-    mapping(uint64 => address) liquidationAccountants;
+    uint64 public currentEpoch = 0;
+
+    // WithdrawProxies and LiquidationAccountants for each epoch.
+    // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
+    mapping(uint64 => address) public withdrawProxies;
+    mapping(uint64 => address) public liquidationAccountants;
+
+    event YInterceptChanged(uint256 newYintercept);
+    event WithdrawReserveTransferred(uint256 amount);
 
     function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256 assets) {
-        assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch + 1);
+        assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
 
     function redeemFutureEpoch(uint256 shares, address receiver, address owner, uint64 epoch)
@@ -160,9 +168,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
             // TODO when to claim()?
             if (liquidationAccountants[currentEpoch] != address(0)) {
-                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawRatio(
-                    withdrawProxies[currentEpoch]
-                );
+                LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawRatio();
             }
 
             // compute the withdrawReserve
@@ -199,16 +205,18 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // prevent transfer of more assets then are available
         if (withdrawReserve <= withdraw) {
             withdraw = withdrawReserve;
+            withdrawReserve = 0;
+        } else {
+            withdrawReserve -= withdraw;
         }
 
+        address currentWithdrawProxy = withdrawProxies[currentEpoch]; //
         // prevents transfer to a non-existent WithdrawProxy
         // withdrawProxies are indexed by the epoch where they're deployed
-        if (withdrawProxies[currentEpoch + 1] != address(0)) {
-            ERC20(underlying()).safeTransfer(withdrawProxies[currentEpoch + 1], withdraw);
+        if (currentWithdrawProxy != address(0)) {
+            ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
+            emit WithdrawReserveTransferred(withdraw);
         }
-
-        // decrement the withdraw from the withdraw reserve
-        withdrawReserve -= withdraw;
     }
 
     function _afterCommitToLien(uint256 lienId, uint256 amount) internal virtual override {
@@ -223,6 +231,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         virtual
         returns (bool)
     {
+        require(
+            collateralIds.length > 0 && collateralIds.length == positions.length,
+            "must provide an equal non-zero amount of collateral IDs and associated lien positions"
+        );
+
+        // was returns (uint256 balance)
         ILienToken lt = LIEN_TOKEN();
         IAstariaRouter router = IAstariaRouter(ROUTER());
         for (uint256 i = 0; i < collateralIds.length; i++) {
@@ -264,8 +278,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
         _handleStrategistInterestReward(lienId, amount);
         yIntercept = totalAssets() - amount;
-        slope -= LIEN_TOKEN().changeInSlope(lienId, amount);
+        slope -= LIEN_TOKEN().calculateSlope(lienId);
         last = block.timestamp;
+    }
+
+    function afterPayment(uint256 lienId) public onlyLienToken {
+        slope += LIEN_TOKEN().calculateSlope(lienId);
     }
 
     modifier onlyLienToken() {
@@ -297,6 +315,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     function setYIntercept(uint256 _yIntercept) public {
         require(msg.sender == liquidationAccountants[currentEpoch]);
         yIntercept = _yIntercept;
+        emit YInterceptChanged(_yIntercept);
     }
 
     function getLast() public view returns (uint256) {

@@ -4,28 +4,28 @@ import "forge-std/Test.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Authority} from "solmate/auth/Auth.sol";
 import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
-import {IERC20} from "../../interfaces/IERC20.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
 
 import {ERC721} from "gpl/ERC721.sol";
-import {CollateralToken} from "../../CollateralToken.sol";
-import {LienToken} from "../../LienToken.sol";
-import {ICollateralToken} from "../../interfaces/ICollateralToken.sol";
-import {ILienToken} from "../../interfaces/ILienToken.sol";
+import {CollateralToken} from "../CollateralToken.sol";
+import {LienToken} from "../LienToken.sol";
+import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
+import {ILienToken} from "../interfaces/ILienToken.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
-import {IV3PositionManager} from "../../interfaces/IV3PositionManager.sol";
-import {CollateralLookup} from "../../libraries/CollateralLookup.sol";
-import {ILienToken} from "../../interfaces/ILienToken.sol";
+import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
+import {CollateralLookup} from "../libraries/CollateralLookup.sol";
+import {ILienToken} from "../interfaces/ILienToken.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {IAstariaRouter, AstariaRouter} from "../../AstariaRouter.sol";
-import {UniqueValidator, IUniqueValidator} from "../../strategies/UniqueValidator.sol";
-import {ICollectionValidator, CollectionValidator} from "../../strategies/CollectionValidator.sol";
-import {UNI_V3Validator, IUNI_V3Validator} from "../../strategies/UNI_V3Validator.sol";
+import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
+import {UniqueValidator, IUniqueValidator} from "../strategies/UniqueValidator.sol";
+import {ICollectionValidator, CollectionValidator} from "../strategies/CollectionValidator.sol";
+import {UNI_V3Validator, IUNI_V3Validator} from "../strategies/UNI_V3Validator.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {Strings2} from "./utils/Strings2.sol";
-import {IVault, VaultImplementation} from "../../VaultImplementation.sol";
-import {Vault, PublicVault} from "../../PublicVault.sol";
-import {TransferProxy} from "../../TransferProxy.sol";
-import {IStrategyValidator} from "../../interfaces/IStrategyValidator.sol";
+import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {Vault, PublicVault} from "../PublicVault.sol";
+import {TransferProxy} from "../TransferProxy.sol";
+import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 string constant weth9Artifact = "src/tests/WETH9.json";
@@ -236,6 +236,7 @@ contract TestHelpers is Test {
             inputs = new string[](10);
         }
 
+        // TODO make readable
         inputs[0] = "node";
         inputs[1] = "scripts/loanProofGenerator.js";
         inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
@@ -279,11 +280,10 @@ contract TestHelpers is Test {
         (rootHash, merkleProof) = abi.decode(res, (bytes32, bytes32[]));
     }
 
-    function _generateLoanMerkleProof2(
-        IAstariaRouter.LienRequestType requestType,
-        bytes memory data
-    ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
-
+    function _generateLoanMerkleProof2(IAstariaRouter.LienRequestType requestType, bytes memory data)
+        internal
+        returns (bytes32 rootHash, bytes32[] memory merkleProof)
+    {
         string[] memory inputs = new string[](4);
         inputs[0] = "node";
         inputs[1] = "scripts/loanProofGenerator2.js";
@@ -333,10 +333,8 @@ contract TestHelpers is Test {
             })
         );
 
-        (bytes32 rootHash, bytes32[] memory merkleProof) = _generateLoanMerkleProof2({
-            requestType: IAstariaRouter.LienRequestType.UNIQUE,
-            data: validatorDetails
-        });
+        (bytes32 rootHash, bytes32[] memory merkleProof) =
+            _generateLoanMerkleProof2({requestType: IAstariaRouter.LienRequestType.UNIQUE, data: validatorDetails});
 
         // setup 712 signature
 
@@ -372,7 +370,6 @@ contract TestHelpers is Test {
     struct Lender {
         address addr;
         uint256 amountToLend;
-        uint256 lendingDuration; // time before scheduled withdraw
     }
 
     function _lendToVault(Lender memory lender, address vault) internal {
@@ -382,5 +379,40 @@ contract TestHelpers is Test {
         WETH9.approve(vault, lender.amountToLend);
         PublicVault(vault).deposit(lender.amountToLend, lender.addr);
         vm.stopPrank();
+    }
+
+    struct Borrow {
+        address borrower;
+        uint256 amount; // TODO allow custom LienDetails too
+        uint256 repayAmount; // if less than amount, then auction initiated with a bid of bidAmount
+        uint256 bidAmount;
+        uint256 timestamp;
+    }
+
+    // withdrawEpoch is epoch when lender signals a withdraw, not when they collect funds
+    // function _lendWithWithdraw(Lender memory lender, address vault, uint64 withdrawEpoch) {
+    //     require(withdrawEpoch >= PublicVault(vault).currentEpoch, "withdraw epoch must be at least current epoch");
+    //     _lendToVault(lender, vault);
+
+    // }
+
+    function _lendToVault(Lender[] memory lenders, address vault) internal {
+        for (uint256 i = 0; i < lenders.length; i++) {
+            _lendToVault(lenders[i], vault);
+        }
+    }
+
+    function _bid(address bidder, uint256 tokenId, uint256 amount) internal {
+        vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
+        vm.startPrank(bidder);
+        WETH9.deposit{value: amount}();
+        WETH9.approve(address(TRANSFER_PROXY), amount);
+        vm.stopPrank();
+    }
+
+    // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
+    function _signalWithdraw(address lender, address publicVault) internal {
+        uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
+        PublicVault(publicVault).redeem({shares: vaultTokenBalance, receiver: lender, owner: lender});
     }
 }
