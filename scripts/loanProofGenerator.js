@@ -31,7 +31,7 @@ const strategyDetails = [
 ];
 // console.error(strategyDetails);
 const strategyDigest = solidityKeccak256(...strategyDetails);
-leaves.push(defaultAbiCoder.encode(...strategyDetails));
+// leaves.push(defaultAbiCoder.encode(...strategyDetails));
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 let details;
 let digest;
@@ -193,7 +193,7 @@ const merkleTree = new MerkleTree(
 // const proofFlags = merkleTree.getProofFlags(proofLeaves, proof);
 
 const rootHash = merkleTree.getHexRoot();
-const proofLeaves = [leaves[0], leaves[1]].map(keccak256).sort(Buffer.compare);
+const proofLeaves = [leaves[0], leaves[1]].map(keccak256);
 const proof = merkleTree.getMultiProof(proofLeaves);
 const proofFlags = merkleTree.getProofFlags(proofLeaves, proof);
 

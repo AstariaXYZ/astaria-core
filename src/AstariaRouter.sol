@@ -6,7 +6,7 @@ import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
 import {IStrategyValidator} from "./interfaces/IStrategyValidator.sol";
-import {ITransferProxy} from "./interfaces/ITransferProxy.sol";
+import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
@@ -19,6 +19,7 @@ import {MerkleProof} from "./utils/MerkleProof.sol";
 import {Pausable} from "./utils/Pausable.sol";
 import {PublicVault} from "./PublicVault.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 interface IInvoker {
     function onBorrowAndBuy(bytes calldata data, address token, uint256 amount, address payable recipient)
@@ -33,6 +34,7 @@ interface IInvoker {
 //IInvoker maybe
 contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     using SafeTransferLib for ERC20;
+    using SafeCastLib for uint256;
     using CollateralLookup for address;
     using FixedPointMathLib for uint256;
 
@@ -46,22 +48,23 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     address public VAULT_IMPLEMENTATION;
     address public WITHDRAW_IMPLEMENTATION;
     address public feeTo;
-    uint256 public LIQUIDATION_FEE_PERCENT;
-    uint256 public MAX_EPOCH_LENGTH;
-    uint256 public MIN_EPOCH_LENGTH;
-    uint256 public MIN_INTEREST_BPS; // was uint64
-    uint256 public PROTOCOL_FEE_BASE;
-    uint256 public PROTOCOL_FEE_NUMERATOR;
-    uint256 public STRATEGIST_ORIGINATION_FEE_BASE;
-    uint256 public STRATEGIST_ORIGINATION_FEE_NUMERATOR;
-    uint64 public MIN_DURATION_INCREASE;
+    uint256 public liquidationFeePercent;
+    uint256 public maxEpochLength;
+    uint256 public minEpochLength;
+    uint256 public minInterestBPS; // was uint64
+    uint256 public protocolFeeNumerator;
+    uint256 public protocolFeeDenominator;
+    uint256 public strategistFeeNumerator;
+    uint256 public strategistFeeDenominator;
+    uint256 public buyoutFeeNumerator;
+    uint256 public buyoutFeeDenominator;
+    uint32 public minDurationIncrease;
+    uint32 public buyoutInterestWindow;
 
-    //public vault contract => strategist
+    //A strategist can have many deployed vaults
     mapping(address => address) public vaults;
     mapping(address => uint256) public strategistNonce;
     mapping(uint16 => address) public strategyValidators;
-
-    // See https://eips.ethereum.org/EIPS/eip-191
 
     /**
      * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
@@ -88,11 +91,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         TRANSFER_PROXY = _TRANSFER_PROXY;
         VAULT_IMPLEMENTATION = _VAULT_IMPL;
         SOLO_IMPLEMENTATION = _SOLO_IMPL;
-        LIQUIDATION_FEE_PERCENT = 13;
-        MIN_INTEREST_BPS = uint256(0.0005 ether) / uint256(365 * 1 days); //5 bips / second
-        STRATEGIST_ORIGINATION_FEE_NUMERATOR = 200;
-        STRATEGIST_ORIGINATION_FEE_BASE = 1000;
-        MIN_DURATION_INCREASE = 14 days;
+        liquidationFeePercent = 13;
+        minInterestBPS = uint256(0.0005 ether) / uint256(365 days); //5 bips / second
+        minEpochLength = 7 days;
+        maxEpochLength = 45 days;
+        strategistFeeNumerator = 200;
+        strategistFeeDenominator = 1000;
+        minDurationIncrease = 14 days;
+        buyoutInterestWindow = 60 days;
     }
 
     /**
@@ -128,19 +134,19 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     function file(bytes32 what, bytes calldata data) public requiresAuth {
         if (what == "LIQUIDATION_FEE_PERCENT") {
             uint256 value = abi.decode(data, (uint256));
-            LIQUIDATION_FEE_PERCENT = value;
+            liquidationFeePercent = value;
         } else if (what == "MIN_INTEREST_BPS") {
             uint256 value = abi.decode(data, (uint256));
-            MIN_INTEREST_BPS = uint256(value);
+            minInterestBPS = uint256(value);
         } else if (what == "APPRAISER_NUMERATOR") {
             uint256 value = abi.decode(data, (uint256));
-            STRATEGIST_ORIGINATION_FEE_NUMERATOR = value;
+            strategistFeeNumerator = value;
         } else if (what == "APPRAISER_ORIGINATION_FEE_BASE") {
             uint256 value = abi.decode(data, (uint256));
-            STRATEGIST_ORIGINATION_FEE_BASE = value;
+            strategistFeeDenominator = value;
         } else if (what == "MIN_DURATION_INCREASE") {
             uint256 value = abi.decode(data, (uint256));
-            MIN_DURATION_INCREASE = uint64(value);
+            minDurationIncrease = value.safeCastTo32();
         } else if (what == "WITHDRAW_IMPLEMENTATION") {
             address addr = abi.decode(data, (address));
             WITHDRAW_IMPLEMENTATION = addr;
@@ -154,12 +160,15 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             address addr = abi.decode(data, (address));
             SOLO_IMPLEMENTATION = addr;
         } else if (what == "MIN_EPOCH_LENGTH") {
-            MIN_EPOCH_LENGTH = abi.decode(data, (uint256));
+            minEpochLength = abi.decode(data, (uint256));
         } else if (what == "MAX_EPOCH_LENGTH") {
-            MAX_EPOCH_LENGTH = abi.decode(data, (uint256));
+            maxEpochLength = abi.decode(data, (uint256));
         } else if (what == "feeTo") {
             address addr = abi.decode(data, (address));
             feeTo = addr;
+        } else if (what == "setBuyoutInterestWindow") {
+            uint256 value = abi.decode(data, (uint256));
+            buyoutInterestWindow = value.safeCastTo32();
         } else if (what == "setStrategyValidator") {
             (uint8 TYPE, address addr) = abi.decode(data, (uint8, address));
             strategyValidators[TYPE] = addr;
@@ -182,32 +191,22 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     {
         require(commitment.lienRequest.strategy.deadline >= block.timestamp, "deadline passed");
 
-        require(
-            commitment.lienRequest.strategy.nonce == strategistNonce[commitment.lienRequest.strategy.strategist],
-            "invalid nonce"
-        );
+        //        require(
+        //            commitment.lienRequest.strategy.nonce == strategistNonce[commitment.lienRequest.strategy.strategist],
+        //            "invalid nonce"
+        //        );
         require(strategyValidators[commitment.lienRequest.nlrType] != address(0), "invalid strategy type");
 
-        bytes32[] memory leaves;
-        (leaves, ld) = IStrategyValidator(strategyValidators[commitment.lienRequest.nlrType]).validateAndParse(
+        bytes32 leaf;
+        (leaf, ld) = IStrategyValidator(strategyValidators[commitment.lienRequest.nlrType]).validateAndParse(
             commitment.lienRequest,
             COLLATERAL_TOKEN.ownerOf(commitment.tokenContract.computeId(commitment.tokenId)),
             commitment.tokenContract,
             commitment.tokenId
         );
 
-        if (leaves[0] > leaves[1]) {
-            bytes32 leaf = leaves[0];
-            leaves[0] = leaves[1];
-            leaves[1] = leaf;
-        }
         return (
-            MerkleProof.multiProofVerifyCalldata(
-                commitment.lienRequest.merkle.proof,
-                commitment.lienRequest.merkle.flags,
-                commitment.lienRequest.merkle.root,
-                leaves
-                ),
+            MerkleProof.verifyCalldata(commitment.lienRequest.merkle.proof, commitment.lienRequest.merkle.root, leaf),
             ld
         );
     }
@@ -242,15 +241,19 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @return The address of the new PrivateVault.
      */
     function newVault(address delegate) external whenNotPaused returns (address) {
-        return _newVault(uint256(0), delegate);
+        return _newVault(uint256(0), delegate, uint256(0));
     }
 
     /**
      * @notice Deploys a new PublicVault.
      * @param epochLength The length of each epoch for the new PublicVault.
      */
-    function newPublicVault(uint256 epochLength, address delegate) external whenNotPaused returns (address) {
-        return _newVault(epochLength, delegate);
+    function newPublicVault(uint256 epochLength, address delegate, uint256 vaultFee)
+        external
+        whenNotPaused
+        returns (address)
+    {
+        return _newVault(epochLength, delegate, vaultFee);
     }
 
     //    struct BorrowBuyParams {
@@ -295,43 +298,39 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             WETH.safeTransfer(msg.sender, spendableBalance - params.purchasePrice);
         }
     }
-
-    /**
-     * @notice Buy out a lien to replace it with new terms.
-     * @param position The position of the lien to be replaced.
-     * @param incomingTerms The terms of the new lien.
-     */
-    function buyoutLien(uint256 position, IAstariaRouter.Commitment calldata incomingTerms) external whenNotPaused {
-        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
-            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
-        );
-    }
+    //
+    //    /**
+    //     * @notice Buy out a lien to replace it with new terms.
+    //     * @param position The position of the lien to be replaced.
+    //     * @param incomingTerms The terms of the new lien.
+    //     */
+    //    function buyoutLien(uint256 position, IAstariaRouter.Commitment calldata incomingTerms) external whenNotPaused {
+    //        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
+    //            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
+    //        );
+    //    }
 
     /**
      * @notice Create a new lien against a CollateralToken.
+     * @param terms the decoded lien details from the commitment
      * @param params The valid proof and lien details for the new loan.
      * @return The ID of the created lien.
      */
-    function requestLienPosition(IAstariaRouter.Commitment calldata params)
+    function requestLienPosition(IAstariaRouter.LienDetails memory terms, IAstariaRouter.Commitment calldata params)
         external
         whenNotPaused
         onlyVaults
         returns (uint256)
     {
-        bool valid;
-        IAstariaRouter.LienDetails memory terms;
-        (valid, terms) = validateCommitment(params);
-
         return LIEN_TOKEN.createLien(
-            ILienBase.LienActionEncumber(
-                params.tokenContract,
-                params.tokenId,
-                terms,
-                params.lienRequest.merkle.root,
-                params.lienRequest.amount,
-                params.lienRequest.strategy.vault,
-                true
-            )
+            ILienBase.LienActionEncumber({
+                tokenContract: params.tokenContract,
+                tokenId: params.tokenId,
+                terms: terms,
+                strategyRoot: params.lienRequest.merkle.root,
+                amount: params.lienRequest.amount,
+                vault: address(msg.sender)
+            })
         );
     }
 
@@ -340,12 +339,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param vault The address of the PublicVault.
      * @param amount The amount to lend.
      */
-    function lendToVault(address vault, uint256 amount) external whenNotPaused {
+    function lendToVault(IVault vault, uint256 amount) external whenNotPaused {
         TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(msg.sender), address(this), amount);
 
-        require(vaults[vault] != address(0), "lendToVault: vault doesn't exist");
-        WETH.safeApprove(vault, amount);
-        IVault(vault).deposit(amount, address(msg.sender));
+        require(vaults[address(vault)] != address(0), "lendToVault: vault doesn't exist");
+        WETH.safeApprove(address(vault), amount);
+        vault.deposit(amount, address(msg.sender));
     }
 
     /**
@@ -378,25 +377,26 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
             ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
 
+            address owner = LIEN_TOKEN.ownerOf(currentLien);
             if (
-                VaultImplementation(lien.vault).VAULT_TYPE() == uint256(2) // TODO supportsinterface
-                    && PublicVault(lien.vault).timeToEpochEnd() <= COLLATERAL_TOKEN.AUCTION_WINDOW()
+                VaultImplementation(owner).VAULT_TYPE() == uint8(IAstariaRouter.VaultType.PUBLIC)
+                    && PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.auctionWindow()
             ) {
-                uint64 currentEpoch = PublicVault(lien.vault).getCurrentEpoch();
+                uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
 
-                address accountant = PublicVault(lien.vault).getLiquidationAccountant(currentEpoch);
+                address accountant = PublicVault(owner).getLiquidationAccountant(currentEpoch);
 
                 if (accountant == address(0)) {
-                    accountant = PublicVault(lien.vault).deployLiquidationAccountant();
+                    accountant = PublicVault(owner).deployLiquidationAccountant();
                 }
                 LIEN_TOKEN.setPayee(currentLien, accountant);
                 LiquidationAccountant(accountant).handleNewLiquidation(
-                    lien.amount, COLLATERAL_TOKEN.AUCTION_WINDOW() + 1 days
+                    lien.amount, COLLATERAL_TOKEN.auctionWindow() + 1 days
                 );
             }
         }
 
-        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), LIQUIDATION_FEE_PERCENT);
+        reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), liquidationFeePercent);
 
         emit Liquidation(collateralId, position, reserve);
     }
@@ -406,7 +406,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @return The numerator and denominator used to compute the percentage fee strategists earn by receiving minted vault shares. TODO reword
      */
     function getStrategistFee(uint256 amountIn) external view returns (uint256) {
-        return amountIn.mulDivDown(STRATEGIST_ORIGINATION_FEE_NUMERATOR, STRATEGIST_ORIGINATION_FEE_BASE);
+        return amountIn.mulDivDown(strategistFeeNumerator, strategistFeeDenominator);
     }
 
     /**
@@ -414,7 +414,23 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @return The numerator and denominator used to compute the percentage fee taken by the protocol
      */
     function getProtocolFee(uint256 amountIn) external view returns (uint256) {
-        return amountIn.mulDivDown(PROTOCOL_FEE_NUMERATOR, PROTOCOL_FEE_BASE);
+        return amountIn.mulDivDown(protocolFeeNumerator, protocolFeeDenominator);
+    }
+    /**
+     * @notice Retrieves the fee the protocol earns on loan origination.
+     * @return The numerator and denominator used to compute the percentage fee taken by the protocol
+     */
+
+    function getBuyoutFee(uint256 remainingInterestIn) external view returns (uint256) {
+        return remainingInterestIn.mulDivDown(buyoutFeeNumerator, buyoutFeeDenominator);
+    }
+
+    /**
+     * @notice Retrieves the time window for computing maxbuyout costs
+     * @return The numerator and denominator used to compute the percentage fee taken by the protocol
+     */
+    function getBuyoutInterestWindow() external view returns (uint32) {
+        return buyoutInterestWindow;
     }
 
     /**
@@ -426,20 +442,18 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         return vaults[vault] != address(0);
     }
 
-    event Data(uint256 rate, uint256 bps);
-
     /**
      * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
      * @param lien The Lien to be refinanced.
      * @param newLien The new Lien to replace the existing one.
      * @return A boolean representing whether the potential refinance is valid.
      */
-    function isValidRefinance(ILienToken.Lien memory lien, LienDetails memory newLien) external returns (bool) {
-        uint256 minNewRate = uint256(lien.rate) - MIN_INTEREST_BPS;
+    function isValidRefinance(ILienToken.Lien memory lien, LienDetails memory newLien) external view returns (bool) {
+        uint256 minNewRate = uint256(lien.rate) - minInterestBPS;
 
         return (
-            newLien.rate <= minNewRate
-                && ((block.timestamp + newLien.duration - lien.start + lien.duration) > MIN_DURATION_INCREASE)
+            newLien.rate >= minNewRate
+                && ((block.timestamp + newLien.duration - lien.start - lien.duration) >= minDurationIncrease)
         );
     }
 
@@ -450,20 +464,20 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param epochLength The length of each epoch for the new PublicVault.
      * @return The address for the new PublicVault.
      */
-    function _newVault(uint256 epochLength, address delegate) internal returns (address) {
-        uint256 brokerType;
+    function _newVault(uint256 epochLength, address delegate, uint256 vaultFee) internal returns (address) {
+        uint8 vaultType;
 
         address implementation;
         if (epochLength > uint256(0)) {
             require(
-                epochLength >= MIN_EPOCH_LENGTH || epochLength <= MAX_EPOCH_LENGTH,
+                epochLength >= minEpochLength && epochLength <= maxEpochLength,
                 "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
             );
             implementation = VAULT_IMPLEMENTATION;
-            brokerType = 2;
+            vaultType = uint8(VaultType.PUBLIC);
         } else {
             implementation = SOLO_IMPLEMENTATION;
-            brokerType = 1;
+            vaultType = uint8(VaultType.SOLO);
         }
 
         //immutable data
@@ -477,7 +491,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 address(COLLATERAL_TOKEN.AUCTION_HOUSE()),
                 block.timestamp,
                 epochLength,
-                brokerType
+                vaultType,
+                vaultFee
             )
         );
 
@@ -507,8 +522,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         VaultImplementation(c.lienRequest.strategy.vault).commitToLien(c, receiver);
         if (receiver == address(this)) {
             return c.lienRequest.amount;
+        } else {
+            return uint256(0);
         }
-        return uint256(0);
     }
 
     function _transferAndDepositAsset(address tokenContract, uint256 tokenId) internal {

@@ -5,9 +5,9 @@ import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
 
 interface IStrategyValidator {
     function validateAndParse(
-        IAstariaRouter.NewLienRequest memory params,
+        IAstariaRouter.NewLienRequest calldata params,
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    ) external returns (bytes32[] memory, IAstariaRouter.LienDetails memory);
+    ) external returns (bytes32, IAstariaRouter.LienDetails memory);
 }

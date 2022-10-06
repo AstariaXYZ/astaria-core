@@ -17,8 +17,8 @@ import {VaultImplementation} from "./VaultImplementation.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 interface IFlashAction {
     struct Underlying {
@@ -33,7 +33,7 @@ interface ISecurityHook {
     function getState(address, uint256) external view returns (bytes memory);
 }
 
-contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
+contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
 
@@ -42,22 +42,21 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         uint256 tokenId;
     }
 
+    //mapping of the collateralToken ID and its underlying asset
     mapping(uint256 => Asset) idToUnderlying;
+    //mapping of a security token hook for an nft's token contract address
     mapping(address => address) public securityHooks;
 
     ITransferProxy public TRANSFER_PROXY;
     ILienToken public LIEN_TOKEN;
     IAuctionHouse public AUCTION_HOUSE;
     IAstariaRouter public ASTARIA_ROUTER;
-    uint256 public AUCTION_WINDOW;
+    uint256 public auctionWindow;
 
     event Deposit721(
         address indexed tokenContract, uint256 indexed tokenId, uint256 indexed collateralId, address depositedFor
     );
     event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
-
-    error AssetNotSupported(address);
-    error AuctionStartedForCollateral(uint256);
 
     constructor(Authority AUTHORITY_, ITransferProxy TRANSFER_PROXY_, ILienToken LIEN_TOKEN_)
         Auth(msg.sender, Authority(AUTHORITY_))
@@ -66,10 +65,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
         TRANSFER_PROXY = TRANSFER_PROXY_;
         LIEN_TOKEN = LIEN_TOKEN_;
 
-        AUCTION_WINDOW = uint256(2 days);
+        auctionWindow = uint256(2 days);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override (ERC721) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override (ERC721, IERC165) returns (bool) {
         return interfaceId == type(ICollateralToken).interfaceId || super.supportsInterface(interfaceId);
     }
 
@@ -79,9 +78,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @param data The encoded address data to be decoded and filed.
      */
     function file(bytes32 what, bytes calldata data) external requiresAuth {
-        if (what == "AUCTION_WINDOW") {
-            uint256 window = abi.decode(data, (uint256));
-            AUCTION_WINDOW = window;
+        if (what == "setAuctionWindow") {
+            uint256 value = abi.decode(data, (uint256));
+            auctionWindow = value;
         } else if (what == "setAstariaRouter") {
             address addr = abi.decode(data, (address));
             ASTARIA_ROUTER = IAstariaRouter(addr);
@@ -241,16 +240,15 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralBase {
      * @notice Begins an auction for the NFT of a liquidated CollateralToken.
      * @param collateralId The ID of the CollateralToken being liquidated.
      * @param liquidator The address of the user that triggered the liquidation.
-     * @param liquidationFee The fee earned to the liquidator. TODO elaborate
      */
-    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidationFee)
+    function auctionVault(uint256 collateralId, address liquidator, uint256 liquidatorFee)
         external
         whenNotPaused
         requiresAuth
         returns (uint256 reserve)
     {
         require(!AUCTION_HOUSE.auctionExists(collateralId), "auctionVault: auction already exists");
-        reserve = AUCTION_HOUSE.createAuction(collateralId, AUCTION_WINDOW, liquidator, liquidationFee);
+        reserve = AUCTION_HOUSE.createAuction(collateralId, auctionWindow, liquidator, liquidatorFee);
     }
 
     /**

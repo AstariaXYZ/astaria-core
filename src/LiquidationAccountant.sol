@@ -10,19 +10,19 @@ import {ILienToken} from "./interfaces/ILienToken.sol";
 import {Clone} from "clones-with-immutable-args/Clone.sol";
 
 abstract contract LiquidationBase is Clone {
-    function underlying() public view returns (address) {
+    function underlying() public pure returns (address) {
         return _getArgAddress(0);
     }
 
-    function ROUTER() public view returns (address) {
+    function ROUTER() public pure returns (address) {
         return _getArgAddress(20);
     }
 
-    function VAULT() public view returns (address) {
+    function VAULT() public pure returns (address) {
         return _getArgAddress(40);
     }
 
-    function LIEN_TOKEN() public view returns (address) {
+    function LIEN_TOKEN() public pure returns (address) {
         return _getArgAddress(60);
     }
 

@@ -1,3 +1,5 @@
+pragma solidity ^0.8.17;
+
 library Base64 {
     bytes internal constant TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 

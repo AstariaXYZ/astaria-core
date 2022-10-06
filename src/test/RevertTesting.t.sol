@@ -29,6 +29,4 @@ import "./TestHelpers2.t.sol";
 contract RevertTesting is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
-
-    
 }

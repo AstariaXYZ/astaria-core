@@ -1,10 +1,10 @@
 pragma solidity ^0.8.17;
 
 import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
-import {BaseValidatorV1} from "./BaseValidator.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
+import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
 
-interface IUniqueValidator {
+interface IUniqueValidator is IStrategyValidator {
     struct Details {
         uint8 version;
         address token;
@@ -14,9 +14,7 @@ interface IUniqueValidator {
     }
 }
 
-contract UniqueValidator is BaseValidatorV1, IUniqueValidator {
-    //decode obligationData into structs
-
+contract UniqueValidator is IUniqueValidator {
     event LogLeaf(bytes32 leaf);
     event LogDetails(Details);
 
@@ -24,8 +22,7 @@ contract UniqueValidator is BaseValidatorV1, IUniqueValidator {
         return abi.decode(nlrDetails, (Details));
     }
 
-    function assembleLeaf(Details memory details) public returns (bytes memory) {
-        emit LogDetails(details);
+    function assembleLeaf(Details memory details) public pure returns (bytes memory) {
         return abi.encode(details);
     }
 
@@ -34,8 +31,7 @@ contract UniqueValidator is BaseValidatorV1, IUniqueValidator {
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    ) external override returns (bytes32[] memory leaves, IAstariaRouter.LienDetails memory ld) {
-        leaves = new bytes32[](2);
+    ) external pure override returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld) {
         Details memory cd = getLeafDetails(params.nlrDetails);
 
         if (cd.borrower != address(0)) {
@@ -45,16 +41,7 @@ contract UniqueValidator is BaseValidatorV1, IUniqueValidator {
         require(cd.token == collateralTokenContract, "invalid token contract");
 
         require(cd.tokenId == collateralTokenId, "invalid token id");
-        bytes32 strategyLeaf = keccak256(assembleStrategyLeaf(params.strategy));
-
-        bytes32 uniqueLeaf = keccak256(assembleLeaf(cd));
-
-        leaves[0] = strategyLeaf;
-        leaves[1] = uniqueLeaf;
-
-        emit LogLeaf(leaves[0]);
-        emit LogLeaf(leaves[1]);
-
+        leaf = keccak256(assembleLeaf(cd));
         ld = cd.lien;
     }
 }
