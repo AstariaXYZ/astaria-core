@@ -241,15 +241,19 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @return The address of the new PrivateVault.
      */
     function newVault(address delegate) external whenNotPaused returns (address) {
-        return _newVault(uint256(0), delegate);
+        return _newVault(uint256(0), delegate, uint256(0));
     }
 
     /**
      * @notice Deploys a new PublicVault.
      * @param epochLength The length of each epoch for the new PublicVault.
      */
-    function newPublicVault(uint256 epochLength, address delegate) external whenNotPaused returns (address) {
-        return _newVault(epochLength, delegate);
+    function newPublicVault(uint256 epochLength, address delegate, uint256 vaultFee)
+        external
+        whenNotPaused
+        returns (address)
+    {
+        return _newVault(epochLength, delegate, vaultFee);
     }
 
     //    struct BorrowBuyParams {
@@ -444,7 +448,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param newLien The new Lien to replace the existing one.
      * @return A boolean representing whether the potential refinance is valid.
      */
-    function isValidRefinance(ILienToken.Lien memory lien, LienDetails memory newLien) external returns (bool) {
+    function isValidRefinance(ILienToken.Lien memory lien, LienDetails memory newLien) external view returns (bool) {
         uint256 minNewRate = uint256(lien.rate) - minInterestBPS;
 
         return (
@@ -460,7 +464,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @param epochLength The length of each epoch for the new PublicVault.
      * @return The address for the new PublicVault.
      */
-    function _newVault(uint256 epochLength, address delegate) internal returns (address) {
+    function _newVault(uint256 epochLength, address delegate, uint256 vaultFee) internal returns (address) {
         uint8 vaultType;
 
         address implementation;
@@ -487,7 +491,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 address(COLLATERAL_TOKEN.AUCTION_HOUSE()),
                 block.timestamp,
                 epochLength,
-                vaultType
+                vaultType,
+                vaultFee
             )
         );
 

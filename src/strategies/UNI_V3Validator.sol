@@ -25,21 +25,20 @@ contract UNI_V3Validator is IUNI_V3Validator {
 
     IV3PositionManager V3_NFT_POSITION_MGR = IV3PositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
-    function assembleLeaf(IUNI_V3Validator.Details memory details) internal pure returns (bytes memory) {
+    function assembleLeaf(IUNI_V3Validator.Details memory details) public pure returns (bytes memory) {
         return abi.encode(details);
     }
 
-    //decode obligationData into structs
-    function getLeafDetails(bytes memory nlrDetails) internal pure returns (IUNI_V3Validator.Details memory) {
+    function getLeafDetails(bytes memory nlrDetails) public pure returns (IUNI_V3Validator.Details memory) {
         return abi.decode(nlrDetails, (IUNI_V3Validator.Details));
     }
 
     function validateAndParse(
-        IAstariaRouter.NewLienRequest memory params,
+        IAstariaRouter.NewLienRequest calldata params,
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    ) external override returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld) {
+    ) external view override returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld) {
         IUNI_V3Validator.Details memory details = getLeafDetails(params.nlrDetails);
 
         if (details.borrower != address(0)) {

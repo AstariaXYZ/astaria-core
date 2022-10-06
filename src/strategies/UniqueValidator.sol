@@ -15,8 +15,6 @@ interface IUniqueValidator is IStrategyValidator {
 }
 
 contract UniqueValidator is IUniqueValidator {
-    //decode obligationData into structs
-
     event LogLeaf(bytes32 leaf);
     event LogDetails(Details);
 
@@ -24,8 +22,7 @@ contract UniqueValidator is IUniqueValidator {
         return abi.decode(nlrDetails, (Details));
     }
 
-    function assembleLeaf(Details memory details) public returns (bytes memory) {
-        emit LogDetails(details);
+    function assembleLeaf(Details memory details) public pure returns (bytes memory) {
         return abi.encode(details);
     }
 
@@ -34,7 +31,7 @@ contract UniqueValidator is IUniqueValidator {
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    ) external override returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld) {
+    ) external pure override returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld) {
         Details memory cd = getLeafDetails(params.nlrDetails);
 
         if (cd.borrower != address(0)) {

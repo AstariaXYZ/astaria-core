@@ -14,20 +14,20 @@ interface ICollectionValidator is IStrategyValidator {
 }
 
 contract CollectionValidator is ICollectionValidator {
-    function getLeafDetails(bytes memory nlrDetails) internal pure returns (ICollectionValidator.Details memory) {
+    function getLeafDetails(bytes memory nlrDetails) public pure returns (ICollectionValidator.Details memory) {
         return abi.decode(nlrDetails, (ICollectionValidator.Details));
     }
 
-    function assembleLeaf(ICollectionValidator.Details memory details) internal pure returns (bytes memory) {
+    function assembleLeaf(ICollectionValidator.Details memory details) public pure returns (bytes memory) {
         return abi.encode(details);
     }
 
     function validateAndParse(
-        IAstariaRouter.NewLienRequest memory params,
+        IAstariaRouter.NewLienRequest calldata params,
         address borrower,
         address collateralTokenContract,
         uint256 collateralTokenId
-    ) external returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld) {
+    ) external pure override returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld) {
         ICollectionValidator.Details memory cd = getLeafDetails(params.nlrDetails);
 
         if (cd.borrower != address(0)) {

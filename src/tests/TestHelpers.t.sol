@@ -256,7 +256,7 @@ contract TestHelpers is Test {
         if (!publicVault) {
             newVault = ASTARIA_ROUTER.newVault(delegate);
         } else {
-            newVault = ASTARIA_ROUTER.newPublicVault(uint256(14 days), delegate);
+            newVault = ASTARIA_ROUTER.newPublicVault(uint256(14 days), delegate, uint256(5000));
         }
         vm.stopPrank();
     }
@@ -271,7 +271,7 @@ contract TestHelpers is Test {
         address vault;
     }
 
-    function _generateInputs(LoanProofGeneratorParams memory params) internal returns (string[] memory inputs) {
+    function _generateInputs(LoanProofGeneratorParams memory params) internal view returns (string[] memory inputs) {
         if (params.generationType == uint8(IAstariaRouter.LienRequestType.UNIQUE)) {
             inputs = new string[](10);
 
@@ -541,17 +541,17 @@ contract TestHelpers is Test {
 
     function _commitWithoutDeposit(CommitWithoutDeposit memory params)
         internal
-        returns (bytes32 obligationRoot, IAstariaRouter.Commitment memory terms, address vault)
+        returns (bytes32 root, IAstariaRouter.Commitment memory terms, address vault)
     {
         uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
-        bytes32[] memory obligationProof;
+        bytes32[] memory proof;
         LoanProofGeneratorParams memory proofParams = _generateLoanGeneratorParams(params);
         vault = _createVault(true, params.strategist);
 
         proofParams.vault = vault;
 
-        (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
+        (root, proof) = _generateLoanProof(proofParams);
 
         _lendToVault(vault, uint256(20 ether), params.strategist);
 
@@ -559,31 +559,29 @@ contract TestHelpers is Test {
         bytes32 r;
         bytes32 s;
         uint256 pk = (params.strategist == appraiserOne ? appraiserOnePK : appraiserTwoPK);
-        (v, r, s) = vm.sign(pk, obligationRoot);
-        IAstariaRouter.Commitment memory terms =
-            _generateCommitment(params, vault, obligationRoot, obligationProof, v, r, s);
-        return (obligationRoot, terms, vault);
+        (v, r, s) = vm.sign(pk, root);
+        IAstariaRouter.Commitment memory terms = _generateCommitment(params, vault, root, proof, v, r, s);
+        return (root, terms, vault);
     }
 
     function _commitV3WithoutDeposit(CommitV3WithoutDeposit memory params)
         internal
-        returns (bytes32 obligationRoot, IAstariaRouter.Commitment memory terms, address vault)
+        returns (bytes32 root, IAstariaRouter.Commitment memory terms, address vault)
     {
-        bytes32[] memory obligationProof;
+        bytes32[] memory proof;
         LoanProofGeneratorParams memory proofParams = _generateV3Terms(params);
         vault = _createVault(true, params.strategist);
         proofParams.vault = vault;
-        (obligationRoot, obligationProof) = _generateLoanProof(proofParams);
+        (root, proof) = _generateLoanProof(proofParams);
 
         _lendToVault(vault, uint256(20 ether), appraiserTwo);
 
         uint8 v;
         bytes32 r;
         bytes32 s;
-        (v, r, s) = vm.sign(uint256(appraiserOnePK), obligationRoot);
-        IAstariaRouter.Commitment memory terms =
-            _generateV3Commitment(params, vault, obligationRoot, obligationProof, v, r, s);
-        return (obligationRoot, terms, vault);
+        (v, r, s) = vm.sign(uint256(appraiserOnePK), root);
+        IAstariaRouter.Commitment memory terms = _generateV3Commitment(params, vault, root, proof, v, r, s);
+        return (root, terms, vault);
     }
 
     event LogCommitment(IAstariaRouter.Commitment);
@@ -591,8 +589,8 @@ contract TestHelpers is Test {
     function _generateCommitment(
         CommitWithoutDeposit memory params,
         address vault,
-        bytes32 obligationRoot,
-        bytes32[] memory obligationProofs,
+        bytes32 root,
+        bytes32[] memory proof,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -624,7 +622,7 @@ contract TestHelpers is Test {
                     })
                     ),
                 amount: params.amount,
-                merkle: IAstariaRouter.MerkleData({root: obligationRoot, proof: obligationProofs}),
+                merkle: IAstariaRouter.MerkleData({root: root, proof: proof}),
                 v: v,
                 r: r,
                 s: s
@@ -635,12 +633,12 @@ contract TestHelpers is Test {
     function _generateV3Commitment(
         CommitV3WithoutDeposit memory params,
         address vault,
-        bytes32 obligationRoot,
-        bytes32[] memory obligationProofs,
+        bytes32 root,
+        bytes32[] memory proof,
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) internal returns (IAstariaRouter.Commitment memory) {
+    ) internal pure returns (IAstariaRouter.Commitment memory) {
         return IAstariaRouter.Commitment(
             params.tokenContract,
             uint256(0),
@@ -665,7 +663,7 @@ contract TestHelpers is Test {
                         params.details //lienDetails
                     )
                 ), //obligationDetails
-                IAstariaRouter.MerkleData({root: obligationRoot, proof: obligationProofs}),
+                IAstariaRouter.MerkleData({root: root, proof: proof}),
                 params.amount, //amount
                 v, //v
                 r, //r

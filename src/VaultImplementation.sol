@@ -24,7 +24,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
 
     address public delegate; //account connected to the daemon
 
-    event NewObligation(bytes32 strategyRoot, address tokenContract, uint256 tokenId, uint256 amount);
+    event NewLien(bytes32 strategyRoot, address tokenContract, uint256 tokenId, uint256 amount);
 
     event NewVault(address appraiser, address vault);
 
@@ -89,12 +89,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     /**
      * @dev hook to allow inheriting contracts to perform payout for strategist
      */
-    function _handleStrategistOriginationReward(uint256) internal virtual {}
-
-    /**
-     * @dev hook to allow inheriting contracts to perform payout for strategist
-     */
-    function _handleStrategistInterestReward(uint256) internal virtual {}
+    function _handleStrategistInterestReward(uint256, uint256) internal virtual {}
 
     struct InitParams {
         address delegate;
@@ -200,11 +195,8 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
     function commitToLien(IAstariaRouter.Commitment calldata params, address receiver) external whenNotPaused {
         IAstariaRouter.LienDetails memory ld = _validateCommitment(params, receiver);
         uint256 lienId = _requestLienAndIssuePayout(ld, params, receiver);
-        _handleStrategistOriginationReward(params.lienRequest.amount);
         _afterCommitToLien(lienId, params.lienRequest.amount);
-        emit NewObligation(
-            params.lienRequest.merkle.root, params.tokenContract, params.tokenId, params.lienRequest.amount
-            );
+        emit NewLien(params.lienRequest.merkle.root, params.tokenContract, params.tokenId, params.lienRequest.amount);
     }
 
     /**

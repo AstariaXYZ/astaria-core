@@ -129,9 +129,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      */
     function getInterest(uint256 collateralId, uint256 position) public view returns (uint256) {
         uint256 lien = liens[collateralId][position];
-        if (!lienData[lien].active) {
-            return uint256(0);
-        }
         return _getInterest(lienData[lien], block.timestamp);
     }
 
@@ -141,6 +138,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param timestamp The timestamp at which to compute interest for.
      */
     function _getInterest(Lien memory lien, uint256 timestamp) internal pure returns (uint256) {
+        if (!lien.active) {
+            return uint256(0);
+        }
         uint256 delta_t = uint256(timestamp.safeCastTo32() - lien.last);
 
         return (delta_t * lien.rate * lien.amount) / 1e18;
@@ -293,11 +293,11 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param position The position of the Lien to compute the buyout amount for.
      * @return The outstanding debt for the lien and the buyout amount for the Lien.
      */
-    function getBuyout(uint256 collateralId, uint256 position) public returns (uint256, uint256) {
+    function getBuyout(uint256 collateralId, uint256 position) public view returns (uint256, uint256) {
         Lien memory lien = getLien(collateralId, position);
 
         uint256 owed = _getOwed(lien);
-        uint256 remainingInterest = _getRemainingInterest(lien);
+        uint256 remainingInterest = _getRemainingInterest(lien, true);
 
         return (owed, owed + ASTARIA_ROUTER.getBuyoutFee(remainingInterest));
     }
@@ -452,18 +452,25 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     /**
      * @dev Computes the interest still owed to a Lien.
      * @param lien The specified Lien.
+     * @param buyout compute with a ceiling based on the buyout interest window
      * @return The WETH still owed in interest to the Lien.
      */
-    function _getRemainingInterest(Lien memory lien) internal view returns (uint256) {
+    function _getRemainingInterest(Lien memory lien, bool buyout) internal view returns (uint256) {
         uint256 end = lien.start + lien.duration;
-        uint32 getBuyoutInterestWindow = ASTARIA_ROUTER.getBuyoutInterestWindow();
-        if (lien.start + lien.duration >= block.timestamp + getBuyoutInterestWindow) {
-            end = block.timestamp + getBuyoutInterestWindow;
+        if (buyout) {
+            uint32 getBuyoutInterestWindow = ASTARIA_ROUTER.getBuyoutInterestWindow();
+            if (lien.start + lien.duration >= block.timestamp + getBuyoutInterestWindow) {
+                end = block.timestamp + getBuyoutInterestWindow;
+            }
         }
 
         uint256 delta_t = end - block.timestamp;
 
         return (delta_t * lien.rate * lien.amount) / 1e18;
+    }
+
+    function getInterest(uint256 lienId) public view returns (uint256) {
+        return _getInterest(lienData[lienId], block.timestamp);
     }
 
     /**

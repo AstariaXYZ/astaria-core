@@ -35,9 +35,7 @@ contract Vault is VaultImplementation, IVault {
         return string(abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol()));
     }
 
-    function _handleStrategistOriginationReward(uint256 shares) internal virtual override {}
-
-    function _handleStrategistInterestReward(uint256 shares) internal virtual override {}
+    function _handleStrategistInterestReward(uint256 lienId, uint256 shares) internal virtual override {}
 
     function deposit(uint256 amount, address) public virtual override returns (uint256) {
         require(msg.sender == owner(), "only the appraiser can fund this vault");
@@ -68,10 +66,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 slope;
 
     // block.timestamp of first epoch
-    uint64 currentEpoch = 0;
     uint256 withdrawReserve = 0;
     uint256 liquidationWithdrawRatio = 0;
-
+    uint256 strategistUnclaimedShares = 0;
+    uint64 currentEpoch = 0;
     mapping(uint64 => address) withdrawProxies;
     mapping(uint64 => address) liquidationAccountants;
 
@@ -188,7 +186,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         liquidationAccountants[currentEpoch] = accountant;
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override (IERC165) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public pure override (IERC165) returns (bool) {
         return interfaceId == type(IPublicVault).interfaceId || interfaceId == type(IVault).interfaceId
             || interfaceId == type(ERC4626Cloned).interfaceId || interfaceId == type(ERC4626).interfaceId
             || interfaceId == type(ERC20).interfaceId || interfaceId == type(IERC165).interfaceId;
@@ -249,7 +247,22 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return slope.mulDivDown(delta_t, 1) + yIntercept;
     }
 
+    function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
+        uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
+
+        return supply == 0 ? shares : shares.mulDivDown(totalAssets(), supply + strategistUnclaimedShares);
+    }
+
+    /**
+     * @dev Mints earned fees by the strategist to the strategist address.
+     */
+    function claim() external onlyOwner {
+        _mint(owner(), strategistUnclaimedShares);
+        strategistUnclaimedShares = 0;
+    }
+
     function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
+        _handleStrategistInterestReward(lienId, amount);
         yIntercept = totalAssets() - amount;
         slope -= LIEN_TOKEN().changeInSlope(lienId, amount);
         last = block.timestamp;
@@ -264,9 +277,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         yIntercept += assets;
     }
 
-    function _handleStrategistOriginationReward(uint256 amount) internal virtual override {
-        uint256 fee = IAstariaRouter(ROUTER()).getStrategistFee(amount);
-        _mint(owner(), convertToShares(fee));
+    function _handleStrategistInterestReward(uint256 lienId, uint256 amount) internal virtual override {
+        if (VAULT_FEE() != uint256(0)) {
+            uint256 interestOwing = LIEN_TOKEN().getInterest(lienId);
+            uint256 x = (amount > interestOwing) ? interestOwing : amount;
+            uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //VAULT_FEE is a basis point
+            strategistUnclaimedShares += convertToShares(fee);
+        }
     }
 
     function getSlope() public view returns (uint256) {

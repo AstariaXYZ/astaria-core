@@ -72,7 +72,7 @@ interface IAstariaRouter is IPausable {
 
     function validateCommitment(Commitment calldata) external returns (bool, IAstariaRouter.LienDetails memory);
 
-    function newPublicVault(uint256, address) external returns (address);
+    function newPublicVault(uint256, address, uint256) external returns (address);
 
     function newVault(address) external returns (address);
 
@@ -114,7 +114,7 @@ interface IAstariaRouter is IPausable {
 
     function isValidVault(address) external view returns (bool);
 
-    function isValidRefinance(ILienBase.Lien memory, LienDetails memory) external returns (bool);
+    function isValidRefinance(ILienBase.Lien memory, LienDetails memory) external view returns (bool);
 
     event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
     event NewVault(address appraiser, address vault);

@@ -214,7 +214,8 @@ contract TestHelpers is Test {
         returns (address publicVault)
     {
         vm.startPrank(strategist);
-        publicVault = ASTARIA_ROUTER.newPublicVault(epochLength, delegate);
+        //bps
+        publicVault = ASTARIA_ROUTER.newPublicVault(epochLength, delegate, uint256(5000));
         vm.stopPrank();
     }
 
@@ -279,14 +280,9 @@ contract TestHelpers is Test {
     }
 
     function _generateLoanMerkleProof2(
-        address strategist,
-        address tokenContract,
-        uint256 tokenId,
         IAstariaRouter.LienRequestType requestType,
-        bytes memory data,
-        address vault
+        bytes memory data
     ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
-        uint256 collateralId = uint256(keccak256(abi.encodePacked(tokenContract, tokenId)));
 
         string[] memory inputs = new string[](4);
         inputs[0] = "node";
@@ -338,12 +334,8 @@ contract TestHelpers is Test {
         );
 
         (bytes32 rootHash, bytes32[] memory merkleProof) = _generateLoanMerkleProof2({
-            strategist: strategist,
-            tokenContract: tokenContract,
-            tokenId: tokenId,
             requestType: IAstariaRouter.LienRequestType.UNIQUE,
-            data: validatorDetails,
-            vault: vault
+            data: validatorDetails
         });
 
         // setup 712 signature
