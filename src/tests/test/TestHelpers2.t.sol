@@ -62,7 +62,6 @@ contract TestHelpers is Test {
     using Strings2 for bytes;
     using SafeCastLib for uint256;
 
-
     uint256 strategistOnePK = uint256(0x1339);
     uint256 strategistTwoPK = uint256(0x1344); // strategistTwo is delegate for PublicVault created by strategistOne
     address strategistOne = vm.addr(strategistOnePK);

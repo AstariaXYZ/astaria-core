@@ -8,6 +8,11 @@ import {IPausable} from "../utils/Pausable.sol";
 import {IVault} from "gpl/ERC4626-Cloned.sol";
 
 interface IAstariaRouter is IPausable {
+    enum VaultType {
+        SOLO,
+        PUBLIC
+    }
+
     struct LienDetails {
         uint256 maxAmount;
         uint256 rate; //rate per second

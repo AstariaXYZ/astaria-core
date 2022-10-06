@@ -8,7 +8,7 @@ interface ICollateralBase {
 
     function AUCTION_HOUSE() external view returns (IAuctionHouse);
 
-    function AUCTION_WINDOW() external view returns (uint256);
+    function auctionWindow() external view returns (uint256);
 
     function getUnderlying(uint256) external view returns (address, uint256);
 }

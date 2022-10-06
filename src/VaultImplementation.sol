@@ -244,7 +244,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
      * @return The address of the recipient.
      */
     function recipient() public view returns (address) {
-        if (VAULT_TYPE() == uint256(2)) {
+        if (VAULT_TYPE() == uint8(IAstariaRouter.VaultType.PUBLIC)) {
             return address(this);
         } else {
             return owner();

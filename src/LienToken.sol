@@ -141,7 +141,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param timestamp The timestamp at which to compute interest for.
      */
     function _getInterest(Lien memory lien, uint256 timestamp) internal pure returns (uint256) {
-        uint256 delta_t = uint256(timestamp - lien.last);
+        uint256 delta_t = uint256(timestamp.safeCastTo32() - lien.last);
 
         return (delta_t * lien.rate * lien.amount) / 1e18;
     }
@@ -176,7 +176,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     /**
      * @dev See {IERC721Metadata-tokenURI}.
      */
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+    function tokenURI(uint256 tokenId) public pure override returns (string memory) {
         return "";
     }
 

@@ -20,6 +20,7 @@ import "./TestHelpers.t.sol";
 contract Fuzzers is TestHelpers {
     using CollateralLookup for address;
     using SafeCastLib for uint256;
+
     struct FuzzInputs {
         uint256 amount;
         uint256 interestRate;

@@ -22,6 +22,7 @@ contract AstariaTest2 is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
     using SafeCastLib for uint256;
+
     function testBasicPublicVaultLoan() public {
         Dummy721 nft = new Dummy721();
         address tokenContract = address(nft);

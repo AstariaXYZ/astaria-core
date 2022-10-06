@@ -29,6 +29,7 @@ import {Vault, PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
+
 string constant weth9Artifact = "src/tests/WETH9.json";
 
 contract Dummy721 is MockERC721 {
@@ -65,6 +66,7 @@ interface IWETH9 is IERC20 {
 contract TestHelpers is Test {
     using CollateralLookup for address;
     using SafeCastLib for uint256;
+
     enum StrategyTypes {
         STANDARD,
         COLLECTION,

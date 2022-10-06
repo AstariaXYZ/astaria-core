@@ -1,7 +1,6 @@
 [profile.default]
 src = 'src'
 out = 'out'
-cache = true
 cache_path = 'cache'
 libs = ['lib']
 fs_permissions = [{ access = "read-write", path = "./"}]

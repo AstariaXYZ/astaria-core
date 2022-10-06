@@ -191,10 +191,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     {
         require(commitment.lienRequest.strategy.deadline >= block.timestamp, "deadline passed");
 
-//        require(
-//            commitment.lienRequest.strategy.nonce == strategistNonce[commitment.lienRequest.strategy.strategist],
-//            "invalid nonce"
-//        );
+        //        require(
+        //            commitment.lienRequest.strategy.nonce == strategistNonce[commitment.lienRequest.strategy.strategist],
+        //            "invalid nonce"
+        //        );
         require(strategyValidators[commitment.lienRequest.nlrType] != address(0), "invalid strategy type");
 
         bytes32 leaf;
@@ -294,17 +294,17 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             WETH.safeTransfer(msg.sender, spendableBalance - params.purchasePrice);
         }
     }
-//
-//    /**
-//     * @notice Buy out a lien to replace it with new terms.
-//     * @param position The position of the lien to be replaced.
-//     * @param incomingTerms The terms of the new lien.
-//     */
-//    function buyoutLien(uint256 position, IAstariaRouter.Commitment calldata incomingTerms) external whenNotPaused {
-//        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
-//            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
-//        );
-//    }
+    //
+    //    /**
+    //     * @notice Buy out a lien to replace it with new terms.
+    //     * @param position The position of the lien to be replaced.
+    //     * @param incomingTerms The terms of the new lien.
+    //     */
+    //    function buyoutLien(uint256 position, IAstariaRouter.Commitment calldata incomingTerms) external whenNotPaused {
+    //        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
+    //            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
+    //        );
+    //    }
 
     /**
      * @notice Create a new lien against a CollateralToken.
@@ -375,8 +375,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
             address owner = LIEN_TOKEN.ownerOf(currentLien);
             if (
-                VaultImplementation(owner).VAULT_TYPE() == uint256(2)
-                    && PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.AUCTION_WINDOW()
+                VaultImplementation(owner).VAULT_TYPE() == uint8(IAstariaRouter.VaultType.PUBLIC)
+                    && PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.auctionWindow()
             ) {
                 uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
 
@@ -387,7 +387,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 }
                 LIEN_TOKEN.setPayee(currentLien, accountant);
                 LiquidationAccountant(accountant).handleNewLiquidation(
-                    lien.amount, COLLATERAL_TOKEN.AUCTION_WINDOW() + 1 days
+                    lien.amount, COLLATERAL_TOKEN.auctionWindow() + 1 days
                 );
             }
         }
@@ -461,7 +461,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
      * @return The address for the new PublicVault.
      */
     function _newVault(uint256 epochLength, address delegate) internal returns (address) {
-        uint256 brokerType;
+        uint8 vaultType;
 
         address implementation;
         if (epochLength > uint256(0)) {
@@ -470,10 +470,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
             );
             implementation = VAULT_IMPLEMENTATION;
-            brokerType = 2;
+            vaultType = uint8(VaultType.PUBLIC);
         } else {
             implementation = SOLO_IMPLEMENTATION;
-            brokerType = 1;
+            vaultType = uint8(VaultType.SOLO);
         }
 
         //immutable data
@@ -487,7 +487,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 address(COLLATERAL_TOKEN.AUCTION_HOUSE()),
                 block.timestamp,
                 epochLength,
-                brokerType
+                vaultType
             )
         );
 
@@ -517,8 +517,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         VaultImplementation(c.lienRequest.strategy.vault).commitToLien(c, receiver);
         if (receiver == address(this)) {
             return c.lienRequest.amount;
+        } else {
+            return uint256(0);
         }
-        return uint256(0);
     }
 
     function _transferAndDepositAsset(address tokenContract, uint256 tokenId) internal {

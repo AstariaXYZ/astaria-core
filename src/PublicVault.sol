@@ -125,6 +125,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     // needs to be called in the epoch boundary before the next epoch can start
+    //TODO: well need to expand this to be able to be run across a number of txns
     function processEpoch(uint256[] memory collateralIds, uint256[] memory positions) external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
