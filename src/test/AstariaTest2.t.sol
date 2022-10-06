@@ -318,45 +318,45 @@ contract AstariaTest2 is TestHelpers {
     }
 
     // a test that deploys a PublicVault, lends 50 ether to the Vault, and then calls _signalWithdraw without doing _commitToLien.
-//    function testWithdrawProxyWithoutCommitToLien(FuzzInputs[] memory args) public validateInputs(args) {
-//        address publicVault =
-//        _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
-//        for (uint256 i = 0; i < 42; i++) {
-//            vm.warp(block.timestamp + (1 days));
-//
-//            for (uint256 j = 0; j < args.length; j++) {
-//                FuzzInputs memory input = args[j];
-//                if (input.lendDay == i) {
-//                    _lendToVault(Lender({addr: address(j), amountToLend: input.lendAmount}), publicVault);
-//                }
-//
-//                if (input.borrowDay == i) {
-//                    _commitToLien({
-//                        vault: publicVault,
-//                        strategist: strategistOne,
-//                        strategistPK: strategistOnePK,
-//                        tokenContract: tokenContract,
-//                        tokenId: tokenId,
-//                        lienDetails: IAstariaRouter.LienDetails({
-//                            maxAmount: 50 ether,
-//                            rate: ((uint256(0.05 ether) / 365) * 1 days),
-//                            duration: uint256(block.timestamp + 13 days),
-//                            maxPotentialDebt: 50 ether
-//                        }),
-//                        amount: input.borrowAmount
-//                    });
-//                }
-//
-//                if (input.lenderWithdrawEpoch == i) {
-//                    _signalWithdraw(address(j), publicVault);
-//                }
-//
-//                if (input.willRepay) {
-//                    _repayLien(address(j), publicVault, input.repayAmount);
-//                } else {
-//                    _bid(address(j), publicVault, input.bidAmount);
-//                }
-//            }
-//        }
-//    }
+    //    function testWithdrawProxyWithoutCommitToLien(FuzzInputs[] memory args) public validateInputs(args) {
+    //        address publicVault =
+    //        _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
+    //        for (uint256 i = 0; i < 42; i++) {
+    //            vm.warp(block.timestamp + (1 days));
+    //
+    //            for (uint256 j = 0; j < args.length; j++) {
+    //                FuzzInputs memory input = args[j];
+    //                if (input.lendDay == i) {
+    //                    _lendToVault(Lender({addr: address(j), amountToLend: input.lendAmount}), publicVault);
+    //                }
+    //
+    //                if (input.borrowDay == i) {
+    //                    _commitToLien({
+    //                        vault: publicVault,
+    //                        strategist: strategistOne,
+    //                        strategistPK: strategistOnePK,
+    //                        tokenContract: tokenContract,
+    //                        tokenId: tokenId,
+    //                        lienDetails: IAstariaRouter.LienDetails({
+    //                            maxAmount: 50 ether,
+    //                            rate: ((uint256(0.05 ether) / 365) * 1 days),
+    //                            duration: uint256(block.timestamp + 13 days),
+    //                            maxPotentialDebt: 50 ether
+    //                        }),
+    //                        amount: input.borrowAmount
+    //                    });
+    //                }
+    //
+    //                if (input.lenderWithdrawEpoch == i) {
+    //                    _signalWithdraw(address(j), publicVault);
+    //                }
+    //
+    //                if (input.willRepay) {
+    //                    _repayLien(address(j), publicVault, input.repayAmount);
+    //                } else {
+    //                    _bid(address(j), publicVault, input.bidAmount);
+    //                }
+    //            }
+    //        }
+    //    }
 }
