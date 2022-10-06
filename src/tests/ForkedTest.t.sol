@@ -15,7 +15,6 @@ import {Strings2} from "./utils/Strings2.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 
-import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 
 import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 import "./TestHelpers.t.sol";
