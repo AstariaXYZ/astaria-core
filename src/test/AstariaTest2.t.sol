@@ -306,4 +306,78 @@ contract AstariaTest2 is TestHelpers {
         PublicVault(publicVault).processEpoch(collateralIds, positions);
 
     }
+
+    uint8 FUZZ_SIZE = uint8(10);
+    struct FuzzInputs {
+        uint256 lendAmount;
+        uint256 lendDay;
+        uint64 lenderWithdrawEpoch;
+        uint256 borrowAmount;
+        uint256 borrowDay;
+        bool willRepay;
+        uint256 repayAmount;
+        uint256 bidAmount;
+    }
+
+    modifier validateInputs(FuzzInputs[FUZZ_SIZE] memory args) {
+        for (uint8 i = 0; i < FUZZ_SIZE; i++) {
+            FuzzInputs input = FuzzInputs[i];
+            input.lendAmount = bound(input.lendAmount, 1 ether, 2 ether);
+            input.lendDay = bound(input.lendDay, 0, 42);
+            input.lenderWithdrawEpoch = bound(input.lenderWithdrawEpoch, 0, 3);
+            input.borrowAmount = bound(input.borrowAmount, 1 ether, 2 ether);
+            input.borrowDay = bound(input.borrowDay, 0, 42);
+
+            if(input.willRepay) {
+                input.repayAmount = input.borrowAmount;
+                input.bidAmount = 0;
+            } else {
+                input.repayAmount = bound(input.repayAmount, 0 ether, input.borrowAmount - 1);
+                input.bidAmount = bound(0 ether, input.borrowAmount * 2);
+            }
+            
+        }
+        _;
+    }
+
+    // a test that deploys a PublicVault, lends 50 ether to the Vault, and then calls _signalWithdraw without doing _commitToLien.
+    function testWithdrawProxyWithoutCommitToLien(FuzzInputs[FUZZ_SIZE] memory args) public validateInputs(args) {
+        for(uint256 i = 0; i < 42; i++) {
+            vm.warp(block.timestamp + (1 days));
+
+            for(uint256 j = 0; j < FUZZ_SIZE; j++) {
+                FuzzInputs input = args[j];
+                if (input.lendDay == i) {
+                    _lendToVault(Lender({addr: address(j), amountToLend: input.lendAmount}), publicVault);
+                }
+
+                if (input.borrowDay == i) {
+                    _commitToLien({
+                        vault: publicVault,
+                        strategist: strategistOne,
+                        strategistPK: strategistOnePK,
+                        tokenContract: tokenContract,
+                        tokenId: tokenId,
+                        lienDetails: IAstariaRouter.LienDetails({
+                            maxAmount: 50 ether,
+                            rate: ((uint256(0.05 ether) / 365) * 1 days),
+                            duration: uint256(block.timestamp + 13 days),
+                            maxPotentialDebt: 50 ether
+                        }),
+                        amount: input.borrowAmount
+                    });
+                }
+
+                if (input.lenderWithdrawEpoch == i) {
+                    _signalWithdraw(address(j), publicVault);
+                }
+
+                if (input.willRepay) {
+                    _repayLien(address(j), publicVault, input.repayAmount);
+                } else {
+                    _bidOnLien(address(j), publicVault, input.bidAmount);
+                }
+            }
+        }
+    }
 }

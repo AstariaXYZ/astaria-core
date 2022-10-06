@@ -353,6 +353,23 @@ contract TestHelpers is Test {
         vm.stopPrank();
     }
 
+    struct Borrow {
+        address borrower;
+        uint256 amount; // TODO allow custom LienDetails too
+        uint256 repayAmount; // if less than amount, then auction initiated with a bid of bidAmount
+        uint256 bidAmount;
+        uint256 timestamp;
+    }
+
+    function _
+
+    // withdrawEpoch is epoch when lender signals a withdraw, not when they collect funds
+    // function _lendWithWithdraw(Lender memory lender, address vault, uint64 withdrawEpoch) {
+    //     require(withdrawEpoch >= PublicVault(vault).currentEpoch, "withdraw epoch must be at least current epoch");
+    //     _lendToVault(lender, vault);
+
+    // }
+
     function _lendToVault(Lender[] memory lenders, address vault) internal {
         for (uint256 i = 0; i < lenders.length; i++) {
             _lendToVault(lenders[i], vault);

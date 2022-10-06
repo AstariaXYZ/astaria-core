@@ -70,7 +70,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 slope;
 
     // block.timestamp of first epoch
-    uint64 currentEpoch = 0;
+    uint64 public currentEpoch = 0;
     uint256 withdrawReserve = 0;
     uint256 liquidationWithdrawRatio = 0;
 
