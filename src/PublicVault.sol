@@ -85,6 +85,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return super.underlying();
     }
 
+    /**
+     * @notice Signal a withdrawal of funds (redeeming for underlying asset) in the next epoch.
+     * @param shares The number of VaultToken shares to redeem.
+     * @param receiver The receiver of the WithdrawTokens (and eventual underlying asset)
+     * @param owner The owner of the VaultTokens.
+     * @return assets The amount of the underlying asset redeemed.
+     */
     function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256 assets) {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
@@ -98,6 +105,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
 
+    /**
+     * @notice Signal a withdrawal of funds (redeeming for underlying asset) in an arbitrary future epoch.
+     * @param shares The number of VaultToken shares to redeem.
+     * @param receiver The receiver of the WithdrawTokens (and eventual underlying asset)
+     * @param owner The owner of the VaultTokens.
+     * @param epoch The epoch to withdraw for.
+     * @return assets The amount of the underlying asset redeemed.
+     */
     function redeemFutureEpoch(uint256 shares, address receiver, address owner, uint64 epoch)
         public
         virtual
@@ -107,7 +122,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         require(epoch >= currentEpoch, "Exit epoch too low");
 
         // check for rounding error since we round down in previewRedeem.
-        require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
+        // require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
 
         beforeWithdraw(assets, shares);
 
@@ -132,6 +147,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         WithdrawProxy(withdrawProxies[epoch]).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
     }
 
+    /**
+     * @notice Deposit funds into the PublicVault.
+     * @param amount The amount of funds to deposit.
+     * @param receiver The receiver of the resulting VaultToken shares.
+     */
     function deposit(uint256 amount, address receiver)
         public
         override (Vault, ERC4626Cloned)
@@ -141,12 +161,21 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return super.deposit(amount, receiver);
     }
 
+    /**
+     * @notice Retrieve the domain separator.
+     * @return The domain separator.
+     */
     function computeDomainSeparator() internal view override returns (bytes32) {
         return super.domainSeparator();
     }
 
     // needs to be called in the epoch boundary before the next epoch can start
     //TODO: well need to expand this to be able to be run across a number of txns
+    /**
+     * @notice Process all active liens at an epoch boundary. This must be called before the next epoch can begin.
+     * @param collateralIds The CollateralIDs of active CollateralToken loans.
+     * @param positions The lien positions of all active loans.
+     */
     function processEpoch(uint256[] memory collateralIds, uint256[] memory positions) external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
@@ -194,6 +223,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         }
     }
 
+    /**
+     * @notice Deploys a LiquidationAccountant for the WithdrawProxy for the upcoming epoch boundary.
+     * @return The address of the deployed LiquidationAccountant.
+     */
     function deployLiquidationAccountant() public returns (address accountant) {
         require(
             liquidationAccountants[currentEpoch] == address(0),
@@ -213,6 +246,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             || interfaceId == type(ERC20).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
+    /**
+     * @notice Transfers funds from the PublicVault to the WithdrawProxy.
+     */
     function transferWithdrawReserve() public {
         // check the available balance to be withdrawn
         uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
@@ -234,6 +270,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         }
     }
 
+    /**
+     * @dev Hook for updating the slope of the PublicVault after a LienToken is issued.
+     * @param lienId The ID of the lien.
+     * @param amount TODO delete amount
+     */
     function _afterCommitToLien(uint256 lienId, uint256 amount) internal virtual override {
         // increment slope for the new lien
         unchecked {
@@ -241,6 +282,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         }
     }
 
+    /**
+     * @notice Check if all LienTokens that can be liquidated have been sent to auction.
+     * @param collateralIds The IDs of the active CollateralTokens for the PublicVault.
+     * @param positions The positions of the active liens by this PublicVault.
+     */
     function haveLiquidationsProcessed(uint256[] memory collateralIds, uint256[] memory positions)
         public
         virtual
@@ -267,10 +313,18 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return true;
     }
 
+    /**
+     * @notice Retrieves the address of the LienToken contract for this PublicVault.
+     * @return The LienToken address.
+     */
     function LIEN_TOKEN() public view returns (ILienToken) {
         return IAstariaRouter(ROUTER()).LIEN_TOKEN();
     }
 
+    /**
+     * @notice Computes the implied value of this PublicVault. This includes interest payments that have not yet been made.
+     * @return The implied value for this PublicVault.
+     */
     function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
         return slope.mulDivDown(delta_t, 1e18) + yIntercept + strategistUnclaimedShares;
@@ -278,13 +332,30 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
 
     /**
-     * @dev Mints earned fees by the strategist to the strategist address.
+     * @notice Computes the value for a given amount of VaultToken shares in terms of the underlying asset.
+     * @param shares The number of shares to compute for.
+     * @return The underlying value of the shares, diluted by unclaimed strategist shares.
+     */
+    function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
+        uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
+
+        return supply == 0 ? shares : shares.mulDivDown(totalAssets(), supply + strategistUnclaimedShares);
+    }
+
+    /**
+     * @notice Mints earned fees by the strategist to the strategist address.
      */
     function claim() external onlyOwner {
         _mint(owner(), strategistUnclaimedShares);
         strategistUnclaimedShares = 0;
     }
 
+    /**
+     * @notice Hook to update the slope and yIntercept of the PublicVault on payment. 
+     * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
+     * @param lienId The ID of the lien.
+     * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
+     */
     function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
         _handleStrategistInterestReward(lienId, amount);
         yIntercept = totalAssets() - amount;
@@ -292,6 +363,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         last = block.timestamp;
     }
 
+    /**
+     * @notice Hook to recalculate the slope of a lien after a payment has been made.
+     * @param lienId The ID of the lien.
+     */
     function afterPayment(uint256 lienId) public onlyLienToken {
         slope += LIEN_TOKEN().calculateSlope(lienId);
     }
@@ -301,10 +376,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         _;
     }
 
+    /**
+     * @notice After-deposit hook to update the yIntercept of the PublicVault to reflect a capital contribution.
+     * @param assets The amount of assets deposited to the PublicVault.
+     * @param shares The resulting amount of VaultToken shares that were issued.
+     */
     function afterDeposit(uint256 assets, uint256 shares) internal virtual override whenNotPaused {
         yIntercept += assets;
     }
 
+    /**
+     * @dev Handles the dilutive fees (on lien repayments) for strategists in VaultTokens.
+     * @param lienId The ID of the lien that received a payment.
+     * @param amount The amount that was paid.
+     */
     function _handleStrategistInterestReward(uint256 lienId, uint256 amount) internal virtual override {
         if (VAULT_FEE() != uint256(0)) {
             uint256 interestOwing = LIEN_TOKEN().getInterest(lienId);
@@ -314,6 +399,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         }
     }
 
+    // TODO kill getters
     function getSlope() public view returns (uint256) {
         return slope;
     }
@@ -336,6 +422,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return currentEpoch;
     }
 
+    /**
+     * @notice Computes the time until the current epoch is over.
+     * @return Seconds until the current epoch ends.
+     */
     function timeToEpochEnd() public view returns (uint256) {
         uint256 epochEnd = START() + ((currentEpoch + 1) * EPOCH_LENGTH());
 
@@ -346,6 +436,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return block.timestamp - epochEnd; //
     }
 
+    // TODO kill
     function getLiquidationAccountant(uint64 epoch) public view returns (address) {
         return liquidationAccountants[epoch];
     }
