@@ -7,7 +7,7 @@ import {ILienToken} from "./interfaces/ILienToken.sol";
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {IVault, VaultBase} from "gpl/ERC4626-Cloned.sol";
+import {IVault, AstariaVaultBase} from "gpl/ERC4626-Cloned.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
@@ -17,7 +17,7 @@ import {CollateralLookup} from "./libraries/CollateralLookup.sol";
  * @author androolloyd
  * @notice A base implementation for the minimal features of an Astaria Vault.
  */
-abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
+abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
     using SafeTransferLib for ERC20;
     using CollateralLookup for address;
     using FixedPointMathLib for uint256;
@@ -141,7 +141,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, VaultBase {
         if (receiver != holder) {
             require(
                 receiver == operator || IAstariaRouter(ROUTER()).isValidVault(receiver),
-                "can only issue funds to an operator that is approved by the owner"
+                "can only issue funds to an vault or operator if not the holder"
             );
         }
 

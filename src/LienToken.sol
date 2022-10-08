@@ -44,6 +44,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
     uint256 INTEREST_DENOMINATOR = 1e18;
 
+    uint256 constant MAX_LIENS = uint256(5);
+
     mapping(uint256 => Lien) public lienData;
     mapping(uint256 => uint256[]) public liens;
 
@@ -231,6 +233,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
                 )
             )
         );
+
+        //0 - 4 are valid
+        require(uint256(liens[collateralId].length) < MAX_LIENS, "too many liens active");
 
         uint8 newPosition = uint8(liens[collateralId].length);
 
@@ -437,7 +442,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @return The amount owed to the specified Lien.
      */
     function _getOwed(Lien memory lien) internal view returns (uint256) {
-        return lien.amount += _getInterest(lien, block.timestamp);
+        return _getOwed(lien, block.timestamp);
     }
 
     /**
@@ -446,7 +451,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @return The amount owed to the Lien at the specified timestamp.
      */
     function _getOwed(Lien memory lien, uint256 timestamp) internal view returns (uint256) {
-        return lien.amount += _getInterest(lien, timestamp);
+        return lien.amount + _getInterest(lien, timestamp);
     }
 
     /**

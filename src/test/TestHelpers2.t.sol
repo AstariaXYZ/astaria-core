@@ -27,7 +27,9 @@ import {Vault, PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
-
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import {WithdrawProxy} from "../WithdrawProxy.sol";
 string constant weth9Artifact = "src/tests/WETH9.json";
 
 interface IWETH9 is IERC20 {
@@ -61,7 +63,7 @@ contract TestHelpers is Test {
     using CollateralLookup for address;
     using Strings2 for bytes;
     using SafeCastLib for uint256;
-
+    using SafeTransferLib for ERC20;
     uint256 strategistOnePK = uint256(0x1339);
     uint256 strategistTwoPK = uint256(0x1344); // strategistTwo is delegate for PublicVault created by strategistOne
     address strategistOne = vm.addr(strategistOnePK);
@@ -104,6 +106,7 @@ contract TestHelpers is Test {
     LienToken LIEN_TOKEN;
     AstariaRouter ASTARIA_ROUTER;
     PublicVault PUBLIC_VAULT;
+    WithdrawProxy WITHDRAW_PROXY;
     Vault SOLO_VAULT;
     TransferProxy TRANSFER_PROXY;
     IWETH9 WETH9;
@@ -131,6 +134,7 @@ contract TestHelpers is Test {
 
         PUBLIC_VAULT = new PublicVault();
         SOLO_VAULT = new Vault();
+        WITHDRAW_PROXY = new WithdrawProxy();
 
         ASTARIA_ROUTER = new AstariaRouter(
             MRA,
@@ -166,6 +170,7 @@ contract TestHelpers is Test {
         ASTARIA_ROUTER.file("setStrategyValidator", abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR)));
         ASTARIA_ROUTER.file("setStrategyValidator", abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR)));
         ASTARIA_ROUTER.file("setStrategyValidator", abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR)));
+        ASTARIA_ROUTER.file("WITHDRAW_IMPLEMENTATION", abi.encode(WITHDRAW_PROXY));
         COLLATERAL_TOKEN.file(
             bytes32("setSecurityHook"),
             abi.encode(address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88), address(V3_SECURITY_HOOK))
@@ -413,6 +418,13 @@ contract TestHelpers is Test {
     // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
     function _signalWithdraw(address lender, address publicVault) internal {
         uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
-        PublicVault(publicVault).redeem({shares: vaultTokenBalance, receiver: lender, owner: lender});
+        ERC20(publicVault).safeApprove(publicVault, vaultTokenBalance);
+        PublicVault(publicVault).redeemFutureEpoch({shares: vaultTokenBalance, receiver: lender, owner: lender, epoch: PublicVault(publicVault).currentEpoch()});
+    }
+    // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
+    function _signalWithdrawAtFutureEpoch(address lender, address publicVault, uint64 epoch) internal {
+        uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
+        ERC20(publicVault).safeApprove(publicVault, vaultTokenBalance);
+        PublicVault(publicVault).redeemFutureEpoch({shares: vaultTokenBalance, receiver: lender, owner: lender, epoch: epoch});
     }
 }
