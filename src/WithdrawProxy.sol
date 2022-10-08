@@ -17,7 +17,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     using SafeTransferLib for ERC20;
     using FixedPointMathLib for uint256;
 
-
     function totalAssets() public view override returns (uint256) {
         return ERC20(underlying()).balanceOf(address(this));
     }

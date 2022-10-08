@@ -30,6 +30,7 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
+
 string constant weth9Artifact = "src/tests/WETH9.json";
 
 interface IWETH9 is IERC20 {
@@ -64,6 +65,7 @@ contract TestHelpers is Test {
     using Strings2 for bytes;
     using SafeCastLib for uint256;
     using SafeTransferLib for ERC20;
+
     uint256 strategistOnePK = uint256(0x1339);
     uint256 strategistTwoPK = uint256(0x1344); // strategistTwo is delegate for PublicVault created by strategistOne
     address strategistOne = vm.addr(strategistOnePK);
@@ -419,12 +421,23 @@ contract TestHelpers is Test {
     function _signalWithdraw(address lender, address publicVault) internal {
         uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
         ERC20(publicVault).safeApprove(publicVault, vaultTokenBalance);
-        PublicVault(publicVault).redeemFutureEpoch({shares: vaultTokenBalance, receiver: lender, owner: lender, epoch: PublicVault(publicVault).currentEpoch()});
+        PublicVault(publicVault).redeemFutureEpoch({
+            shares: vaultTokenBalance,
+            receiver: lender,
+            owner: lender,
+            epoch: PublicVault(publicVault).currentEpoch()
+        });
     }
     // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
+
     function _signalWithdrawAtFutureEpoch(address lender, address publicVault, uint64 epoch) internal {
         uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
         ERC20(publicVault).safeApprove(publicVault, vaultTokenBalance);
-        PublicVault(publicVault).redeemFutureEpoch({shares: vaultTokenBalance, receiver: lender, owner: lender, epoch: epoch});
+        PublicVault(publicVault).redeemFutureEpoch({
+            shares: vaultTokenBalance,
+            receiver: lender,
+            owner: lender,
+            epoch: epoch
+        });
     }
 }

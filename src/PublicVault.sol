@@ -29,11 +29,11 @@ interface IPublicVault is IERC165 {
 contract Vault is AstariaVaultBase, VaultImplementation, IVault {
     using SafeTransferLib for ERC20;
 
-    function name() public override view returns (string memory) {
+    function name() public view override returns (string memory) {
         return string(abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol()));
     }
 
-    function symbol() public override view returns (string memory) {
+    function symbol() public view override returns (string memory) {
         return string(abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol()));
     }
 
@@ -81,7 +81,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     event YInterceptChanged(uint256 newYintercept);
     event WithdrawReserveTransferred(uint256 amount);
 
-    function underlying() virtual override(ERC4626Base, AstariaVaultBase) public view returns (address) {
+    function underlying() public view virtual override (ERC4626Base, AstariaVaultBase) returns (address) {
         return super.underlying();
     }
 
@@ -96,11 +96,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
 
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) public virtual override returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner)
+        public
+        virtual
+        override
+        returns (uint256 shares)
+    {
         shares = previewWithdraw(assets);
         redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
@@ -127,7 +128,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         beforeWithdraw(assets, shares);
 
         //todo: should we burn them? or do we need their supply to be maintained?
-//        transferFrom(owner, address(this), shares);
+        //        transferFrom(owner, address(this), shares);
         _burn(owner, shares);
         // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
         if (withdrawProxies[epoch] == address(0)) {
@@ -350,7 +351,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     /**
-     * @notice Hook to update the slope and yIntercept of the PublicVault on payment. 
+     * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
      * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
      * @param lienId The ID of the lien.
      * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
