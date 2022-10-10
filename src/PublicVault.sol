@@ -330,12 +330,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         uint256 delta_t = block.timestamp - last;
         return slope.mulDivDown(delta_t, 1e18) + yIntercept;
     }
-
     /**
      * @notice Computes the value for a given amount of VaultToken shares in terms of the underlying asset.
      * @param shares The number of shares to compute for.
      * @return The underlying value of the shares, diluted by unclaimed strategist shares.
      */
+
     function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
         uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
 
