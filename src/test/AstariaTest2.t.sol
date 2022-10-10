@@ -104,7 +104,7 @@ contract AstariaTest2 is TestHelpers {
 
         uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
-        _signalWithdraw(address(1), publicVault);
+        _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
 
         address withdrawProxy = PublicVault(publicVault).withdrawProxies(1);
 

@@ -57,6 +57,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
         address indexed tokenContract, uint256 indexed tokenId, uint256 indexed collateralId, address depositedFor
     );
     event ReleaseTo(address indexed underlyingAsset, uint256 assetId, address indexed to);
+    event File(bytes32 indexed what, bytes data);
 
     constructor(Authority AUTHORITY_, ITransferProxy TRANSFER_PROXY_, ILienToken LIEN_TOKEN_)
         Auth(msg.sender, Authority(AUTHORITY_))
@@ -93,6 +94,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
         } else {
             revert("unsupported/file");
         }
+        emit File(what, data);
     }
 
     modifier releaseCheck(uint256 collateralId) {
@@ -206,14 +208,14 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
         override
         returns (bytes4)
     {
-        if (msg.sender == address(this) || msg.sender == address(LIEN_TOKEN)) {
-            revert("system assets are not valid collateral");
-        }
         uint256 collateralId = msg.sender.computeId(tokenId_);
 
         (address underlyingAsset,) = getUnderlying(collateralId);
-
         if (underlyingAsset == address(0)) {
+            if (msg.sender == address(this) || msg.sender == address(LIEN_TOKEN)) {
+                revert("system assets are not valid collateral");
+            }
+
             address depositFor = operator_;
 
             if (operator_ != from_) {

@@ -2,7 +2,7 @@ pragma solidity ^0.8.17;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
-import {IVault, ERC4626Cloned, IBase} from "gpl/ERC4626-Cloned.sol";
+import {IVault, ERC4626Cloned, ITokenBase, ERC4626Base, AstariaVaultBase} from "gpl/ERC4626-Cloned.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -26,14 +26,14 @@ interface IPublicVault is IERC165 {
  * @title Vault
  * @author androolloyd
  */
-contract Vault is VaultImplementation, IVault {
+contract Vault is AstariaVaultBase, VaultImplementation, IVault {
     using SafeTransferLib for ERC20;
 
-    function name() public view returns (string memory) {
+    function name() public view override returns (string memory) {
         return string(abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol()));
     }
 
-    function symbol() public view returns (string memory) {
+    function symbol() public view override returns (string memory) {
         return string(abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol()));
     }
 
@@ -81,6 +81,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     event YInterceptChanged(uint256 newYintercept);
     event WithdrawReserveTransferred(uint256 amount);
 
+    function underlying() public view virtual override (ERC4626Base, AstariaVaultBase) returns (address) {
+        return super.underlying();
+    }
+
     /**
      * @notice Signal a withdrawal of funds (redeeming for underlying asset) in the next epoch.
      * @param shares The number of VaultToken shares to redeem.
@@ -90,6 +94,16 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
      */
     function redeem(uint256 shares, address receiver, address owner) public virtual override returns (uint256 assets) {
         assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch);
+    }
+
+    function withdraw(uint256 assets, address receiver, address owner)
+        public
+        virtual
+        override
+        returns (uint256 shares)
+    {
+        shares = previewWithdraw(assets);
+        redeemFutureEpoch(shares, receiver, owner, currentEpoch);
     }
 
     /**
@@ -113,7 +127,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         beforeWithdraw(assets, shares);
 
-        transferFrom(owner, address(this), shares);
+        //todo: should we burn them? or do we need their supply to be maintained?
+        //        transferFrom(owner, address(this), shares);
+        _burn(owner, shares);
         // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
         if (withdrawProxies[epoch] == address(0)) {
             address proxy = ClonesWithImmutableArgs.clone(
@@ -312,14 +328,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
      */
     function totalAssets() public view virtual override returns (uint256) {
         uint256 delta_t = block.timestamp - last;
-        return slope.mulDivDown(delta_t, 1) + yIntercept;
+        return slope.mulDivDown(delta_t, 1e18) + yIntercept;
     }
-
     /**
      * @notice Computes the value for a given amount of VaultToken shares in terms of the underlying asset.
      * @param shares The number of shares to compute for.
      * @return The underlying value of the shares, diluted by unclaimed strategist shares.
      */
+
     function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
         uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
 
@@ -335,7 +351,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     /**
-     * @notice Hook to update the slope and yIntercept of the PublicVault on payment. 
+     * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
      * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
      * @param lienId The ID of the lien.
      * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
