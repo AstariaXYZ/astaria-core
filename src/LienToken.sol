@@ -147,7 +147,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         }
         uint256 delta_t;
         if (block.timestamp >= lien.start + lien.duration) {
-            delta_t = uint256(lien.start + lien.duration - line.last);
+            delta_t = uint256(lien.start + lien.duration - lien.last);
         } else {
             delta_t = uint256(timestamp.safeCastTo32() - lien.last);
         }
