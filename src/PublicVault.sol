@@ -204,7 +204,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         if (withdrawProxies[currentEpoch] != address(0)) {
             uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
-
             // TODO when to claim()?
             if (liquidationAccountants[currentEpoch] != address(0)) {
                 LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawRatio();
@@ -276,7 +275,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             slope += LIEN_TOKEN().calculateSlope(lienId);
         }
 
-        liensOpenForEpoch[currentEpoch]++;
+        ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
+
+        if (lien.start + lien.duration >= block.timestamp + EPOCH_LENGTH()) {
+            liensOpenForEpoch[currentEpoch + 1]++;
+        } else {
+            liensOpenForEpoch[currentEpoch]++;
+        }
     }
 
     /**
