@@ -73,6 +73,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 strategistUnclaimedShares = 0;
     uint64 public currentEpoch = 0;
 
+    //mapping of epoch to number of open liens
+    mapping(uint64 => uint256) public liensOpenForEpoch;
     // WithdrawProxies and LiquidationAccountants for each epoch.
     // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
     mapping(uint64 => address) public withdrawProxies;
@@ -173,11 +175,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // needs to be called in the epoch boundary before the next epoch can start
     //TODO: well need to expand this to be able to be run across a number of txns
     /**
-     * @notice Process all active liens at an epoch boundary. This must be called before the next epoch can begin.
-     * @param collateralIds The CollateralIDs of active CollateralToken loans.
-     * @param positions The lien positions of all active loans.
+     * @notice Roate epoch boundary. This must be called before the next epoch can begin.
      */
-    function processEpoch(uint256[] memory collateralIds, uint256[] memory positions) external {
+    function processEpoch() external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
         if (liquidationAccountants[currentEpoch] != address(0)) {
@@ -189,9 +189,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
-        // check to make sure the amount of CollateralTokens were the same as the LienTokens held by the vault
-        require(collateralIds.length == LIEN_TOKEN().balanceOf(address(this)), "provided ids less than balance");
-
+        //TODO: check this
+        require(liensOpenForEpoch[currentEpoch] == uint256(0), "loans are still open for this epoch");
         // increment epoch
         currentEpoch++;
 
@@ -203,13 +202,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         // check if there are LPs withdrawing this epoch
         if (withdrawProxies[currentEpoch] != address(0)) {
-            // check liquidations have been processed
-            require(haveLiquidationsProcessed(collateralIds, positions), "liquidations not processed");
-
             uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
-            // recalculate liquidationWithdrawRatio for the new epoch
-            // liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply);
 
             // TODO when to claim()?
             if (liquidationAccountants[currentEpoch] != address(0)) {
@@ -281,37 +275,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         unchecked {
             slope += LIEN_TOKEN().calculateSlope(lienId);
         }
-    }
 
-    /**
-     * @notice Check if all LienTokens that can be liquidated have been sent to auction.
-     * @param collateralIds The IDs of the active CollateralTokens for the PublicVault.
-     * @param positions The positions of the active liens by this PublicVault.
-     */
-    function haveLiquidationsProcessed(uint256[] memory collateralIds, uint256[] memory positions)
-        public
-        virtual
-        returns (bool)
-    {
-        require(
-            collateralIds.length > 0 && collateralIds.length == positions.length,
-            "must provide an equal non-zero amount of collateral IDs and associated lien positions"
-        );
-
-        // was returns (uint256 balance)
-        ILienToken lt = LIEN_TOKEN();
-        IAstariaRouter router = IAstariaRouter(ROUTER());
-        for (uint256 i = 0; i < collateralIds.length; i++) {
-            uint256 lienId = lt.getLiens(collateralIds[i])[positions[i]];
-
-            require(lt.ownerOf(lienId) == address(this), "lien not owned by vault");
-
-            // check that the lien cannot be liquidated
-            if (router.canLiquidate(collateralIds[i], positions[i])) {
-                return false;
-            }
-        }
-        return true;
+        liensOpenForEpoch[currentEpoch]++;
     }
 
     /**
@@ -361,6 +326,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         yIntercept = totalAssets() - amount;
         slope -= LIEN_TOKEN().calculateSlope(lienId);
         last = block.timestamp;
+    }
+
+    function decreaseOpenLiens() external onlyLienToken {
+        liensOpenForEpoch[currentEpoch]--;
     }
 
     /**

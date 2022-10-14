@@ -145,8 +145,12 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         if (!lien.active) {
             return uint256(0);
         }
-        uint256 delta_t = uint256(timestamp.safeCastTo32() - lien.last);
-
+        uint256 delta_t;
+        if (block.timestamp >= lien.start + lien.duration) {
+            delta_t = uint256(lien.start + lien.duration - line.last);
+        } else {
+            delta_t = uint256(timestamp.safeCastTo32() - lien.last);
+        }
         return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, INTEREST_DENOMINATOR);
     }
 
@@ -508,6 +512,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
             paymentAmount = maxPayment;
             _burn(liens[collateralId][position]);
             delete liens[collateralId][position];
+            if (isPublicVault) {
+                IPublicVault(lienOwner).decreaseOpenLiens();
+            }
         }
 
         TRANSFER_PROXY.tokenTransferFrom(WETH, payer, getPayee(liens[collateralId][position]), paymentAmount);
