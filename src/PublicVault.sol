@@ -175,7 +175,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // needs to be called in the epoch boundary before the next epoch can start
     //TODO: well need to expand this to be able to be run across a number of txns
     /**
-     * @notice Roate epoch boundary. This must be called before the next epoch can begin.
+     * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
      */
     function processEpoch() external {
         // check to make sure epoch is over
