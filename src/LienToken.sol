@@ -512,6 +512,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
             paymentAmount = maxPayment;
             _burn(liens[collateralId][position]);
             delete liens[collateralId][position];
+            if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
+                IPublicVault(lienOwner).decreaseOpenLiens();
+            }
         }
 
         TRANSFER_PROXY.tokenTransferFrom(WETH, payer, getPayee(liens[collateralId][position]), paymentAmount);
