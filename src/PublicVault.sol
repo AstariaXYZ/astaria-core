@@ -18,7 +18,7 @@ import {Pausable} from "./utils/Pausable.sol";
 
 interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
-
+    function decreaseOpenLiens() external;
     function afterPayment(uint256 lienId) external;
 }
 
