@@ -379,13 +379,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
             address owner = LIEN_TOKEN.ownerOf(currentLien);
             if (
-                VaultImplementation(owner).VAULT_TYPE() == uint8(IAstariaRouter.VaultType.PUBLIC)
+                PublicVault.supportsInterface(type(IPublicVault).interfaceId)
                     && PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.auctionWindow()
             ) {
                 uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
 
                 address accountant = PublicVault(owner).getLiquidationAccountant(currentEpoch);
 
+                PublicVault(owner).decreaseOpenLiens();
                 if (accountant == address(0)) {
                     accountant = PublicVault(owner).deployLiquidationAccountant();
                 }
