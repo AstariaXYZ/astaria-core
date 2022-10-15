@@ -219,7 +219,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     /**
      * @notice Deploys a LiquidationAccountant for the WithdrawProxy for the upcoming epoch boundary.
-     * @return The address of the deployed LiquidationAccountant.
+     * @return accountant The address of the deployed LiquidationAccountant.
      */
     function deployLiquidationAccountant() public returns (address accountant) {
         require(

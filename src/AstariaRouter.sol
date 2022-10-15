@@ -17,7 +17,7 @@ import {IVault, VaultImplementation} from "./VaultImplementation.sol";
 import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 import {MerkleProof} from "./utils/MerkleProof.sol";
 import {Pausable} from "./utils/Pausable.sol";
-import {PublicVault} from "./PublicVault.sol";
+import {IPublicVault, PublicVault} from "./PublicVault.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
@@ -379,7 +379,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
             address owner = LIEN_TOKEN.ownerOf(currentLien);
             if (
-                PublicVault.supportsInterface(type(IPublicVault).interfaceId)
+                IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
                     && PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.auctionWindow()
             ) {
                 uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
