@@ -430,16 +430,7 @@ contract TestHelpers is Test {
 
     // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
     function _signalWithdraw(address lender, address publicVault) internal {
-        // uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
-        // // ERC20(publicVault).safeApprove(publicVault, vaultTokenBalance);
-        // PublicVault(publicVault).redeemFutureEpoch({
-        //     // shares: vaultTokenBalance,
-        //     shares: vaultTokenBalance,
-        //     receiver: lender,
-        //     owner: lender,
-        //     epoch: PublicVault(publicVault).currentEpoch()
-        // });
-        _signalWithdrawAtFutureEpoch(lender, publicVault, PublicVault(publicVault).currentEpoch());
+        _signalWithdrawAtFutureEpoch(lender, publicVault, PublicVault(publicVault).getCurrentEpoch());
     }
     // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
 

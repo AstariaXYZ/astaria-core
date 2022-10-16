@@ -121,7 +121,7 @@ contract AstariaTest2 is TestHelpers {
         // _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
         _signalWithdraw(address(1), publicVault);
 
-        address withdrawProxy = PublicVault(publicVault).withdrawProxies(1);
+        address withdrawProxy = PublicVault(publicVault).withdrawProxies(PublicVault(publicVault).getCurrentEpoch());
 
         assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
@@ -131,6 +131,7 @@ contract AstariaTest2 is TestHelpers {
 
         vm.warp(block.timestamp + 13 days);
         vm.startPrank(address(1));
+
         WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
         vm.stopPrank();
     }
