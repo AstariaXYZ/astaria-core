@@ -15,6 +15,7 @@ import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmu
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 import {Pausable} from "./utils/Pausable.sol";
+import {ILienBase} from "./interfaces/ILienToken.sol";
 
 interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
@@ -127,11 +128,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // check for rounding error since we round down in previewRedeem.
         // require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
 
-        beforeWithdraw(assets, shares);
-
+        // beforeWithdraw(assets, shares);
         //todo: should we burn them? or do we need their supply to be maintained?
-        //        transferFrom(owner, address(this), shares);
-        _burn(owner, shares);
+        // transferFrom(msg.sender, address(this), shares);
+        ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
+        
+
+        // _burn(owner, shares);
+
         // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
         if (withdrawProxies[epoch] == address(0)) {
             address proxy = ClonesWithImmutableArgs.clone(
@@ -148,6 +152,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         // WithdrawProxy shares are minted 1:1 with PublicVault shares
         WithdrawProxy(withdrawProxies[epoch]).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
+        
     }
 
     /**
@@ -172,6 +177,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return super.domainSeparator();
     }
 
+    
     // needs to be called in the epoch boundary before the next epoch can start
     //TODO: well need to expand this to be able to be run across a number of txns
     /**
@@ -326,10 +332,16 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
      * @param lienId The ID of the lien.
      * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
      */
+
     function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
         _handleStrategistInterestReward(lienId, amount);
         yIntercept = totalAssets() - amount;
-        slope -= LIEN_TOKEN().calculateSlope(lienId);
+        uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
+        if (lienSlope > slope) {
+            slope = 0;
+        } else {
+            slope -= lienSlope;
+        }
         last = block.timestamp;
     }
 

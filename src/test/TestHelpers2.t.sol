@@ -415,7 +415,7 @@ contract TestHelpers is Test {
         WETH9.deposit{value: amount * 2}();
         WETH9.approve(address(TRANSFER_PROXY), amount * 2);
         WETH9.approve(address(LIEN_TOKEN), amount * 2);
-        LIEN_TOKEN.makePayment(collateralId, amount* 2);
+        LIEN_TOKEN.makePayment(collateralId, amount * 2);
         vm.stopPrank();
     }
 
@@ -430,25 +430,30 @@ contract TestHelpers is Test {
 
     // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
     function _signalWithdraw(address lender, address publicVault) internal {
-        uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
-        ERC20(publicVault).safeApprove(publicVault, vaultTokenBalance);
-        PublicVault(publicVault).redeemFutureEpoch({
-            shares: vaultTokenBalance,
-            receiver: lender,
-            owner: lender,
-            epoch: PublicVault(publicVault).currentEpoch()
-        });
+        // uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
+        // // ERC20(publicVault).safeApprove(publicVault, vaultTokenBalance);
+        // PublicVault(publicVault).redeemFutureEpoch({
+        //     // shares: vaultTokenBalance,
+        //     shares: vaultTokenBalance,
+        //     receiver: lender,
+        //     owner: lender,
+        //     epoch: PublicVault(publicVault).currentEpoch()
+        // });
+        _signalWithdrawAtFutureEpoch(lender, publicVault, PublicVault(publicVault).currentEpoch());
     }
     // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
 
     function _signalWithdrawAtFutureEpoch(address lender, address publicVault, uint64 epoch) internal {
         uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
-        ERC20(publicVault).safeApprove(publicVault, vaultTokenBalance);
+        
+        vm.startPrank(lender);
+        ERC20(publicVault).safeApprove(publicVault, type(uint256).max);
         PublicVault(publicVault).redeemFutureEpoch({
             shares: vaultTokenBalance,
             receiver: lender,
             owner: lender,
             epoch: epoch
         });
+        vm.stopPrank();
     }
 }

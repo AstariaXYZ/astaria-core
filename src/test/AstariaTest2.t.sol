@@ -69,11 +69,9 @@ contract AstariaTest2 is TestHelpers {
         // make sure the borrow was successful
         assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
 
-        vm.warp(block.timestamp + 10 days);
+        vm.warp(block.timestamp + 9 days);
 
         _repay(collateralId, 10 ether, address(this));
-
-       
     }
 
     function testBasicPrivateVaultLoan() public {
@@ -105,6 +103,7 @@ contract AstariaTest2 is TestHelpers {
         assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
     }
 
+    event Supply(uint256 a);
     function testWithdrawProxy() public {
         Dummy721 nft = new Dummy721();
         address tokenContract = address(nft);
@@ -119,13 +118,14 @@ contract AstariaTest2 is TestHelpers {
 
         uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
-        _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
+        // _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
+        _signalWithdraw(address(1), publicVault);
 
         address withdrawProxy = PublicVault(publicVault).withdrawProxies(1);
 
         assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
-        vm.warp(block.timestamp + 14 days);
+        vm.warp(block.timestamp + 15 days);
 
         PublicVault(publicVault).processEpoch();
 
@@ -210,7 +210,6 @@ contract AstariaTest2 is TestHelpers {
 
         _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
 
-        
         _commitToLien({
             vault: publicVault,
             strategist: strategistOne,
@@ -231,8 +230,6 @@ contract AstariaTest2 is TestHelpers {
         _repay(collateralId, 10 ether, address(this));
 
         emit Here();
-
-        
 
         emit Here();
 

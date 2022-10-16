@@ -358,7 +358,11 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     function calculateSlope(uint256 lienId) public view returns (uint256) {
         Lien memory lien = lienData[lienId];
         uint256 end = (lien.start + lien.duration);
-        return (lien.amount.mulDivDown(lien.rate, 1).mulDivDown(end, 1) - 1).mulDivDown(1, end - lien.last);
+        uint256 owedAtEnd = _getOwed(lien, end);
+        return (owedAtEnd - lien.amount).mulDivDown(1, end - lien.last);
+        // return (owedAtEnd - lien.amount) / (end - block.timestamp);
+
+        // return (lien.amount.mulDivDown(lien.rate, 1).mulDivDown(end, 1) - 1).mulDivDown(1, end - lien.last);
     }
 
     /**
@@ -481,6 +485,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         return _getInterest(lienData[lienId], block.timestamp);
     }
 
+    event AmountDifference(uint256 a, uint256 b);
+
     /**
      * @dev Make a payment from a payer to a specific lien against a CollateralToken.
      * @param collateralId The ID of the underlying CollateralToken.
@@ -489,7 +495,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param payer The address to make the payment.
      * @return The paymentAmount for the payment.
      */
-
     function _payment(uint256 collateralId, uint256 position, uint256 paymentAmount, address payer)
         internal
         returns (uint256)
@@ -500,24 +505,28 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
         uint256 lienId = liens[collateralId][position];
 
+        Lien storage lien = lienData[lienId];
+        uint256 end = (lien.start + lien.duration);
+        require(block.timestamp < end, "cannot pay off an expired lien");
+
         address lienOwner = ownerOf(lienId);
         bool isPublicVault = IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId);
-        
-        Lien storage lien = lienData[lienId];
-        uint256 maxPayment = _getOwed(lien);
+
+        lien.amount = _getOwed(lien);
 
         address payee = getPayee(lienId);
 
-        if(maxPayment < paymentAmount) {
-            paymentAmount = maxPayment;
+        if (paymentAmount > lien.amount) {
+            paymentAmount = lien.amount;
         }
-        
+
         if (isPublicVault) {
             IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
         }
-        
 
-        if (maxPayment > paymentAmount) {
+        // TODO fix flow
+        if (lien.amount > paymentAmount) {
+            emit AmountDifference(lien.amount, paymentAmount);
             lien.amount -= paymentAmount;
             lien.last = block.timestamp.safeCastTo32();
             // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
@@ -525,7 +534,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
                 IPublicVault(lienOwner).afterPayment(lienId);
             }
         } else {
-            paymentAmount = maxPayment;
             _burn(lienId);
             delete liens[collateralId][position];
             if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
