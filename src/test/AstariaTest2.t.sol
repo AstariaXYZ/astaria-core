@@ -20,15 +20,24 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import "./TestHelpers2.t.sol";
 
+contract TestNFT is MockERC721 {
+    constructor(uint256 size) MockERC721("TestNFT", "TestNFT") {
+        for (uint256 i = 0; i < size; ++i) {
+            _mint(msg.sender, i);
+        }
+    }
+}
+
 contract AstariaTest2 is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
     using SafeCastLib for uint256;
 
     function testBasicPublicVaultLoan() public {
-        Dummy721 nft = new Dummy721();
+        // Dummy721 nft = new Dummy721();
+        TestNFT nft = new TestNFT(1);
         address tokenContract = address(nft);
-        uint256 tokenId = uint256(1);
+        uint256 tokenId = uint256(0);
 
         uint256 initialBalance = WETH9.balanceOf(address(this));
 
@@ -49,16 +58,22 @@ contract AstariaTest2 is TestHelpers {
             lienDetails: IAstariaRouter.LienDetails({
                 maxAmount: 50 ether,
                 rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: uint256(block.timestamp + 10 days),
+                duration: 10 days,
                 maxPotentialDebt: 50 ether
             }),
             amount: 10 ether
         });
 
+        uint256 collateralId = tokenContract.computeId(tokenId);
+
         // make sure the borrow was successful
         assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
 
         vm.warp(block.timestamp + 10 days);
+
+        _repay(collateralId, 10 ether, address(this));
+
+       
     }
 
     function testBasicPrivateVaultLoan() public {
@@ -81,7 +96,7 @@ contract AstariaTest2 is TestHelpers {
             lienDetails: IAstariaRouter.LienDetails({
                 maxAmount: 50 ether,
                 rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: uint256(block.timestamp + 10 days),
+                duration: 10 days,
                 maxPotentialDebt: 50 ether
             }),
             amount: 10 ether
@@ -112,13 +127,7 @@ contract AstariaTest2 is TestHelpers {
 
         vm.warp(block.timestamp + 14 days);
 
-        uint256[] memory collateralIds = new uint[](1);
-        collateralIds[0] = collateralId;
-
-        uint256[] memory positions = new uint[](1);
-        positions[0] = uint256(0);
-
-        PublicVault(publicVault).processEpoch(collateralIds, positions);
+        PublicVault(publicVault).processEpoch();
 
         vm.warp(block.timestamp + 13 days);
         vm.startPrank(address(1));
@@ -147,7 +156,7 @@ contract AstariaTest2 is TestHelpers {
             lienDetails: IAstariaRouter.LienDetails({
                 maxAmount: 50 ether,
                 rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: uint256(block.timestamp + 13 days),
+                duration: 13 days,
                 maxPotentialDebt: 50 ether
             }),
             amount: 10 ether
@@ -161,7 +170,7 @@ contract AstariaTest2 is TestHelpers {
 
         // assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
-        vm.warp(block.timestamp + 13 days); // end of loan
+        vm.warp(block.timestamp + 14 days); // end of loan
 
         ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
 
@@ -173,13 +182,7 @@ contract AstariaTest2 is TestHelpers {
 
         vm.warp(block.timestamp + 1 days); // epoch boundary
 
-        uint256[] memory collateralIds = new uint[](1);
-        collateralIds[1] = collateralId;
-
-        uint256[] memory positions = new uint[](1);
-        positions[1] = uint256(0);
-
-        PublicVault(publicVault).processEpoch(collateralIds, positions);
+        PublicVault(publicVault).processEpoch();
 
         vm.warp(block.timestamp + 13 days);
         vm.startPrank(address(1));
@@ -189,6 +192,8 @@ contract AstariaTest2 is TestHelpers {
         assertEq(WETH9.balanceOf(address(1)), 70 ether);
     }
 
+    event Here();
+
     function testEpochProcessionMultipleActors() public {
         address alice = address(1);
         address bob = address(2);
@@ -196,15 +201,16 @@ contract AstariaTest2 is TestHelpers {
         address devon = address(4);
         address edgar = address(5);
 
-        Dummy721 nft = new Dummy721();
+        TestNFT nft = new TestNFT(2);
         address tokenContract = address(nft);
-        uint256 tokenId = uint256(1);
+        uint256 tokenId = uint256(0);
 
         address publicVault =
             _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
         _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
 
+        
         _commitToLien({
             vault: publicVault,
             strategist: strategistOne,
@@ -214,74 +220,73 @@ contract AstariaTest2 is TestHelpers {
             lienDetails: IAstariaRouter.LienDetails({
                 maxAmount: 50 ether,
                 rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: uint256(block.timestamp + 13 days),
+                duration: 13 days,
                 maxPotentialDebt: 50 ether
             }),
             amount: 10 ether
         });
+        uint256 collateralId = tokenContract.computeId(tokenId);
+
+        vm.warp(block.timestamp + 10 days);
+        _repay(collateralId, 10 ether, address(this));
+
+        emit Here();
+
+        
+
+        emit Here();
 
         _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
 
         _signalWithdraw(bob, publicVault);
 
-        vm.warp(block.timestamp + 14 days);
+        vm.warp(block.timestamp + 2 days);
 
-        uint256 collateralId = tokenContract.computeId(tokenId);
-        uint256[] memory collateralIds = new uint[](1);
-        collateralIds[1] = collateralId;
+        PublicVault(publicVault).processEpoch();
 
-        uint256[] memory positions = new uint[](1);
-        positions[1] = uint256(0);
+        // _lendToVault(Lender({addr: charlie, amountToLend: 50 ether}), publicVault);
 
-        PublicVault(publicVault).processEpoch(collateralIds, positions);
+        // Dummy721 nft2 = new Dummy721();
+        // address tokenContract2 = address(nft2);
+        // uint256 tokenId2 = uint256(2);
 
-        _lendToVault(Lender({addr: charlie, amountToLend: 50 ether}), publicVault);
+        // _commitToLien({
+        //     vault: publicVault,
+        //     strategist: strategistOne,
+        //     strategistPK: strategistOnePK,
+        //     tokenContract: tokenContract2,
+        //     tokenId: tokenId2,
+        //     lienDetails: IAstariaRouter.LienDetails({
+        //         maxAmount: 50 ether,
+        //         rate: ((uint256(0.05 ether) / 365) * 1 days),
+        //         duration: 13 days,
+        //         maxPotentialDebt: 50 ether
+        //     }),
+        //     amount: 10 ether
+        // });
 
-        Dummy721 nft2 = new Dummy721();
-        address tokenContract2 = address(nft2);
-        uint256 tokenId2 = uint256(2);
+        // uint256 collateralId2 = tokenContract.computeId(tokenId2);
 
-        _commitToLien({
-            vault: publicVault,
-            strategist: strategistOne,
-            strategistPK: strategistOnePK,
-            tokenContract: tokenContract2,
-            tokenId: tokenId2,
-            lienDetails: IAstariaRouter.LienDetails({
-                maxAmount: 50 ether,
-                rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: uint256(block.timestamp + 13 days),
-                maxPotentialDebt: 50 ether
-            }),
-            amount: 10 ether
-        });
+        // _lendToVault(Lender({addr: devon, amountToLend: 50 ether}), publicVault);
 
-        _lendToVault(Lender({addr: devon, amountToLend: 50 ether}), publicVault);
+        // vm.warp(block.timestamp + 13 days - 1);
 
-        vm.warp(block.timestamp + 14 days);
+        // _repay(collateralId2, 20 ether, address(this));
 
-        uint256 collateralId2 = tokenContract.computeId(tokenId);
+        // vm.warp(block.timestamp + 2 days);
 
-        collateralIds = new uint[](2);
-        collateralIds[0] = collateralId;
-        collateralIds[1] = collateralId2;
+        // PublicVault(publicVault).processEpoch();
 
-        positions = new uint[](2);
-        positions[0] = uint256(0);
-        positions[1] = uint256(0);
+        // _signalWithdraw(alice, publicVault);
+        // _signalWithdraw(charlie, publicVault);
+        // _signalWithdraw(devon, publicVault);
+        // _signalWithdraw(edgar, publicVault);
 
-        PublicVault(publicVault).processEpoch(collateralIds, positions);
+        // vm.warp(block.timestamp + 15 days);
+        // PublicVault(publicVault).processEpoch();
 
-        _signalWithdraw(alice, publicVault);
-        _signalWithdraw(charlie, publicVault);
-        _signalWithdraw(devon, publicVault);
-        _signalWithdraw(edgar, publicVault);
-
-        vm.warp(block.timestamp + 14 days);
-        PublicVault(publicVault).processEpoch(collateralIds, positions);
-
-        vm.warp(block.timestamp + 14 days);
-        PublicVault(publicVault).processEpoch(collateralIds, positions);
+        // vm.warp(block.timestamp + 15 days);
+        // PublicVault(publicVault).processEpoch();
     }
 
     uint8 FUZZ_SIZE = uint8(10);
@@ -359,4 +364,8 @@ contract AstariaTest2 is TestHelpers {
     //            }
     //        }
     //    }
+
+    function run() public {
+        testBasicPublicVaultLoan();
+    }
 }

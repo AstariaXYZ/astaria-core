@@ -358,7 +358,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     function calculateSlope(uint256 lienId) public view returns (uint256) {
         Lien memory lien = lienData[lienId];
         uint256 end = (lien.start + lien.duration);
-
         return (lien.amount.mulDivDown(lien.rate, 1).mulDivDown(end, 1) - 1).mulDivDown(1, end - lien.last);
     }
 
@@ -490,6 +489,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param payer The address to make the payment.
      * @return The paymentAmount for the payment.
      */
+
     function _payment(uint256 collateralId, uint256 position, uint256 paymentAmount, address payer)
         internal
         returns (uint256)
@@ -497,32 +497,47 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         if (paymentAmount == uint256(0)) {
             return uint256(0);
         }
-        address lienOwner = ownerOf(liens[collateralId][position]);
+
+        uint256 lienId = liens[collateralId][position];
+
+        address lienOwner = ownerOf(lienId);
         bool isPublicVault = IPublicVault(lienOwner).supportsInterface(type(IPublicVault).interfaceId);
-        if (isPublicVault) {
-            IPublicVault(lienOwner).beforePayment(liens[collateralId][position], paymentAmount);
-        }
-        Lien storage lien = lienData[liens[collateralId][position]];
+        
+        Lien storage lien = lienData[lienId];
         uint256 maxPayment = _getOwed(lien);
 
-        if (maxPayment < paymentAmount) {
+        address payee = getPayee(lienId);
+
+        if(maxPayment < paymentAmount) {
+            paymentAmount = maxPayment;
+        }
+        
+        if (isPublicVault) {
+            IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
+        }
+        
+
+        if (maxPayment > paymentAmount) {
             lien.amount -= paymentAmount;
             lien.last = block.timestamp.safeCastTo32();
+            // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
+            if (isPublicVault) {
+                IPublicVault(lienOwner).afterPayment(lienId);
+            }
         } else {
             paymentAmount = maxPayment;
-            _burn(liens[collateralId][position]);
+            _burn(lienId);
             delete liens[collateralId][position];
             if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
+                // since the openLiens count is only positive when there are liens that haven't been paid off
+                // that should be liquidated, this lien should not be counted anymore
                 IPublicVault(lienOwner).decreaseOpenLiens();
             }
         }
 
-        TRANSFER_PROXY.tokenTransferFrom(WETH, payer, getPayee(liens[collateralId][position]), paymentAmount);
+        TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, paymentAmount);
 
-        if (isPublicVault) {
-            IPublicVault(lienOwner).afterPayment(liens[collateralId][position]);
-        }
-        emit Payment(liens[collateralId][position], paymentAmount);
+        emit Payment(lienId, paymentAmount);
         return paymentAmount;
     }
 

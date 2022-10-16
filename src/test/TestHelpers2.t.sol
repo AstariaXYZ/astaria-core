@@ -409,11 +409,22 @@ contract TestHelpers is Test {
         }
     }
 
+    function _repay(uint256 collateralId, uint256 amount, address payer) internal {
+        vm.deal(payer, amount * 3);
+        vm.startPrank(payer);
+        WETH9.deposit{value: amount * 2}();
+        WETH9.approve(address(TRANSFER_PROXY), amount * 2);
+        WETH9.approve(address(LIEN_TOKEN), amount * 2);
+        LIEN_TOKEN.makePayment(collateralId, amount* 2);
+        vm.stopPrank();
+    }
+
     function _bid(address bidder, uint256 tokenId, uint256 amount) internal {
         vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
         vm.startPrank(bidder);
         WETH9.deposit{value: amount}();
         WETH9.approve(address(TRANSFER_PROXY), amount);
+        AUCTION_HOUSE.createBid(tokenId, amount);
         vm.stopPrank();
     }
 

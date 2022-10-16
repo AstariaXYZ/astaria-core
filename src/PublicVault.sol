@@ -374,8 +374,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     // TODO kill getters
-    function getSlope() public view returns (uint256) {
-        return slope;
+    function updateSlopeAfterLiquidation(uint256 amount) public {
+        require(msg.sender == ROUTER());
+
+        slope -= amount;
     }
 
     function getYIntercept() public view returns (uint256) {

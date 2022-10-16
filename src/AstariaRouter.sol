@@ -382,18 +382,23 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                 IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
                     && PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.auctionWindow()
             ) {
-                uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
+                // subtract slope from PublicVault
+                PublicVault(owner).updateSlopeAfterLiquidation(LIEN_TOKEN.calculateSlope(currentLien));
 
-                address accountant = PublicVault(owner).getLiquidationAccountant(currentEpoch);
+                if (PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.auctionWindow()) {
+                    uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
 
-                PublicVault(owner).decreaseOpenLiens();
-                if (accountant == address(0)) {
-                    accountant = PublicVault(owner).deployLiquidationAccountant();
+                    address accountant = PublicVault(owner).getLiquidationAccountant(currentEpoch);
+
+                    PublicVault(owner).decreaseOpenLiens();
+                    if (accountant == address(0)) {
+                        accountant = PublicVault(owner).deployLiquidationAccountant();
+                    }
+                    LIEN_TOKEN.setPayee(currentLien, accountant);
+                    LiquidationAccountant(accountant).handleNewLiquidation(
+                        lien.amount, COLLATERAL_TOKEN.auctionWindow() + 1 days
+                    );
                 }
-                LIEN_TOKEN.setPayee(currentLien, accountant);
-                LiquidationAccountant(accountant).handleNewLiquidation(
-                    lien.amount, COLLATERAL_TOKEN.auctionWindow() + 1 days
-                );
             }
         }
 
