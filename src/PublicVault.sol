@@ -125,6 +125,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // check to ensure that the requested epoch is not the current epoch or in the past
         require(epoch >= currentEpoch, "Exit epoch too low");
 
+        require(msg.sender == owner, "Only the owner can redeem");
         // check for rounding error since we round down in previewRedeem.
         // require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
 
@@ -132,7 +133,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         //todo: should we burn them? or do we need their supply to be maintained?
         // transferFrom(msg.sender, address(this), shares);
         ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
-        
 
         // _burn(owner, shares);
 
@@ -152,7 +152,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         // WithdrawProxy shares are minted 1:1 with PublicVault shares
         WithdrawProxy(withdrawProxies[epoch]).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
-        
     }
 
     /**
@@ -177,7 +176,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return super.domainSeparator();
     }
 
-    
     // needs to be called in the epoch boundary before the next epoch can start
     //TODO: well need to expand this to be able to be run across a number of txns
     /**
@@ -265,6 +263,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // prevents transfer to a non-existent WithdrawProxy
         // withdrawProxies are indexed by the epoch where they're deployed
         if (currentWithdrawProxy != address(0)) {
+            ERC20(underlying()).safeApprove(currentWithdrawProxy, withdraw);
             ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
             emit WithdrawReserveTransferred(withdraw);
         }

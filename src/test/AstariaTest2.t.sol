@@ -104,6 +104,7 @@ contract AstariaTest2 is TestHelpers {
     }
 
     event Supply(uint256 a);
+
     function testWithdrawProxy() public {
         Dummy721 nft = new Dummy721();
         address tokenContract = address(nft);

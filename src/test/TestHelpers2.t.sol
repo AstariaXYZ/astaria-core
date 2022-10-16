@@ -436,7 +436,7 @@ contract TestHelpers is Test {
 
     function _signalWithdrawAtFutureEpoch(address lender, address publicVault, uint64 epoch) internal {
         uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
-        
+
         vm.startPrank(lender);
         ERC20(publicVault).safeApprove(publicVault, type(uint256).max);
         PublicVault(publicVault).redeemFutureEpoch({
