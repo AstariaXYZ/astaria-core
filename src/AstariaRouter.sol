@@ -389,8 +389,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
                     uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
 
                     address accountant = PublicVault(owner).getLiquidationAccountant(currentEpoch);
-
-                    PublicVault(owner).decreaseOpenLiens();
+                    uint256 lienEpoch = PublicVault(owner).getLienEpoch(lien.start + lien.duration);
+                    PublicVault(owner).decreaseEpochLienCount(lienEpoch);
                     if (accountant == address(0)) {
                         accountant = PublicVault(owner).deployLiquidationAccountant();
                     }

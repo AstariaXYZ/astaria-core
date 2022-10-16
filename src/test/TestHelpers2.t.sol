@@ -354,24 +354,52 @@ contract TestHelpers is Test {
 
         bytes32 termHash = keccak256(VaultImplementation(vault).encodeStrategyData(strategyDetails, rootHash));
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(strategistPK, termHash);
-
-        IAstariaRouter.Commitment memory terms = IAstariaRouter.Commitment({
-            tokenContract: tokenContract,
-            tokenId: tokenId,
-            lienRequest: IAstariaRouter.NewLienRequest({
-                strategy: strategyDetails,
-                nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE), // TODO support others?
-                nlrDetails: validatorDetails,
-                merkle: IAstariaRouter.MerkleData({root: rootHash, proof: merkleProof}),
+        IAstariaRouter.Commitment memory terms = _generateTerms(
+            GenTerms({
+                tokenContract: tokenContract,
+                tokenId: tokenId,
+                termHash: termHash,
+                rootHash: rootHash,
+                pk: strategistPK,
+                strategyDetails: strategyDetails,
+                validatorDetails: validatorDetails,
                 amount: amount,
+                merkleProof: merkleProof
+            })
+        );
+
+        VaultImplementation(vault).commitToLien(terms, address(this));
+    }
+
+    struct GenTerms {
+        address tokenContract;
+        uint256 tokenId;
+        bytes32 termHash;
+        bytes32 rootHash;
+        uint256 pk;
+        IAstariaRouter.StrategyDetails strategyDetails;
+        bytes validatorDetails;
+        bytes32[] merkleProof;
+        uint256 amount;
+    }
+
+    function _generateTerms(GenTerms memory params) internal returns (IAstariaRouter.Commitment memory terms) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(params.pk, params.termHash);
+
+        return IAstariaRouter.Commitment({
+            tokenContract: params.tokenContract,
+            tokenId: params.tokenId,
+            lienRequest: IAstariaRouter.NewLienRequest({
+                strategy: params.strategyDetails,
+                nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE), // TODO support others?
+                nlrDetails: params.validatorDetails,
+                merkle: IAstariaRouter.MerkleData({root: params.rootHash, proof: params.merkleProof}),
+                amount: params.amount,
                 v: v,
                 r: r,
                 s: s
             })
         });
-
-        VaultImplementation(vault).commitToLien(terms, address(this));
     }
 
     struct Lender {
@@ -396,7 +424,7 @@ contract TestHelpers is Test {
         uint256 timestamp;
     }
 
-    // withdrawEpoch is epoch when lender signals a withdraw, not when they collect funds
+    // withdrwEpoch is epoch when lender signals a withdraw, not when they collect funds
     // function _lendWithWithdraw(Lender memory lender, address vault, uint64 withdrawEpoch) {
     //     require(withdrawEpoch >= PublicVault(vault).currentEpoch, "withdraw epoch must be at least current epoch");
     //     _lendToVault(lender, vault);

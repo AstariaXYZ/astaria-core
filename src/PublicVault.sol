@@ -16,10 +16,12 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 import {Pausable} from "./utils/Pausable.sol";
 import {ILienBase} from "./interfaces/ILienToken.sol";
+import {Math} from "./utils/Math.sol";
 
 interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
-    function decreaseOpenLiens() external;
+    function decreaseEpochLienCount(uint256 lienId) external;
+    function getLienEpoch(uint256 end) external view returns (uint256);
     function afterPayment(uint256 lienId) external;
 }
 
@@ -75,7 +77,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint64 public currentEpoch = 0;
 
     //mapping of epoch to number of open liens
-    mapping(uint64 => uint256) public liensOpenForEpoch;
+    mapping(uint256 => uint256) public liensOpenForEpoch;
     // WithdrawProxies and LiquidationAccountants for each epoch.
     // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
     mapping(uint64 => address) public withdrawProxies;
@@ -195,13 +197,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         //TODO: check this
         require(liensOpenForEpoch[currentEpoch] == uint256(0), "loans are still open for this epoch");
-        // increment epoch
-        currentEpoch++;
 
-        // reset liquidationWithdrawRatio to prepare for recalcualtion
+        // reset liquidationWithdrawRatio to prepare for re calcualtion
         liquidationWithdrawRatio = 0;
 
-        // reset withdrawReserve to prepare for recalcualtion
+        // reset withdrawReserve to prepare for re calcualtion
         withdrawReserve = 0;
 
         // check if there are LPs withdrawing this epoch
@@ -219,6 +219,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             // burn the tokens of the LPs withdrawing
             _burn(address(this), proxySupply);
         }
+
+        // increment epoch
+        currentEpoch++;
     }
 
     /**
@@ -282,17 +285,16 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
 
-        if (lien.start + lien.duration >= block.timestamp + EPOCH_LENGTH()) {
-            liensOpenForEpoch[currentEpoch + 1]++;
-        } else {
-            liensOpenForEpoch[currentEpoch]++;
-        }
+        liensOpenForEpoch[Math.ceilDiv(lien.start + lien.duration - START(), EPOCH_LENGTH())]++;
+        emit LienOpen(lienId, Math.ceilDiv(lien.start + lien.duration - START(), EPOCH_LENGTH()));
     }
 
+    event LienOpen(uint256 lienId, uint256 epoch);
     /**
      * @notice Retrieves the address of the LienToken contract for this PublicVault.
      * @return The LienToken address.
      */
+
     function LIEN_TOKEN() public view returns (ILienToken) {
         return IAstariaRouter(ROUTER()).LIEN_TOKEN();
     }
@@ -344,8 +346,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         last = block.timestamp;
     }
 
-    function decreaseOpenLiens() external onlyLienToken {
-        liensOpenForEpoch[currentEpoch]--;
+    function decreaseEpochLienCount(uint256 epoch) external {
+        require(msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN()), "only router or lien token");
+        liensOpenForEpoch[epoch]--;
+    }
+
+    function getLienEpoch(uint256 end) external view returns (uint256) {
+        return Math.ceilDiv(end - START(), EPOCH_LENGTH());
+    }
+
+    function _increaseOpenLiens() internal {
+        liensOpenForEpoch[currentEpoch]++;
     }
 
     /**

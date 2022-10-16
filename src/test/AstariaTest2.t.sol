@@ -141,7 +141,6 @@ contract AstariaTest2 is TestHelpers {
         Dummy721 nft = new Dummy721();
         address tokenContract = address(nft);
         uint256 tokenId = uint256(1);
-
         address publicVault =
             _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
@@ -168,7 +167,7 @@ contract AstariaTest2 is TestHelpers {
 
         _signalWithdraw(address(1), publicVault);
 
-        address withdrawProxy = PublicVault(publicVault).withdrawProxies(1);
+        address withdrawProxy = PublicVault(publicVault).withdrawProxies(PublicVault(publicVault).getCurrentEpoch());
 
         // assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
@@ -180,7 +179,7 @@ contract AstariaTest2 is TestHelpers {
             PublicVault(publicVault).liquidationAccountants(0) != address(0), "LiquidationAccountant not deployed"
         );
 
-        _bid(address(2), tokenId, 20 ether);
+        _bid(address(2), collateralId, 20 ether);
 
         vm.warp(block.timestamp + 1 days); // epoch boundary
 

@@ -534,19 +534,24 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
                 IPublicVault(lienOwner).afterPayment(lienId);
             }
         } else {
-            _burn(lienId);
             delete liens[collateralId][position];
             if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
                 // since the openLiens count is only positive when there are liens that haven't been paid off
                 // that should be liquidated, this lien should not be counted anymore
-                IPublicVault(lienOwner).decreaseOpenLiens();
+                IPublicVault(lienOwner).decreaseEpochLienCount(IPublicVault(lienOwner).getLienEpoch(end));
             }
+            _deleteLien(lienId);
         }
 
         TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, paymentAmount);
 
         emit Payment(lienId, paymentAmount);
         return paymentAmount;
+    }
+
+    function _deleteLien(uint256 lienid) internal {
+        delete lienData[lienid];
+        _burn(lienid);
     }
 
     /**
