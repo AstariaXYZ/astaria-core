@@ -197,7 +197,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             );
         }
         // clear out any remaining withdrawReserve balance
-        if(withdrawReserve > 0) {
+        if (withdrawReserve > 0) {
             transferWithdrawReserve();
         }
 
@@ -264,13 +264,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     /**
      * @notice Transfers funds from the PublicVault to the WithdrawProxy.
      */
+
     function transferWithdrawReserve() public {
         // check the available balance to be withdrawn
         uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
         emit TransferWithdraw(withdraw, withdrawReserve);
-
-
-
 
         // prevent transfer of more assets then are available
         if (withdrawReserve <= withdraw) {
@@ -280,7 +278,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             withdrawReserve -= withdraw;
         }
         emit TransferWithdraw(withdraw, withdrawReserve);
-
 
         address currentWithdrawProxy = withdrawProxies[currentEpoch - 1]; //
         // prevents transfer to a non-existent WithdrawProxy

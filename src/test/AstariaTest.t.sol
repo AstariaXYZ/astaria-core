@@ -123,7 +123,6 @@ contract AstariaTest is TestHelpers {
         WithdrawProxy(withdrawProxy).redeem(vaultTokenBalance, address(1), address(1));
         vm.stopPrank();
         assertEq(ERC20(PublicVault(publicVault).underlying()).balanceOf(address(1)), 50 ether);
-        
     }
 
     function testLiquidationAccountant() public {
