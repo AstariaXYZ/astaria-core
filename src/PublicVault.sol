@@ -71,7 +71,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 slope;
 
     // block.timestamp of first epoch
-    uint256 withdrawReserve = 0;
+    uint256 public withdrawReserve = 0;
     uint256 liquidationWithdrawRatio = 0;
     uint256 strategistUnclaimedShares = 0;
     uint64 public currentEpoch = 0;
@@ -189,6 +189,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     function processEpoch() external {
         // check to make sure epoch is over
         require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
+        require(withdrawReserve == 0, "Withdraw reserve not empty");
         if (liquidationAccountants[currentEpoch] != address(0)) {
             require(
                 LiquidationAccountant(liquidationAccountants[currentEpoch]).getFinalAuctionEnd() < block.timestamp,
@@ -196,10 +197,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             );
         }
         // clear out any remaining withdrawReserve balance
-        transferWithdrawReserve();
+        if(withdrawReserve > 0) {
+            transferWithdrawReserve();
+        }
 
         // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
-        if (liquidationAccountants[currentEpoch - 1] != address(0)) {
+        if (currentEpoch != 0 && liquidationAccountants[currentEpoch - 1] != address(0)) {
             LiquidationAccountant(liquidationAccountants[currentEpoch - 1]).claim();
         }
 
@@ -257,26 +260,32 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             || interfaceId == type(ERC20).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
+    event TransferWithdraw(uint256 a, uint256 b);
     /**
      * @notice Transfers funds from the PublicVault to the WithdrawProxy.
      */
     function transferWithdrawReserve() public {
         // check the available balance to be withdrawn
         uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
+        emit TransferWithdraw(withdraw, withdrawReserve);
+
+
+
 
         // prevent transfer of more assets then are available
-        //        if (withdrawReserve <= withdraw) {
-        //            withdraw = withdrawReserve;
-        //            withdrawReserve = 0;
-        //        } else {
-        //            withdrawReserve -= withdraw;
-        //        }
+        if (withdrawReserve <= withdraw) {
+            withdraw = withdrawReserve;
+            withdrawReserve = 0;
+        } else {
+            withdrawReserve -= withdraw;
+        }
+        emit TransferWithdraw(withdraw, withdrawReserve);
 
-        address currentWithdrawProxy = withdrawProxies[currentEpoch]; //
+
+        address currentWithdrawProxy = withdrawProxies[currentEpoch - 1]; //
         // prevents transfer to a non-existent WithdrawProxy
         // withdrawProxies are indexed by the epoch where they're deployed
         if (currentWithdrawProxy != address(0)) {
-            ERC20(underlying()).safeApprove(currentWithdrawProxy, withdraw);
             ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
             emit WithdrawReserveTransferred(withdraw);
         }
@@ -409,7 +418,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         yIntercept += assets;
         emit LogUint("yintercept", yIntercept);
-
     }
 
     /**

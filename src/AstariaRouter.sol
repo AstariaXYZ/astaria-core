@@ -378,26 +378,25 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
 
             address owner = LIEN_TOKEN.ownerOf(currentLien);
-            if (
-                IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
-                    && PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.auctionWindow()
-            ) {
+            if (IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)) {
                 // subtract slope from PublicVault
                 PublicVault(owner).updateSlopeAfterLiquidation(LIEN_TOKEN.calculateSlope(currentLien));
-
                 if (PublicVault(owner).timeToEpochEnd() <= COLLATERAL_TOKEN.auctionWindow()) {
                     uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
-
                     address accountant = PublicVault(owner).getLiquidationAccountant(currentEpoch);
                     uint256 lienEpoch = PublicVault(owner).getLienEpoch(lien.start + lien.duration);
                     PublicVault(owner).decreaseEpochLienCount(lienEpoch);
-                    if (accountant == address(0)) {
-                        accountant = PublicVault(owner).deployLiquidationAccountant();
+
+                    // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
+                    if (PublicVault(owner).withdrawReserve() == 0) {
+                        if (accountant == address(0)) {
+                            accountant = PublicVault(owner).deployLiquidationAccountant();
+                        }
+                        LIEN_TOKEN.setPayee(currentLien, accountant);
+                        LiquidationAccountant(accountant).handleNewLiquidation(
+                            lien.amount, COLLATERAL_TOKEN.auctionWindow() + 1 days
+                        );
                     }
-                    LIEN_TOKEN.setPayee(currentLien, accountant);
-                    LiquidationAccountant(accountant).handleNewLiquidation(
-                        lien.amount, COLLATERAL_TOKEN.auctionWindow() + 1 days
-                    );
                 }
             }
         }
