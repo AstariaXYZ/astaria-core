@@ -45,7 +45,7 @@ contract LiquidationAccountant is LiquidationBase {
     uint256 withdrawRatio;
 
     uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
-    uint256 public finalAuctionEnd; // when this is deleted, we know the final auction is over
+    uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
 
     address withdrawProxy;
 
@@ -103,5 +103,9 @@ contract LiquidationAccountant is LiquidationBase {
         require(msg.sender == ROUTER());
         expected += newLienExpectedValue;
         finalAuctionEnd = finalAuctionTimestamp;
+    }
+
+    function getFinalAuctionEnd() external view returns (uint256) {
+        return finalAuctionEnd;
     }
 }

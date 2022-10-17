@@ -30,6 +30,7 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
+import {LiquidationAccountant} from "../LiquidationAccountant.sol";
 
 string constant weth9Artifact = "src/test/WETH9.json";
 
@@ -117,6 +118,7 @@ contract TestHelpers is Test {
     AstariaRouter ASTARIA_ROUTER;
     PublicVault PUBLIC_VAULT;
     WithdrawProxy WITHDRAW_PROXY;
+    LiquidationAccountant LIQUIDATION_IMPLEMENTATION;
     Vault SOLO_VAULT;
     TransferProxy TRANSFER_PROXY;
     IWETH9 WETH9;
@@ -145,6 +147,7 @@ contract TestHelpers is Test {
         PUBLIC_VAULT = new PublicVault();
         SOLO_VAULT = new Vault();
         WITHDRAW_PROXY = new WithdrawProxy();
+        LIQUIDATION_IMPLEMENTATION = new LiquidationAccountant();
 
         ASTARIA_ROUTER = new AstariaRouter(
             MRA,
@@ -181,6 +184,7 @@ contract TestHelpers is Test {
         ASTARIA_ROUTER.file("setStrategyValidator", abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR)));
         ASTARIA_ROUTER.file("setStrategyValidator", abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR)));
         ASTARIA_ROUTER.file("WITHDRAW_IMPLEMENTATION", abi.encode(WITHDRAW_PROXY));
+        ASTARIA_ROUTER.file("LIQUIDATION_IMPLEMENTATION", abi.encode(LIQUIDATION_IMPLEMENTATION));
         COLLATERAL_TOKEN.file(
             bytes32("setSecurityHook"),
             abi.encode(address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88), address(V3_SECURITY_HOOK))

@@ -257,11 +257,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         });
 
         liens[collateralId].push(lienId);
-        emit LogUintArray(liens[collateralId]);
         emit NewLien(lienId, lienData[lienId]);
     }
 
-    event LogUintArray(uint256[]);
 
     /**
      * @notice Removes all liens for a given CollateralToken.
@@ -362,9 +360,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         uint256 end = (lien.start + lien.duration);
         uint256 owedAtEnd = _getOwed(lien, end);
         return (owedAtEnd - lien.amount).mulDivDown(1, end - lien.last);
-        // return (owedAtEnd - lien.amount) / (end - block.timestamp);
-
-        // return (lien.amount.mulDivDown(lien.rate, 1).mulDivDown(end, 1) - 1).mulDivDown(1, end - lien.last);
     }
 
     /**
@@ -377,7 +372,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         public
         view
         returns (
-            // view
             uint256 slope
         )
     {
@@ -485,7 +479,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     function getInterest(uint256 lienId) public view returns (uint256) {
         return _getInterest(lienData[lienId], block.timestamp);
     }
-
 
     /**
      * @dev Make a payment from a payer to a specific lien against a CollateralToken.

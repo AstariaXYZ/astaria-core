@@ -187,15 +187,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     /**
      * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
      */
+    event LogUint(string, uint256);
+    event LogAddress(string, address);
     function processEpoch() external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
-        //        if (liquidationAccountants[currentEpoch] != address(0)) {
-        //            require(
-        //                LiquidationAccountant(liquidationAccountants[currentEpoch]).finalAuctionEnd() < block.timestamp,
-        //                "Final auction not ended"
-        //            );
-        //        }
+        if (liquidationAccountants[currentEpoch] != address(0)) {
+            require(
+                LiquidationAccountant(liquidationAccountants[currentEpoch]).getFinalAuctionEnd() < block.timestamp,
+                "Final auction not ended"
+            );
+        }
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
