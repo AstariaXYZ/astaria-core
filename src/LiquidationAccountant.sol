@@ -27,7 +27,6 @@ abstract contract LiquidationBase is Clone {
     }
 
     function WITHDRAW_PROXY() public view returns (address) {
-        // TODO fix
         return _getArgAddress(80);
     }
 }

@@ -139,6 +139,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // _burn(owner, shares);
 
         // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
+        _deployWithdrawProxyIfNotDeployed(epoch);
+
+        emit Withdraw(msg.sender, receiver, owner, assets, shares);
+
+        // WithdrawProxy shares are minted 1:1 with PublicVault shares
+        WithdrawProxy(withdrawProxies[epoch]).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
+    }
+
+    function _deployWithdrawProxyIfNotDeployed(uint64 epoch) internal {
         if (withdrawProxies[epoch] == address(0)) {
             address proxy = ClonesWithImmutableArgs.clone(
                 IAstariaRouter(ROUTER()).WITHDRAW_IMPLEMENTATION(),
@@ -149,11 +158,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             );
             withdrawProxies[epoch] = proxy;
         }
-
-        emit Withdraw(msg.sender, receiver, owner, assets, shares);
-
-        // WithdrawProxy shares are minted 1:1 with PublicVault shares
-        WithdrawProxy(withdrawProxies[epoch]).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
     }
 
     /**
@@ -186,12 +190,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     function processEpoch() external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
-        if (liquidationAccountants[currentEpoch] != address(0)) {
-            require(
-                LiquidationAccountant(liquidationAccountants[currentEpoch]).finalAuctionEnd() < block.timestamp,
-                "Final auction not ended"
-            );
-        }
+//        if (liquidationAccountants[currentEpoch] != address(0)) {
+//            require(
+//                LiquidationAccountant(liquidationAccountants[currentEpoch]).finalAuctionEnd() < block.timestamp,
+//                "Final auction not ended"
+//            );
+//        }
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
@@ -234,9 +238,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
             "cannot deploy two liquidation accountants for the same epoch"
         );
 
+        _deployWithdrawProxyIfNotDeployed(currentEpoch);
+
         accountant = ClonesWithImmutableArgs.clone(
             IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
-            abi.encodePacked(underlying(), ROUTER(), address(this), address(LIEN_TOKEN()))
+            abi.encodePacked(
+                underlying(), ROUTER(), address(this), address(LIEN_TOKEN()), address(withdrawProxies[currentEpoch])
+            )
         );
         liquidationAccountants[currentEpoch] = accountant;
     }
@@ -255,12 +263,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
 
         // prevent transfer of more assets then are available
-        if (withdrawReserve <= withdraw) {
-            withdraw = withdrawReserve;
-            withdrawReserve = 0;
-        } else {
-            withdrawReserve -= withdraw;
-        }
+//        if (withdrawReserve <= withdraw) {
+//            withdraw = withdrawReserve;
+//            withdrawReserve = 0;
+//        } else {
+//            withdrawReserve -= withdraw;
+//        }
 
         address currentWithdrawProxy = withdrawProxies[currentEpoch]; //
         // prevents transfer to a non-existent WithdrawProxy
