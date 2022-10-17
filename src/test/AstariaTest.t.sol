@@ -173,9 +173,7 @@ contract AstariaTest is TestHelpers {
 
         address liquidationAccountant = PublicVault(publicVault).liquidationAccountants(0);
 
-        assertTrue(
-            liquidationAccountant != address(0), "LiquidationAccountant not deployed"
-        );
+        assertTrue(liquidationAccountant != address(0), "LiquidationAccountant not deployed");
 
         _bid(address(2), collateralId, 20 ether);
 
@@ -189,8 +187,6 @@ contract AstariaTest is TestHelpers {
         vm.startPrank(address(1));
         WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
         vm.stopPrank();
-
-        
 
         assertEq(WETH9.balanceOf(address(1)), 40 ether); // TODO check
     }

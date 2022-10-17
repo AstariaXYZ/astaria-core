@@ -182,13 +182,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return super.domainSeparator();
     }
 
-    // needs to be called in the epoch boundary before the next epoch can start
-    //TODO: well need to expand this to be able to be run across a number of txns
     /**
      * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
      */
-    event LogUint(string, uint256);
-    event LogAddress(string, address);
     function processEpoch() external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
@@ -201,7 +197,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
-        //TODO: check this
+        // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
+        if (liquidationAccountants[currentEpoch - 1] != address(0)) {
+            LiquidationAccountant(liquidationAccountants[currentEpoch - 1]).claim();
+        }
+
         require(liensOpenForEpoch[currentEpoch] == uint256(0), "loans are still open for this epoch");
 
         // reset liquidationWithdrawRatio to prepare for re calcualtion
@@ -214,7 +214,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         if (withdrawProxies[currentEpoch] != address(0)) {
             uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch]).totalSupply();
 
-            // TODO when to claim()?
             if (liquidationAccountants[currentEpoch] != address(0)) {
                 LiquidationAccountant(liquidationAccountants[currentEpoch]).calculateWithdrawRatio();
             }
@@ -411,7 +410,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         }
     }
 
-    // TODO kill getters
     function updateSlopeAfterLiquidation(uint256 amount) public {
         require(msg.sender == ROUTER());
 
@@ -426,10 +424,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         require(msg.sender == liquidationAccountants[currentEpoch]);
         yIntercept = _yIntercept;
         emit YInterceptChanged(_yIntercept);
-    }
-
-    function getLast() public view returns (uint256) {
-        return last;
     }
 
     function getCurrentEpoch() public view returns (uint64) {
@@ -450,7 +444,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return block.timestamp - epochEnd; //
     }
 
-    // TODO kill
     function getLiquidationAccountant(uint64 epoch) public view returns (address) {
         return liquidationAccountants[epoch];
     }

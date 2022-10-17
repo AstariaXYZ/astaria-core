@@ -53,8 +53,6 @@ contract LiquidationAccountant is LiquidationBase {
      * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
      */
     function claim() public {
-        //        require(ILienToken(LIEN_TOKEN()).getLiens(finalAuctionEnd).length == 0);
-
         require(block.timestamp > finalAuctionEnd || finalAuctionEnd == uint256(0), "final auction has not ended");
 
         uint256 balance = ERC20(underlying()).balanceOf(address(this));
