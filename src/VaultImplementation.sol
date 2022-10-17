@@ -95,7 +95,6 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
         address delegate;
     }
 
-    //TODO: set initializer
     function init(InitParams calldata params) external virtual {
         require(msg.sender == address(ROUTER()), "only router");
 

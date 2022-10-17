@@ -82,7 +82,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         emit File(what, data);
     }
 
-    // TODO plagiarism from seaport?
     /**
      * @dev See {IERC165-supportsInterface}.
      */
@@ -113,8 +112,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         if (!ASTARIA_ROUTER.isValidRefinance(lienData[lienId], ld)) {
             revert InvalidRefinance();
         }
-        //TODO: remove if good
-        //        require(ASTARIA_ROUTER.isValidRefinance(lienData[lienId], ld), "invalid refinance");
 
         TRANSFER_PROXY.tokenTransferFrom(WETH, address(msg.sender), getPayee(lienId), uint256(buyout));
 
@@ -154,7 +151,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, INTEREST_DENOMINATOR);
     }
 
-    // TODO improve this
     /**
      * @notice Stops accruing interest for all liens against a single CollateralToken.
      * @param collateralId The ID for the  CollateralToken of the NFT used as collateral for the liens.
@@ -178,9 +174,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         }
     }
 
-    //undo solmate change for now
-
-    // TODO check/seaport plagiarism?
     /**
      * @dev See {IERC721Metadata-tokenURI}.
      */
@@ -347,8 +340,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         }
     }
 
-    // TODO change to (aggregate) rate?
-
     /**
      * @notice Computes the rate for a specified lien.
      * @param lienId The ID for the lien.
@@ -410,7 +401,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         }
     }
 
-    // TODO maybe rename
     /**
      * @notice Computes the combined rate of all liens against a CollateralToken
      * @param collateralId The ID of the underlying CollateralToken.
@@ -551,7 +541,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         return lienData[lienId].payee != address(0) ? lienData[lienId].payee : ownerOf(lienId);
     }
 
-    // TODO change what's passed in
     /**
      * @notice Change the payee for a specified Lien.
      * @param lienId The ID of the Lien.

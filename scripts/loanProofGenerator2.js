@@ -26,7 +26,7 @@ if (detailsType === 0) {
       return x;
     });
   // digest = solidityKeccak256(...details);
-  console.error(termData);
+  // console.error(termData);
   const clone = termData.map((x) => x);
   clone[1][7] = "1000";
 
@@ -80,7 +80,7 @@ if (detailsType === 0) {
 //   ];
 //   leaves.push(solidityKeccak256(...details));
 // }
-console.error(leaves);
+// console.error(leaves);
 // Create tree
 
 const merkleTree = new MerkleTree(
@@ -111,7 +111,7 @@ const merkleTree = new MerkleTree(
 const rootHash = merkleTree.getHexRoot();
 const proofLeaves = [leaves[0]].map(keccak256);
 const proof = merkleTree.getHexProof(MerkleTree.bufferToHex(proofLeaves[0]));
-console.error(merkleTree.verify(proof, MerkleTree.bufferToHex(proofLeaves[0]), rootHash));
+// console.error(merkleTree.verify(proof, MerkleTree.bufferToHex(proofLeaves[0]), rootHash));
 console.log(
   defaultAbiCoder.encode(["bytes32", "bytes32[]"], [rootHash, proof])
 );

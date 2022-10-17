@@ -17,10 +17,11 @@ import {TransferProxy} from "../TransferProxy.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
+import {LiquidationAccountant} from "../LiquidationAccountant.sol";
 
-import "./TestHelpers2.t.sol";
+import "./TestHelpers.t.sol";
 
-contract AstariaTest2 is TestHelpers {
+contract AstariaTest is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
     using SafeCastLib for uint256;
@@ -155,9 +156,9 @@ contract AstariaTest2 is TestHelpers {
 
         ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
 
-        assertTrue(
-            PublicVault(publicVault).liquidationAccountants(0) != address(0), "LiquidationAccountant not deployed"
-        );
+        address liquidationAccountant = PublicVault(publicVault).liquidationAccountants(0);
+
+        assertTrue(liquidationAccountant != address(0), "LiquidationAccountant not deployed");
 
         _bid(address(2), collateralId, 20 ether);
 
@@ -166,6 +167,8 @@ contract AstariaTest2 is TestHelpers {
         PublicVault(publicVault).processEpoch();
 
         vm.warp(block.timestamp + 13 days);
+        LiquidationAccountant(liquidationAccountant).claim();
+
         vm.startPrank(address(1));
         WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
         vm.stopPrank();
