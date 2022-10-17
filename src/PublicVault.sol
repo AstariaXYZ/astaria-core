@@ -190,12 +190,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     function processEpoch() external {
         // check to make sure epoch is over
         require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
-//        if (liquidationAccountants[currentEpoch] != address(0)) {
-//            require(
-//                LiquidationAccountant(liquidationAccountants[currentEpoch]).finalAuctionEnd() < block.timestamp,
-//                "Final auction not ended"
-//            );
-//        }
+        //        if (liquidationAccountants[currentEpoch] != address(0)) {
+        //            require(
+        //                LiquidationAccountant(liquidationAccountants[currentEpoch]).finalAuctionEnd() < block.timestamp,
+        //                "Final auction not ended"
+        //            );
+        //        }
         // clear out any remaining withdrawReserve balance
         transferWithdrawReserve();
 
@@ -263,12 +263,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
 
         // prevent transfer of more assets then are available
-//        if (withdrawReserve <= withdraw) {
-//            withdraw = withdrawReserve;
-//            withdrawReserve = 0;
-//        } else {
-//            withdrawReserve -= withdraw;
-//        }
+        //        if (withdrawReserve <= withdraw) {
+        //            withdraw = withdrawReserve;
+        //            withdrawReserve = 0;
+        //        } else {
+        //            withdrawReserve -= withdraw;
+        //        }
 
         address currentWithdrawProxy = withdrawProxies[currentEpoch]; //
         // prevents transfer to a non-existent WithdrawProxy
@@ -293,8 +293,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
 
-        liensOpenForEpoch[Math.ceilDiv(lien.start + lien.duration - START(), EPOCH_LENGTH())]++;
-        emit LienOpen(lienId, Math.ceilDiv(lien.start + lien.duration - START(), EPOCH_LENGTH()));
+        uint256 epoch = Math.ceilDiv(lien.start + lien.duration - START(), EPOCH_LENGTH()) - 1;
+
+        liensOpenForEpoch[epoch]++;
+        emit LienOpen(lienId, epoch);
     }
 
     event LienOpen(uint256 lienId, uint256 epoch);
@@ -344,7 +346,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
         _handleStrategistInterestReward(lienId, amount);
-        yIntercept = totalAssets() - amount;
+        if (totalAssets() > amount) {
+            yIntercept = totalAssets() - amount;
+        } else {
+            yIntercept = 0;
+        }
         uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
         if (lienSlope > slope) {
             slope = 0;
@@ -360,7 +366,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     function getLienEpoch(uint256 end) external view returns (uint256) {
-        return Math.ceilDiv(end - START(), EPOCH_LENGTH());
+        return Math.ceilDiv(end - START(), EPOCH_LENGTH()) - 1;
     }
 
     function _increaseOpenLiens() internal {

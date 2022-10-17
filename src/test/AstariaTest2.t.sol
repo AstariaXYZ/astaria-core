@@ -20,14 +20,6 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import "./TestHelpers2.t.sol";
 
-contract TestNFT is MockERC721 {
-    constructor(uint256 size) MockERC721("TestNFT", "TestNFT") {
-        for (uint256 i = 0; i < size; ++i) {
-            _mint(msg.sender, i);
-        }
-    }
-}
-
 contract AstariaTest2 is TestHelpers {
     using FixedPointMathLib for uint256;
     using CollateralLookup for address;
@@ -61,7 +53,8 @@ contract AstariaTest2 is TestHelpers {
                 duration: 10 days,
                 maxPotentialDebt: 50 ether
             }),
-            amount: 10 ether
+            amount: 10 ether,
+            isFirstLien: true
         });
 
         uint256 collateralId = tokenContract.computeId(tokenId);
@@ -97,7 +90,8 @@ contract AstariaTest2 is TestHelpers {
                 duration: 10 days,
                 maxPotentialDebt: 50 ether
             }),
-            amount: 10 ether
+            amount: 10 ether,
+            isFirstLien: true
         });
 
         assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
@@ -160,7 +154,8 @@ contract AstariaTest2 is TestHelpers {
                 duration: 13 days,
                 maxPotentialDebt: 50 ether
             }),
-            amount: 10 ether
+            amount: 10 ether,
+            isFirstLien: true
         });
 
         uint256 collateralId = tokenContract.computeId(tokenId);
@@ -190,7 +185,82 @@ contract AstariaTest2 is TestHelpers {
         WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
         vm.stopPrank();
 
-        assertEq(WETH9.balanceOf(address(1)), 70 ether);
+        assertEq(WETH9.balanceOf(address(1)), 40 ether); // TODO check
+    }
+
+    function testReleaseToAddress() public {
+        TestNFT nft = new TestNFT(1);
+        address tokenContract = address(nft);
+        uint256 tokenId = uint256(0);
+
+        uint256 initialBalance = WETH9.balanceOf(address(this));
+
+        // create a PublicVault with a 14-day epoch
+        address publicVault =
+            _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
+
+        // lend 50 ether to the PublicVault as address(1)
+        _lendToVault(Lender({addr: address(1), amountToLend: 50 ether}), publicVault);
+
+        // borrow 10 eth against the dummy NFT
+        _commitToLien({
+            vault: publicVault,
+            strategist: strategistOne,
+            strategistPK: strategistOnePK,
+            tokenContract: tokenContract,
+            tokenId: tokenId,
+            lienDetails: IAstariaRouter.LienDetails({
+                maxAmount: 50 ether,
+                rate: ((uint256(0.05 ether) / 365) * 1 days),
+                duration: 10 days,
+                maxPotentialDebt: 50 ether
+            }),
+            amount: 10 ether,
+            isFirstLien: true
+        });
+
+        uint256 collateralId = tokenContract.computeId(tokenId);
+
+        // make sure the borrow was successful
+        assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
+
+        vm.warp(block.timestamp + 9 days);
+
+        _repay(collateralId, 500 ether, address(this));
+
+        COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
+
+        assertEq(ERC721(tokenContract).ownerOf(tokenId), address(this));
+    }
+
+    function testCollateralTokenFileSetup() public {
+        bytes memory astariaRouterAddr = abi.encode(address(0));
+        COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), astariaRouterAddr);
+        assert(COLLATERAL_TOKEN.ASTARIA_ROUTER() == IAstariaRouter(address(0)));
+
+        bytes memory auctionHouseAddr = abi.encode(address(0));
+        COLLATERAL_TOKEN.file(bytes32("setAuctionHouse"), auctionHouseAddr);
+        assert(COLLATERAL_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
+
+        bytes memory securityHook = abi.encode(address(0), address(0));
+        COLLATERAL_TOKEN.file(bytes32("setSecurityHook"), securityHook);
+        assert(COLLATERAL_TOKEN.securityHooks(address(0)) == address(0));
+
+        vm.expectRevert("unsupported/file");
+        COLLATERAL_TOKEN.file(bytes32("Andrew Redden"), "");
+    }
+
+    function testLienTokenFileSetup() public {
+        bytes memory auctionHouseAddr = abi.encode(address(0));
+        LIEN_TOKEN.file(bytes32("setAuctionHouse"), auctionHouseAddr);
+        assert(LIEN_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
+
+        bytes memory collateralIdAddr = abi.encode(address(0));
+        LIEN_TOKEN.file(bytes32("setCollateralToken"), collateralIdAddr);
+        assert(LIEN_TOKEN.COLLATERAL_TOKEN() == ICollateralToken(address(0)));
+
+        vm.expectRevert("unsupported/file");
+        COLLATERAL_TOKEN.file(bytes32("Justin Bram"), "");
     }
 
     event Here();
@@ -223,22 +293,19 @@ contract AstariaTest2 is TestHelpers {
                 duration: 13 days,
                 maxPotentialDebt: 50 ether
             }),
-            amount: 10 ether
+            amount: 10 ether,
+            isFirstLien: true
         });
         uint256 collateralId = tokenContract.computeId(tokenId);
 
         vm.warp(block.timestamp + 10 days);
-        _repay(collateralId, 10 ether, address(this));
+        _repay(collateralId, 100 ether, address(this));
 
-        emit Here();
+        // _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
 
-        emit Here();
+        // _signalWithdraw(bob, publicVault);
 
-        _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
-
-        _signalWithdraw(bob, publicVault);
-
-        vm.warp(block.timestamp + 2 days);
+        vm.warp(block.timestamp + 5 days);
 
         PublicVault(publicVault).processEpoch();
 

@@ -46,6 +46,14 @@ contract Dummy721 is MockERC721 {
     }
 }
 
+contract TestNFT is MockERC721 {
+    constructor(uint256 size) MockERC721("TestNFT", "TestNFT") {
+        for (uint256 i = 0; i < size; ++i) {
+            _mint(msg.sender, i);
+        }
+    }
+}
+
 contract V3SecurityHook {
     address positionManager;
 
@@ -322,10 +330,12 @@ contract TestHelpers is Test {
         address tokenContract, // original NFT address
         uint256 tokenId, // original NFT id
         IAstariaRouter.LienDetails memory lienDetails, // loan information
-        uint256 amount // requested amount
+        uint256 amount, // requested amount
+        bool isFirstLien
     ) internal {
-        ERC721(tokenContract).safeTransferFrom(address(this), address(COLLATERAL_TOKEN), uint256(tokenId), ""); // deposit NFT in CollateralToken
-
+        if (isFirstLien) {
+            ERC721(tokenContract).safeTransferFrom(address(this), address(COLLATERAL_TOKEN), uint256(tokenId), ""); // deposit NFT in CollateralToken
+        }
         uint256 collateralTokenId = tokenContract.computeId(tokenId);
 
         // address vault = _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
