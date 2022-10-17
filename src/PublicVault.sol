@@ -187,11 +187,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     /**
      * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
      */
-    event LogUint(string, uint256);
-    event LogAddress(string, address);
+
+
     function processEpoch() external {
         // check to make sure epoch is over
-        require(START() + ((currentEpoch + 1) * EPOCH_LENGTH()) < block.timestamp, "Epoch has not ended");
+        require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
         if (liquidationAccountants[currentEpoch] != address(0)) {
             require(
                 LiquidationAccountant(liquidationAccountants[currentEpoch]).getFinalAuctionEnd() < block.timestamp,
@@ -319,16 +319,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         uint256 delta_t = block.timestamp - last;
         return slope.mulDivDown(delta_t, 1e18) + yIntercept;
     }
-    /**
-     * @notice Computes the value for a given amount of VaultToken shares in terms of the underlying asset.
-     * @param shares The number of shares to compute for.
-     * @return The underlying value of the shares, diluted by unclaimed strategist shares.
-     */
+    //    /**
+    //     * @notice Computes the value for a given amount of VaultToken shares in terms of the underlying asset.
+    //     * @param shares The number of shares to compute for.
+    //     * @return The underlying value of the shares, diluted by unclaimed strategist shares.
+    //     */
+    //
+    //    function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
+    //        uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
+    //
+    //        return supply == 0 ? shares : shares.mulDivDown(totalAssets(), supply + strategistUnclaimedShares);
+    //    }
 
-    function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
-        uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
-
-        return supply == 0 ? shares : shares.mulDivDown(totalAssets(), supply + strategistUnclaimedShares);
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply + strategistUnclaimedShares;
     }
 
     /**
@@ -371,6 +375,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         return Math.ceilDiv(end - START(), EPOCH_LENGTH()) - 1;
     }
 
+    //todo check this
+    function getEpochEnd(uint256 epoch) public view returns (uint256) {
+        return START() + (epoch + 1) * EPOCH_LENGTH();
+    }
+
     function _increaseOpenLiens() internal {
         liensOpenForEpoch[currentEpoch]++;
     }
@@ -393,8 +402,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
      * @param assets The amount of assets deposited to the PublicVault.
      * @param shares The resulting amount of VaultToken shares that were issued.
      */
-    function afterDeposit(uint256 assets, uint256 shares) internal virtual override whenNotPaused {
+    function afterDeposit(uint256 assets, uint256 shares) internal virtual override {
+        emit LogUint("yintercept", yIntercept);
+        emit LogUint("assets", assets);
+        emit LogUint("shares", shares);
+
         yIntercept += assets;
+        emit LogUint("yintercept", yIntercept);
+
     }
 
     /**

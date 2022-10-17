@@ -65,12 +65,7 @@ contract RevertTesting is TestHelpers {
             strategistPK: strategistOnePK,
             tokenContract: tokenContract,
             tokenId: tokenId,
-            lienDetails: IAstariaRouter.LienDetails({
-                maxAmount: 50 ether,
-                rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: 10 days,
-                maxPotentialDebt: 50 ether
-            }),
+            lienDetails: standardLien,
             amount: 10 ether,
             isFirstLien: true
         });
@@ -100,12 +95,7 @@ contract RevertTesting is TestHelpers {
             strategistPK: strategistOnePK,
             tokenContract: tokenContract,
             tokenId: tokenId,
-            lienDetails: IAstariaRouter.LienDetails({
-                maxAmount: 50 ether,
-                rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: 10 days,
-                maxPotentialDebt: 10 ether
-            }),
+            lienDetails: standardLien,
             amount: 10 ether,
             isFirstLien: true
         });
@@ -116,12 +106,7 @@ contract RevertTesting is TestHelpers {
             strategistPK: strategistOnePK,
             tokenContract: tokenContract,
             tokenId: tokenId,
-            lienDetails: IAstariaRouter.LienDetails({
-                maxAmount: 50 ether,
-                rate: ((uint256(0.05 ether) / 365) * 1 days),
-                duration: 10 days,
-                maxPotentialDebt: 0 ether
-            }),
+            lienDetails: standardLien,
             amount: 10 ether,
             isFirstLien: false
         });

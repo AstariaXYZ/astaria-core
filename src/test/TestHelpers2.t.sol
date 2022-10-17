@@ -85,10 +85,10 @@ contract TestHelpers is Test {
     address bidderOne = vm.addr(0x1342);
     address bidderTwo = vm.addr(0x1343);
 
-    IAstariaRouter.LienDetails standardLien = IAstariaRouter.LienDetails({
-        maxAmount: 10 ether,
-        rate: uint32(((uint256(0.05 ether)) / 365) * 1 days),
-        duration: 10 days, // TODO check if should be block.timestamp + duration
+    IAstariaRouter.LienDetails public standardLien = IAstariaRouter.LienDetails({
+        maxAmount: 50 ether,
+        rate: (uint256(1 ** 10e17) / (365 * 1 days)), //10%
+        duration: 10 days,
         maxPotentialDebt: 50 ether
     });
 

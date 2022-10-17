@@ -43,7 +43,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     function withdraw(uint256 amount) public {
         require(balanceOf[msg.sender] >= amount, "insufficient balance");
         ERC20(underlying()).safeTransfer(
-            msg.sender, (amount.mulDivDown(1, totalSupply)) * ERC20(underlying()).balanceOf(address(this))
+            msg.sender, (amount.mulDivDown(1, totalSupply())) * ERC20(underlying()).balanceOf(address(this))
         );
         _burn(msg.sender, amount);
     }

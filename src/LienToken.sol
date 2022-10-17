@@ -260,7 +260,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         emit NewLien(lienId, lienData[lienId]);
     }
 
-
     /**
      * @notice Removes all liens for a given CollateralToken.
      * @param collateralId The ID for the underlying CollateralToken.
@@ -368,13 +367,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param paymentAmount The hypothetical payment amount that would be made to the lien.
      * @return slope The difference between the current lien rate and the lien rate if the payment was made.
      */
-    function changeInSlope(uint256 lienId, uint256 paymentAmount)
-        public
-        view
-        returns (
-            uint256 slope
-        )
-    {
+    function changeInSlope(uint256 lienId, uint256 paymentAmount) public view returns (uint256 slope) {
         Lien memory lien = lienData[lienId];
         uint256 oldSlope = calculateSlope(lienId);
         uint256 newAmount = (lien.amount - paymentAmount);
