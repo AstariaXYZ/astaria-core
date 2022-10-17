@@ -160,7 +160,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
             "Vault._validateCommitment(): Verification of provided merkle branch failed for the vault and parameters"
         );
 
-        require(ld.rate > 0, "Cannot have a 0 interest rate");
+        require(ld.rate > 0, "Vault._validateCommitment(): Cannot have a 0 interest rate");
+
+        require(ld.rate < 6341958396, "Vault._validateCommitment(): Rate is above maximum")
 
         require(
             ld.maxAmount >= params.lienRequest.amount,
