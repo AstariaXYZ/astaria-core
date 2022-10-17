@@ -274,17 +274,19 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     /**
      * @notice Retrieves a specific Lien by its ID.
      * @param lienId The ID of the requested Lien.
-     * @return l The Lien for the lienId.
+     * @return lien The Lien for the lienId.
      */
-    function getLien(uint256 lienId) public view returns (Lien memory l) {
-        l = lienData[lienId];
-        l.amount = _getOwed(l);
+    function getLien(uint256 lienId) public view returns (Lien memory lien) {
+        lien = lienData[lienId];
+        lien.amount = _getOwed(lien);
+        lien.last = block.timestamp.safeCastTo32();
     }
 
     /**
      * @notice Retrives a specific Lien from the ID of the CollateralToken for the underlying NFT and the lien position.
      * @param collateralId The ID for the underlying CollateralToken.
      * @param position The requested lien position.
+     *  @ return lien The Lien for the lienId.
      */
     function getLien(uint256 collateralId, uint256 position) public view returns (Lien memory) {
         uint256 lienId = liens[collateralId][position];
@@ -300,10 +302,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     function getBuyout(uint256 collateralId, uint256 position) public view returns (uint256, uint256) {
         Lien memory lien = getLien(collateralId, position);
 
-        uint256 owed = _getOwed(lien);
         uint256 remainingInterest = _getRemainingInterest(lien, true);
+        uint256 buyoutTotal = lien.amount + ASTARIA_ROUTER.getBuyoutFee(remainingInterest);
 
-        return (owed, owed + ASTARIA_ROUTER.getBuyoutFee(remainingInterest));
+        return (lien.amount, buyoutTotal);
     }
 
     /**
