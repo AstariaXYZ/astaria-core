@@ -442,7 +442,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     function setYIntercept(uint256 _yIntercept) public {
-        require(msg.sender == liquidationAccountants[currentEpoch]);
+        require(currentEpoch != 0 && msg.sender == liquidationAccountants[currentEpoch - 1]);
         yIntercept = _yIntercept;
         emit YInterceptChanged(_yIntercept);
     }
