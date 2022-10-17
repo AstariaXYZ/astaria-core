@@ -33,7 +33,7 @@ interface ILienBase {
 
     function calculateSlope(uint256 lienId) external returns (uint256 slope);
 
-    function changeInSlope(uint256 lienId, uint256 paymentAmount) external returns (uint256 slope);
+    function changeInSlope(uint256 lienId, uint256 paymentAmount) external view returns (uint256 slope);
 
     function stopLiens(uint256 collateralId) external returns (uint256 reserve, uint256[] memory lienIds);
 
@@ -72,8 +72,9 @@ interface ILienBase {
     function setPayee(uint256 lienId, address payee) external;
 
     event NewLien(uint256 indexed lienId, Lien lien);
+    event RemoveLien(uint256 indexed lienId, uint256 indexed collateralId, uint8 position);
+    event RemovedLiens(uint256 indexed collateralId);
     event Payment(uint256 indexed lienId, uint256 amount);
-    event RemovedLiens(uint256 indexed lienId);
     event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
     event PayeeChanged(uint256 indexed lienId, address indexed payee);
     event File(bytes32 indexed what, bytes data);

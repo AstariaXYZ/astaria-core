@@ -211,7 +211,7 @@ contract AstariaTest2 is TestHelpers {
             tokenId: tokenId,
             lienDetails: IAstariaRouter.LienDetails({
                 maxAmount: 50 ether,
-                rate: ((uint256(0.05 ether) / 365) * 1 days),
+                rate: (uint256(1 ** 10e17) / (365 * 1 days)), //10%
                 duration: 10 days,
                 maxPotentialDebt: 50 ether
             }),
@@ -226,7 +226,7 @@ contract AstariaTest2 is TestHelpers {
 
         vm.warp(block.timestamp + 9 days);
 
-        _repay(collateralId, 500 ether, address(this));
+        _repay(collateralId, 50 ether, address(this));
 
         COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
 

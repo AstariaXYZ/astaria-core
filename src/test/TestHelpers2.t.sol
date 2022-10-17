@@ -31,7 +31,7 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
 
-string constant weth9Artifact = "src/tests/WETH9.json";
+string constant weth9Artifact = "src/test/WETH9.json";
 
 interface IWETH9 is IERC20 {
     function deposit() external payable;

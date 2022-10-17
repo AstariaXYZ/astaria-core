@@ -42,7 +42,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     IAstariaRouter public ASTARIA_ROUTER;
     ICollateralToken public COLLATERAL_TOKEN;
 
-    uint256 INTEREST_DENOMINATOR = 1e18;
+    uint256 INTEREST_DENOMINATOR = 1e18; //wad per second
 
     uint256 constant MAX_LIENS = uint256(5);
 
@@ -257,9 +257,11 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         });
 
         liens[collateralId].push(lienId);
-
+        emit LogUintArray(liens[collateralId]);
         emit NewLien(lienId, lienData[lienId]);
     }
+
+    event LogUintArray(uint256[]);
 
     /**
      * @notice Removes all liens for a given CollateralToken.
@@ -282,10 +284,11 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     /**
      * @notice Retrieves a specific Lien by its ID.
      * @param lienId The ID of the requested Lien.
-     * @return The Lien for the lienId.
+     * @return l The Lien for the lienId.
      */
-    function getLien(uint256 lienId) external view returns (Lien memory) {
-        return lienData[lienId];
+    function getLien(uint256 lienId) public view returns (Lien memory l) {
+        l = lienData[lienId];
+        l.amount = _getOwed(l);
     }
 
     /**
@@ -295,7 +298,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      */
     function getLien(uint256 collateralId, uint256 position) public view returns (Lien memory) {
         uint256 lienId = liens[collateralId][position];
-        return lienData[lienId];
+        return getLien(lienId);
     }
 
     /**
@@ -319,10 +322,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param paymentAmount The amount to pay against the debt. TODO reword?
      */
     function makePayment(uint256 collateralId, uint256 paymentAmount) public {
-        uint256[] memory openLiens = liens[collateralId];
-        for (uint256 i = 0; i < openLiens.length; ++i) {
-            paymentAmount = _payment(collateralId, i, paymentAmount, address(msg.sender));
-        }
+        makePayment(collateralId, paymentAmount, address(msg.sender));
     }
 
     /**
@@ -338,13 +338,15 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     /**
      * @notice Have a specified paymer make a payment for the debt against a CollateralToken.
      * @param collateralId The ID of the underlying CollateralToken.
-     * @param paymentAmount The amount to pay against the debt. TODO reword?
+     * @param totalCapitalAvailable The amount to pay against the debts
      * @param payer The account to make the payment.
      */
-    function makePayment(uint256 collateralId, uint256 paymentAmount, address payer) external {
+    function makePayment(uint256 collateralId, uint256 totalCapitalAvailable, address payer) public {
         uint256[] memory openLiens = liens[collateralId];
+        uint256 paymentAmount = totalCapitalAvailable;
         for (uint256 i = 0; i < openLiens.length; ++i) {
-            paymentAmount = _payment(collateralId, i, paymentAmount, payer);
+            uint256 capitalSpent = _payment(collateralId, i, paymentAmount, payer);
+            paymentAmount -= capitalSpent;
         }
     }
 
@@ -427,7 +429,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
      * @param collateralId The ID of the underlying CollateralToken.
      * @return impliedRate The aggregate rate for all loans against the specified collateral.
      */
-
     function getImpliedRate(uint256 collateralId) public view returns (uint256 impliedRate) {
         uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
         uint256[] memory openLiens = getLiens(collateralId);
@@ -485,7 +486,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         return _getInterest(lienData[lienId], block.timestamp);
     }
 
-    event AmountDifference(uint256 a, uint256 b);
 
     /**
      * @dev Make a payment from a payer to a specific lien against a CollateralToken.
@@ -516,17 +516,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
         address payee = getPayee(lienId);
 
-        if (paymentAmount > lien.amount) {
-            paymentAmount = lien.amount;
-        }
-
         if (isPublicVault) {
             IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
         }
-
-        // TODO fix flow
         if (lien.amount > paymentAmount) {
-            emit AmountDifference(lien.amount, paymentAmount);
             lien.amount -= paymentAmount;
             lien.last = block.timestamp.safeCastTo32();
             // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
@@ -534,13 +527,16 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
                 IPublicVault(lienOwner).afterPayment(lienId);
             }
         } else {
-            delete liens[collateralId][position];
             if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
                 // since the openLiens count is only positive when there are liens that haven't been paid off
                 // that should be liquidated, this lien should not be counted anymore
                 IPublicVault(lienOwner).decreaseEpochLienCount(IPublicVault(lienOwner).getLienEpoch(end));
             }
-            _deleteLien(lienId);
+            //delete liens
+            _deleteLienPosition(collateralId, position);
+            delete lienData[lienId]; //full delete
+
+            _burn(lienId);
         }
 
         TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, paymentAmount);
@@ -549,9 +545,15 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         return paymentAmount;
     }
 
-    function _deleteLien(uint256 lienid) internal {
-        delete lienData[lienid];
-        _burn(lienid);
+    function _deleteLienPosition(uint256 collateralId, uint256 position) public {
+        uint256[] storage stack = liens[collateralId];
+        require(position < stack.length, "index out of bound");
+
+        emit RemoveLien(stack[position], lienData[stack[position]].collateralId, lienData[stack[position]].position);
+        for (uint256 i = position; i < stack.length - 1; i++) {
+            stack[i] = stack[i + 1];
+        }
+        stack.pop();
     }
 
     /**
@@ -573,10 +575,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         if (AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId)) {
             revert InvalidCollateralState(InvalidStates.AUCTION);
         }
-        //        require(
-        //            !AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId),
-        //            "collateralId is being liquidated, cannot change payee from LiquidationAccountant"
-        //        );
+        require(
+            !AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId),
+            "collateralId is being liquidated, cannot change payee from LiquidationAccountant"
+        );
         require(msg.sender == ownerOf(lienId) || msg.sender == address(ASTARIA_ROUTER), "invalid owner");
 
         lienData[lienId].payee = newPayee;
