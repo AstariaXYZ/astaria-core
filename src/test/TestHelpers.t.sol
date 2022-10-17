@@ -87,7 +87,7 @@ contract TestHelpers is Test {
 
     IAstariaRouter.LienDetails public standardLien = IAstariaRouter.LienDetails({
         maxAmount: 50 ether,
-        rate: (uint256(1 ** 10e17) / (365 * 1 days)), //10%
+        rate: (uint256(1e16) * 150) / (365 days),
         duration: 10 days,
         maxPotentialDebt: 50 ether
     });

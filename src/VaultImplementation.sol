@@ -162,7 +162,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
 
         require(ld.rate > 0, "Vault._validateCommitment(): Cannot have a 0 interest rate");
 
-        require(ld.rate < 6341958396, "Vault._validateCommitment(): Rate is above maximum");
+        require(ld.rate < 63419583966, "Vault._validateCommitment(): Rate is above maximum");
 
         require(
             ld.maxAmount >= params.lienRequest.amount,
