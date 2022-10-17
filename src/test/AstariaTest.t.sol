@@ -116,10 +116,14 @@ contract AstariaTest is TestHelpers {
         PublicVault(publicVault).processEpoch();
 
         vm.warp(block.timestamp + 13 days);
+        PublicVault(publicVault).transferWithdrawReserve();
+
         vm.startPrank(address(1));
 
-        WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
+        WithdrawProxy(withdrawProxy).redeem(vaultTokenBalance, address(1), address(1));
         vm.stopPrank();
+        assertEq(ERC20(PublicVault(publicVault).underlying()).balanceOf(address(1)), 50 ether);
+        
     }
 
     function testLiquidationAccountant() public {
@@ -169,11 +173,11 @@ contract AstariaTest is TestHelpers {
         vm.warp(block.timestamp + 13 days);
         LiquidationAccountant(liquidationAccountant).claim();
 
-        vm.startPrank(address(1));
-        WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
-        vm.stopPrank();
+        // vm.startPrank(address(1));
+        // WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
+        // vm.stopPrank();
 
-        assertEq(WETH9.balanceOf(address(1)), 40 ether); // TODO check
+        // assertEq(WETH9.balanceOf(address(1)), 40 ether); // TODO check
     }
 
     function testReleaseToAddress() public {
@@ -284,23 +288,23 @@ contract AstariaTest is TestHelpers {
         vm.warp(block.timestamp + 9 days);
         _repay(collateralId, 100 ether, address(this));
 
-//        _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
+        //        _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
 
         _warpToEpochEnd(publicVault);
         PublicVault(publicVault).processEpoch();
 
-//        _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
-//        _warpToEpochEnd(publicVault);
-//        _commitToLien({
-//            vault: publicVault,
-//            strategist: strategistOne,
-//            strategistPK: strategistOnePK,
-//            tokenContract: tokenContract,
-//            tokenId: uint256(5),
-//            lienDetails: standardLien,
-//            amount: 10 ether,
-//            isFirstLien: true
-//        });
+        //        _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
+        //        _warpToEpochEnd(publicVault);
+        //        _commitToLien({
+        //            vault: publicVault,
+        //            strategist: strategistOne,
+        //            strategistPK: strategistOnePK,
+        //            tokenContract: tokenContract,
+        //            tokenId: uint256(5),
+        //            lienDetails: standardLien,
+        //            amount: 10 ether,
+        //            isFirstLien: true
+        //        });
         // Dummy721 nft2 = new Dummy721();
         // address tokenContract2 = address(nft2);
         // uint256 tokenId2 = uint256(2);
