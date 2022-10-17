@@ -24,7 +24,7 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
 
-import "./TestHelpers2.t.sol";
+import "./TestHelpers.t.sol";
 
 contract RevertTesting is TestHelpers {
     using FixedPointMathLib for uint256;
