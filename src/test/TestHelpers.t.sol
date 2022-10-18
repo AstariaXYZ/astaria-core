@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
@@ -6,7 +6,9 @@ import {Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {
+  MultiRolesAuthority
+} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
@@ -22,9 +24,18 @@ import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 
-import {ICollectionValidator, CollectionValidator} from "../strategies/CollectionValidator.sol";
-import {UNI_V3Validator, IUNI_V3Validator} from "../strategies/UNI_V3Validator.sol";
-import {UniqueValidator, IUniqueValidator} from "../strategies/UniqueValidator.sol";
+import {
+  ICollectionValidator,
+  CollectionValidator
+} from "../strategies/CollectionValidator.sol";
+import {
+  UNI_V3Validator,
+  IUNI_V3Validator
+} from "../strategies/UNI_V3Validator.sol";
+import {
+  UniqueValidator,
+  IUniqueValidator
+} from "../strategies/UniqueValidator.sol";
 
 import {CollateralToken} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";

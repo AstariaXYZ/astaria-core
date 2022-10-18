@@ -1,13 +1,17 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {
+  MultiRolesAuthority
+} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
-import {IERC1155Receiver} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
+import {
+  IERC1155Receiver
+} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 
 import {AuctionHouse} from "gpl/AuctionHouse.sol";

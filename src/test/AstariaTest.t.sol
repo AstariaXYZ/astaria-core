@@ -1,11 +1,13 @@
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
-import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {
+  MultiRolesAuthority
+} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";

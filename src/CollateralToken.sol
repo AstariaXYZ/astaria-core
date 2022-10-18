@@ -16,7 +16,10 @@ import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ICollateralBase, ICollateralToken} from "./interfaces/ICollateralToken.sol";
+import {
+  ICollateralBase,
+  ICollateralToken
+} from "./interfaces/ICollateralToken.sol";
 import {IERC165} from "./interfaces/IERC721.sol";
 import {IERC721Receiver} from "./interfaces/IERC721Receiver.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";

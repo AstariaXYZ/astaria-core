@@ -2,7 +2,9 @@ pragma solidity ^0.8.17;
 
 import {Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {MultiRolesAuthority} from "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {
+  MultiRolesAuthority
+} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";

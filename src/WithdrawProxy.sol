@@ -5,7 +5,11 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-import {ERC4626Cloned, WithdrawVaultBase, ITokenBase} from "gpl/ERC4626-Cloned.sol";
+import {
+  ERC4626Cloned,
+  WithdrawVaultBase,
+  ITokenBase
+} from "gpl/ERC4626-Cloned.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 
 /**

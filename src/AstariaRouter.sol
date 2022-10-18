@@ -10,7 +10,9 @@ import {IERC721} from "gpl/interfaces/IERC721.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {ClonesWithImmutableArgs} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+import {
+  ClonesWithImmutableArgs
+} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
 import {CollateralLookup} from "./libraries/CollateralLookup.sol";
 
