@@ -80,9 +80,6 @@ contract LiquidationAccountant is LiquidationBase {
         );
     }
 
-    // pass in withdrawproxy address here instead of constructor in case liquidation called before first marked withdraw
-    // called on epoch boundary (maybe rename)
-
     /**
      * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
      */

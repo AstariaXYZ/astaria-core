@@ -20,8 +20,11 @@ import {Math} from "./utils/Math.sol";
 
 interface IPublicVault is IERC165 {
     function beforePayment(uint256 escrowId, uint256 amount) external;
+
     function decreaseEpochLienCount(uint256 lienId) external;
+
     function getLienEpoch(uint256 end) external view returns (uint256);
+
     function afterPayment(uint256 lienId) external;
 }
 
@@ -128,12 +131,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         require(epoch >= currentEpoch, "Exit epoch too low");
 
         require(msg.sender == owner, "Only the owner can redeem");
-        // check for rounding error since we round down in previewRedeem.
 
-        //todo: should we burn them? or do we need their supply to be maintained?
-        // transferFrom(msg.sender, address(this), shares);
         ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
-
 
         // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
         _deployWithdrawProxyIfNotDeployed(epoch);
@@ -258,30 +257,31 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     event TransferWithdraw(uint256 a, uint256 b);
+
     /**
      * @notice Transfers funds from the PublicVault to the WithdrawProxy.
      */
 
     function transferWithdrawReserve() public {
         // check the available balance to be withdrawn
-        uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
-        emit TransferWithdraw(withdraw, withdrawReserve);
+        uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
+        emit TransferWithdraw(withdrawBalance, withdrawReserve);
 
         // prevent transfer of more assets then are available
-        if (withdrawReserve <= withdraw) {
-            withdraw = withdrawReserve;
+        if (withdrawReserve <= withdrawBalance) {
+            withdrawBalance = withdrawReserve;
             withdrawReserve = 0;
         } else {
-            withdrawReserve -= withdraw;
+            withdrawReserve -= withdrawBalance;
         }
-        emit TransferWithdraw(withdraw, withdrawReserve);
+        emit TransferWithdraw(withdrawBalance, withdrawReserve);
 
         address currentWithdrawProxy = withdrawProxies[currentEpoch - 1]; //
         // prevents transfer to a non-existent WithdrawProxy
         // withdrawProxies are indexed by the epoch where they're deployed
         if (currentWithdrawProxy != address(0)) {
-            ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
-            emit WithdrawReserveTransferred(withdraw);
+            ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+            emit WithdrawReserveTransferred(withdrawBalance);
         }
     }
 
@@ -305,6 +305,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     event LienOpen(uint256 lienId, uint256 epoch);
+
     /**
      * @notice Retrieves the address of the LienToken contract for this PublicVault.
      * @return The LienToken address.
@@ -313,6 +314,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     function LIEN_TOKEN() public view returns (ILienToken) {
         return IAstariaRouter(ROUTER()).LIEN_TOKEN();
     }
+
     /**
      * @notice Computes the implied value of this PublicVault. This includes interest payments that have not yet been made.
      * @return The implied value for this PublicVault.
@@ -326,18 +328,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         return slope.mulDivDown(delta_t, 1) + yIntercept;
     }
-
-    //    /**
-    //     * @notice Computes the value for a given amount of VaultToken shares in terms of the underlying asset.
-    //     * @param shares The number of shares to compute for.
-    //     * @return The underlying value of the shares, diluted by unclaimed strategist shares.
-    //     */
-    //
-    //    function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
-    //        uint256 supply = totalSupply; // Saves an extra SLOAD if totalSupply is non-zero.
-    //
-    //        return supply == 0 ? shares : shares.mulDivDown(totalAssets(), supply + strategistUnclaimedShares);
-    //    }
 
     function totalSupply() public view virtual override returns (uint256) {
         return _totalSupply + strategistUnclaimedShares;

@@ -208,7 +208,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
             revert InvalidCollateralState(InvalidStates.DEBT_LIMIT);
         }
 
-
         lienId = uint256(
             keccak256(
                 abi.encodePacked(

@@ -141,11 +141,7 @@ contract TestHelpers is Test {
         MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
 
         TRANSFER_PROXY = new TransferProxy(MRA);
-        LIEN_TOKEN = new LienToken(
-            MRA,
-            TRANSFER_PROXY,
-            address(WETH9)
-        );
+        LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
         COLLATERAL_TOKEN = new CollateralToken(
             MRA,
             TRANSFER_PROXY,
@@ -169,10 +165,10 @@ contract TestHelpers is Test {
 
         AUCTION_HOUSE = new AuctionHouse(
             address(WETH9),
-                MRA,
-                ICollateralToken(address(COLLATERAL_TOKEN)),
-                ILienToken(address(LIEN_TOKEN)),
-                TRANSFER_PROXY
+            MRA,
+            ICollateralToken(address(COLLATERAL_TOKEN)),
+            ILienToken(address(LIEN_TOKEN)),
+            TRANSFER_PROXY
         );
 
         COLLATERAL_TOKEN.file(bytes32("setAstariaRouter"), abi.encode(address(ASTARIA_ROUTER)));
@@ -482,6 +478,7 @@ contract TestHelpers is Test {
     function _signalWithdraw(address lender, address publicVault) internal {
         _signalWithdrawAtFutureEpoch(lender, publicVault, PublicVault(publicVault).getCurrentEpoch());
     }
+
     // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
 
     function _signalWithdrawAtFutureEpoch(address lender, address publicVault, uint64 epoch) internal {

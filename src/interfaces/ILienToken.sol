@@ -42,6 +42,7 @@ interface ILienBase {
     function removeLiens(uint256 collateralId) external;
 
     function getInterest(uint256 collateralId, uint256 position) external view returns (uint256);
+
     function getInterest(uint256) external view returns (uint256);
 
     function getLiens(uint256 _collateralId) external view returns (uint256[] memory);

@@ -4,8 +4,8 @@ pragma solidity ^0.8.17;
 pragma experimental ABIEncoderV2;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {IERC721} from "gpl/interfaces/IERC721.sol";
-import {IERC165} from "./interfaces/IERC721.sol";
+import {IERC721} from "./interfaces/IERC721.sol";
+import {IERC165} from "./interfaces/IERC165.sol";
 
 import {IERC721Receiver} from "./interfaces/IERC721Receiver.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
@@ -70,7 +70,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     }
 
     function supportsInterface(bytes4 interfaceId) public view override (ERC721, IERC165) returns (bool) {
-        return interfaceId == type(ICollateralToken).interfaceId || super.supportsInterface(interfaceId);
+        return interfaceId == type(ICollateralToken).interfaceId || interfaceId == type(IERC721).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     /**

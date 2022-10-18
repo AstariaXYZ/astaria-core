@@ -16,6 +16,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+
 // import {WEth} from "./WEth.sol";
 
 interface IWETH9 is IERC20 {
@@ -53,11 +54,7 @@ contract AstariaDeploy {
         emit Deployed(address(MRA));
 
         TRANSFER_PROXY = new TransferProxy(MRA);
-        LIEN_TOKEN = new LienToken(
-            MRA,
-            TRANSFER_PROXY,
-            address(WETH9)
-        );
+        LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
         emit Deployed(address(TRANSFER_PROXY));
         COLLATERAL_TOKEN = new CollateralToken(
             MRA,
@@ -71,7 +68,6 @@ contract AstariaDeploy {
         ASTARIA_ROUTER = new AstariaRouter(
             MRA,
             address(WETH9),
-
             ICollateralToken(address(COLLATERAL_TOKEN)),
             ILienToken(address(LIEN_TOKEN)),
             ITransferProxy(address(TRANSFER_PROXY)),

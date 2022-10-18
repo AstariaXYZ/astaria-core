@@ -165,7 +165,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             minEpochLength = abi.decode(data, (uint256));
         } else if (what == "MAX_EPOCH_LENGTH") {
             maxEpochLength = abi.decode(data, (uint256));
-        }  else if (what == "MAX_INTEREST_RATE") {
+        } else if (what == "MAX_INTEREST_RATE") {
             maxInterestRate = abi.decode(data, (uint256));
         } else if (what == "feeTo") {
             address addr = abi.decode(data, (address));
@@ -252,30 +252,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     {
         return _newVault(epochLength, delegate, vaultFee);
     }
-
-    function borrowAndBuy(BorrowAndBuyParams memory params) external {
-        uint256 spendableBalance;
-        for (uint256 i = 0; i < params.commitments.length; ++i) {
-            _executeCommitment(params.commitments[i]);
-            spendableBalance += params.commitments[i].lienRequest.amount; //amount borrowed
-        }
-        require(params.purchasePrice <= spendableBalance, "purchase price cannot be for more than your aggregate loan");
-
-        WETH.safeApprove(params.invoker, params.purchasePrice);
-        require(
-            IInvoker(params.invoker).onBorrowAndBuy(
-                params.purchaseData, // calldata for the invoker
-                address(WETH), // token
-                params.purchasePrice, //max approval
-                payable(msg.sender) // recipient
-            ),
-            "borrow and buy failed"
-        );
-        if (spendableBalance - params.purchasePrice > uint256(0)) {
-            WETH.safeTransfer(msg.sender, spendableBalance - params.purchasePrice);
-        }
-    }
-
 
     /**
      * @notice Create a new lien against a CollateralToken.
@@ -388,6 +364,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     function getProtocolFee(uint256 amountIn) external view returns (uint256) {
         return amountIn.mulDivDown(protocolFeeNumerator, protocolFeeDenominator);
     }
+
     /**
      * @notice Retrieves the fee the protocol earns on loan origination.
      * @return The numerator and denominator used to compute the percentage fee taken by the protocol
