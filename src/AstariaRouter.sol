@@ -38,20 +38,10 @@ import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 import {MerkleProof} from "./utils/MerkleProof.sol";
 import {Pausable} from "./utils/Pausable.sol";
 
-interface IInvoker {
-  function onBorrowAndBuy(
-    bytes calldata data,
-    address token,
-    uint256 amount,
-    address payable recipient
-  ) external returns (bool);
-}
-
 /**
  * @title AstariaRouter
  * @notice This contract manages the deployment of Vaults and universal Astaria actions.
  */
-//IInvoker maybe
 contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
@@ -303,31 +293,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _newVault(epochLength, delegate, vaultFee);
   }
 
-  function borrowAndBuy(BorrowAndBuyParams memory params) external {
-    uint256 spendableBalance;
-    for (uint256 i = 0; i < params.commitments.length; ++i) {
-      _executeCommitment(params.commitments[i]);
-      spendableBalance += params.commitments[i].lienRequest.amount; //amount borrowed
-    }
-    require(
-      params.purchasePrice <= spendableBalance,
-      "purchase price cannot be for more than your aggregate loan"
-    );
-
-    WETH.safeApprove(params.invoker, params.purchasePrice);
-    require(
-      IInvoker(params.invoker).onBorrowAndBuy(
-        params.purchaseData, // calldata for the invoker
-        address(WETH), // token
-        params.purchasePrice, //max approval
-        payable(msg.sender) // recipient
-      ),
-      "borrow and buy failed"
-    );
-    if (spendableBalance - params.purchasePrice > uint256(0)) {
-      WETH.safeTransfer(msg.sender, spendableBalance - params.purchasePrice);
-    }
-  }
 
   /**
    * @notice Create a new lien against a CollateralToken.

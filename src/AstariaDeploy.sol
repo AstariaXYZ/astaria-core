@@ -15,7 +15,7 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-
+import {WEth} from "eip4626/WEth.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
