@@ -1,146 +1,156 @@
-pragma solidity ^0.8.16;
+// SPDX-License-Identifier: UNLICENSED
+
+/**
+ *       __  ___       __
+ *  /\  /__'  |   /\  |__) |  /\
+ * /~~\ .__/  |  /~~\ |  \ | /~~\
+ * 
+ * Copyright (c) Astaria Labs, Inc
+ */
+
+pragma solidity ^0.8.17;
 
 import {IERC721} from "gpl/interfaces/IERC721.sol";
-import {ILienBase, ILienToken} from "./ILienToken.sol";
+import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {IVault} from "gpl/ERC4626-Cloned.sol";
+
 import {ICollateralToken} from "./ICollateralToken.sol";
-import {ITransferProxy} from "./ITransferProxy.sol";
+import {ILienBase, ILienToken} from "./ILienToken.sol";
+
 import {IPausable} from "../utils/Pausable.sol";
 
 interface IAstariaRouter is IPausable {
-    struct Terms {
-        address broker;
-        address token;
-        bytes32[] proof;
-        uint256 collateralId;
-        uint256 maxAmount;
-        uint256 maxDebt;
-        uint256 rate;
-        uint256 maxRate;
-        uint256 duration;
-        uint256 schedule;
-    }
+  enum VaultType {
+    SOLO,
+    PUBLIC
+  }
 
-    struct LienDetails {
-        uint256 maxAmount;
-        uint256 maxSeniorDebt;
-        uint256 rate; //rate per second
-        uint256 maxInterestRate; //max at origination
-        uint256 duration;
-    }
+  struct LienDetails {
+    uint256 maxAmount;
+    uint256 rate; //rate per second
+    uint256 duration;
+    uint256 maxPotentialDebt;
+  }
 
-    enum ObligationType {
-        STANDARD,
-        COLLECTION
-    }
+  enum LienRequestType {
+    UNIQUE,
+    COLLECTION,
+    UNIV3_LIQUIDITY
+  }
 
-    struct CollectionDetails {
-        uint8 version;
-        address token;
-        address borrower;
-        LienDetails lien;
-    }
+  struct StrategyDetails {
+    uint8 version;
+    address strategist;
+    uint256 deadline;
+    address vault;
+  }
 
-    struct CollateralDetails {
-        uint8 version;
-        address token;
-        uint256 tokenId;
-        address borrower;
-        LienDetails lien;
-    }
+  struct MerkleData {
+    bytes32 root;
+    bytes32[] proof;
+  }
 
-    struct StrategyDetails {
-        uint8 version;
-        address strategist;
-        address delegate;
-        uint256 nonce;
-        address vault;
-    }
+  struct NewLienRequest {
+    StrategyDetails strategy;
+    uint8 nlrType;
+    bytes nlrDetails;
+    MerkleData merkle;
+    uint256 amount;
+    uint8 v;
+    bytes32 r;
+    bytes32 s;
+  }
 
-    struct NewLienRequest {
-        StrategyDetails strategy;
-        uint8 obligationType;
-        bytes obligationDetails;
-        bytes32 obligationRoot;
-        bytes32[] obligationProof;
-        uint256 amount;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
+  struct Commitment {
+    address tokenContract;
+    uint256 tokenId;
+    NewLienRequest lienRequest;
+  }
 
-    struct Commitment {
-        address tokenContract;
-        uint256 tokenId;
-        NewLienRequest lienRequest;
-    }
+  struct RefinanceCheckParams {
+    uint256 position;
+    Commitment incoming;
+  }
 
-    struct RefinanceCheckParams {
-        uint256 position;
-        Commitment incoming;
-    }
+  struct BorrowAndBuyParams {
+    Commitment[] commitments;
+    address invoker;
+    uint256 purchasePrice;
+    bytes purchaseData;
+    address receiver;
+  }
 
-    struct BorrowAndBuyParams {
-        Commitment[] commitments;
-        address invoker;
-        uint256 purchasePrice;
-        bytes purchaseData;
-        address receiver;
-    }
+  function strategistNonce(address strategist) external view returns (uint256);
 
-    struct BondVault {
-        address appraiser; // address of the appraiser for the BondVault
-        uint256 expiration; // expiration for lenders to add assets and expiration when borrowers cannot create new borrows
-    }
+  function validateCommitment(Commitment calldata)
+    external
+    returns (bool, IAstariaRouter.LienDetails memory);
 
-    function newPublicVault(uint256) external returns (address);
+  function newPublicVault(
+    uint256,
+    address,
+    uint256
+  ) external returns (address);
 
-    function feeTo() external returns (address);
+  function newVault(address) external returns (address);
 
-    function commitToLoans(Commitment[] calldata)
-        external
-        returns (uint256 totalBorrowed);
+  function feeTo() external returns (address);
 
-    function requestLienPosition(ILienBase.LienActionEncumber calldata params)
-        external
-        returns (uint256);
+  function commitToLiens(Commitment[] calldata)
+    external
+    returns (uint256 totalBorrowed);
 
-    function LIEN_TOKEN() external view returns (ILienToken);
+  function requestLienPosition(
+    IAstariaRouter.LienDetails memory,
+    IAstariaRouter.Commitment calldata
+  ) external returns (uint256);
 
-    function TRANSFER_PROXY() external view returns (ITransferProxy);
+  function LIEN_TOKEN() external view returns (ILienToken);
 
-    function WITHDRAW_IMPLEMENTATION() external view returns (address);
+  function TRANSFER_PROXY() external view returns (ITransferProxy);
 
-    function LIQUIDATION_IMPLEMENTATION() external view returns (address);
+  function WITHDRAW_IMPLEMENTATION() external view returns (address);
 
-    function VAULT_IMPLEMENTATION() external view returns (address);
+  function LIQUIDATION_IMPLEMENTATION() external view returns (address);
 
-    function COLLATERAL_TOKEN() external view returns (ICollateralToken);
+  function VAULT_IMPLEMENTATION() external view returns (address);
 
-    function MIN_INTEREST_BPS() external view returns (uint256);
+  function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
-    function getStrategistFee() external view returns (uint256, uint256);
+  function minInterestBPS() external view returns (uint256);
 
-    function lendToVault(address vault, uint256 amount) external;
+  function maxInterestRate() external view returns (uint256);
 
-    function liquidate(uint256 collateralId, uint256 position)
-        external
-        returns (uint256 reserve);
+  function getStrategistFee(uint256) external view returns (uint256);
 
-    function canLiquidate(uint256 collateralId, uint256 position)
-        external
-        view
-        returns (bool);
+  function getProtocolFee(uint256) external view returns (uint256);
 
-    function isValidVault(address) external view returns (bool);
+  function getBuyoutFee(uint256) external view returns (uint256);
 
-    function isValidRefinance(ILienBase.Lien memory, LienDetails memory)
-        external
-        returns (bool);
+  function getBuyoutInterestWindow() external view returns (uint32);
 
-    event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
-    event NewVault(address appraiser, address vault);
+  function lendToVault(IVault vault, uint256 amount) external;
 
-    error InvalidAddress(address);
-    error InvalidRefinanceRate(uint256);
-    error InvalidRefinanceDuration(uint256);
+  function liquidate(uint256 collateralId, uint256 position)
+    external
+    returns (uint256 reserve);
+
+  function canLiquidate(uint256 collateralId, uint256 position)
+    external
+    view
+    returns (bool);
+
+  function isValidVault(address) external view returns (bool);
+
+  function isValidRefinance(ILienBase.Lien memory, LienDetails memory)
+    external
+    view
+    returns (bool);
+
+  event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
+  event NewVault(address appraiser, address vault);
+
+  error InvalidAddress(address);
+  error InvalidRefinanceRate(uint256);
+  error InvalidRefinanceDuration(uint256);
 }
