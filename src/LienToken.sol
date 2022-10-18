@@ -193,13 +193,11 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         if (AUCTION_HOUSE.auctionExists(collateralId)) {
             revert InvalidCollateralState(InvalidStates.AUCTION);
         }
-        //        require(!AUCTION_HOUSE.auctionExists(collateralId), "collateralId is being liquidated, cannot open new liens");
 
         (address tokenContract,) = COLLATERAL_TOKEN.getUnderlying(collateralId);
         if (tokenContract == address(0)) {
             revert InvalidCollateralState(InvalidStates.NO_DEPOSIT);
         }
-        //        require(tokenContract != address(0), "Collateral must be deposited before you can request a lien");
 
         uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
         uint256 impliedRate = getImpliedRate(collateralId);
@@ -209,10 +207,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         if (potentialDebt > params.terms.maxPotentialDebt) {
             revert InvalidCollateralState(InvalidStates.DEBT_LIMIT);
         }
-        //        require(
-        //            params.terms.maxPotentialDebt >= potentialDebt,
-        //            "too much debt could potentially be accrued against this collateral"
-        //        );
+
 
         lienId = uint256(
             keccak256(

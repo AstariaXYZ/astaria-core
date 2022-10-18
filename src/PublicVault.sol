@@ -129,14 +129,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
         require(msg.sender == owner, "Only the owner can redeem");
         // check for rounding error since we round down in previewRedeem.
-        // require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
 
-        // beforeWithdraw(assets, shares);
         //todo: should we burn them? or do we need their supply to be maintained?
         // transferFrom(msg.sender, address(this), shares);
         ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
 
-        // _burn(owner, shares);
 
         // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
         _deployWithdrawProxyIfNotDeployed(epoch);
