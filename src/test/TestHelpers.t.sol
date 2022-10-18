@@ -130,7 +130,6 @@ contract TestHelpers is Test {
   address strategistOne = vm.addr(strategistOnePK);
   address strategistTwo = vm.addr(strategistTwoPK);
 
-  // address lender = vm.addr(0x1340);
   address borrower = vm.addr(0x1341);
   address bidderOne = vm.addr(0x1342);
   address bidderTwo = vm.addr(0x1343);
@@ -338,7 +337,6 @@ contract TestHelpers is Test {
       true
     );
 
-    // TODO add to AstariaDeploy(?)
     MRA.setRoleCapability(
       uint8(UserRoles.LIEN_TOKEN),
       TRANSFER_PROXY.tokenTransferFrom.selector,
@@ -379,82 +377,6 @@ contract TestHelpers is Test {
       uint256(5000)
     );
     vm.stopPrank();
-  }
-
-  function _generateLoanMerkleProof(
-    address strategist,
-    address tokenContract,
-    uint256 tokenId,
-    IAstariaRouter.LienRequestType requestType,
-    bytes memory data,
-    address vault
-  ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
-    uint256 collateralId = uint256(
-      keccak256(abi.encodePacked(tokenContract, tokenId))
-    );
-
-    string[] memory inputs;
-    if (requestType == IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY) {
-      inputs = new string[](13);
-    } else {
-      inputs = new string[](10);
-    }
-
-    // TODO make readable
-    inputs[0] = "node";
-    inputs[1] = "scripts/loanProofGenerator.js";
-    inputs[2] = abi.encodePacked(tokenContract).toHexString(); //tokenContract
-    if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
-      inputs[3] = abi.encodePacked(tokenId).toHexString(); //tokenId
-      inputs[4] = abi.encodePacked(strategist).toHexString(); //appraiserOne
-      inputs[5] = abi.encodePacked(block.timestamp + 2 days).toHexString(); //fixed for 2 days atm
-      inputs[6] = abi.encodePacked(vault).toHexString(); //vault
-
-      IUniqueValidator.Details memory terms = abi.decode(
-        data,
-        (IUniqueValidator.Details)
-      );
-
-      //vault details
-      inputs[7] = abi.encodePacked(uint8(StrategyTypes.STANDARD)).toHexString(); //type
-      inputs[8] = abi.encodePacked(address(0)).toHexString(); //borrower
-      inputs[9] = abi.encode(terms.lien).toHexString(); //lien details
-    } else {
-      inputs[3] = abi.encodePacked(strategist).toHexString(); //appraiserOne
-      inputs[4] = abi.encodePacked(block.timestamp + 2 days).toHexString(); //fixed for 2 days atm
-      inputs[5] = abi.encodePacked(vault).toHexString(); //vault
-      if (requestType == IAstariaRouter.LienRequestType.COLLECTION) {
-        ICollectionValidator.Details memory terms = abi.decode(
-          data,
-          (ICollectionValidator.Details)
-        );
-
-        inputs[6] = abi
-          .encodePacked(uint8(StrategyTypes.COLLECTION))
-          .toHexString(); //type
-        inputs[7] = abi.encodePacked(address(0)).toHexString(); //borrower
-        inputs[8] = abi.encode(terms.lien).toHexString(); //lien details
-      } else {
-        // LienRequestType.UNIV3_LIQUIDITY
-        IUNI_V3Validator.Details memory terms = abi.decode(
-          data,
-          (IUNI_V3Validator.Details)
-        );
-
-        inputs[6] = abi
-          .encodePacked(uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY))
-          .toHexString(); //type
-        inputs[7] = abi.encodePacked(terms.assets).toHexString(); // [token0, token1]
-        inputs[8] = abi.encodePacked(terms.fee).toHexString(); //lien details
-        inputs[9] = abi.encodePacked(terms.tickLower).toHexString(); //lien details
-        inputs[10] = abi.encodePacked(terms.tickUpper).toHexString(); //lien details
-        inputs[11] = abi.encodePacked(address(0)).toHexString(); //borrower
-        inputs[12] = abi.encode(terms.lien).toHexString(); //lien details
-      }
-    }
-
-    bytes memory res = vm.ffi(inputs);
-    (rootHash, merkleProof) = abi.decode(res, (bytes32, bytes32[]));
   }
 
   function _generateLoanMerkleProof2(
@@ -514,7 +436,6 @@ contract TestHelpers is Test {
     }
     uint256 collateralTokenId = tokenContract.computeId(tokenId);
 
-    // address vault = _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
@@ -625,12 +546,6 @@ contract TestHelpers is Test {
     uint256 timestamp;
   }
 
-  // withdrwEpoch is epoch when lender signals a withdraw, not when they collect funds
-  // function _lendWithWithdraw(Lender memory lender, address vault, uint64 withdrawEpoch) {
-  //     require(withdrawEpoch >= PublicVault(vault).currentEpoch, "withdraw epoch must be at least current epoch");
-  //     _lendToVault(lender, vault);
-
-  // }
 
   function _lendToVault(Lender[] memory lenders, address vault) internal {
     for (uint256 i = 0; i < lenders.length; i++) {

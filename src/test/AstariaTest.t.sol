@@ -372,8 +372,6 @@ contract AstariaTest is TestHelpers {
     );
     PublicVault(publicVault).processEpoch();
     _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
-    //
-    //
     _warpToEpochEnd(publicVault);
 
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
@@ -390,46 +388,7 @@ contract AstariaTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: false
     });
-    // Dummy721 nft2 = new Dummy721();
-    // address tokenContract2 = address(nft2);
-    // uint256 tokenId2 = uint256(2);
 
-    // _commitToLien({
-    //     vault: publicVault,
-    //     strategist: strategistOne,
-    //     strategistPK: strategistOnePK,
-    //     tokenContract: tokenContract2,
-    //     tokenId: tokenId2,
-    //     lienDetails: IAstariaRouter.LienDetails({
-    //         maxAmount: 50 ether,
-    //         rate: ((uint256(0.05 ether) / 365) * 1 days),
-    //         duration: 13 days,
-    //         maxPotentialDebt: 50 ether
-    //     }),
-    //     amount: 10 ether
-    // });
-
-    // uint256 collateralId2 = tokenContract.computeId(tokenId2);
-
-    // _lendToVault(Lender({addr: devon, amountToLend: 50 ether}), publicVault);
-
-    // vm.warp(block.timestamp + 13 days - 1);
-
-    // _repay(collateralId2, 20 ether, address(this));
-
-    // vm.warp(block.timestamp + 2 days);
-
-    // PublicVault(publicVault).processEpoch();
-
-    // _signalWithdraw(charlie, publicVault);
-    // _signalWithdraw(devon, publicVault);
-    // _signalWithdraw(edgar, publicVault);
-
-    // vm.warp(block.timestamp + 15 days);
-    // PublicVault(publicVault).processEpoch();
-
-    // vm.warp(block.timestamp + 15 days);
-    // PublicVault(publicVault).processEpoch();
   }
 
   uint8 FUZZ_SIZE = uint8(10);
@@ -474,49 +433,6 @@ contract AstariaTest is TestHelpers {
     }
     _;
   }
-
-  // a test that deploys a PublicVault, lends 50 ether to the Vault, and then calls _signalWithdraw without doing _commitToLien.
-  //    function testWithdrawProxyWithoutCommitToLien(FuzzInputs[] memory args) public validateInputs(args) {
-  //        address publicVault =
-  //        _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
-  //        for (uint256 i = 0; i < 42; i++) {
-  //            vm.warp(block.timestamp + (1 days));
-  //
-  //            for (uint256 j = 0; j < args.length; j++) {
-  //                FuzzInputs memory input = args[j];
-  //                if (input.lendDay == i) {
-  //                    _lendToVault(Lender({addr: address(j), amountToLend: input.lendAmount}), publicVault);
-  //                }
-  //
-  //                if (input.borrowDay == i) {
-  //                    _commitToLien({
-  //                        vault: publicVault,
-  //                        strategist: strategistOne,
-  //                        strategistPK: strategistOnePK,
-  //                        tokenContract: tokenContract,
-  //                        tokenId: tokenId,
-  //                        lienDetails: IAstariaRouter.LienDetails({
-  //                            maxAmount: 50 ether,
-  //                            rate: ((uint256(0.05 ether) / 365) * 1 days),
-  //                            duration: uint256(block.timestamp + 13 days),
-  //                            maxPotentialDebt: 50 ether
-  //                        }),
-  //                        amount: input.borrowAmount
-  //                    });
-  //                }
-  //
-  //                if (input.lenderWithdrawEpoch == i) {
-  //                    _signalWithdraw(address(j), publicVault);
-  //                }
-  //
-  //                if (input.willRepay) {
-  //                    _repayLien(address(j), publicVault, input.repayAmount);
-  //                } else {
-  //                    _bid(address(j), publicVault, input.bidAmount);
-  //                }
-  //            }
-  //        }
-  //    }
 
   function run() public {
     testBasicPublicVaultLoan();
