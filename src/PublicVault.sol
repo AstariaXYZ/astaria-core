@@ -364,7 +364,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   /**
    * @dev Hook for updating the slope of the PublicVault after a LienToken is issued.
    * @param lienId The ID of the lien.
-   * @param amount
+   * @param amount The amount of debt
    */
   function _afterCommitToLien(uint256 lienId, uint256 amount)
     internal
