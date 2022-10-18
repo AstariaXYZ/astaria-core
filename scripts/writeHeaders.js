@@ -48,14 +48,18 @@ const headers = async ({ dir, header, predicate }) => {
 //  * LICENSE file in the root directory of this source tree.
 //  */\n\n`;
 
-const header = `/**
+const header = `// SPDX-License-Identifier: UNLICENSED
+
+/**
+ *       __  ___       __
+ *  /\\  /__'  |   /\\  |__) |  /\\
+ * /~~\\ .__/  |  /~~\\ |  \\ | /~~\\
+ * 
  * Copyright (c) Astaria Labs, Inc
- *
- * This source code is UNLICENSED
  */\n\n`;
 
 headers({
-  dir: "./src/libraries",
+  dir: "./src",
   header,
   predicate: (filePath) => /\.sol$/.test(filePath),
 });

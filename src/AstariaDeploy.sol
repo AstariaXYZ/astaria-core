@@ -1,26 +1,36 @@
+// SPDX-License-Identifier: UNLICENSED
+
+/**
+ *       __  ___       __
+ *  /\  /__'  |   /\  |__) |  /\
+ * /~~\ .__/  |  /~~\ |  \ | /~~\
+ *
+ * Copyright (c) Astaria Labs, Inc
+ */
+
 pragma solidity ^0.8.17;
 
 import {Authority} from "solmate/auth/Auth.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
 import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
+import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 
-import {WEth} from "foundry_eip-4626/WEth.sol";
-
-import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
 
-import {AstariaRouter} from "./AstariaRouter.sol";
 import {CollateralToken} from "./CollateralToken.sol";
 import {LienToken} from "./LienToken.sol";
-import {TransferProxy} from "./TransferProxy.sol";
+import {AstariaRouter} from "./AstariaRouter.sol";
+
 import {Vault, PublicVault} from "./PublicVault.sol";
+import {TransferProxy} from "./TransferProxy.sol";
+
+import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
+import {ILienToken} from "./interfaces/ILienToken.sol";
 
 interface IWETH9 is IERC20 {
   function deposit() external payable;
