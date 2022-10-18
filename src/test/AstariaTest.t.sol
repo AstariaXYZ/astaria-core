@@ -153,7 +153,7 @@ contract AstariaTest is TestHelpers {
 
         address withdrawProxy = PublicVault(publicVault).withdrawProxies(PublicVault(publicVault).getCurrentEpoch());
 
-        // assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
+        assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
         vm.warp(block.timestamp + 14 days); // end of loan
 
@@ -172,11 +172,12 @@ contract AstariaTest is TestHelpers {
         vm.warp(block.timestamp + 13 days);
         LiquidationAccountant(liquidationAccountant).claim();
 
-        // vm.startPrank(address(1));
-        // WithdrawProxy(withdrawProxy).withdraw(vaultTokenBalance);
-        // vm.stopPrank();
+        PublicVault(publicVault).transferWithdrawReserve();
 
-        // assertEq(WETH9.balanceOf(address(1)), 40 ether); // TODO check
+        vm.startPrank(address(1));
+        WithdrawProxy(withdrawProxy).redeem(vaultTokenBalance, address(1), address(1));
+        vm.stopPrank();
+        assertEq(WETH9.balanceOf(address(1)), 40 ether);
     }
 
     function testReleaseToAddress() public {
@@ -249,29 +250,34 @@ contract AstariaTest is TestHelpers {
         COLLATERAL_TOKEN.file(bytes32("Justin Bram"), "");
     }
 
-    event Here();
-
     function _warpToEpochEnd(address vault) internal {
         //warps to the first second after the epoch end
         vm.warp(PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1);
     }
 
+    function mintAndDeposit(address tokenContract, uint256 tokenId) internal {
+        TestNFT(tokenContract).mint(address(this), tokenId);
+        ERC721(tokenContract).safeTransferFrom(address(this), address(COLLATERAL_TOKEN), tokenId, "");
+    }
+
     function testEpochProcessionMultipleActors() public {
-        address alice = address(uint160(uint256(keccak256(abi.encodePacked(uint256(1))))));
+        address alice = address(1);
         address bob = address(2);
         address charlie = address(3);
         address devon = address(4);
         address edgar = address(5);
 
         TestNFT nft = new TestNFT(2);
+        mintAndDeposit(address(nft), 5);
         address tokenContract = address(nft);
         uint256 tokenId = uint256(0);
 
         address publicVault =
             _createPublicVault({strategist: strategistOne, delegate: strategistTwo, epochLength: 14 days});
 
+        _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
         _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
-        _warpToEpochEnd(publicVault);
+
         _commitToLien({
             vault: publicVault,
             strategist: strategistOne,
@@ -286,24 +292,29 @@ contract AstariaTest is TestHelpers {
 
         vm.warp(block.timestamp + 9 days);
         _repay(collateralId, 100 ether, address(this));
-
-        //        _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
-
         _warpToEpochEnd(publicVault);
+        //after epoch end
+        uint256 balance = ERC20(PublicVault(publicVault).underlying()).balanceOf(publicVault);
         PublicVault(publicVault).processEpoch();
+        _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
+        //
+        //
+        _warpToEpochEnd(publicVault);
 
-        //        _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
-        //        _warpToEpochEnd(publicVault);
-        //        _commitToLien({
-        //            vault: publicVault,
-        //            strategist: strategistOne,
-        //            strategistPK: strategistOnePK,
-        //            tokenContract: tokenContract,
-        //            tokenId: uint256(5),
-        //            lienDetails: standardLien,
-        //            amount: 10 ether,
-        //            isFirstLien: true
-        //        });
+        _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
+        _warpToEpochEnd(publicVault);
+        _signalWithdraw(alice, publicVault);
+
+        _commitToLien({
+            vault: publicVault,
+            strategist: strategistOne,
+            strategistPK: strategistOnePK,
+            tokenContract: tokenContract,
+            tokenId: uint256(5),
+            lienDetails: standardLien,
+            amount: 10 ether,
+            isFirstLien: false
+        });
         // Dummy721 nft2 = new Dummy721();
         // address tokenContract2 = address(nft2);
         // uint256 tokenId2 = uint256(2);
@@ -335,7 +346,6 @@ contract AstariaTest is TestHelpers {
 
         // PublicVault(publicVault).processEpoch();
 
-        // _signalWithdraw(alice, publicVault);
         // _signalWithdraw(charlie, publicVault);
         // _signalWithdraw(devon, publicVault);
         // _signalWithdraw(edgar, publicVault);

@@ -45,6 +45,10 @@ contract Dummy721 is MockERC721 {
         _mint(msg.sender, 1);
         _mint(msg.sender, 2);
     }
+
+    function mint(uint256 tokenId) public {
+        _mint(msg.sender, tokenId);
+    }
 }
 
 contract TestNFT is MockERC721 {
@@ -52,6 +56,10 @@ contract TestNFT is MockERC721 {
         for (uint256 i = 0; i < size; ++i) {
             _mint(msg.sender, i);
         }
+    }
+
+    function mint(uint256 tokenId) public {
+        _mint(msg.sender, tokenId);
     }
 }
 

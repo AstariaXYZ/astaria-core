@@ -64,11 +64,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     using SafeTransferLib for ERC20;
 
     // epoch seconds when yIntercept was calculated last
-    uint256 last;
+    uint256 public last;
     // sum of all LienToken amounts
-    uint256 yIntercept;
+    uint256 public yIntercept;
     // sum of all slopes of each LienToken
-    uint256 slope;
+    uint256 public slope;
 
     // block.timestamp of first epoch
     uint256 public withdrawReserve = 0;
@@ -316,15 +316,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     function LIEN_TOKEN() public view returns (ILienToken) {
         return IAstariaRouter(ROUTER()).LIEN_TOKEN();
     }
-
     /**
      * @notice Computes the implied value of this PublicVault. This includes interest payments that have not yet been made.
      * @return The implied value for this PublicVault.
      */
+
     function totalAssets() public view virtual override returns (uint256) {
+        if (last == 0 || yIntercept == 0) {
+            return ERC20(underlying()).balanceOf(address(this));
+        }
         uint256 delta_t = block.timestamp - last;
-        return slope.mulDivDown(delta_t, 1e18) + yIntercept;
+
+        return slope.mulDivDown(delta_t, 1) + yIntercept;
     }
+
     //    /**
     //     * @notice Computes the value for a given amount of VaultToken shares in terms of the underlying asset.
     //     * @param shares The number of shares to compute for.
