@@ -68,19 +68,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   /**
-   * @notice Sends collected funds to a withdrawing liquidity provider
-   * @param amount The amount of the underlying PublicVault asset the user is withdrawing. The user must have as many WithdrawProxy tokens as underlying PublicVault assets they are withdrawing, and the WithdrawProxy must have a sufficient balance of the underlying PublicVault asset.
-   */
-  // function withdraw(uint256 amount) public {
-  //     require(balanceOf[msg.sender] >= amount, "insufficient balance");
-  //     ERC20(underlying()).safeTransfer(
-  //         msg.sender, (amount.mulDivDown(1, totalSupply())) * ERC20(underlying()).balanceOf(address(this))
-  //     );
-  //     redeem(amount, msg.sender, msg.sender);
-  //     _burn(msg.sender, amount);
-  // }
-
-  /**
    * @notice Mints WithdrawTokens for withdrawing liquidity providers, redeemable by the end of the next epoch.
    * @param receiver The receiver of the Withdraw Tokens.
    * @param shares The number of shares to mint.
@@ -90,11 +77,4 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     _mint(receiver, shares);
   }
 
-  //    /**
-  //     * @notice Burns WithdrawTokens, stops accruing funds for the liquidity provider to withdraw, and reinvests any accrued funds back into the liquidity provider's PublicVault.
-  //     * @param amount The amount of WithdrawTokens the user wishes to burn.
-  //     */
-  //    function undoWithdraw(uint256 amount) public {
-  //        require(ERC20(underlying()).balanceOf(msg.sender) >= amount);
-  //    }
 }
