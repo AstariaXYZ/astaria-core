@@ -7,7 +7,7 @@ To install contract dependencies, run:
 ```sh
 yarn
 forge install
-git submodule install
+git submodule
 ```
 
 Tests are located in src/test. To run tests, run:
