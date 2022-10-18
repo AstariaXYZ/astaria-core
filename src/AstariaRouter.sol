@@ -49,6 +49,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     address public WITHDRAW_IMPLEMENTATION;
     address public feeTo;
     uint256 public liquidationFeePercent;
+    uint256 public maxInterestRate;
     uint256 public maxEpochLength;
     uint256 public minEpochLength;
     uint256 public minInterestBPS; // was uint64
@@ -95,6 +96,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         minInterestBPS = uint256(0.0005 ether) / uint256(365 days); //5 bips / second
         minEpochLength = 7 days;
         maxEpochLength = 45 days;
+        maxInterestRate = 63419583966; // 200% apy / second
         strategistFeeNumerator = 200;
         strategistFeeDenominator = 1000;
         minDurationIncrease = 14 days;
@@ -163,6 +165,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             minEpochLength = abi.decode(data, (uint256));
         } else if (what == "MAX_EPOCH_LENGTH") {
             maxEpochLength = abi.decode(data, (uint256));
+        }  else if (what == "MAX_INTEREST_RATE") {
+            maxInterestRate = abi.decode(data, (uint256));
         } else if (what == "feeTo") {
             address addr = abi.decode(data, (address));
             feeTo = addr;
@@ -191,10 +195,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     {
         require(commitment.lienRequest.strategy.deadline >= block.timestamp, "deadline passed");
 
-        //        require(
-        //            commitment.lienRequest.strategy.nonce == strategistNonce[commitment.lienRequest.strategy.strategist],
-        //            "invalid nonce"
-        //        );
         require(strategyValidators[commitment.lienRequest.nlrType] != address(0), "invalid strategy type");
 
         bytes32 leaf;
@@ -233,9 +233,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         TRANSFER_PROXY.tokenTransferFrom(address(WETH), address(this), address(msg.sender), totalBorrowed);
     }
 
-    // verifies the signature on the root of the merkle tree to be the appraiser
-    // we need an additional method to prevent a griefing attack where the signature is stripped off and reserrved by an attacker
-
     /**
      * @notice Deploys a new PrivateVault.
      * @return The address of the new PrivateVault.
@@ -255,26 +252,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     {
         return _newVault(epochLength, delegate, vaultFee);
     }
-
-    //    struct BorrowBuyParams {
-    //        address acquireToken; //NFT to acquire
-    //        uint256 acquireId;
-    //        uint256 borrowAmount;
-    //        address buyToken; // for any approvals
-    //        uint256 buyAmount; // ensure we have the balance
-    //        address buyTarget;
-    //        bytes buyData;
-    //    }
-    //
-    //    function onBorrowAndBuy(BorrowBuyParams calldata data)
-    //        external
-    //        returns (bool)
-    //    {
-    //        //token to buy, purchasePrice,
-    //        //buy the underlying nft
-    //
-    //        return true;
-    //    }
 
     function borrowAndBuy(BorrowAndBuyParams memory params) external {
         uint256 spendableBalance;
@@ -298,17 +275,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             WETH.safeTransfer(msg.sender, spendableBalance - params.purchasePrice);
         }
     }
-    //
-    //    /**
-    //     * @notice Buy out a lien to replace it with new terms.
-    //     * @param position The position of the lien to be replaced.
-    //     * @param incomingTerms The terms of the new lien.
-    //     */
-    //    function buyoutLien(uint256 position, IAstariaRouter.Commitment calldata incomingTerms) external whenNotPaused {
-    //        VaultImplementation(incomingTerms.lienRequest.strategy.vault).buyoutLien(
-    //            incomingTerms.tokenContract.computeId(incomingTerms.tokenId), position, incomingTerms
-    //        );
-    //    }
+
 
     /**
      * @notice Create a new lien against a CollateralToken.

@@ -98,6 +98,8 @@ interface IAstariaRouter is IPausable {
 
     function minInterestBPS() external view returns (uint256);
 
+    function maxInterestRate() external view returns (uint256);
+
     function getStrategistFee(uint256) external view returns (uint256);
 
     function getProtocolFee(uint256) external view returns (uint256);
