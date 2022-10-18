@@ -114,7 +114,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   }
 
   /**
-   * @dev Enables _pause, freezing functions with the whenNotPaused modifier. TODO specify affected contracts?
+   * @dev Enables _pause, freezing functions with the whenNotPaused modifier.
    */
   function __emergencyPause() external requiresAuth whenNotPaused {
     _pause();
@@ -425,7 +425,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   /**
    * @notice Retrieves the fee PublicVault strategists earn on loan origination.
-   * @return The numerator and denominator used to compute the percentage fee strategists earn by receiving minted vault shares. TODO reword
+   * @return The numerator and denominator used to compute the percentage fee strategists earn by receiving minted vault shares.
    */
   function getStrategistFee(uint256 amountIn) external view returns (uint256) {
     return

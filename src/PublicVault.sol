@@ -186,8 +186,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     require(msg.sender == owner, "Only the owner can redeem");
     // check for rounding error since we round down in previewRedeem.
 
-    //todo: should we burn them? or do we need their supply to be maintained?
-    // transferFrom(msg.sender, address(this), shares);
     ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
 
     // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
@@ -461,7 +459,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return Math.ceilDiv(end - START(), EPOCH_LENGTH()) - 1;
   }
 
-  //todo check this
   function getEpochEnd(uint256 epoch) public view returns (uint256) {
     return START() + (epoch + 1) * EPOCH_LENGTH();
   }

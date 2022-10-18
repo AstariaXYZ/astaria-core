@@ -325,7 +325,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   }
 
   /**
-   * @notice Cancels the auction for a CollateralToken and returns the NFT to the borrower. TODO check
+   * @notice Cancels the auction for a CollateralToken and returns the NFT to the borrower.
    * @param tokenId The ID of the CollateralToken to cancel the auction for.
    */
   function cancelAuction(uint256 tokenId) external onlyOwner(tokenId) {

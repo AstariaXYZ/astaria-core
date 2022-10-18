@@ -376,7 +376,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   /**
    * @notice Make a payment for the debt against a CollateralToken.
    * @param collateralId The ID of the underlying CollateralToken.
-   * @param paymentAmount The amount to pay against the debt. TODO reword?
+   * @param paymentAmount The amount to pay against the debt.
    */
   function makePayment(uint256 collateralId, uint256 paymentAmount) public {
     makePayment(collateralId, paymentAmount, address(msg.sender));
@@ -385,7 +385,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   /**
    * @notice Make a payment for the debt against a CollateralToken for a specific lien.
    * @param collateralId The ID of the underlying CollateralToken.
-   * @param paymentAmount The amount to pay against the debt. TODO reword?
+   * @param paymentAmount The amount to pay against the debt.
    * @param position The lien position to make a payment to.
    */
   function makePayment(
@@ -418,7 +418,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   /**
    * @notice Computes the rate for a specified lien.
    * @param lienId The ID for the lien.
-   * @return The rate for the specified lien, in WETH per second. TODO check
+   * @return The rate for the specified lien, in WETH per second.
    */
   function calculateSlope(uint256 lienId) public view returns (uint256) {
     Lien memory lien = lienData[lienId];
