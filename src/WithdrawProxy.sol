@@ -24,7 +24,11 @@ import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 
 /**
  * @title WithdrawProxy
- * @notice This contract collects funds for liquidity providers who are exiting. When a liquidity provider is the first in an epoch to mark that they would like to withdraw their funds, a WithdrawProxy for the liquidity provider's PublicVault is deployed to collect loan repayments until the end of the next epoch. Users are minted WithdrawTokens according to their balance in the protocol which are redeemable 1:1 for the underlying PublicVault asset by the end of the next epoch.
+ * @notice This contract collects funds for liquidity providers who are exiting. When a liquidity provider is the first
+ * in an epoch to mark that they would like to withdraw their funds, a WithdrawProxy for the liquidity provider's
+ * PublicVault is deployed to collect loan repayments until the end of the next epoch. Users are minted WithdrawTokens
+ * according to their balance in the protocol which are redeemable 1:1 for the underlying PublicVault asset by the end
+ * of the next epoch.
  *
  */
 contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
