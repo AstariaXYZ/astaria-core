@@ -114,8 +114,6 @@ contract AstariaTest is TestHelpers {
     assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
   }
 
-  event Supply(uint256 a);
-
   function testWithdrawProxy() public {
     Dummy721 nft = new Dummy721();
     address tokenContract = address(nft);
@@ -234,7 +232,7 @@ contract AstariaTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertEq(WETH9.balanceOf(address(1)), 40 ether);
+    assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
   }
 
   function testReleaseToAddress() public {
@@ -388,7 +386,6 @@ contract AstariaTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: false
     });
-
   }
 
   uint8 FUZZ_SIZE = uint8(10);

@@ -247,10 +247,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         "Final auction not ended"
       );
     }
-    // clear out any remaining withdrawReserve balance
-    if (withdrawReserve > 0) {
-      transferWithdrawReserve();
-    }
 
     // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
     if (
@@ -268,15 +264,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // reset liquidationWithdrawRatio to prepare for re calcualtion
     liquidationWithdrawRatio = 0;
 
-    // reset withdrawReserve to prepare for re calcualtion
-    withdrawReserve = 0;
-
     // check if there are LPs withdrawing this epoch
     if (withdrawProxies[currentEpoch] != address(0)) {
       uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
         .totalSupply();
 
-      liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply());
+      liquidationWithdrawRatio = proxySupply.mulDivDown(1e18, totalSupply());
 
       if (liquidationAccountants[currentEpoch] != address(0)) {
         LiquidationAccountant(liquidationAccountants[currentEpoch])
@@ -285,12 +278,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
       uint256 withdrawAssets = convertToAssets(proxySupply);
       // compute the withdrawReserve
-      withdrawReserve =
-        withdrawAssets -
-        liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(
-          1 - liquidationWithdrawRatio,
-          1
-        );
+      uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[
+        currentEpoch
+      ].mulDivDown(liquidationWithdrawRatio, 1e18);
+      withdrawReserve = withdrawAssets - withdrawLiquidations;
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
 
@@ -319,7 +310,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         underlying(),
         ROUTER(),
         address(this),
-        address(LIEN_TOKEN())
+        address(LIEN_TOKEN()),
+        address(withdrawProxies[currentEpoch])
       )
     );
     liquidationAccountants[currentEpoch] = accountant;
@@ -438,7 +430,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param lienId The ID of the lien.
    * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
    */
-
   function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
     _handleStrategistInterestReward(lienId, amount);
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
@@ -532,10 +523,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function updateSlopeAfterLiquidation(uint256 amount) public {
-    require(msg.sender == ROUTER());
+  function updateVaultAfterLiquidation(uint256 lienSlope) public {
+    require(msg.sender == ROUTER(), "can only be called by the router");
+    uint256 delta_t = block.timestamp - last;
 
-    slope -= amount;
+    yIntercept = slope.mulDivDown(delta_t, 1) + yIntercept;
+    last = block.timestamp;
+    slope -= lienSlope;
   }
 
   function getYIntercept() public view returns (uint256) {

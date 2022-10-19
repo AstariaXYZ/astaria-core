@@ -258,13 +258,13 @@ contract TestHelpers is Test {
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.createLien.selector,
+      uint8(UserRoles.WRAPPER),
+      AuctionHouse.cancelAuction.selector,
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
-      AuctionHouse.cancelAuction.selector,
+      uint8(UserRoles.ASTARIA_ROUTER),
+      LienToken.createLien.selector,
       true
     );
     MRA.setRoleCapability(
@@ -290,6 +290,12 @@ contract TestHelpers is Test {
     MRA.setRoleCapability(
       uint8(UserRoles.AUCTION_HOUSE),
       TRANSFER_PROXY.tokenTransferFrom.selector,
+      true
+    );
+    //    bytes4(keccak256(bytes(_func)))
+    MRA.setRoleCapability(
+      uint8(UserRoles.AUCTION_HOUSE),
+      bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
       true
     );
     MRA.setUserRole(

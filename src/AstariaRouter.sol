@@ -381,7 +381,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
       ) {
         // subtract slope from PublicVault
-        PublicVault(owner).updateSlopeAfterLiquidation(
+
+        PublicVault(owner).updateVaultAfterLiquidation(
           LIEN_TOKEN.calculateSlope(currentLien)
         );
         if (

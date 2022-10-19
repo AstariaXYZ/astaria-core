@@ -38,6 +38,9 @@ abstract contract LiquidationBase is Clone {
     return _getArgAddress(60);
   }
 
+  function WITHDRAW_PROXY() public pure returns (address) {
+    return _getArgAddress(80);
+  }
 }
 
 /**
@@ -56,8 +59,6 @@ contract LiquidationAccountant is LiquidationBase {
   uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
   uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
 
-  address withdrawProxy;
-
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
    */
@@ -74,8 +75,11 @@ contract LiquidationAccountant is LiquidationBase {
     } else {
       //should be wad multiplication
       // declining
-      uint256 transferAmount = withdrawRatio * balance;
-      ERC20(underlying()).safeTransfer(withdrawProxy, transferAmount);
+      uint256 transferAmount = withdrawRatio.mulDivDown(balance, 1e18);
+
+      if (transferAmount > uint256(0)) {
+        ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), transferAmount);
+      }
 
       unchecked {
         balance -= transferAmount;
@@ -86,8 +90,8 @@ contract LiquidationAccountant is LiquidationBase {
 
     PublicVault(VAULT()).decreaseYIntercept(
       (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(
-        1 - withdrawRatio,
-        1
+        1e18 - withdrawRatio,
+        1e18
       )
     );
   }
