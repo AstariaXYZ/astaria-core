@@ -5,4 +5,4 @@ services:
     image: ghcr.io/foundry-rs/foundry:nightly-4fcd7e0ecc16c77c381884d0298301fe8b77028d
     ports:
       - "8545:8545"
-    entrypoint: ["anvil", "--host", "0.0.0.0"]
+    entrypoint: ["anvil", "--host", "0.0.0.0", "--fork-url", "<RPC_TO_FORK_HERE>"]

@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -128,6 +128,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
   mapping(uint64 => address) public withdrawProxies;
   mapping(uint64 => address) public liquidationAccountants;
+  mapping(uint64 => uint256) public liquidationsExpectedAtBoundary;
 
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
@@ -235,7 +236,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
-
   function processEpoch() external {
     // check to make sure epoch is over
     require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
@@ -246,10 +246,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           .getFinalAuctionEnd() < block.timestamp,
         "Final auction not ended"
       );
-    }
-    // clear out any remaining withdrawReserve balance
-    if (withdrawReserve > 0) {
-      transferWithdrawReserve();
     }
 
     // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
@@ -268,24 +264,28 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // reset liquidationWithdrawRatio to prepare for re calcualtion
     liquidationWithdrawRatio = 0;
 
-    // reset withdrawReserve to prepare for re calcualtion
-    withdrawReserve = 0;
-
     // check if there are LPs withdrawing this epoch
     if (withdrawProxies[currentEpoch] != address(0)) {
       uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
         .totalSupply();
 
+      liquidationWithdrawRatio = proxySupply.mulDivDown(1e18, totalSupply());
+
       if (liquidationAccountants[currentEpoch] != address(0)) {
         LiquidationAccountant(liquidationAccountants[currentEpoch])
-          .calculateWithdrawRatio();
+          .setWithdrawRatio(liquidationWithdrawRatio);
       }
 
+      uint256 withdrawAssets = convertToAssets(proxySupply);
       // compute the withdrawReserve
-      withdrawReserve = convertToAssets(proxySupply);
-
+      uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[
+        currentEpoch
+      ].mulDivDown(liquidationWithdrawRatio, 1e18);
+      withdrawReserve = withdrawAssets - withdrawLiquidations;
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
+
+      _decreaseYIntercept(withdrawAssets);
     }
 
     // increment epoch
@@ -430,14 +430,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param lienId The ID of the lien.
    * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
    */
-
   function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
     _handleStrategistInterestReward(lienId, amount);
-    if (totalAssets() > amount) {
-      yIntercept = totalAssets() - amount;
-    } else {
-      yIntercept = 0;
-    }
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
     if (lienSlope > slope) {
       slope = 0;
@@ -447,6 +441,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     last = block.timestamp;
   }
 
+  /** @notice
+   * hook to modify the liens open for then given epoch
+   * @param epoch epoch to decrease liens of
+   */
   function decreaseEpochLienCount(uint256 epoch) external {
     require(
       msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN()),
@@ -455,6 +453,19 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     liensOpenForEpoch[epoch]--;
   }
 
+  /** @notice
+   * hook to increase the amount of debt currently liquidated to discount in processEpoch
+   * @param amount the amount of debt liquidated
+   */
+  function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
+    require(msg.sender == ROUTER(), "only router");
+    liquidationsExpectedAtBoundary[currentEpoch] += amount;
+  }
+
+  /** @notice
+   * helper to return the LienEpoch for a given end date
+   * @param end time to compute the end for
+   */
   function getLienEpoch(uint256 end) external view returns (uint256) {
     return Math.ceilDiv(end - START(), EPOCH_LENGTH()) - 1;
   }
@@ -490,12 +501,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     virtual
     override
   {
-    emit LogUint("yintercept", yIntercept);
-    emit LogUint("assets", assets);
-    emit LogUint("shares", shares);
-
     yIntercept += assets;
-    emit LogUint("yintercept", yIntercept);
+    emit YInterceptChanged(yIntercept);
   }
 
   /**
@@ -516,23 +523,32 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function updateSlopeAfterLiquidation(uint256 amount) public {
-    require(msg.sender == ROUTER());
+  function updateVaultAfterLiquidation(uint256 lienSlope) public {
+    require(msg.sender == ROUTER(), "can only be called by the router");
+    uint256 delta_t = block.timestamp - last;
 
-    slope -= amount;
+    yIntercept = slope.mulDivDown(delta_t, 1) + yIntercept;
+    last = block.timestamp;
+    slope -= lienSlope;
   }
 
   function getYIntercept() public view returns (uint256) {
     return yIntercept;
   }
 
-  function setYIntercept(uint256 _yIntercept) public {
+  function _decreaseYIntercept(uint256 amount) internal {
+    yIntercept -= amount;
+    emit YInterceptChanged(yIntercept);
+  }
+
+  function decreaseYIntercept(uint256 amount) public {
     require(
-      currentEpoch != 0 &&
-        msg.sender == liquidationAccountants[currentEpoch - 1]
+      msg.sender == AUCTION_HOUSE() ||
+        (currentEpoch != 0 &&
+          msg.sender == liquidationAccountants[currentEpoch - 1]),
+      "msg sender only from auction house or liquidation accountant"
     );
-    yIntercept = _yIntercept;
-    emit YInterceptChanged(_yIntercept);
+    _decreaseYIntercept(amount);
   }
 
   function getCurrentEpoch() public view returns (uint64) {

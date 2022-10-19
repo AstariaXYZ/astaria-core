@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -38,7 +38,7 @@ abstract contract LiquidationBase is Clone {
     return _getArgAddress(60);
   }
 
-  function WITHDRAW_PROXY() public view returns (address) {
+  function WITHDRAW_PROXY() public pure returns (address) {
     return _getArgAddress(80);
   }
 }
@@ -59,8 +59,6 @@ contract LiquidationAccountant is LiquidationBase {
   uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
   uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
 
-  address withdrawProxy;
-
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
    */
@@ -77,8 +75,11 @@ contract LiquidationAccountant is LiquidationBase {
     } else {
       //should be wad multiplication
       // declining
-      uint256 transferAmount = withdrawRatio * balance;
-      ERC20(underlying()).safeTransfer(withdrawProxy, transferAmount);
+      uint256 transferAmount = withdrawRatio.mulDivDown(balance, 1e18);
+
+      if (transferAmount > uint256(0)) {
+        ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), transferAmount);
+      }
 
       unchecked {
         balance -= transferAmount;
@@ -87,31 +88,21 @@ contract LiquidationAccountant is LiquidationBase {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     }
 
-    uint256 oldYIntercept = PublicVault(VAULT()).getYIntercept();
-
-    //
-    PublicVault(VAULT()).setYIntercept(
-      oldYIntercept -
-        (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(
-          1 - withdrawRatio,
-          1
-        )
+    PublicVault(VAULT()).decreaseYIntercept(
+      (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(
+        1e18 - withdrawRatio,
+        1e18
+      )
     );
   }
-
-  // pass in withdrawproxy address here instead of constructor in case liquidation called before first marked withdraw
-  // called on epoch boundary (maybe rename)
 
   /**
    * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
    */
-  function calculateWithdrawRatio() public {
+  function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
 
-    withdrawRatio = WithdrawProxy(WITHDRAW_PROXY()).totalSupply().mulDivDown(
-      1,
-      PublicVault(VAULT()).totalSupply()
-    );
+    withdrawRatio = liquidationWithdrawRatio;
   }
 
   /**

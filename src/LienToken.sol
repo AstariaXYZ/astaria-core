@@ -206,14 +206,12 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   {
     reserve = 0;
     lienIds = liens[collateralId];
-    //        amounts = new uint256[](lienIds.length);
     for (uint256 i = 0; i < lienIds.length; ++i) {
-      ILienToken.Lien storage lien = lienData[lienIds[i]];
+      Lien storage lien = lienData[lienIds[i]];
       unchecked {
-        lien.amount += _getInterest(lien, block.timestamp);
+        lien.amount = _getOwed(lien);
         reserve += lien.amount;
       }
-      //            amounts[i] = lien.amount;
       lien.active = false;
     }
   }
@@ -308,8 +306,16 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   /**
    * @notice Removes all liens for a given CollateralToken.
    * @param collateralId The ID for the underlying CollateralToken.
+   * @param remainingLiens The IDs for the unpaid liens
    */
-  function removeLiens(uint256 collateralId) external requiresAuth {
+  function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
+    external
+    requiresAuth
+  {
+    for (uint256 i = 0; i < remainingLiens.length; i++) {
+      delete lienData[remainingLiens[i]];
+      _burn(remainingLiens[i]);
+    }
     delete liens[collateralId];
     emit RemovedLiens(collateralId);
   }
@@ -379,7 +385,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    * @param paymentAmount The amount to pay against the debt.
    */
   function makePayment(uint256 collateralId, uint256 paymentAmount) public {
-    makePayment(collateralId, paymentAmount, address(msg.sender));
+    _makePayment(collateralId, paymentAmount);
   }
 
   /**
@@ -391,7 +397,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   function makePayment(
     uint256 collateralId,
     uint256 paymentAmount,
-    uint256 position
+    uint8 position
   ) external {
     _payment(collateralId, position, paymentAmount, address(msg.sender));
   }
@@ -400,19 +406,30 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    * @notice Have a specified paymer make a payment for the debt against a CollateralToken.
    * @param collateralId The ID of the underlying CollateralToken.
    * @param totalCapitalAvailable The amount to pay against the debts
-   * @param payer The account to make the payment.
    */
-  function makePayment(
-    uint256 collateralId,
-    uint256 totalCapitalAvailable,
-    address payer
-  ) public {
+  function _makePayment(uint256 collateralId, uint256 totalCapitalAvailable)
+    internal
+  {
     uint256[] memory openLiens = liens[collateralId];
     uint256 paymentAmount = totalCapitalAvailable;
     for (uint256 i = 0; i < openLiens.length; ++i) {
-      uint256 capitalSpent = _payment(collateralId, i, paymentAmount, payer);
+      uint256 capitalSpent = _payment(
+        collateralId,
+        uint8(i),
+        paymentAmount,
+        address(msg.sender)
+      );
       paymentAmount -= capitalSpent;
     }
+  }
+
+  function makePayment(
+    uint256 collateralId,
+    uint256 paymentAmount,
+    uint8 position,
+    address payer
+  ) public requiresAuth {
+    _payment(collateralId, position, paymentAmount, payer);
   }
 
   /**
@@ -576,7 +593,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    */
   function _payment(
     uint256 collateralId,
-    uint256 position,
+    uint8 position,
     uint256 paymentAmount,
     address payer
   ) internal returns (uint256) {
@@ -585,10 +602,12 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     }
 
     uint256 lienId = liens[collateralId][position];
-
     Lien storage lien = lienData[lienId];
     uint256 end = (lien.start + lien.duration);
-    require(block.timestamp < end, "cannot pay off an expired lien");
+    require(
+      block.timestamp < end || address(msg.sender) == address(AUCTION_HOUSE),
+      "cannot pay off an expired lien"
+    );
 
     address lienOwner = ownerOf(lienId);
     bool isPublicVault = IPublicVault(lienOwner).supportsInterface(
@@ -598,7 +617,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     lien.amount = _getOwed(lien);
 
     address payee = getPayee(lienId);
-
     if (isPublicVault) {
       IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
     }
@@ -632,7 +650,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
   function _deleteLienPosition(uint256 collateralId, uint256 position) public {
     uint256[] storage stack = liens[collateralId];
-    require(position < stack.length, "index out of bound");
+    require(position < stack.length, "index out of bounds");
 
     emit RemoveLien(
       stack[position],

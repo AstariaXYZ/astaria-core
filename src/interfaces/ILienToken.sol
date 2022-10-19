@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -58,7 +58,8 @@ interface ILienBase {
     view
     returns (uint256, uint256);
 
-  function removeLiens(uint256 collateralId) external;
+  function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
+    external;
 
   function getInterest(uint256 collateralId, uint256 position)
     external
@@ -89,14 +90,9 @@ interface ILienBase {
 
   function makePayment(
     uint256 collateralId,
-    uint256 paymentAmount,
+    uint256 totalCapitalAvailable,
+    uint8 position,
     address payer
-  ) external;
-
-  function makePayment(
-    uint256 collateralId,
-    uint256 paymentAmount,
-    uint256 index
   ) external;
 
   function getTotalDebtForCollateralToken(uint256 collateralId)

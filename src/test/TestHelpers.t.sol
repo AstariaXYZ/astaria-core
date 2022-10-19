@@ -30,7 +30,6 @@ import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
 import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
-import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
 
 import {CollateralLookup} from "../libraries/CollateralLookup.sol";
 
@@ -46,7 +45,7 @@ import {
   UniqueValidator,
   IUniqueValidator
 } from "../strategies/UniqueValidator.sol";
-
+import {V3SecurityHook} from "../security/V3SecurityHook.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
@@ -86,36 +85,6 @@ contract TestNFT is MockERC721 {
 
   function mint(uint256 tokenId) public {
     _mint(msg.sender, tokenId);
-  }
-}
-
-contract V3SecurityHook {
-  address positionManager;
-
-  constructor(address nftManager_) {
-    positionManager = nftManager_;
-  }
-
-  function getState(address tokenContract, uint256 tokenId)
-    external
-    view
-    returns (bytes memory)
-  {
-    (
-      uint96 nonce,
-      address operator,
-      ,
-      ,
-      ,
-      ,
-      ,
-      uint128 liquidity,
-      ,
-      ,
-      ,
-
-    ) = IV3PositionManager(positionManager).positions(tokenId);
-    return abi.encode(nonce, operator, liquidity);
   }
 }
 
@@ -179,8 +148,6 @@ contract TestHelpers is Test {
   IWETH9 WETH9;
   MultiRolesAuthority MRA;
   AuctionHouse AUCTION_HOUSE;
-  bytes32 public whiteListRoot;
-  bytes32[] public nftProof;
 
   function setUp() public virtual {
     WETH9 = IWETH9(deployCode(weth9Artifact));
@@ -291,13 +258,13 @@ contract TestHelpers is Test {
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.createLien.selector,
+      uint8(UserRoles.WRAPPER),
+      AuctionHouse.cancelAuction.selector,
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
-      AuctionHouse.cancelAuction.selector,
+      uint8(UserRoles.ASTARIA_ROUTER),
+      LienToken.createLien.selector,
       true
     );
     MRA.setRoleCapability(
@@ -323,6 +290,12 @@ contract TestHelpers is Test {
     MRA.setRoleCapability(
       uint8(UserRoles.AUCTION_HOUSE),
       TRANSFER_PROXY.tokenTransferFrom.selector,
+      true
+    );
+    //    bytes4(keccak256(bytes(_func)))
+    MRA.setRoleCapability(
+      uint8(UserRoles.AUCTION_HOUSE),
+      bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
       true
     );
     MRA.setUserRole(
@@ -436,7 +409,6 @@ contract TestHelpers is Test {
     }
     uint256 collateralTokenId = tokenContract.computeId(tokenId);
 
-
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
         version: uint8(1),
@@ -545,7 +517,6 @@ contract TestHelpers is Test {
     uint256 bidAmount;
     uint256 timestamp;
   }
-
 
   function _lendToVault(Lender[] memory lenders, address vault) internal {
     for (uint256 i = 0; i < lenders.length; i++) {
