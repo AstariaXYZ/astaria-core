@@ -128,7 +128,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
   mapping(uint64 => address) public withdrawProxies;
   mapping(uint64 => address) public liquidationAccountants;
-  mapping (uint64 => uint256) public liquidationsExpectedAtBoundary;
+  mapping(uint64 => uint256) public liquidationsExpectedAtBoundary;
 
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
@@ -285,11 +285,16 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
       uint256 withdrawAssets = convertToAssets(proxySupply);
       // compute the withdrawReserve
-      withdrawReserve = withdrawAssets - liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(1 - liquidationWithdrawRatio, 1);
+      withdrawReserve =
+        withdrawAssets -
+        liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(
+          1 - liquidationWithdrawRatio,
+          1
+        );
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
 
-      yIntercept-=withdrawAssets;
+      _decreaseYIntercept(withdrawAssets);
     }
 
     // increment epoch
@@ -463,7 +468,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
     require(msg.sender == ROUTER(), "only router");
-    liquidationsExpectedAtBoundary[currentEpoch]+=amount;
+    liquidationsExpectedAtBoundary[currentEpoch] += amount;
   }
 
   /** @notice
@@ -537,15 +542,19 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return yIntercept;
   }
 
-  function decreaseYIntercept(uint256 unpaidBalance) public {
+  function _decreaseYIntercept(uint256 amount) internal {
+    yIntercept -= amount;
+    emit YInterceptChanged(yIntercept);
+  }
+
+  function decreaseYIntercept(uint256 amount) public {
     require(
       msg.sender == AUCTION_HOUSE() ||
         (currentEpoch != 0 &&
           msg.sender == liquidationAccountants[currentEpoch - 1]),
       "msg sender only from auction house or liquidation accountant"
     );
-    yIntercept -= unpaidBalance;
-    emit YInterceptChanged(yIntercept);
+    _decreaseYIntercept(amount);
   }
 
   function getCurrentEpoch() public view returns (uint64) {
