@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -72,7 +72,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
           keccak256(
             "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
           ),
-          keccak256("1"),
+          keccak256("v0"),
           block.chainid,
           address(this)
         )
@@ -86,9 +86,9 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
    * @param amount The amount of the token
    */
 
-  // cast k "StrategyDetails(uint8 version,uint256 nonce,uint256 deadline,address vault,bytes32 root)"
+  // cast k "StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)"
   bytes32 private constant STRATEGY_TYPEHASH =
-    0x13387dabcf46556a3ca406b99acf9197df1698efaab639c7772523bdfd4aa20e;
+    0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
 
   function encodeStrategyData(
     IAstariaRouter.StrategyDetails calldata strategy,
@@ -97,10 +97,8 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
     bytes32 hash = keccak256(
       abi.encode(
         STRATEGY_TYPEHASH,
-        strategy.version,
         IAstariaRouter(ROUTER()).strategistNonce(strategy.strategist),
         strategy.deadline,
-        address(this),
         root
       )
     );

@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -58,7 +58,8 @@ interface ILienBase {
     view
     returns (uint256, uint256);
 
-  function removeLiens(uint256 collateralId) external;
+  function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
+    external;
 
   function getInterest(uint256 collateralId, uint256 position)
     external

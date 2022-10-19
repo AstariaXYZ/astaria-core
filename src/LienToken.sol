@@ -206,14 +206,12 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   {
     reserve = 0;
     lienIds = liens[collateralId];
-    //        amounts = new uint256[](lienIds.length);
     for (uint256 i = 0; i < lienIds.length; ++i) {
-      ILienToken.Lien storage lien = lienData[lienIds[i]];
+      Lien storage lien = lienData[lienIds[i]];
       unchecked {
-        lien.amount += _getInterest(lien, block.timestamp);
+        lien.amount = _getOwed(lien);
         reserve += lien.amount;
       }
-      //            amounts[i] = lien.amount;
       lien.active = false;
     }
   }
@@ -308,8 +306,16 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   /**
    * @notice Removes all liens for a given CollateralToken.
    * @param collateralId The ID for the underlying CollateralToken.
+   * @param remainingLiens The IDs for the unpaid liens
    */
-  function removeLiens(uint256 collateralId) external requiresAuth {
+  function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
+    external
+    requiresAuth
+  {
+    for (uint256 i = 0; i < remainingLiens.length; i++) {
+      delete lienData[remainingLiens[i]];
+      _burn(remainingLiens[i]);
+    }
     delete liens[collateralId];
     emit RemovedLiens(collateralId);
   }

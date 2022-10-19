@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -433,11 +433,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
     _handleStrategistInterestReward(lienId, amount);
-    if (totalAssets() > amount) {
-      yIntercept = totalAssets() - amount;
-    } else {
-      yIntercept = 0;
-    }
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
     if (lienSlope > slope) {
       slope = 0;
@@ -447,6 +442,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     last = block.timestamp;
   }
 
+  /** @notice
+   * hook to modify the liens open for then given epoch
+   * @param epoch epoch to decrease liens of
+   */
   function decreaseEpochLienCount(uint256 epoch) external {
     require(
       msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN()),
@@ -455,6 +454,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     liensOpenForEpoch[epoch]--;
   }
 
+  /** @notice
+   * helper to return the LienEpoch for a given end date
+   * @param end time to compute the end for
+   */
   function getLienEpoch(uint256 end) external view returns (uint256) {
     return Math.ceilDiv(end - START(), EPOCH_LENGTH()) - 1;
   }
@@ -533,6 +536,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     );
     yIntercept = _yIntercept;
     emit YInterceptChanged(_yIntercept);
+  }
+
+  function decreaseYIntercept(uint256 unpaidBalance) public {
+    require(
+      msg.sender == AUCTION_HOUSE(),
+      "msg sender only from auction house"
+    );
+    yIntercept -= unpaidBalance;
   }
 
   function getCurrentEpoch() public view returns (uint64) {
