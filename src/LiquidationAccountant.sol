@@ -74,7 +74,7 @@ contract LiquidationAccountant is LiquidationBase {
     } else {
       //should be wad multiplication
       // declining
-      uint256 transferAmount = withdrawRatio * balance;
+      uint256 transferAmount = withdrawRatio.mulDivDown(balance, 1e18);
       ERC20(underlying()).safeTransfer(withdrawProxy, transferAmount);
 
       unchecked {
@@ -86,8 +86,8 @@ contract LiquidationAccountant is LiquidationBase {
 
     PublicVault(VAULT()).decreaseYIntercept(
       (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(
-        1 - withdrawRatio,
-        1
+        1e18 - withdrawRatio,
+        1e18
       )
     );
   }

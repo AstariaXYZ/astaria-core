@@ -11,3 +11,5 @@ artifacts
 out
 
 lcov.info
+
+/lib

@@ -354,6 +354,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
   }
 
+  event Party (uint256 wr, uint256 epochEnd);
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
    * @param collateralId The ID of the CollateralToken.
@@ -372,7 +373,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     // if expiration will be past epoch boundary, then create a LiquidationAccountant
 
     uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
-
+    emit Party(0, 0);
     for (uint256 i = 0; i < liens.length; ++i) {
       uint256 currentLien = liens[i];
 

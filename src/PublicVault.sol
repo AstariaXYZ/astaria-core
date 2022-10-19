@@ -132,7 +132,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
-
+  event Stuff(uint256 withdrawAssets1, uint256 liquidationWithdrawRatio1, uint256 withdrawLiquidations1, uint256 yIntercept1, uint256 liquidationExpectedAtBoundary1);
+  event Barf(uint256 amount, uint256 total);
   function underlying()
     public
     view
@@ -247,10 +248,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         "Final auction not ended"
       );
     }
-    // clear out any remaining withdrawReserve balance
-    if (withdrawReserve > 0) {
-      transferWithdrawReserve();
-    }
 
     // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
     if (
@@ -268,27 +265,26 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // reset liquidationWithdrawRatio to prepare for re calcualtion
     liquidationWithdrawRatio = 0;
 
-    // reset withdrawReserve to prepare for re calcualtion
-    withdrawReserve = 0;
-
     // check if there are LPs withdrawing this epoch
     if (withdrawProxies[currentEpoch] != address(0)) {
       uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
         .totalSupply();
 
-      liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply());
+      liquidationWithdrawRatio = proxySupply.mulDivDown(1e18, totalSupply());
 
       if (liquidationAccountants[currentEpoch] != address(0)) {
         LiquidationAccountant(liquidationAccountants[currentEpoch])
           .setWithdrawRatio(liquidationWithdrawRatio);
       }
-
+      
       uint256 withdrawAssets = convertToAssets(proxySupply);
       // compute the withdrawReserve
-      withdrawReserve = withdrawAssets - liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(1 - liquidationWithdrawRatio, 1);
+      uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(liquidationWithdrawRatio, 1e18);
+      withdrawReserve = withdrawAssets - withdrawLiquidations;
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
 
+      emit Stuff(withdrawAssets, liquidationWithdrawRatio, withdrawLiquidations, yIntercept, liquidationsExpectedAtBoundary[currentEpoch]);
       yIntercept-=withdrawAssets;
     }
 
@@ -463,6 +459,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
     require(msg.sender == ROUTER(), "only router");
+    emit Barf(amount, liquidationsExpectedAtBoundary[currentEpoch]+amount);
     liquidationsExpectedAtBoundary[currentEpoch]+=amount;
   }
 
