@@ -1,3 +1,6 @@
+# Astaria Docs
+For more details on the Astaria protocol and its contracts, see the [docs](https://docs.astaria.xyz/docs/intro)
+
 # Astaria Contracts Setup
 
 Astaria runs on [Foundry](https://github.com/foundry-rs/foundry).
