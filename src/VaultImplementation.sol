@@ -72,7 +72,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
           keccak256(
             "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
           ),
-          keccak256("v0"),
+          keccak256("0"),
           block.chainid,
           address(this)
         )

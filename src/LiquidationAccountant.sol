@@ -98,7 +98,7 @@ contract LiquidationAccountant is LiquidationBase {
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
 
-    withdrawRatio = liquidationWithdrawRatio
+    withdrawRatio = liquidationWithdrawRatio;
   }
 
   /**
