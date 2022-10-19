@@ -409,6 +409,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
               lien.amount,
               COLLATERAL_TOKEN.auctionWindow() + 1 days
             );
+            PublicVault(owner).increaseLiquidationsExpectedAtBoundary(lien.amount);
           }
         }
       }

@@ -128,6 +128,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
   mapping(uint64 => address) public withdrawProxies;
   mapping(uint64 => address) public liquidationAccountants;
+  mapping (uint64 => uint256) public liquidationsExpectedAtBoundary;
 
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
@@ -282,7 +283,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       // compute the withdrawReserve
-      withdrawReserve = convertToAssets(proxySupply);
+      withdrawReserve = convertToAssets(proxySupply) - liquidationsExpectedAtBoundary[currentEpoch];
 
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
@@ -452,6 +453,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       "only router or lien token"
     );
     liensOpenForEpoch[epoch]--;
+  }
+
+  /** @notice
+   * hook to increase the amount of debt currently liquidated to discount in processEpoch
+   * @param amount the amount of debt liquidated
+   */
+  function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
+    require(msg.sender == ROUTER(), "only router");
+    liquidationsExpectedAtBoundary[currentEpoch]+=amount;
   }
 
   /** @notice
