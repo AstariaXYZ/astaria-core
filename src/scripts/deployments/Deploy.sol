@@ -107,25 +107,6 @@ contract Deploy is Script {
     );
     emit Deployed(address(ASTARIA_ROUTER));
 
-    //strategy unique
-    //    UniqueValidator UNIQUE_STRATEGY_VALIDATOR = new UniqueValidator();
-    //strategy collection
-    //    CollectionValidator COLLECTION_STRATEGY_VALIDATOR = new CollectionValidator();
-    //    strategy univ3
-    //    UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
-
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
-    //    );
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
-    //    );
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
-    //    );
     ASTARIA_ROUTER.file("WITHDRAW_IMPLEMENTATION", abi.encode(WITHDRAW_PROXY));
     ASTARIA_ROUTER.file(
       "LIQUIDATION_IMPLEMENTATION",

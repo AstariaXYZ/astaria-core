@@ -87,8 +87,6 @@ contract LiquidationAccountant is LiquidationBase {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     }
 
-    uint256 oldYIntercept = PublicVault(VAULT()).getYIntercept();
-
     PublicVault(VAULT()).decreaseYIntercept(
       (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(
         1 - withdrawRatio,
