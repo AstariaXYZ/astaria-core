@@ -277,16 +277,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
         .totalSupply();
 
+      liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply());
+
       if (liquidationAccountants[currentEpoch] != address(0)) {
         LiquidationAccountant(liquidationAccountants[currentEpoch])
-          .calculateWithdrawRatio();
+          .setWithdrawRatio(liquidationWithdrawRatio);
       }
 
       // compute the withdrawReserve
-      withdrawReserve = convertToAssets(proxySupply) - liquidationsExpectedAtBoundary[currentEpoch];
+      withdrawReserve = convertToAssets(proxySupply) - liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(liquidationWithdrawRatio, 1);
 
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
+
+      yIntercept-=withdrawReserve;
     }
 
     // increment epoch
@@ -311,8 +315,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         underlying(),
         ROUTER(),
         address(this),
-        address(LIEN_TOKEN()),
-        address(withdrawProxies[currentEpoch])
+        address(LIEN_TOKEN())
       )
     );
     liquidationAccountants[currentEpoch] = accountant;
