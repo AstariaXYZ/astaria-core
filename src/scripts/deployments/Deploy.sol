@@ -54,7 +54,7 @@ contract Deploy is Script {
 
   event Deployed(address);
 
-  WEth WETH9;
+  IWETH9 WETH9;
   MultiRolesAuthority MRA;
   TransferProxy TRANSFER_PROXY;
   LienToken LIEN_TOKEN;
@@ -68,7 +68,14 @@ contract Deploy is Script {
 
   function run() external {
     vm.startBroadcast(msg.sender);
-    WETH9 = new WEth("Wrapped Ether Test", "WETH", uint8(18));
+
+    if (vm.envBool(string("devnet"))) {
+      WETH9 = IWETH9(
+        address(new WEth("Wrapped Ether Test", "WETH", uint8(18)))
+      );
+    } else {
+      WETH9 = IWETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // mainnet weth
+    }
     emit Deployed(address(WETH9));
     MRA = new MultiRolesAuthority(address(msg.sender), Authority(address(0)));
     emit Deployed(address(MRA));
