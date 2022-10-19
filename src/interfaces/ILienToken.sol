@@ -90,14 +90,9 @@ interface ILienBase {
 
   function makePayment(
     uint256 collateralId,
-    uint256 paymentAmount,
+    uint256 totalCapitalAvailable,
+    uint8 position,
     address payer
-  ) external;
-
-  function makePayment(
-    uint256 collateralId,
-    uint256 paymentAmount,
-    uint256 index
   ) external;
 
   function getTotalDebtForCollateralToken(uint256 collateralId)

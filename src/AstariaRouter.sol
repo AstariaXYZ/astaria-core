@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -293,7 +293,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _newVault(epochLength, delegate, vaultFee);
   }
 
-
   /**
    * @notice Create a new lien against a CollateralToken.
    * @param terms the decoded lien details from the commitment
@@ -354,7 +353,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
   }
 
-  event Party (uint256 wr, uint256 epochEnd);
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
    * @param collateralId The ID of the CollateralToken.
@@ -373,7 +371,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     // if expiration will be past epoch boundary, then create a LiquidationAccountant
 
     uint256[] memory liens = LIEN_TOKEN.getLiens(collateralId);
-    emit Party(0, 0);
     for (uint256 i = 0; i < liens.length; ++i) {
       uint256 currentLien = liens[i];
 
@@ -384,7 +381,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
       ) {
         // subtract slope from PublicVault
-        PublicVault(owner).updateSlopeAfterLiquidation(
+
+        PublicVault(owner).updateVaultAfterLiquidation(
           LIEN_TOKEN.calculateSlope(currentLien)
         );
         if (
@@ -410,7 +408,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
               lien.amount,
               COLLATERAL_TOKEN.auctionWindow() + 1 days
             );
-            PublicVault(owner).increaseLiquidationsExpectedAtBoundary(lien.amount);
+            PublicVault(owner).increaseLiquidationsExpectedAtBoundary(
+              lien.amount
+            );
           }
         }
       }

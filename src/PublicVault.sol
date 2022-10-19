@@ -128,12 +128,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
   mapping(uint64 => address) public withdrawProxies;
   mapping(uint64 => address) public liquidationAccountants;
-  mapping (uint64 => uint256) public liquidationsExpectedAtBoundary;
+  mapping(uint64 => uint256) public liquidationsExpectedAtBoundary;
 
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
-  event Stuff(uint256 withdrawAssets1, uint256 liquidationWithdrawRatio1, uint256 withdrawLiquidations1, uint256 yIntercept1, uint256 liquidationExpectedAtBoundary1);
-  event Barf(uint256 amount, uint256 total);
+
   function underlying()
     public
     view
@@ -276,16 +275,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         LiquidationAccountant(liquidationAccountants[currentEpoch])
           .setWithdrawRatio(liquidationWithdrawRatio);
       }
-      
+
       uint256 withdrawAssets = convertToAssets(proxySupply);
       // compute the withdrawReserve
-      uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(liquidationWithdrawRatio, 1e18);
+      uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[
+        currentEpoch
+      ].mulDivDown(liquidationWithdrawRatio, 1e18);
       withdrawReserve = withdrawAssets - withdrawLiquidations;
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
 
-      emit Stuff(withdrawAssets, liquidationWithdrawRatio, withdrawLiquidations, yIntercept, liquidationsExpectedAtBoundary[currentEpoch]);
-      yIntercept-=withdrawAssets;
+      yIntercept -= withdrawAssets;
     }
 
     // increment epoch
@@ -310,7 +310,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         underlying(),
         ROUTER(),
         address(this),
-        address(LIEN_TOKEN())
+        address(LIEN_TOKEN()),
+        address(withdrawProxies[currentEpoch])
       )
     );
     liquidationAccountants[currentEpoch] = accountant;
@@ -429,7 +430,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param lienId The ID of the lien.
    * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
    */
-
   function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
     _handleStrategistInterestReward(lienId, amount);
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
@@ -459,8 +459,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
     require(msg.sender == ROUTER(), "only router");
-    emit Barf(amount, liquidationsExpectedAtBoundary[currentEpoch]+amount);
-    liquidationsExpectedAtBoundary[currentEpoch]+=amount;
+    liquidationsExpectedAtBoundary[currentEpoch] += amount;
   }
 
   /** @notice
@@ -524,10 +523,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function updateSlopeAfterLiquidation(uint256 amount) public {
-    require(msg.sender == ROUTER());
+  function updateVaultAfterLiquidation(uint256 lienSlope) public {
+    require(msg.sender == ROUTER(), "can only be called by the router");
+    uint256 delta_t = block.timestamp - last;
 
-    slope -= amount;
+    yIntercept = slope.mulDivDown(delta_t, 1) + yIntercept;
+    last = block.timestamp;
+    slope -= lienSlope;
   }
 
   function getYIntercept() public view returns (uint256) {
