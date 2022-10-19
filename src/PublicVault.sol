@@ -236,7 +236,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
-
   function processEpoch() external {
     // check to make sure epoch is over
     require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
@@ -285,10 +284,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       uint256 withdrawAssets = convertToAssets(proxySupply);
-
       // compute the withdrawReserve
-      withdrawReserve = withdrawAssets - liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(liquidationWithdrawRatio, 1);
-
+      withdrawReserve = withdrawAssets - liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(1 - liquidationWithdrawRatio, 1);
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
 
