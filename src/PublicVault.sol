@@ -128,6 +128,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
   mapping(uint64 => address) public withdrawProxies;
   mapping(uint64 => address) public liquidationAccountants;
+  mapping (uint64 => uint256) public liquidationsExpectedAtBoundary;
 
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
@@ -235,7 +236,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
-
   function processEpoch() external {
     // check to make sure epoch is over
     require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
@@ -276,16 +276,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
         .totalSupply();
 
+      liquidationWithdrawRatio = proxySupply.mulDivDown(1, totalSupply());
+
       if (liquidationAccountants[currentEpoch] != address(0)) {
         LiquidationAccountant(liquidationAccountants[currentEpoch])
-          .calculateWithdrawRatio();
+          .setWithdrawRatio(liquidationWithdrawRatio);
       }
 
+      uint256 withdrawAssets = convertToAssets(proxySupply);
       // compute the withdrawReserve
-      withdrawReserve = convertToAssets(proxySupply);
-
+      withdrawReserve = withdrawAssets - liquidationsExpectedAtBoundary[currentEpoch].mulDivDown(1 - liquidationWithdrawRatio, 1);
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
+
+      yIntercept-=withdrawAssets;
     }
 
     // increment epoch
@@ -310,8 +314,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         underlying(),
         ROUTER(),
         address(this),
-        address(LIEN_TOKEN()),
-        address(withdrawProxies[currentEpoch])
+        address(LIEN_TOKEN())
       )
     );
     liquidationAccountants[currentEpoch] = accountant;
@@ -452,6 +455,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       "only router or lien token"
     );
     liensOpenForEpoch[epoch]--;
+  }
+
+  /** @notice
+   * hook to increase the amount of debt currently liquidated to discount in processEpoch
+   * @param amount the amount of debt liquidated
+   */
+  function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
+    require(msg.sender == ROUTER(), "only router");
+    liquidationsExpectedAtBoundary[currentEpoch]+=amount;
   }
 
   /** @notice

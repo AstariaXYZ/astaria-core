@@ -38,9 +38,6 @@ abstract contract LiquidationBase is Clone {
     return _getArgAddress(60);
   }
 
-  function WITHDRAW_PROXY() public view returns (address) {
-    return _getArgAddress(80);
-  }
 }
 
 /**
@@ -98,13 +95,10 @@ contract LiquidationAccountant is LiquidationBase {
   /**
    * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
    */
-  function calculateWithdrawRatio() public {
+  function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
 
-    withdrawRatio = WithdrawProxy(WITHDRAW_PROXY()).totalSupply().mulDivDown(
-      1,
-      PublicVault(VAULT()).totalSupply()
-    );
+    withdrawRatio = liquidationWithdrawRatio;
   }
 
   /**
