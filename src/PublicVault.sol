@@ -493,12 +493,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     virtual
     override
   {
-    emit LogUint("yintercept", yIntercept);
-    emit LogUint("assets", assets);
-    emit LogUint("shares", shares);
-
     yIntercept += assets;
-    emit LogUint("yintercept", yIntercept);
+    emit YInterceptChanged(yIntercept);
   }
 
   /**
@@ -529,21 +525,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return yIntercept;
   }
 
-  function setYIntercept(uint256 _yIntercept) public {
-    require(
-      currentEpoch != 0 &&
-        msg.sender == liquidationAccountants[currentEpoch - 1]
-    );
-    yIntercept = _yIntercept;
-    emit YInterceptChanged(_yIntercept);
-  }
-
   function decreaseYIntercept(uint256 unpaidBalance) public {
     require(
-      msg.sender == AUCTION_HOUSE(),
-      "msg sender only from auction house"
+      msg.sender == AUCTION_HOUSE() ||
+        (currentEpoch != 0 &&
+          msg.sender == liquidationAccountants[currentEpoch - 1]),
+      "msg sender only from auction house or liquidation accountant"
     );
     yIntercept -= unpaidBalance;
+    emit YInterceptChanged(yIntercept);
   }
 
   function getCurrentEpoch() public view returns (uint64) {
