@@ -200,7 +200,11 @@ contract Deploy is Script {
       uint8(UserRoles.AUCTION_HOUSE),
       true
     );
-
+    MRA.setRoleCapability(
+      uint8(UserRoles.AUCTION_HOUSE),
+      bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
+      true
+    );
     MRA.setRoleCapability(
       uint8(UserRoles.LIEN_TOKEN),
       TRANSFER_PROXY.tokenTransferFrom.selector,

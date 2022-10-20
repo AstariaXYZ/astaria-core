@@ -292,7 +292,6 @@ contract TestHelpers is Test {
       TRANSFER_PROXY.tokenTransferFrom.selector,
       true
     );
-    //    bytes4(keccak256(bytes(_func)))
     MRA.setRoleCapability(
       uint8(UserRoles.AUCTION_HOUSE),
       bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
