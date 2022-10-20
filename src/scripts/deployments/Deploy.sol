@@ -210,9 +210,9 @@ contract Deploy is Script {
   }
 
   function _setOwner() internal {
-    MRA.setOwner(address(msg.sender));
-    ASTARIA_ROUTER.setOwner(address(msg.sender));
-    LIEN_TOKEN.setOwner(address(msg.sender));
-    COLLATERAL_TOKEN.setOwner(address(msg.sender));
+    MRA.transferOwnership(address(msg.sender));
+    ASTARIA_ROUTER.transferOwnership(address(msg.sender));
+    LIEN_TOKEN.transferOwnership(address(msg.sender));
+    COLLATERAL_TOKEN.transferOwnership(address(msg.sender));
   }
 }
