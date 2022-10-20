@@ -35,7 +35,7 @@ import {IPublicVault, PublicVault} from "./PublicVault.sol";
 import {IVault, VaultImplementation} from "./VaultImplementation.sol";
 import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 
-import {MerkleProof} from "./utils/MerkleProof.sol";
+import {MerkleProofLib} from "./utils/MerkleProofLib.sol";
 import {Pausable} from "./utils/Pausable.sol";
 
 /**
@@ -232,7 +232,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       );
 
     return (
-      MerkleProof.verifyCalldata(
+      MerkleProofLib.verify(
         commitment.lienRequest.merkle.proof,
         commitment.lienRequest.merkle.root,
         leaf
