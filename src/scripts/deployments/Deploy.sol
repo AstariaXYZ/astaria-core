@@ -69,22 +69,56 @@ contract Deploy is Script {
   function run() external {
     vm.startBroadcast(msg.sender);
 
-    if (vm.envBool(string("devnet"))) {
+    try
+      vm.removeFile(
+        string(abi.encodePacked(".env-", vm.toString(block.chainid)))
+      )
+    {} catch {}
+    address weth;
+
+    try vm.envAddress("WETH9_ADDR") {
+      weth = vm.envAddress("WETH9_ADDR");
+    } catch {}
+    if (weth == address(0)) {
       WETH9 = IWETH9(
         address(new WEth("Wrapped Ether Test", "WETH", uint8(18)))
       );
+      vm.writeLine(
+        string(".env"),
+        string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
+      );
     } else {
-      WETH9 = IWETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // mainnet weth
+      WETH9 = IWETH9(weth); // mainnet weth
     }
     emit Deployed(address(WETH9));
     MRA = new MultiRolesAuthority(address(msg.sender), Authority(address(0)));
+    vm.writeLine(
+      string(".env"),
+      string(abi.encodePacked("MRA_ADDR=", vm.toString(address(MRA))))
+    );
     emit Deployed(address(MRA));
 
     TRANSFER_PROXY = new TransferProxy(MRA);
     emit Deployed(address(TRANSFER_PROXY));
-
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked(
+          "TRANSFER_PROXY_ADDR=",
+          vm.toString(address(TRANSFER_PROXY))
+        )
+      )
+    );
     LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
     emit Deployed(address(LIEN_TOKEN));
+
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked("LIEN_TOKEN_ADDR=", vm.toString(address(LIEN_TOKEN)))
+      )
+    );
+
     COLLATERAL_TOKEN = new CollateralToken(
       MRA,
       TRANSFER_PROXY,
@@ -92,17 +126,59 @@ contract Deploy is Script {
     );
     emit Deployed(address(COLLATERAL_TOKEN));
 
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked(
+          "COLLATERAL_TOKEN_ADDR=",
+          vm.toString(address(COLLATERAL_TOKEN))
+        )
+      )
+    );
+
     SOLO_IMPLEMENTATION = new Vault();
     emit Deployed(address(SOLO_IMPLEMENTATION));
-
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked(
+          "SOLO_IMPL_ADDR=",
+          vm.toString(address(SOLO_IMPLEMENTATION))
+        )
+      )
+    );
     VAULT_IMPLEMENTATION = new PublicVault();
-
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked(
+          "PUBLIC_IMPL_ADDR=",
+          vm.toString(address(VAULT_IMPLEMENTATION))
+        )
+      )
+    );
     WITHDRAW_PROXY = new WithdrawProxy();
     emit Deployed(address(WITHDRAW_PROXY));
-
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked(
+          "WITHDRAW_PROXY_ADDR=",
+          vm.toString(address(WITHDRAW_PROXY))
+        )
+      )
+    );
     LIQUIDATION_IMPLEMENTATION = new LiquidationAccountant();
     emit Deployed(address(LIQUIDATION_IMPLEMENTATION));
-
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked(
+          "LIQUIDATION_ACCOUNTANT_ADDR=",
+          vm.toString(address(LIQUIDATION_IMPLEMENTATION))
+        )
+      )
+    );
     ASTARIA_ROUTER = new AstariaRouter(
       MRA,
       address(WETH9),
@@ -113,20 +189,45 @@ contract Deploy is Script {
       address(SOLO_IMPLEMENTATION)
     );
     emit Deployed(address(ASTARIA_ROUTER));
-
-    ASTARIA_ROUTER.file("WITHDRAW_IMPLEMENTATION", abi.encode(WITHDRAW_PROXY));
-    ASTARIA_ROUTER.file(
-      "LIQUIDATION_IMPLEMENTATION",
-      abi.encode(LIQUIDATION_IMPLEMENTATION)
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked("ROUTER_ADDR=", vm.toString(address(ASTARIA_ROUTER)))
+      )
     );
+    //    bytes32[] calldata what = new bytes32[](2);
+    //    bytes[] calldata data = new bytes[](2);
+    //    what[0] = bytes32("WITHDRAW_IMPLEMENTATION");
+    //    what[1] = bytes32("LIQUIDATION_IMPLEMENTATION");
+    //    data[0] = abi.encode(address(WITHDRAW_PROXY));
+    //    data[1] = abi.encode(address(LIQUIDATION_IMPLEMENTATION));
 
-    //
+    AstariaRouter.File[] memory files = new AstariaRouter.File[](2);
+    files[0] = AstariaRouter.File(
+      bytes32("WITHDRAW_IMPLEMENTATION"),
+      abi.encode(address(WITHDRAW_PROXY))
+    );
+    files[1] = AstariaRouter.File(
+      bytes32("LIQUIDATION_IMPLEMENTATION"),
+      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
+    );
+    ASTARIA_ROUTER.fileBatch(files);
+
     AUCTION_HOUSE = new AuctionHouse(
       address(WETH9),
       MRA,
       ICollateralToken(address(COLLATERAL_TOKEN)),
       ILienToken(address(LIEN_TOKEN)),
       TRANSFER_PROXY
+    );
+    vm.writeLine(
+      string(".env"),
+      string(
+        abi.encodePacked(
+          "AUCTION_HOUSE_ADDR=",
+          vm.toString(address(AUCTION_HOUSE))
+        )
+      )
     );
     COLLATERAL_TOKEN.file(
       bytes32("setAstariaRouter"),

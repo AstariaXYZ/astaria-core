@@ -11,9 +11,9 @@ pragma solidity ^0.8.17;
 import {Script} from "forge-std/Script.sol";
 import {AstariaRouter} from "../../../AstariaRouter.sol";
 import {CollectionValidator} from "../../../strategies/CollectionValidator.sol";
-import {TestnetConstants} from "../TestnetConstants.sol";
+import {AstariaStack} from "../AstariaStack.sol";
 
-contract CollectionStrategy is TestnetConstants, Script {
+contract CollectionStrategy is AstariaStack {
   AstariaRouter router;
 
   function run() external {
@@ -23,8 +23,10 @@ contract CollectionStrategy is TestnetConstants, Script {
     CollectionValidator validator = new CollectionValidator();
 
     router.file(
-      "setStrategyValidator",
-      abi.encode(uint8(1), address(validator))
+      AstariaRouter.File(
+        bytes32("setStrategyValidator"),
+        abi.encode(uint8(1), address(validator))
+      )
     );
 
     vm.stopBroadcast();

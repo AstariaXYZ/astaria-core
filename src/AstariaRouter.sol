@@ -131,22 +131,24 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     strategistNonce[msg.sender]++;
   }
 
+  struct File {
+    bytes32 what;
+    bytes data;
+  }
+
   /**
    * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param what The identifier for what is being filed.
-   * @param data The encoded address data to be decoded and filed.
+   * @param files structs to file
    */
-  function fileBatch(bytes32[] memory what, bytes[] calldata data)
-    external
-    requiresAuth
-  {
-    require(what.length == data.length, "data length mismatch");
-    for (uint256 i = 0; i < what.length; i++) {
-      file(what[i], data[i]);
+  function fileBatch(File[] calldata files) external requiresAuth {
+    for (uint256 i = 0; i < files.length; i++) {
+      file(files[i]);
     }
   }
 
-  function file(bytes32 what, bytes calldata data) public requiresAuth {
+  function file(File calldata file) public requiresAuth {
+    bytes32 what = file.what;
+    bytes memory data = file.data;
     if (what == "LIQUIDATION_FEE_PERCENT") {
       uint256 value = abi.decode(data, (uint256));
       liquidationFeePercent = value;

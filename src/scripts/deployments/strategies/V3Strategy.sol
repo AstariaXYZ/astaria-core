@@ -4,10 +4,10 @@ import {Script} from "forge-std/Script.sol";
 import {AstariaRouter} from "../../../AstariaRouter.sol";
 import {V3SecurityHook} from "../../../security/V3SecurityHook.sol";
 import {UNI_V3Validator} from "../../../strategies/UNI_V3Validator.sol";
-import {TestnetConstants} from "../TestnetConstants.sol";
+import {AstariaStack} from "../AstariaStack.sol";
 import {CollateralToken} from "../../../CollateralToken.sol";
 
-contract V3Strategy is TestnetConstants, Script {
+contract V3Strategy is AstariaStack {
   function run() external {
     AstariaRouter router = AstariaRouter(ROUTER_ADDR);
 
@@ -17,8 +17,10 @@ contract V3Strategy is TestnetConstants, Script {
     UNI_V3Validator V3Validator = new UNI_V3Validator();
 
     router.file(
-      "setStrategyValidator",
-      abi.encode(uint8(2), address(V3Validator))
+      AstariaRouter.File(
+        bytes32("setStrategyValidator"),
+        abi.encode(uint8(2), address(V3Validator))
+      )
     );
 
     V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(

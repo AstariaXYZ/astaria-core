@@ -204,23 +204,43 @@ contract TestHelpers is Test {
     //strategy univ3
     UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
 
-    ASTARIA_ROUTER.file(
-      "setStrategyValidator",
+    AstariaRouter.File[] memory files = new AstariaRouter.File[](5);
+    files[0] = AstariaRouter.File(
+      bytes32("WITHDRAW_IMPLEMENTATION"),
+      abi.encode(address(WITHDRAW_PROXY))
+    );
+    files[1] = AstariaRouter.File(
+      bytes32("LIQUIDATION_IMPLEMENTATION"),
+      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
+    );
+
+    //ASTARIA_ROUTER.file(
+    //      "setStrategyValidator",
+    //      abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
+    //    );
+    //    ASTARIA_ROUTER.file(
+    //      "setStrategyValidator",
+    //      abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
+    //    );
+    //    ASTARIA_ROUTER.file(
+    //      "setStrategyValidator",
+    //      abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
+    //    );
+
+    files[2] = AstariaRouter.File(
+      bytes32("setStrategyValidator"),
       abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
     );
-    ASTARIA_ROUTER.file(
-      "setStrategyValidator",
+    files[3] = AstariaRouter.File(
+      bytes32("setStrategyValidator"),
       abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
     );
-    ASTARIA_ROUTER.file(
-      "setStrategyValidator",
+    files[4] = AstariaRouter.File(
+      bytes32("setStrategyValidator"),
       abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     );
-    ASTARIA_ROUTER.file("WITHDRAW_IMPLEMENTATION", abi.encode(WITHDRAW_PROXY));
-    ASTARIA_ROUTER.file(
-      "LIQUIDATION_IMPLEMENTATION",
-      abi.encode(LIQUIDATION_IMPLEMENTATION)
-    );
+    ASTARIA_ROUTER.fileBatch(files);
+
     COLLATERAL_TOKEN.file(
       bytes32("setSecurityHook"),
       abi.encode(
