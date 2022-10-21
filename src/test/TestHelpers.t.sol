@@ -347,6 +347,23 @@ contract TestHelpers is Test {
     );
   }
 
+  function _warpToEpochEnd(address vault) internal {
+    //warps to the first second after the epoch end
+    vm.warp(
+      PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
+    );
+  }
+
+  function _mintAndDeposit(address tokenContract, uint256 tokenId) internal {
+    TestNFT(tokenContract).mint(address(this), tokenId);
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId,
+      ""
+    );
+  }
+
   function _createPrivateVault(address strategist, address delegate)
     internal
     returns (address privateVault)
@@ -596,6 +613,10 @@ contract TestHelpers is Test {
       owner: lender,
       epoch: epoch
     });
+
+    address withdrawProxy = PublicVault(publicVault).withdrawProxies(epoch);
+    assertEq(IERC20(withdrawProxy).balanceOf(lender), vaultTokenBalance, "Incorrect number of WithdrawTokens minted");
+    ERC20(withdrawProxy).safeApprove(address(this), type(uint256).max);
     vm.stopPrank();
   }
 }

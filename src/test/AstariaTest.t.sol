@@ -311,23 +311,6 @@ contract AstariaTest is TestHelpers {
     COLLATERAL_TOKEN.file(bytes32("Justin Bram"), "");
   }
 
-  function _warpToEpochEnd(address vault) internal {
-    //warps to the first second after the epoch end
-    vm.warp(
-      PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
-    );
-  }
-
-  function mintAndDeposit(address tokenContract, uint256 tokenId) internal {
-    TestNFT(tokenContract).mint(address(this), tokenId);
-    ERC721(tokenContract).safeTransferFrom(
-      address(this),
-      address(COLLATERAL_TOKEN),
-      tokenId,
-      ""
-    );
-  }
-
   function testEpochProcessionMultipleActors() public {
     address alice = address(1);
     address bob = address(2);
@@ -336,7 +319,7 @@ contract AstariaTest is TestHelpers {
     address edgar = address(5);
 
     TestNFT nft = new TestNFT(2);
-    mintAndDeposit(address(nft), 5);
+    _mintAndDeposit(address(nft), 5);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
 

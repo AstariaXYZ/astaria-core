@@ -383,10 +383,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
       ) {
         // subtract slope from PublicVault
-
         PublicVault(owner).updateVaultAfterLiquidation(
           LIEN_TOKEN.calculateSlope(currentLien)
         );
+
+        uint256 lienEpoch = PublicVault(owner).getLienEpoch(
+            lien.start + lien.duration
+          );
+        PublicVault(owner).decreaseEpochLienCount(lienEpoch);
         if (
           PublicVault(owner).timeToEpochEnd() <=
           COLLATERAL_TOKEN.auctionWindow()
@@ -395,10 +399,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
           address accountant = PublicVault(owner).getLiquidationAccountant(
             currentEpoch
           );
-          uint256 lienEpoch = PublicVault(owner).getLienEpoch(
-            lien.start + lien.duration
-          );
-          PublicVault(owner).decreaseEpochLienCount(lienEpoch);
 
           // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
           if (PublicVault(owner).withdrawReserve() == 0) {

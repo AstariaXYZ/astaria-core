@@ -249,11 +249,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
-    if (
-      currentEpoch != 0 &&
-      liquidationAccountants[currentEpoch - 1] != address(0)
-    ) {
-      LiquidationAccountant(liquidationAccountants[currentEpoch - 1]).claim();
+    if (liquidationAccountants[currentEpoch] != address(0)) {
+      LiquidationAccountant(liquidationAccountants[currentEpoch]).claim();
     }
 
     require(
@@ -286,6 +283,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       _burn(address(this), proxySupply);
 
       _decreaseYIntercept(withdrawAssets);
+      // _decreaseYIntercept(withdrawReserve);
+
     }
 
     // increment epoch
@@ -544,8 +543,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function decreaseYIntercept(uint256 amount) public {
     require(
       msg.sender == AUCTION_HOUSE() ||
-        (currentEpoch != 0 &&
-          msg.sender == liquidationAccountants[currentEpoch - 1]),
+        msg.sender == liquidationAccountants[currentEpoch],
       "msg sender only from auction house or liquidation accountant"
     );
     _decreaseYIntercept(amount);

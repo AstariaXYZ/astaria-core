@@ -604,8 +604,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     uint256 lienId = liens[collateralId][position];
     Lien storage lien = lienData[lienId];
     uint256 end = (lien.start + lien.duration);
+    bool isAuctionHouse = address(msg.sender) == address(AUCTION_HOUSE);
+
     require(
-      block.timestamp < end || address(msg.sender) == address(AUCTION_HOUSE),
+      block.timestamp < end || isAuctionHouse,
       "cannot pay off an expired lien"
     );
 
@@ -617,14 +619,14 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     lien.amount = _getOwed(lien);
 
     address payee = getPayee(lienId);
-    if (isPublicVault) {
+    if (isPublicVault && !isAuctionHouse) {
       IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
     }
     if (lien.amount > paymentAmount) {
       lien.amount -= paymentAmount;
       lien.last = block.timestamp.safeCastTo32();
       // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
-      if (isPublicVault) {
+      if (isPublicVault && !isAuctionHouse) {
         IPublicVault(lienOwner).afterPayment(lienId);
       }
     } else {
