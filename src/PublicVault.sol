@@ -233,6 +233,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return super.domainSeparator();
   }
 
+  event Here();
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
@@ -249,10 +250,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
-    if (liquidationAccountants[currentEpoch] != address(0)) {
-      LiquidationAccountant(liquidationAccountants[currentEpoch]).claim();
+    if (currentEpoch != 0 && liquidationAccountants[currentEpoch - 1] != address(0)) {
+      LiquidationAccountant(liquidationAccountants[currentEpoch - 1]).claim();
     }
-
     require(
       liensOpenForEpoch[currentEpoch] == uint256(0),
       "loans are still open for this epoch"
@@ -279,6 +279,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         currentEpoch
       ].mulDivDown(liquidationWithdrawRatio, 1e18);
       withdrawReserve = withdrawAssets - withdrawLiquidations;
+
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
 
@@ -542,8 +543,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   function decreaseYIntercept(uint256 amount) public {
     require(
-      msg.sender == AUCTION_HOUSE() ||
-        msg.sender == liquidationAccountants[currentEpoch],
+      msg.sender == AUCTION_HOUSE() || 
+        (currentEpoch != 0 && msg.sender == liquidationAccountants[currentEpoch - 1]),
       "msg sender only from auction house or liquidation accountant"
     );
     _decreaseYIntercept(amount);
