@@ -88,7 +88,7 @@ contract Deploy is Script {
         string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
       );
     } else {
-      WETH9 = IWETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // mainnet weth
+      WETH9 = IWETH9(weth); // mainnet weth
     }
     emit Deployed(address(WETH9));
     MRA = new MultiRolesAuthority(address(msg.sender), Authority(address(0)));
