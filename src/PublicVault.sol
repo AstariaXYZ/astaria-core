@@ -562,11 +562,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function timeToEpochEnd() public view returns (uint256) {
     uint256 epochEnd = START() + ((currentEpoch + 1) * EPOCH_LENGTH());
 
-    if (epochEnd >= block.timestamp) {
+    if (block.timestamp >= epochEnd) {
       return uint256(0);
     }
 
-    return block.timestamp - epochEnd; //
+    return epochEnd - block.timestamp;
   }
 
   function getLiquidationAccountant(uint64 epoch)
