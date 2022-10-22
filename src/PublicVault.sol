@@ -222,6 +222,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     whenNotPaused
     returns (uint256)
   {
+    // yIntercept+=amount;
     return super.deposit(amount, receiver);
   }
 
@@ -233,7 +234,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return super.domainSeparator();
   }
 
-  event Here();
+  event WithdrawStats(uint256, uint256, uint256, uint256);
+  event Bum(uint256);
+
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
@@ -249,8 +252,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       );
     }
 
-    // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
-    if (currentEpoch != 0 && liquidationAccountants[currentEpoch - 1] != address(0)) {
+    // split funds from previous LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
+    if (
+      currentEpoch != 0 &&
+      liquidationAccountants[currentEpoch - 1] != address(0) &&
+      !LiquidationAccountant(liquidationAccountants[currentEpoch - 1])
+        .hasClaimed()
+    ) {
       LiquidationAccountant(liquidationAccountants[currentEpoch - 1]).claim();
     }
     require(
@@ -273,19 +281,35 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           .setWithdrawRatio(liquidationWithdrawRatio);
       }
 
-      uint256 withdrawAssets = convertToAssets(proxySupply);
+      // uint256 withdrawAssets = convertToAssets(proxySupply);
+      uint256 withdrawAssets = totalAssets().mulDivDown(liquidationWithdrawRatio, 1e18);
+
+
       // compute the withdrawReserve
+
       uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[
         currentEpoch
       ].mulDivDown(liquidationWithdrawRatio, 1e18);
       withdrawReserve = withdrawAssets - withdrawLiquidations;
+      // if (currentEpoch == 0) {
+      //   withdrawReserve = 45000000000000000000;
+      // }
+      emit WithdrawStats(
+        withdrawAssets,
+        withdrawLiquidations,
+        liquidationsExpectedAtBoundary[currentEpoch],
+        liquidationWithdrawRatio
+      );
 
+      emit Bum(
+        withdrawAssets.mulDivDown(2, 1) +
+          liquidationsExpectedAtBoundary[currentEpoch]
+      );
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
 
       _decreaseYIntercept(withdrawAssets);
       // _decreaseYIntercept(withdrawReserve);
-
     }
 
     // increment epoch
@@ -371,6 +395,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     virtual
     override
   {
+    if (last == 0) {
+      last = block.timestamp;
+    }
+
+    uint256 delta_t = block.timestamp - last;
+
+    yIntercept += delta_t.mulDivDown(slope, 1);
     // increment slope for the new lien
     unchecked {
       slope += LIEN_TOKEN().calculateSlope(lienId);
@@ -407,6 +438,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     if (last == 0 || yIntercept == 0) {
       return ERC20(underlying()).balanceOf(address(this));
     }
+    // uint256 delta_t = (last == 0) ? last : block.timestamp - last;
     uint256 delta_t = block.timestamp - last;
 
     return slope.mulDivDown(delta_t, 1) + yIntercept;
@@ -543,8 +575,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   function decreaseYIntercept(uint256 amount) public {
     require(
-      msg.sender == AUCTION_HOUSE() || 
-        (currentEpoch != 0 && msg.sender == liquidationAccountants[currentEpoch - 1]),
+      msg.sender == AUCTION_HOUSE() ||
+        (currentEpoch != 0 &&
+          msg.sender == liquidationAccountants[currentEpoch - 1]),
       "msg sender only from auction house or liquidation accountant"
     );
     _decreaseYIntercept(amount);

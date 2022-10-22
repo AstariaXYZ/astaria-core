@@ -106,6 +106,8 @@ contract WithdrawTest is TestHelpers {
   }
 
   event Num(uint256);
+  event Mun(uint256);
+  event TOTAL_ASSETS(uint256);
   function testLiquidationAccountant5050Split() public {
     Dummy721 nft = new Dummy721();
     address tokenContract = address(nft);
@@ -121,7 +123,10 @@ contract WithdrawTest is TestHelpers {
       publicVault
     );
 
+    emit Mun(PublicVault(publicVault).yIntercept());
+
     uint256 initialSupply = PublicVault(publicVault).totalSupply();
+
 
     _lendToVault(
       Lender({addr: address(2), amountToLend: 50 ether}),
@@ -130,8 +135,11 @@ contract WithdrawTest is TestHelpers {
 
     assertEq(initialSupply * 2, PublicVault(publicVault).totalSupply(), "1");
 
-    assertEq(ERC20(publicVault).balanceOf(address(1)), ERC20(publicVault).balanceOf(address(2)), "minted supply to LPs not equal");
-    
+    assertEq(
+      ERC20(publicVault).balanceOf(address(1)),
+      ERC20(publicVault).balanceOf(address(2)),
+      "minted supply to LPs not equal"
+    );
 
     _commitToLien({
       vault: publicVault,
@@ -144,59 +152,62 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
-    
-
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     _signalWithdraw(address(1), publicVault);
-
-    
 
     address withdrawProxy = PublicVault(publicVault).withdrawProxies(
       PublicVault(publicVault).getCurrentEpoch()
     );
 
-    assertEq(ERC20(withdrawProxy).balanceOf(address(1)), ERC20(publicVault).balanceOf(address(2)), "minted supply to LPs not equal");
+    assertEq(
+      ERC20(withdrawProxy).balanceOf(address(1)),
+      ERC20(publicVault).balanceOf(address(2)),
+      "minted supply to LPs not equal"
+    );
 
     vm.warp(block.timestamp + 10 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
-    _bid(address(3), collateralId, 20 ether);
     vm.warp(block.timestamp + 4 days); // end of loan
 
-    
+    ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
 
-    
+    _bid(address(3), collateralId, 20 ether);
 
     address liquidationAccountant = PublicVault(publicVault)
       .liquidationAccountants(0);
 
-    // assertTrue(
-    //   liquidationAccountant != address(0),
-    //   "LiquidationAccountant not deployed"
-    // );
-
-    
-
-    
-
-    _warpToEpochEnd(publicVault); // epoch boundary
-
-    assertEq(ERC20(withdrawProxy).balanceOf(address(1)), ERC20(publicVault).balanceOf(address(2)), "minted supply to LPs not equal");
-
-    assertEq(PublicVault(publicVault).totalSupply(), ERC20(publicVault).balanceOf(publicVault) + ERC20(publicVault).balanceOf(address(2)), "2");
-    PublicVault(publicVault).processEpoch();
-
-
-    vm.warp(block.timestamp + 13 days);
     assertTrue(
       liquidationAccountant != address(0),
       "LiquidationAccountant not deployed"
     );
-    PublicVault(publicVault).transferWithdrawReserve();
-    emit Num(WETH9.balanceOf(publicVault));
-    // LiquidationAccountant(liquidationAccountant).claim();
+    _warpToEpochEnd(publicVault); // epoch boundary
 
+    assertEq(
+      ERC20(withdrawProxy).balanceOf(address(1)),
+      ERC20(publicVault).balanceOf(address(2)),
+      "minted supply to LPs not equal"
+    );
+
+    assertEq(
+      PublicVault(publicVault).totalSupply(),
+      ERC20(publicVault).balanceOf(publicVault) +
+        ERC20(publicVault).balanceOf(address(2)),
+      "2"
+    );
+
+    emit TOTAL_ASSETS(PublicVault(publicVault).totalAssets());
+    PublicVault(publicVault).processEpoch();
+    emit Num(PublicVault(publicVault).withdrawReserve());
+
+    vm.warp(block.timestamp + 13 days);
+
+    // emit Num(WETH9.balanceOf(publicVault));
+    LiquidationAccountant(liquidationAccountant).claim();
+    uint256 publicVaultBalance = WETH9.balanceOf(publicVault);
     
+    emit Mun(publicVaultBalance);
+    PublicVault(publicVault).transferWithdrawReserve();
+    emit Mun(publicVaultBalance);
 
     vm.startPrank(address(1));
     WithdrawProxy(withdrawProxy).redeem(
@@ -205,7 +216,7 @@ contract WithdrawTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    emit Num(WETH9.balanceOf(publicVault));
+    // emit Num(WETH9.balanceOf(publicVault));
 
     // assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
 
@@ -215,17 +226,30 @@ contract WithdrawTest is TestHelpers {
     );
 
     _warpToEpochEnd(publicVault);
+
     PublicVault(publicVault).processEpoch();
+    // emit Num(PublicVault(publicVault).withdrawReserve());
+    // emit Num(WETH9.balanceOf(publicVault));
     emit Num(PublicVault(publicVault).withdrawReserve());
-    emit Num(WETH9.balanceOf(publicVault));
     PublicVault(publicVault).transferWithdrawReserve();
     vm.startPrank(address(2));
-    WithdrawProxy(withdrawProxy).redeem(IERC20(withdrawProxy).balanceOf(address(2)), address(2), address(2));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(2)),
+      address(2),
+      address(2)
+    );
     vm.stopPrank();
 
     assertEq(WETH9.balanceOf(publicVault), 0, "booo publicvault should be 0");
-    assertEq(WETH9.balanceOf(PublicVault(publicVault).liquidationAccountants(0)), 0, "booo liquidationAccountant should be 0");
-    assertEq(WETH9.balanceOf(address(1)), WETH9.balanceOf(address(2)), "Unequal amounts of WETH");
-    
+    assertEq(
+      WETH9.balanceOf(PublicVault(publicVault).liquidationAccountants(0)),
+      0,
+      "booo liquidationAccountant should be 0"
+    );
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      WETH9.balanceOf(address(2)),
+      "Unequal amounts of WETH"
+    );
   }
 }

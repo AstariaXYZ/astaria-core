@@ -355,6 +355,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
   }
 
+  event LIENAMOUNT(uint256);
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
    * @param collateralId The ID of the CollateralToken.
@@ -388,8 +389,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         );
 
         uint256 lienEpoch = PublicVault(owner).getLienEpoch(
-            lien.start + lien.duration
-          );
+          lien.start + lien.duration
+        );
         PublicVault(owner).decreaseEpochLienCount(lienEpoch);
         if (
           PublicVault(owner).timeToEpochEnd() <=
@@ -406,12 +407,18 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
               accountant = PublicVault(owner).deployLiquidationAccountant();
             }
             LIEN_TOKEN.setPayee(currentLien, accountant);
+
+            // lien.amount+=LIEN_TOKEN.getInterest(currentLien);
+            // lien.last = block.timestamp.safeCastTo32();
+            // LIEN_TOKEN.accrue(currentLien);
+            // uint256 expected = lien.amount + LIEN_TOKEN.getInterest(currentLien);
+            emit LIENAMOUNT(lien.amount);
             LiquidationAccountant(accountant).handleNewLiquidation(
-              lien.amount + LIEN_TOKEN.getInterest(currentLien),
+              lien.amount,
               COLLATERAL_TOKEN.auctionWindow() + 1 days
             );
             PublicVault(owner).increaseLiquidationsExpectedAtBoundary(
-              lien.amount + LIEN_TOKEN.getInterest(currentLien)
+              lien.amount
             );
           }
         }

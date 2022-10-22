@@ -54,15 +54,22 @@ contract LiquidationAccountant is LiquidationBase {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
 
-  event Claimed(address withdrawProxy, uint256 withdrawProxyAmount, address publicVault, uint256 publicVaultAmount);
+  event Claimed(
+    address withdrawProxy,
+    uint256 withdrawProxyAmount,
+    address publicVault,
+    uint256 publicVaultAmount
+  );
 
   uint256 withdrawRatio;
 
   uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
   uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
 
+  bool public hasClaimed;
 
   event Balance(uint256);
+
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
    */
@@ -72,9 +79,18 @@ contract LiquidationAccountant is LiquidationBase {
       "final auction has not ended"
     );
 
+    require(!hasClaimed);
+
     uint256 transferAmount;
 
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
+
+    if (balance < expected) {
+      PublicVault(VAULT()).decreaseYIntercept(
+        (expected - balance).mulDivDown(1e18 - withdrawRatio, 1e18)
+      );
+    }
+
     emit Balance(balance);
     // would happen if there was no WithdrawProxy for current epoch
     if (withdrawRatio == uint256(0)) {
@@ -95,13 +111,7 @@ contract LiquidationAccountant is LiquidationBase {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     }
 
-    // PublicVault(VAULT()).decreaseYIntercept(
-    //   (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(
-    //     1e18 - withdrawRatio,
-    //     1e18
-    //   )
-    // );
-
+    hasClaimed = true;
     emit Claimed(WITHDRAW_PROXY(), transferAmount, VAULT(), balance);
   }
 
@@ -114,6 +124,7 @@ contract LiquidationAccountant is LiquidationBase {
     withdrawRatio = liquidationWithdrawRatio;
   }
 
+  event Expexted(uint256);
   /**
    * @notice Adds an auction scheduled to end in a new epoch to this LiquidationAccountant.
    * @param newLienExpectedValue The expected auction value for the lien being auctioned.
@@ -124,6 +135,7 @@ contract LiquidationAccountant is LiquidationBase {
     uint256 finalAuctionTimestamp
   ) public {
     require(msg.sender == ROUTER());
+    emit Expexted(newLienExpectedValue);
     expected += newLienExpectedValue;
     finalAuctionEnd = finalAuctionTimestamp;
   }

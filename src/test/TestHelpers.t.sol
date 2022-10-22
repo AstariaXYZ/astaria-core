@@ -349,6 +349,7 @@ contract TestHelpers is Test {
 
   function _warpToEpochEnd(address vault) internal {
     //warps to the first second after the epoch end
+    assertTrue(block.timestamp < PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1);
     vm.warp(
       PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
     );
