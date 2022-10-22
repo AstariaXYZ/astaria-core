@@ -180,8 +180,16 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     returns (uint256)
   {
     if (!lien.active) {
+      // TODO probably don't need
       return uint256(0);
     }
+    // uint256 delta_t = block.timestamp - lien.last;
+    // return
+    //   delta_t.mulDivDown(lien.rate, 1).mulDivDown(
+    //     lien.amount,
+    //     INTEREST_DENOMINATOR
+    //   );
+
     uint256 delta_t;
     if (block.timestamp >= lien.start + lien.duration) {
       delta_t = uint256(lien.start + lien.duration - lien.last);
@@ -193,6 +201,25 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         lien.amount,
         INTEREST_DENOMINATOR
       );
+  }
+
+  function accrue(uint256 lienId) external {
+    Lien storage lien = lienData[lienId];
+
+    _accrue(lien);
+  }
+
+  function _accrue(Lien memory lien) internal {
+    uint256 delta_t = block.timestamp - lien.last;
+
+    unchecked {
+      lien.amount += delta_t.mulDivDown(lien.rate, 1).mulDivDown(
+        lien.amount,
+        1
+        // INTEREST_DENOMINATOR
+      );
+    }
+    lien.last = block.timestamp.safeCastTo32();
   }
 
   /**
@@ -212,6 +239,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         lien.amount = _getOwed(lien);
         reserve += lien.amount;
       }
+      lien.last = block.timestamp.safeCastTo32();
       lien.active = false;
     }
   }

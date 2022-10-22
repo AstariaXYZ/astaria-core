@@ -354,7 +354,6 @@ contract AstariaTest is TestHelpers {
     _warpToEpochEnd(publicVault);
 
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
-    _warpToEpochEnd(publicVault);
     _signalWithdraw(alice, publicVault);
 
     _commitToLien({
