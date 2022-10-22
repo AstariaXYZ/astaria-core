@@ -63,6 +63,8 @@ interface ILienBase {
 
   function accrue(uint256 lienId) external;
 
+  function getOwed(Lien memory lien, uint256 timestamp) external view returns (uint256);
+
   function getInterest(uint256 collateralId, uint256 position)
     external
     view

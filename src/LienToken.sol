@@ -555,6 +555,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     }
   }
 
+  function getOwed(Lien memory lien, uint256 timestamp) external view returns (uint256) {
+    return _getOwed(lien, timestamp);
+  }
+
   /**
    * @dev Computes the debt owed to a Lien.
    * @param lien The specified Lien.
