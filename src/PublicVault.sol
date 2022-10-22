@@ -236,7 +236,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
-  function processEpoch() external {
+  function processEpoch() public {
     // check to make sure epoch is over
     require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
     require(withdrawReserve == 0, "Withdraw reserve not empty");
@@ -358,6 +358,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     if (currentWithdrawProxy != address(0)) {
       ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
       emit WithdrawReserveTransferred(withdraw);
+    }
+  }
+
+  function _beforeCommitToLien(
+    IAstariaRouter.Commitment calldata params,
+    address receiver
+  ) internal virtual override {
+    if (timeToEpochEnd() == uint256(0)) {
+      processEpoch();
     }
   }
 

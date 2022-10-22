@@ -65,17 +65,6 @@ interface IWETH9 is IERC20 {
   function withdraw(uint256) external;
 }
 
-contract Dummy721 is MockERC721 {
-  constructor() MockERC721("TEST NFT", "TEST") {
-    _mint(msg.sender, 1);
-    _mint(msg.sender, 2);
-  }
-
-  function mint(uint256 tokenId) public {
-    _mint(msg.sender, tokenId);
-  }
-}
-
 contract TestNFT is MockERC721 {
   constructor(uint256 size) MockERC721("TestNFT", "TestNFT") {
     for (uint256 i = 0; i < size; ++i) {
@@ -426,7 +415,6 @@ contract TestHelpers is Test {
         ""
       ); // deposit NFT in CollateralToken
     }
-    uint256 collateralTokenId = tokenContract.computeId(tokenId);
 
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({

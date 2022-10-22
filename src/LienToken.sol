@@ -617,14 +617,14 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     lien.amount = _getOwed(lien);
 
     address payee = getPayee(lienId);
-    if (isPublicVault) {
+    if (isPublicVault && address(msg.sender) != address(AUCTION_HOUSE)) {
       IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
     }
     if (lien.amount > paymentAmount) {
       lien.amount -= paymentAmount;
       lien.last = block.timestamp.safeCastTo32();
       // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
-      if (isPublicVault) {
+      if (isPublicVault && address(msg.sender) != address(AUCTION_HOUSE)) {
         IPublicVault(lienOwner).afterPayment(lienId);
       }
     } else {
