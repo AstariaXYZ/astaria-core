@@ -255,7 +255,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     ) {
       LiquidationAccountant(liquidationAccountants[currentEpoch - 1]).claim();
     }
-
     require(
       liensOpenForEpoch[currentEpoch] == uint256(0),
       "loans are still open for this epoch"
@@ -280,7 +279,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       // compute the withdrawReserve
       uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[
         currentEpoch
-      ].mulDivDown(liquidationWithdrawRatio, 1e18);
+      ].mulWadDown(liquidationWithdrawRatio);
       withdrawReserve = withdrawAssets - withdrawLiquidations;
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);

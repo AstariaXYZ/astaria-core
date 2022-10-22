@@ -54,11 +54,15 @@ contract LiquidationAccountant is LiquidationBase {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
 
+  event Claimed(address withdrawProxy, uint256 withdrawProxyAmount, address publicVault, uint256 publicVaultAmount);
+
   uint256 withdrawRatio;
 
   uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
   uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
 
+
+  event Balance(uint256);
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
    */
@@ -68,14 +72,17 @@ contract LiquidationAccountant is LiquidationBase {
       "final auction has not ended"
     );
 
+    uint256 transferAmount;
+
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
+    emit Balance(balance);
     // would happen if there was no WithdrawProxy for current epoch
     if (withdrawRatio == uint256(0)) {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     } else {
       //should be wad multiplication
       // declining
-      uint256 transferAmount = withdrawRatio.mulDivDown(balance, 1e18);
+      transferAmount = withdrawRatio.mulDivDown(balance, 1e18);
 
       if (transferAmount > uint256(0)) {
         ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), transferAmount);
@@ -88,12 +95,14 @@ contract LiquidationAccountant is LiquidationBase {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     }
 
-    PublicVault(VAULT()).decreaseYIntercept(
-      (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(
-        1e18 - withdrawRatio,
-        1e18
-      )
-    );
+    // PublicVault(VAULT()).decreaseYIntercept(
+    //   (expected - ERC20(underlying()).balanceOf(address(this))).mulDivDown(
+    //     1e18 - withdrawRatio,
+    //     1e18
+    //   )
+    // );
+
+    emit Claimed(WITHDRAW_PROXY(), transferAmount, VAULT(), balance);
   }
 
   /**

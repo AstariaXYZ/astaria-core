@@ -378,15 +378,19 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
       ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
 
-      address owner = LIEN_TOKEN.ownerOf(currentLien);
+      address owner = LIEN_TOKEN.getPayee(currentLien);
       if (
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
       ) {
         // subtract slope from PublicVault
-
         PublicVault(owner).updateVaultAfterLiquidation(
           LIEN_TOKEN.calculateSlope(currentLien)
         );
+
+        uint256 lienEpoch = PublicVault(owner).getLienEpoch(
+            lien.start + lien.duration
+          );
+        PublicVault(owner).decreaseEpochLienCount(lienEpoch);
         if (
           PublicVault(owner).timeToEpochEnd() <=
           COLLATERAL_TOKEN.auctionWindow()
@@ -395,10 +399,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
           address accountant = PublicVault(owner).getLiquidationAccountant(
             currentEpoch
           );
-          uint256 lienEpoch = PublicVault(owner).getLienEpoch(
-            lien.start + lien.duration
-          );
-          PublicVault(owner).decreaseEpochLienCount(lienEpoch);
 
           // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
           if (PublicVault(owner).withdrawReserve() == 0) {
@@ -407,11 +407,11 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             }
             LIEN_TOKEN.setPayee(currentLien, accountant);
             LiquidationAccountant(accountant).handleNewLiquidation(
-              lien.amount,
+              lien.amount + LIEN_TOKEN.getInterest(currentLien),
               COLLATERAL_TOKEN.auctionWindow() + 1 days
             );
             PublicVault(owner).increaseLiquidationsExpectedAtBoundary(
-              lien.amount
+              lien.amount + LIEN_TOKEN.getInterest(currentLien)
             );
           }
         }
