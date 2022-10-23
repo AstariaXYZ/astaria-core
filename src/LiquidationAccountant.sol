@@ -124,7 +124,6 @@ contract LiquidationAccountant is LiquidationBase {
     withdrawRatio = liquidationWithdrawRatio;
   }
 
-  event Expexted(uint256);
   /**
    * @notice Adds an auction scheduled to end in a new epoch to this LiquidationAccountant.
    * @param newLienExpectedValue The expected auction value for the lien being auctioned.
@@ -135,7 +134,6 @@ contract LiquidationAccountant is LiquidationBase {
     uint256 finalAuctionTimestamp
   ) public {
     require(msg.sender == ROUTER());
-    emit Expexted(newLienExpectedValue);
     expected += newLienExpectedValue;
     finalAuctionEnd = finalAuctionTimestamp;
   }

@@ -207,25 +207,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       );
   }
 
-  function accrue(uint256 lienId) external {
-    Lien storage lien = lienData[lienId];
-
-    _accrue(lien);
-  }
-
-  function _accrue(Lien memory lien) internal {
-    uint256 delta_t = block.timestamp - lien.last;
-
-    unchecked {
-      lien.amount += delta_t.mulDivDown(lien.rate, 1).mulDivDown(
-        lien.amount,
-        1
-        // INTEREST_DENOMINATOR
-      );
-    }
-    lien.last = block.timestamp.safeCastTo32();
-  }
-
   /**
    * @notice Stops accruing interest for all liens against a single CollateralToken.
    * @param collateralId The ID for the  CollateralToken of the NFT used as collateral for the liens.

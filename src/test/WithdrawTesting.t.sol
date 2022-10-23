@@ -121,15 +121,10 @@ contract WithdrawTest is TestHelpers {
       publicVault
     );
 
-    uint256 initialSupply = PublicVault(publicVault).totalSupply();
-
-
     _lendToVault(
       Lender({addr: address(2), amountToLend: 50 ether}),
       publicVault
     );
-
-    assertEq(initialSupply * 2, PublicVault(publicVault).totalSupply(), "1");
 
     assertEq(
       ERC20(publicVault).balanceOf(address(1)),
@@ -168,14 +163,7 @@ contract WithdrawTest is TestHelpers {
       PublicVault(publicVault).getCurrentEpoch()
     );
 
-    assertEq(
-      ERC20(withdrawProxy).balanceOf(address(1)),
-      ERC20(publicVault).balanceOf(address(2)),
-      "minted supply to LPs not equal"
-    );
-
-    vm.warp(block.timestamp + 10 days);
-    vm.warp(block.timestamp + 4 days); // end of loan
+    vm.warp(block.timestamp + 14 days);
 
     ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
     ASTARIA_ROUTER.liquidate(collateralId2, uint256(0)); // TODO test this
@@ -191,19 +179,6 @@ contract WithdrawTest is TestHelpers {
       "LiquidationAccountant not deployed"
     );
     _warpToEpochEnd(publicVault); // epoch boundary
-
-    assertEq(
-      ERC20(withdrawProxy).balanceOf(address(1)),
-      ERC20(publicVault).balanceOf(address(2)),
-      "minted supply to LPs not equal"
-    );
-
-    assertEq(
-      PublicVault(publicVault).totalSupply(),
-      ERC20(publicVault).balanceOf(publicVault) +
-        ERC20(publicVault).balanceOf(address(2)),
-      "2"
-    );
 
     PublicVault(publicVault).processEpoch();
 
@@ -239,11 +214,11 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(publicVault), 0, "booo publicvault should be 0");
+    assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault should have 0 assets");
     assertEq(
       WETH9.balanceOf(PublicVault(publicVault).liquidationAccountants(0)),
       0,
-      "booo liquidationAccountant should be 0"
+      "LiquidationAccountant should have 0 assets"
     );
     assertEq(
       WETH9.balanceOf(address(1)),

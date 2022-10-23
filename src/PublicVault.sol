@@ -280,47 +280,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         LiquidationAccountant(liquidationAccountants[currentEpoch])
           .setWithdrawRatio(liquidationWithdrawRatio);
       }
-
-      // uint256 withdrawAssets = convertToAssets(proxySupply);
-      // uint256 withdrawAssets = totalAssets().mulDivDown(liquidationWithdrawRatio, 1e18);
-
-
-      // // compute the withdrawReserve
-
-      // uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[
-      //   currentEpoch
-      // ].mulDivDown(liquidationWithdrawRatio, 1e18);
-      // withdrawReserve = withdrawAssets - withdrawLiquidations;
-
-      withdrawReserve = (totalAssets() - liquidationsExpectedAtBoundary[currentEpoch]).mulDivDown(liquidationWithdrawRatio, 1e18);
-
-
-
-
-      // if (currentEpoch == 0) {
-      //   withdrawReserve = 45000000000000000000;
-      // }
-      // emit WithdrawStats(
-      //   withdrawAssets,
-      //   withdrawLiquidations,
-      //   liquidationsExpectedAtBoundary[currentEpoch],
-      //   liquidationWithdrawRatio
-      // );
-
-      // emit Bum(
-      //   withdrawAssets.mulDivDown(2, 1) +
-      //     liquidationsExpectedAtBoundary[currentEpoch]
-      // );
-
-
-      _decreaseYIntercept(totalAssets().mulDivDown(liquidationWithdrawRatio, 1e18));
+      withdrawReserve = (totalAssets() -
+        liquidationsExpectedAtBoundary[currentEpoch]).mulDivDown(
+          liquidationWithdrawRatio,
+          1e18
+        );
+        
+      _decreaseYIntercept(
+        totalAssets().mulDivDown(liquidationWithdrawRatio, 1e18)
+      );
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
-
-      // _decreaseYIntercept(withdrawAssets);
-      
-
-      // _decreaseYIntercept(withdrawReserve);
     }
 
     // increment epoch
@@ -575,30 +545,16 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
-  // function updateVaultAfterLiquidation(uint256 lienSlope) public {
-  //   require(msg.sender == ROUTER(), "can only be called by the router");
-  //   uint256 delta_t = block.timestamp - last;
-
-  //   yIntercept = slope.mulDivDown(delta_t, 1) + yIntercept;
-  //   last = block.timestamp;
-  //   slope -= lienSlope;
-  // }
-
-
-  function updateVaultAfterLiquidation(uint256 debtAccruedSinceLastPayment, uint256 accrued, uint256 lienSlope) public {
+  function updateVaultAfterLiquidation(
+    uint256 debtAccruedSinceLastPayment,
+    uint256 accrued,
+    uint256 lienSlope
+  ) public {
     require(msg.sender == ROUTER(), "can only be called by the router");
     slope -= lienSlope;
     last = block.timestamp;
-    yIntercept+=accrued;
-    yIntercept-=debtAccruedSinceLastPayment;
-
-
-
-    // uint256 delta_t = block.timestamp - last;
-
-    // yIntercept = slope.mulDivDown(delta_t, 1) + yIntercept;
-    // last = block.timestamp;
-    // slope -= lienSlope;
+    yIntercept += accrued;
+    yIntercept -= debtAccruedSinceLastPayment;
   }
 
   function getYIntercept() public view returns (uint256) {
