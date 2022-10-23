@@ -356,6 +356,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   }
 
   event LIENAMOUNT(uint256);
+  event ACCRUED2(uint256);
 
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
@@ -378,8 +379,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     for (uint256 i = 0; i < liens.length; ++i) {
       uint256 currentLien = liens[i];
 
-      uint256 slope = LIEN_TOKEN.calculateSlope(currentLien);
       ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
+
+      uint256 initial = LIEN_TOKEN.getAccruedSinceLastPayment(currentLien);
+      emit ACCRUED2(initial);
 
       address owner = LIEN_TOKEN.getPayee(currentLien);
       if (
@@ -387,11 +390,13 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       ) {
         // subtract slope from PublicVault
         PublicVault(owner).updateVaultAfterLiquidation(
-          10 ether,
           // 10 ether,
+          // lien.amount,
+          // LIEN_TOKEN.getInterest(currentLien),
+          // 10 ether,
+          initial,
           lien.amount,
-          // LIEN_TOKEN.calculateSlope(currentLien)
-          slope
+          LIEN_TOKEN.calculateSlope(currentLien)
         );
 
         uint256 lienEpoch = PublicVault(owner).getLienEpoch(

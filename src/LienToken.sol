@@ -183,6 +183,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       // TODO probably don't need
       return uint256(0);
     }
+
+    if (lien.start == lien.last) {
+      return uint256(0);
+    }
     // uint256 delta_t = block.timestamp - lien.last;
     // return
     //   delta_t.mulDivDown(lien.rate, 1).mulDivDown(
@@ -553,6 +557,12 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     if (totalDebt > uint256(0)) {
       impliedRate = impliedRate.mulDivDown(1, totalDebt);
     }
+  }
+
+  function getAccruedSinceLastPayment(uint256 lienId) external view returns (uint256) {
+    Lien memory lien = lienData[lienId];
+    assert(lien.last == lien.start);
+    return _getOwed(lien, lien.last);
   }
 
   function getOwed(Lien memory lien, uint256 timestamp) external view returns (uint256) {
