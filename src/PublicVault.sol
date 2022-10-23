@@ -585,12 +585,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   // }
 
 
-  function updateVaultAfterLiquidation(uint256 principal, uint256 accrued, uint256 lienSlope) public {
+  function updateVaultAfterLiquidation(uint256 debtAccruedSinceLastPayment, uint256 accrued, uint256 lienSlope) public {
     require(msg.sender == ROUTER(), "can only be called by the router");
     slope -= lienSlope;
     last = block.timestamp;
     yIntercept+=accrued;
-    yIntercept-=principal;
+    yIntercept-=debtAccruedSinceLastPayment;
 
 
 

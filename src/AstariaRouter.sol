@@ -390,10 +390,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       ) {
         // subtract slope from PublicVault
         PublicVault(owner).updateVaultAfterLiquidation(
-          // 10 ether,
-          // lien.amount,
-          // LIEN_TOKEN.getInterest(currentLien),
-          // 10 ether,
           initial,
           lien.amount,
           LIEN_TOKEN.calculateSlope(currentLien)

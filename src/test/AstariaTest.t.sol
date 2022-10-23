@@ -364,7 +364,7 @@ contract AstariaTest is TestHelpers {
       tokenId: uint256(5),
       lienDetails: standardLien,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: false // TODO look at this
     });
   }
 
