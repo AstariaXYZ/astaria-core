@@ -49,7 +49,7 @@ contract RevertTesting is TestHelpers {
 
   // Only strategists for PrivateVaults can supply capital
   function testFailSoloLendNotAppraiser() public {
-    Dummy721 nft = new Dummy721();
+    TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
 
@@ -68,7 +68,7 @@ contract RevertTesting is TestHelpers {
 
   // PublicVaults should not be able to progress to the next epoch unless all liens that are able to be liquidated have been liquidated
   function testFailProcessEpochWithUnliquidatedLien() public {
-    Dummy721 nft = new Dummy721();
+    TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
 

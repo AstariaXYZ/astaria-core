@@ -41,7 +41,6 @@ contract AstariaTest is TestHelpers {
   using SafeCastLib for uint256;
 
   function testBasicPublicVaultLoan() public {
-    // Dummy721 nft = new Dummy721();
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -84,7 +83,7 @@ contract AstariaTest is TestHelpers {
   }
 
   function testBasicPrivateVaultLoan() public {
-    Dummy721 nft = new Dummy721();
+    TestNFT nft = new TestNFT(2);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
 
@@ -115,7 +114,7 @@ contract AstariaTest is TestHelpers {
   }
 
   function testWithdrawProxy() public {
-    Dummy721 nft = new Dummy721();
+    TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
 
@@ -164,8 +163,8 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  function testLiquidationAccountant() public {
-    Dummy721 nft = new Dummy721();
+  function testLiquidationAccountant2() public {
+    TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
     address publicVault = _createPublicVault({
@@ -203,7 +202,6 @@ contract AstariaTest is TestHelpers {
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
     vm.warp(block.timestamp + 14 days); // end of loan
-
     ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
 
     address liquidationAccountant = PublicVault(publicVault)
@@ -356,7 +354,6 @@ contract AstariaTest is TestHelpers {
     _warpToEpochEnd(publicVault);
 
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
-    _warpToEpochEnd(publicVault);
     _signalWithdraw(alice, publicVault);
 
     _commitToLien({
@@ -369,6 +366,47 @@ contract AstariaTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: false
     });
+  }
+
+  function testCancelAuction() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    //    mintAndDeposit(address(nft), uint256(5));
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
+    _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLien,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    vm.warp(block.timestamp + 11 days);
+    ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
+    _cancelAuction(collateralId, address(this));
+  }
+
+  function _cancelAuction(uint256 auctionId, address sender) internal {
+    vm.startPrank(sender);
+
+    (, , , uint256 reserve, ) = AUCTION_HOUSE.getAuctionData(auctionId);
+
+    WETH9.approve(address(TRANSFER_PROXY), reserve);
+    COLLATERAL_TOKEN.cancelAuction(auctionId);
+    vm.stopPrank();
   }
 
   uint8 FUZZ_SIZE = uint8(10);

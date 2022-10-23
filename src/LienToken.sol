@@ -631,14 +631,14 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    * @param position The position of the lien to make a payment to.
    * @param paymentAmount The amount to pay against the debt.
    * @param payer The address to make the payment.
-   * @return The paymentAmount for the payment.
+   * @return amountSpent The amount actually spent for the payment.
    */
   function _payment(
     uint256 collateralId,
     uint8 position,
     uint256 paymentAmount,
     address payer
-  ) internal returns (uint256) {
+  ) internal returns (uint256 amountSpent) {
     if (paymentAmount == uint256(0)) {
       return uint256(0);
     }
@@ -661,17 +661,21 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     lien.amount = _getOwed(lien);
 
     address payee = getPayee(lienId);
+
     if (isPublicVault && !isAuctionHouse) {
       IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
     }
     if (lien.amount > paymentAmount) {
       lien.amount -= paymentAmount;
+      amountSpent = paymentAmount;
       lien.last = block.timestamp.safeCastTo32();
       // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
+
       if (isPublicVault && !isAuctionHouse) {
         IPublicVault(lienOwner).afterPayment(lienId);
       }
     } else {
+      amountSpent = lien.amount;
       if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
         // since the openLiens count is only positive when there are liens that haven't been paid off
         // that should be liquidated, this lien should not be counted anymore
@@ -686,10 +690,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       _burn(lienId);
     }
 
-    TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, paymentAmount);
+    TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, amountSpent);
 
-    emit Payment(lienId, paymentAmount);
-    return paymentAmount;
+    emit Payment(lienId, amountSpent);
   }
 
   function _deleteLienPosition(uint256 collateralId, uint256 position) public {

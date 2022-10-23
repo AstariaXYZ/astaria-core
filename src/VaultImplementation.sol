@@ -232,22 +232,29 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
     virtual
   {}
 
+  function _beforeCommitToLien(
+    IAstariaRouter.Commitment calldata,
+    address receiver
+  ) internal virtual {}
+
   /**
    * @notice Pipeline for lifecycle of new loan origination.
    * Origination consists of a few phases: pre-commitment validation, lien token issuance, strategist reward, and after commitment actions
    * Starts by depositing collateral and take out a lien against it. Next, verifies the merkle proof for a loan commitment. Vault owners are then rewarded fees for successful loan origination.
    * @param params Commitment data for the incoming lien request
    * @param receiver The borrower receiving the loan.
+   * @return lienId The id of the newly minted lien token.
    */
   function commitToLien(
     IAstariaRouter.Commitment calldata params,
     address receiver
-  ) external whenNotPaused {
+  ) external whenNotPaused returns (uint256 lienId) {
     IAstariaRouter.LienDetails memory ld = _validateCommitment(
       params,
       receiver
     );
-    uint256 lienId = _requestLienAndIssuePayout(ld, params, receiver);
+    _beforeCommitToLien(params, receiver);
+    lienId = _requestLienAndIssuePayout(ld, params, receiver);
     _afterCommitToLien(lienId, params.lienRequest.amount);
     emit NewLien(
       params.lienRequest.merkle.root,
@@ -255,6 +262,7 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
       params.tokenId,
       params.lienRequest.amount
     );
+    return lienId;
   }
 
   /**

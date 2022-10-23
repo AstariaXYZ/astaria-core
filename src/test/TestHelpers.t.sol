@@ -65,26 +65,11 @@ interface IWETH9 is IERC20 {
   function withdraw(uint256) external;
 }
 
-contract Dummy721 is MockERC721 {
-  constructor() MockERC721("TEST NFT", "TEST") {
-    _mint(msg.sender, 1);
-    _mint(msg.sender, 2);
-  }
-
-  function mint(uint256 tokenId) public {
-    _mint(msg.sender, tokenId);
-  }
-}
-
 contract TestNFT is MockERC721 {
   constructor(uint256 size) MockERC721("TestNFT", "TestNFT") {
     for (uint256 i = 0; i < size; ++i) {
       _mint(msg.sender, i);
     }
-  }
-
-  function mint(uint256 tokenId) public {
-    _mint(msg.sender, tokenId);
   }
 }
 
@@ -349,16 +334,27 @@ contract TestHelpers is Test {
 
   function _warpToEpochEnd(address vault) internal {
     //warps to the first second after the epoch end
-    assertTrue(block.timestamp < PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1);
+    assertTrue(
+      block.timestamp <
+        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
+    );
     vm.warp(
       PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
     );
   }
 
   function _mintAndDeposit(address tokenContract, uint256 tokenId) internal {
+    _mintAndDeposit(tokenContract, tokenId, address(this));
+  }
+
+  function _mintAndDeposit(
+    address tokenContract,
+    uint256 tokenId,
+    address to
+  ) internal {
     TestNFT(tokenContract).mint(address(this), tokenId);
     ERC721(tokenContract).safeTransferFrom(
-      address(this),
+      to,
       address(COLLATERAL_TOKEN),
       tokenId,
       ""
@@ -444,7 +440,6 @@ contract TestHelpers is Test {
         ""
       ); // deposit NFT in CollateralToken
     }
-    uint256 collateralTokenId = tokenContract.computeId(tokenId);
 
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
@@ -616,7 +611,11 @@ contract TestHelpers is Test {
     });
 
     address withdrawProxy = PublicVault(publicVault).withdrawProxies(epoch);
-    assertEq(IERC20(withdrawProxy).balanceOf(lender), vaultTokenBalance, "Incorrect number of WithdrawTokens minted");
+    assertEq(
+      IERC20(withdrawProxy).balanceOf(lender),
+      vaultTokenBalance,
+      "Incorrect number of WithdrawTokens minted"
+    );
     ERC20(withdrawProxy).safeApprove(address(this), type(uint256).max);
     vm.stopPrank();
   }

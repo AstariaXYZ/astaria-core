@@ -106,10 +106,11 @@ contract WithdrawTest is TestHelpers {
   }
 
   event Num(uint256);
+
   event Mun(uint256);
   event TOTAL_ASSETS(uint256);
   function testLiquidationAccountant5050Split() public {
-    Dummy721 nft = new Dummy721();
+    TestNFT nft = new TestNFT(5);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
     address publicVault = _createPublicVault({
@@ -204,7 +205,7 @@ contract WithdrawTest is TestHelpers {
     // emit Num(WETH9.balanceOf(publicVault));
     LiquidationAccountant(liquidationAccountant).claim();
     uint256 publicVaultBalance = WETH9.balanceOf(publicVault);
-    
+
     emit Mun(publicVaultBalance);
     PublicVault(publicVault).transferWithdrawReserve();
     emit Mun(publicVaultBalance);

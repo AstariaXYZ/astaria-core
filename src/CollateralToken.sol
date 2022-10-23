@@ -332,6 +332,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     require(AUCTION_HOUSE.auctionExists(tokenId), "Auction doesn't exist");
 
     AUCTION_HOUSE.cancelAuction(tokenId, msg.sender);
+    _releaseToAddress(tokenId, msg.sender);
   }
 
   /**
