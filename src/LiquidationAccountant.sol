@@ -142,4 +142,8 @@ contract LiquidationAccountant is LiquidationBase {
   function getFinalAuctionEnd() external view returns (uint256) {
     return finalAuctionEnd;
   }
+
+  function getExpected() external view returns (uint256) {
+    return expected;
+  }
 }

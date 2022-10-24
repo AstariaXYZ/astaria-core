@@ -432,7 +432,7 @@ contract TestHelpers is Test {
     IAstariaRouter.LienDetails memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien
-  ) internal {
+  ) internal returns (uint256) {
     if (isFirstLien) {
       ERC721(tokenContract).safeTransferFrom(
         address(this),
@@ -488,7 +488,7 @@ contract TestHelpers is Test {
       })
     );
 
-    VaultImplementation(vault).commitToLien(terms, address(this));
+    return VaultImplementation(vault).commitToLien(terms, address(this));
   }
 
   struct GenTerms {

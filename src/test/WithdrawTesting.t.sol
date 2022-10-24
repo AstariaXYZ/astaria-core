@@ -181,6 +181,8 @@ contract WithdrawTest is TestHelpers {
     _warpToEpochEnd(publicVault); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
+    emit log_uint(PublicVault(publicVault).withdrawReserve());
+
 
     vm.warp(block.timestamp + 13 days);
 
@@ -203,7 +205,7 @@ contract WithdrawTest is TestHelpers {
     );
 
     _warpToEpochEnd(publicVault);
-
+    
     PublicVault(publicVault).processEpoch();
     PublicVault(publicVault).transferWithdrawReserve();
     vm.startPrank(address(2));
@@ -264,7 +266,7 @@ contract WithdrawTest is TestHelpers {
 
     IAstariaRouter.LienDetails memory lien1 = standardLien;
     lien1.duration = 13 days; // will trigger LiquidationAccountant
-    _commitToLien({
+    uint256 lienId1 = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -276,9 +278,9 @@ contract WithdrawTest is TestHelpers {
     });
 
     IAstariaRouter.LienDetails memory lien2 = standardLien;
-    lien2.duration = 15 days; // will trigger LiquidationAccountant for next epoch
+    lien2.duration = 27 days; // will trigger LiquidationAccountant for next epoch
 
-    _commitToLien({
+    uint256 lienId2 = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -299,12 +301,23 @@ contract WithdrawTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId1, 0);
 
     address liquidationAccountant1 = PublicVault(publicVault)
-      .liquidationAccountants(0);
+      .getLiquidationAccountant(0);
+
+    assertEq(
+      LIEN_TOKEN.getPayee(lienId1),
+      liquidationAccountant1,
+      "First lien not pointing to first LiquidationAccountant"
+    );
+
+    _bid(address(3), collateralId1, 20 ether);
 
     assertTrue(
       liquidationAccountant1 != address(0),
-      "LiquidationAccountant not deployed"
+      "LiquidationAccountant 0 not deployed"
     );
+
+    PublicVault(publicVault).processEpoch(); // epoch 0 processing
+    LiquidationAccountant(liquidationAccountant1).claim();
 
     vm.warp(block.timestamp + 14 days);
 
@@ -313,17 +326,23 @@ contract WithdrawTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId2, 0);
 
     address liquidationAccountant2 = PublicVault(publicVault)
-      .liquidationAccountants(0);
+      .getLiquidationAccountant(1);
+
+    assertEq(
+      LIEN_TOKEN.getPayee(lienId2),
+      liquidationAccountant2,
+      "Second lien not pointing to second LiquidationAccountant"
+    );
+
+    _bid(address(3), collateralId2, 20 ether);
 
     assertTrue(
       liquidationAccountant2 != address(0),
-      "LiquidationAccountant not deployed"
+      "LiquidationAccountant 1 not deployed"
     );
-
-    PublicVault(publicVault).processEpoch(); // epoch 0 processing
     PublicVault(publicVault).transferWithdrawReserve();
 
-    address withdrawProxy1 = PublicVault(publicVault).withdrawProxies(0);
+    address withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
     WithdrawProxy(withdrawProxy1).redeem(
       IERC20(withdrawProxy1).balanceOf(address(1)),
       address(1),
@@ -331,14 +350,50 @@ contract WithdrawTest is TestHelpers {
     );
 
     PublicVault(publicVault).processEpoch();
+    LiquidationAccountant(liquidationAccountant2).claim();
     PublicVault(publicVault).transferWithdrawReserve();
-    address withdrawProxy2 = PublicVault(publicVault).withdrawProxies(1);
+    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
     WithdrawProxy(withdrawProxy2).redeem(
       IERC20(withdrawProxy2).balanceOf(address(2)),
       address(2),
       address(2)
     );
+    assertEq(
+      WETH9.balanceOf(publicVault),
+      0,
+      "PublicVault should have 0 assets"
+    );
+    assertEq(
+      WETH9.balanceOf(PublicVault(publicVault).getWithdrawProxy(0)),
+      0,
+      "WithdrawProxy 0 should have 0 assets"
+    );
+    assertEq(
+      WETH9.balanceOf(PublicVault(publicVault).getWithdrawProxy(1)),
+      0,
+      "WithdrawProxy 1 should have 0 assets"
+    );
+    assertEq(
+      WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(0)),
+      0,
+      "LiquidationAccountant 0 should have 0 assets"
+    );
+    assertEq(
+      WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(1)),
+      0,
+      "LiquidationAccountant 1 should have 0 assets"
+    );
 
-    assertEq(WETH9.balanceOf(address(1)), WETH9.balanceOf(address(2)));
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50575342941392479750,
+      "LPs have different amounts"
+    );
+
+    assertEq(
+      WETH9.balanceOf(address(2)),
+      51150685407138079750,
+      "LPs have different amounts"
+    );
   }
 }

@@ -400,44 +400,43 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       uint256 currentLien = liens[i];
 
       ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
-
-      uint256 initial = LIEN_TOKEN.getAccruedSinceLastPayment(currentLien);
       address owner = LIEN_TOKEN.getPayee(currentLien);
       if (
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
       ) {
         // subtract slope from PublicVault
         PublicVault(owner).updateVaultAfterLiquidation(
-          initial,
-          lien.amount,
           LIEN_TOKEN.calculateSlope(currentLien)
         );
+        
+        uint64 currentEpoch = PublicVault(owner).currentEpoch();
 
+        if(currentEpoch != 0) {
+          PublicVault(owner).transferWithdrawReserve();
+        }
+
+        uint64 lienEpoch = PublicVault(owner).getLienEpoch(lien.end);
         PublicVault(owner).decreaseEpochLienCount(
-          PublicVault(owner).getLienEpoch(lien.end)
+          lienEpoch
         );
         if (
           PublicVault(owner).timeToEpochEnd() <=
           COLLATERAL_TOKEN.auctionWindow()
         ) {
-          uint64 currentEpoch = PublicVault(owner).currentEpoch();
           address accountant = PublicVault(owner).getLiquidationAccountant(
-            currentEpoch
+            lienEpoch
           );
 
           // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
           if (PublicVault(owner).withdrawReserve() == 0) {
             if (accountant == address(0)) {
-              accountant = PublicVault(owner).deployLiquidationAccountant();
+              accountant = PublicVault(owner).deployLiquidationAccountant(lienEpoch);
             }
             LIEN_TOKEN.setPayee(currentLien, accountant);
 
             LiquidationAccountant(accountant).handleNewLiquidation(
               lien.amount,
               COLLATERAL_TOKEN.auctionWindow() + 1 days
-            );
-            PublicVault(owner).increaseLiquidationsExpectedAtBoundary(
-              lien.amount
             );
           }
         }

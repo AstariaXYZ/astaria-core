@@ -123,7 +123,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   //epoch data
   struct EpochData {
     uint256 liensOpenForEpoch;
-    uint256 liquidationsExpectedAtBoundary;
     address withdrawProxy;
     address liquidationAccountant;
   }
@@ -211,8 +210,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return epochData[epoch].liquidationAccountant;
   }
 
+  // TODO kill
   function getLiquidationsExpected(uint64 epoch) public view returns (uint256) {
-    return epochData[epoch].liquidationsExpectedAtBoundary;
+    address accountant = epochData[epoch].liquidationAccountant;
+    if(accountant == address(0)) {
+      return uint256(0);
+    }
+    return
+      LiquidationAccountant(accountant)
+        .getExpected();
   }
 
   function _deployWithdrawProxyIfNotDeployed(uint64 epoch) internal {
@@ -257,7 +263,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function processEpoch() public {
     // check to make sure epoch is over
     require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
-    require(withdrawReserve == 0, "Withdraw reserve not empty");
+    require(
+      currentEpoch == 0 || withdrawReserve == 0,
+      "Withdraw reserve not empty"
+    );
     address currentLA = getLiquidationAccountant(currentEpoch);
     if (currentLA != address(0)) {
       require(
@@ -315,13 +324,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @notice Deploys a LiquidationAccountant for the WithdrawProxy for the upcoming epoch boundary.
    * @return accountant The address of the deployed LiquidationAccountant.
    */
-  function deployLiquidationAccountant() public returns (address accountant) {
+  function deployLiquidationAccountant(uint64 epoch)
+    public
+    returns (address accountant)
+  {
+    require(msg.sender == ROUTER(), "only router can call");
     require(
-      getLiquidationAccountant(currentEpoch) == address(0),
+      getLiquidationAccountant(epoch) == address(0),
       "cannot deploy two liquidation accountants for the same epoch"
     );
 
-    _deployWithdrawProxyIfNotDeployed(currentEpoch);
+    _deployWithdrawProxyIfNotDeployed(epoch);
 
     accountant = ClonesWithImmutableArgs.clone(
       IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
@@ -330,10 +343,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         ROUTER(),
         address(this),
         address(LIEN_TOKEN()),
-        address(getWithdrawProxy(currentEpoch))
+        address(getWithdrawProxy(epoch))
       )
     );
-    epochData[currentEpoch].liquidationAccountant = accountant;
+    epochData[epoch].liquidationAccountant = accountant;
   }
 
   function supportsInterface(bytes4 interfaceId)
@@ -356,6 +369,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
 
   function transferWithdrawReserve() public {
+    require(currentEpoch != 0, "Must be in epoch 1 to call this");
     // check the available balance to be withdrawn
     uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
 
@@ -432,12 +446,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
 
   function totalAssets() public view virtual override returns (uint256) {
-    if (last == 0 || yIntercept == 0) {
-      return ERC20(underlying()).balanceOf(address(this));
-    }
+    // if (last == 0 || yIntercept == 0) {
+    //   return ERC20(underlying()).balanceOf(address(this));
+    // }
+
     // uint256 delta_t = (last == 0) ? last : block.timestamp - last;
     uint256 delta_t = block.timestamp - last;
-
     return slope.mulDivDown(delta_t, 1) + yIntercept;
   }
 
@@ -465,6 +479,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _handleStrategistInterestReward(lienId, amount);
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
     if (lienSlope > slope) {
+      // TODO kill
       slope = 0;
     } else {
       slope -= lienSlope;
@@ -483,18 +498,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     );
     unchecked {
       epochData[epoch].liensOpenForEpoch--;
-    }
-  }
-
-  /** @notice
-   * hook to increase the amount of debt currently liquidated to discount in processEpoch
-   * @param amount the amount of debt liquidated
-   */
-  function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
-    require(msg.sender == ROUTER(), "only router");
-    unchecked {
-      epochData[currentEpoch].liquidationsExpectedAtBoundary += amount
-        .safeCastTo64();
     }
   }
 
@@ -562,15 +565,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   }
 
   function updateVaultAfterLiquidation(
-    uint256 debtAccruedSinceLastPayment,
-    uint256 accrued,
     uint256 lienSlope
   ) public {
     require(msg.sender == ROUTER(), "can only be called by the router");
+    yIntercept+= slope.mulDivDown(block.timestamp - last, 1);
     slope -= lienSlope;
     last = block.timestamp;
-    yIntercept += accrued;
-    yIntercept -= debtAccruedSinceLastPayment;
   }
 
   function getYIntercept() public view returns (uint256) {
