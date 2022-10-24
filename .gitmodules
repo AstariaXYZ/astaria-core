@@ -18,5 +18,5 @@
 	path = lib/ds-test
 	url = https://github.com/dapphub/ds-test
 [submodule "lib/assets"]
-	path = lib/ds-test
+	path = lib/assets
 	url = https://github.com/astariaxyz/assets
