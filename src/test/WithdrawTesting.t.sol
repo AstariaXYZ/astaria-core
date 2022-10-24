@@ -214,7 +214,11 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault should have 0 assets");
+    assertEq(
+      WETH9.balanceOf(publicVault),
+      0,
+      "PublicVault should have 0 assets"
+    );
     assertEq(
       WETH9.balanceOf(PublicVault(publicVault).liquidationAccountants(0)),
       0,
@@ -225,5 +229,111 @@ contract WithdrawTest is TestHelpers {
       WETH9.balanceOf(address(2)),
       "Unequal amounts of WETH"
     );
+  }
+
+  function testLiquidationAccountantEpochOrdering() public {
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 2);
+    address tokenContract = address(nft);
+    uint256 tokenId1 = uint256(1);
+    uint256 tokenId2 = uint256(2);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    _signalWithdrawAtFutureEpoch(address(2), publicVault, 1);
+
+    IAstariaRouter.LienDetails memory lien1 = standardLien;
+    lien1.duration = 13 days; // will trigger LiquidationAccountant
+    _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId1,
+      lienDetails: lien1,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    IAstariaRouter.LienDetails memory lien2 = standardLien;
+    lien2.duration = 15 days; // will trigger LiquidationAccountant for next epoch
+
+    _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId2,
+      lienDetails: lien2,
+      amount: 10 ether,
+      isFirstLien: false
+    });
+
+    _warpToEpochEnd(publicVault);
+
+    vm.expectRevert("loans are still open for this epoch");
+    PublicVault(publicVault).processEpoch();
+
+    uint256 collateralId1 = tokenContract.computeId(tokenId1);
+
+    ASTARIA_ROUTER.liquidate(collateralId1, 0);
+
+    address liquidationAccountant1 = PublicVault(publicVault)
+      .liquidationAccountants(0);
+
+    assertTrue(
+      liquidationAccountant1 != address(0),
+      "LiquidationAccountant not deployed"
+    );
+
+    vm.warp(block.timestamp + 14 days);
+
+    uint256 collateralId2 = tokenContract.computeId(tokenId2);
+
+    ASTARIA_ROUTER.liquidate(collateralId2, 0);
+
+    address liquidationAccountant2 = PublicVault(publicVault)
+      .liquidationAccountants(0);
+
+    assertTrue(
+      liquidationAccountant2 != address(0),
+      "LiquidationAccountant not deployed"
+    );
+
+    PublicVault(publicVault).processEpoch(); // epoch 0 processing
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    address withdrawProxy1 = PublicVault(publicVault).withdrawProxies(0);
+    WithdrawProxy(withdrawProxy1).redeem(
+      IERC20(withdrawProxy1).balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+
+    PublicVault(publicVault).processEpoch();
+    PublicVault(publicVault).transferWithdrawReserve();
+    address withdrawProxy2 = PublicVault(publicVault).withdrawProxies(1);
+    WithdrawProxy(withdrawProxy2).redeem(
+      IERC20(withdrawProxy2).balanceOf(address(2)),
+      address(2),
+      address(2)
+    );
+
+    assertEq(WETH9.balanceOf(address(1)), WETH9.balanceOf(address(2)));
   }
 }
