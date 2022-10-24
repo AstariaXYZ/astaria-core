@@ -181,7 +181,6 @@ contract AstariaTest is TestHelpers {
 
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
-    emit log_uint(PublicVault(publicVault).slope());
     _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
@@ -192,12 +191,10 @@ contract AstariaTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: true
     });
-    emit log_uint(PublicVault(publicVault).slope());
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     _signalWithdraw(address(1), publicVault);
-    emit log_uint(PublicVault(publicVault).slope());
 
     address withdrawProxy = PublicVault(publicVault).withdrawProxies(
       PublicVault(publicVault).getCurrentEpoch()
@@ -207,7 +204,6 @@ contract AstariaTest is TestHelpers {
 
     vm.warp(block.timestamp + 14 days); // end of loan
     ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
-    emit log_uint(PublicVault(publicVault).slope());
 
     address liquidationAccountant = PublicVault(publicVault)
       .liquidationAccountants(0);

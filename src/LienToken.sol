@@ -421,7 +421,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     _payment(collateralId, position, paymentAmount, payer);
   }
 
-  event SlopeCalc(uint256, uint256);
   /**
    * @notice Computes the rate for a specified lien.
    * @param lienId The ID for the lien.
@@ -430,8 +429,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   function calculateSlope(uint256 lienId) public returns (uint256) {
     Lien memory lien = lienData[lienId];
     uint256 owedAtEnd = _getOwed(lien, lien.end);
-    emit SlopeCalc(owedAtEnd, lien.amount);
-    emit SlopeCalc(lien.end, lien.last);
     return (owedAtEnd - lien.amount).mulDivDown(1, lien.end - lien.last);
   }
 
