@@ -35,20 +35,8 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {VaultImplementation} from "core/VaultImplementation.sol";
 
-interface IFlashAction {
-  struct Underlying {
-    address token;
-    uint256 tokenId;
-  }
-
-  function onFlashAction(Underlying calldata, bytes calldata)
-    external
-    returns (bytes32);
-}
-
-interface ISecurityHook {
-  function getState(address, uint256) external view returns (bytes memory);
-}
+import {IFlashAction} from "core/interfaces/IFlashAction.sol";
+import {ISecurityHook} from "core/interfaces/ISecurityHook.sol";
 
 contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   using SafeTransferLib for ERC20;

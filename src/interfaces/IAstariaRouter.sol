@@ -15,7 +15,7 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {IVault} from "gpl/ERC4626-Cloned.sol";
 
 import {ICollateralToken} from "./ICollateralToken.sol";
-import {ILienBase, ILienToken} from "./ILienToken.sol";
+import {ILienToken} from "./ILienToken.sol";
 
 import {IPausable} from "../utils/Pausable.sol";
 
@@ -144,7 +144,7 @@ interface IAstariaRouter is IPausable {
 
   function isValidVault(address) external view returns (bool);
 
-  function isValidRefinance(ILienBase.Lien memory, LienDetails memory)
+  function isValidRefinance(ILienToken.Lien memory, LienDetails memory)
     external
     view
     returns (bool);

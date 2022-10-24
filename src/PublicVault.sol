@@ -15,22 +15,20 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
-import {
-  IVault,
-  ERC4626Cloned,
-  ITokenBase,
-  ERC4626Base,
-  AstariaVaultBase
-} from "gpl/ERC4626-Cloned.sol";
+import {IVault} from "gpl/interfaces/IVault.sol";
+import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
+import {ITokenBase} from "gpl/interfaces/ITokenBase.sol";
+import {ERC4626Base} from "gpl/ERC4626Base.sol";
+import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
 
 import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ILienBase} from "./interfaces/ILienToken.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
 
 import {LienToken} from "./LienToken.sol";
@@ -44,9 +42,9 @@ import {Pausable} from "./utils/Pausable.sol";
 interface IPublicVault is IERC165 {
   function beforePayment(uint256 escrowId, uint256 amount) external;
 
-  function decreaseEpochLienCount(uint256 lienId) external;
+  function decreaseEpochLienCount(uint64 epoch) external;
 
-  function getLienEpoch(uint256 end) external view returns (uint256);
+  function getLienEpoch(uint64 end) external view returns (uint64);
 
   function afterPayment(uint256 lienId) external;
 }
@@ -108,7 +106,7 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
 contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
-
+  using SafeCastLib for uint256;
   // epoch seconds when yIntercept was calculated last
   uint256 public last;
   // sum of all LienToken amounts
@@ -122,20 +120,23 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   uint256 strategistUnclaimedShares = 0;
   uint64 public currentEpoch = 0;
 
-  //mapping of epoch to number of open liens
-  mapping(uint256 => uint256) public liensOpenForEpoch;
-  // WithdrawProxies and LiquidationAccountants for each epoch.
-  // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
-  mapping(uint64 => address) public withdrawProxies;
-  mapping(uint64 => address) public liquidationAccountants;
-  mapping(uint64 => uint256) public liquidationsExpectedAtBoundary;
+  //epoch data
+  struct EpochData {
+    uint256 liensOpenForEpoch;
+    uint256 liquidationsExpectedAtBoundary;
+    address withdrawProxy;
+    address liquidationAccountant;
+  }
+
+  //epoch => epochData
+  mapping(uint256 => EpochData) public epochData;
 
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
 
   function underlying()
     public
-    view
+    pure
     virtual
     override(ERC4626Base, AstariaVaultBase)
     returns (address)
@@ -195,11 +196,27 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
     // WithdrawProxy shares are minted 1:1 with PublicVault shares
-    WithdrawProxy(withdrawProxies[epoch]).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
+    WithdrawProxy(epochData[epoch].withdrawProxy).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
+  }
+
+  function getWithdrawProxy(uint64 epoch) public view returns (address) {
+    return epochData[epoch].withdrawProxy;
+  }
+
+  function getLiquidationAccountant(uint64 epoch)
+    public
+    view
+    returns (address)
+  {
+    return epochData[epoch].liquidationAccountant;
+  }
+
+  function getLiquidationsExpected(uint64 epoch) public view returns (uint256) {
+    return epochData[epoch].liquidationsExpectedAtBoundary;
   }
 
   function _deployWithdrawProxyIfNotDeployed(uint64 epoch) internal {
-    if (withdrawProxies[epoch] == address(0)) {
+    if (epochData[epoch].withdrawProxy == address(0)) {
       address proxy = ClonesWithImmutableArgs.clone(
         IAstariaRouter(ROUTER()).WITHDRAW_IMPLEMENTATION(),
         abi.encodePacked(
@@ -207,7 +224,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           underlying() //token
         )
       );
-      withdrawProxies[epoch] = proxy;
+      epochData[epoch].withdrawProxy = proxy;
     }
   }
 
@@ -234,9 +251,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return super.domainSeparator();
   }
 
-  event WithdrawStats(uint256, uint256, uint256, uint256);
-  event Bum(uint256);
-
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
@@ -244,25 +258,24 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // check to make sure epoch is over
     require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
     require(withdrawReserve == 0, "Withdraw reserve not empty");
-    if (liquidationAccountants[currentEpoch] != address(0)) {
+    address currentLA = getLiquidationAccountant(currentEpoch);
+    if (currentLA != address(0)) {
       require(
-        LiquidationAccountant(liquidationAccountants[currentEpoch])
-          .getFinalAuctionEnd() < block.timestamp,
+        LiquidationAccountant(currentLA).getFinalAuctionEnd() < block.timestamp,
         "Final auction not ended"
       );
     }
 
     // split funds from previous LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
-    if (
-      currentEpoch != 0 &&
-      liquidationAccountants[currentEpoch - 1] != address(0) &&
-      !LiquidationAccountant(liquidationAccountants[currentEpoch - 1])
-        .hasClaimed()
-    ) {
-      LiquidationAccountant(liquidationAccountants[currentEpoch - 1]).claim();
+    if (currentEpoch != 0) {
+      address prevLa = getLiquidationAccountant(currentEpoch - 1);
+      if (prevLa != address(0) && !LiquidationAccountant(prevLa).hasClaimed()) {
+        LiquidationAccountant(prevLa).claim();
+      }
     }
+
     require(
-      liensOpenForEpoch[currentEpoch] == uint256(0),
+      epochData[currentEpoch].liensOpenForEpoch == uint64(0),
       "loans are still open for this epoch"
     );
 
@@ -270,21 +283,22 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     liquidationWithdrawRatio = 0;
 
     // check if there are LPs withdrawing this epoch
-    if (withdrawProxies[currentEpoch] != address(0)) {
-      uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
-        .totalSupply();
+    address withdrawProxy = getWithdrawProxy(currentEpoch);
+    if ((withdrawProxy != address(0))) {
+      uint256 proxySupply = WithdrawProxy(withdrawProxy).totalSupply();
 
       liquidationWithdrawRatio = proxySupply.mulDivDown(1e18, totalSupply());
 
-      if (liquidationAccountants[currentEpoch] != address(0)) {
-        LiquidationAccountant(liquidationAccountants[currentEpoch])
-          .setWithdrawRatio(liquidationWithdrawRatio);
-      }
-      withdrawReserve = (totalAssets() -
-        liquidationsExpectedAtBoundary[currentEpoch]).mulDivDown(
-          liquidationWithdrawRatio,
-          1e18
+      if (currentLA != address(0)) {
+        LiquidationAccountant(currentLA).setWithdrawRatio(
+          liquidationWithdrawRatio
         );
+      }
+      uint256 expected = getLiquidationsExpected(currentEpoch);
+      withdrawReserve = (totalAssets() - expected).mulDivDown(
+        liquidationWithdrawRatio,
+        1e18
+      );
 
       _decreaseYIntercept(
         totalAssets().mulDivDown(liquidationWithdrawRatio, 1e18)
@@ -303,7 +317,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function deployLiquidationAccountant() public returns (address accountant) {
     require(
-      liquidationAccountants[currentEpoch] == address(0),
+      getLiquidationAccountant(currentEpoch) == address(0),
       "cannot deploy two liquidation accountants for the same epoch"
     );
 
@@ -316,10 +330,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         ROUTER(),
         address(this),
         address(LIEN_TOKEN()),
-        address(withdrawProxies[currentEpoch])
+        address(getWithdrawProxy(currentEpoch))
       )
     );
-    liquidationAccountants[currentEpoch] = accountant;
+    epochData[currentEpoch].liquidationAccountant = accountant;
   }
 
   function supportsInterface(bytes4 interfaceId)
@@ -337,8 +351,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       interfaceId == type(IERC165).interfaceId;
   }
 
-  event TransferWithdraw(uint256 a, uint256 b);
-
   /**
    * @notice Transfers funds from the PublicVault to the WithdrawProxy.
    */
@@ -346,7 +358,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function transferWithdrawReserve() public {
     // check the available balance to be withdrawn
     uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
-    emit TransferWithdraw(withdrawBalance, withdrawReserve);
 
     // prevent transfer of more assets then are available
     if (withdrawReserve <= withdrawBalance) {
@@ -355,9 +366,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     } else {
       withdrawReserve -= withdrawBalance;
     }
-    emit TransferWithdraw(withdrawBalance, withdrawReserve);
-
-    address currentWithdrawProxy = withdrawProxies[currentEpoch - 1]; //
+    //todo: check on current epoch is 0?
+    address currentWithdrawProxy = getWithdrawProxy(currentEpoch - 1);
     // prevents transfer to a non-existent WithdrawProxy
     // withdrawProxies are indexed by the epoch where they're deployed
     if (currentWithdrawProxy != address(0)) {
@@ -398,7 +408,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     uint256 epoch = Math.ceilDiv(lien.end - START(), EPOCH_LENGTH()) - 1;
 
-    liensOpenForEpoch[getLienEpoch(lien.end)]++;
+    _increaseOpenLiens(getLienEpoch(lien.end));
     if (last == 0) {
       last = block.timestamp;
     }
@@ -439,8 +449,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @notice Mints earned fees by the strategist to the strategist address.
    */
   function claim() external onlyOwner {
-    _mint(owner(), strategistUnclaimedShares);
+    uint256 unclaimed = strategistUnclaimedShares;
     strategistUnclaimedShares = 0;
+    _mint(owner(), unclaimed);
   }
 
   /**
@@ -449,7 +460,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param lienId The ID of the lien.
    * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
    */
-  function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
+  function beforePayment(uint256 lienId, uint256 amount) public {
+    require(msg.sender == address(LIEN_TOKEN()));
     _handleStrategistInterestReward(lienId, amount);
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
     if (lienSlope > slope) {
@@ -464,12 +476,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * hook to modify the liens open for then given epoch
    * @param epoch epoch to decrease liens of
    */
-  function decreaseEpochLienCount(uint256 epoch) external {
+  function decreaseEpochLienCount(uint64 epoch) external {
     require(
       msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN()),
       "only router or lien token"
     );
-    liensOpenForEpoch[epoch]--;
+    unchecked {
+      epochData[epoch].liensOpenForEpoch--;
+    }
   }
 
   /** @notice
@@ -478,36 +492,41 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
     require(msg.sender == ROUTER(), "only router");
-    liquidationsExpectedAtBoundary[currentEpoch] += amount;
+    unchecked {
+      epochData[currentEpoch].liquidationsExpectedAtBoundary += amount
+        .safeCastTo64();
+    }
   }
 
   /** @notice
    * helper to return the LienEpoch for a given end date
    * @param end time to compute the end for
    */
-  function getLienEpoch(uint256 end) public view returns (uint256) {
-    return Math.ceilDiv(end - START(), EPOCH_LENGTH()) - 1;
+  function getLienEpoch(uint64 end) public pure returns (uint64) {
+    return
+      uint256(Math.ceilDiv(end - uint64(START()), EPOCH_LENGTH()) - 1)
+        .safeCastTo64();
   }
 
-  function getEpochEnd(uint256 epoch) public view returns (uint256) {
-    return START() + (epoch + 1) * EPOCH_LENGTH();
+  function getEpochEnd(uint256 epoch) public pure returns (uint64) {
+    return uint256(START() + (epoch + 1) * EPOCH_LENGTH()).safeCastTo64();
   }
 
   function _increaseOpenLiens() internal {
-    liensOpenForEpoch[currentEpoch]++;
+    epochData[currentEpoch].liensOpenForEpoch++;
+  }
+
+  function _increaseOpenLiens(uint64 epoch) internal {
+    epochData[epoch].liensOpenForEpoch++;
   }
 
   /**
    * @notice Hook to recalculate the slope of a lien after a payment has been made.
    * @param lienId The ID of the lien.
    */
-  function afterPayment(uint256 lienId) public onlyLienToken {
-    slope += LIEN_TOKEN().calculateSlope(lienId);
-  }
-
-  modifier onlyLienToken() {
+  function afterPayment(uint256 lienId) public {
     require(msg.sender == address(LIEN_TOKEN()));
-    _;
+    slope += LIEN_TOKEN().calculateSlope(lienId);
   }
 
   /**
@@ -567,7 +586,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     require(
       msg.sender == AUCTION_HOUSE() ||
         (currentEpoch != 0 &&
-          msg.sender == liquidationAccountants[currentEpoch - 1]),
+          msg.sender == epochData[currentEpoch - 1].liquidationAccountant),
       "msg sender only from auction house or liquidation accountant"
     );
     _decreaseYIntercept(amount);
@@ -589,13 +608,5 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
 
     return epochEnd - block.timestamp;
-  }
-
-  function getLiquidationAccountant(uint64 epoch)
-    public
-    view
-    returns (address)
-  {
-    return liquidationAccountants[epoch];
   }
 }

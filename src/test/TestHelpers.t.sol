@@ -337,10 +337,10 @@ contract TestHelpers is Test {
     //warps to the first second after the epoch end
     assertTrue(
       block.timestamp <
-        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
+        PublicVault(vault).getEpochEnd(PublicVault(vault).currentEpoch()) + 1
     );
     vm.warp(
-      PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
+      PublicVault(vault).getEpochEnd(PublicVault(vault).currentEpoch()) + 1
     );
   }
 
@@ -589,7 +589,7 @@ contract TestHelpers is Test {
     _signalWithdrawAtFutureEpoch(
       lender,
       publicVault,
-      PublicVault(publicVault).getCurrentEpoch()
+      PublicVault(publicVault).currentEpoch()
     );
   }
 
@@ -611,7 +611,7 @@ contract TestHelpers is Test {
       epoch: epoch
     });
 
-    address withdrawProxy = PublicVault(publicVault).withdrawProxies(epoch);
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(epoch);
     assertEq(
       IERC20(withdrawProxy).balanceOf(lender),
       vaultTokenBalance,

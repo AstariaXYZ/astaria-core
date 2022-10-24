@@ -27,7 +27,7 @@ import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
-import {ILienBase, ILienToken} from "core/interfaces/ILienToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {IPublicVault} from "./PublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
@@ -148,10 +148,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       uint256(buyout)
     );
 
-    lienData[lienId].last = block.timestamp.safeCastTo32();
-    lienData[lienId].end = uint256(block.timestamp.safeCastTo32() + ld.duration)
+    lienData[lienId].last = block.timestamp.safeCastTo64();
+    lienData[lienId].end = uint256(block.timestamp + ld.duration)
       .safeCastTo64();
-    lienData[lienId].rate = ld.rate.safeCastTo240();
+    lienData[lienId].rate = ld.rate.safeCastTo192();
 
     _transfer(ownerOf(lienId), address(params.receiver), lienId);
   }
@@ -182,7 +182,11 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   {
     uint256 delta_t = timestamp - lien.last;
 
-    return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, INTEREST_DENOMINATOR);
+    return
+      delta_t.mulDivDown(lien.rate, 1).mulDivDown(
+        lien.amount,
+        INTEREST_DENOMINATOR
+      );
   }
 
   /**
@@ -202,8 +206,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         lien.amount = _getOwed(lien);
         reserve += lien.amount;
       }
-      lien.last = block.timestamp.safeCastTo32();
-      lien.rate = uint240(0);
+      lien.last = block.timestamp.safeCastTo64();
+      lien.rate = uint192(0);
     }
   }
 
@@ -223,7 +227,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    * @notice Creates a new lien against a CollateralToken.
    * @param params LienActionEncumber data containing CollateralToken information and lien parameters (rate, duration, and amount, rate, and debt caps).
    */
-  function createLien(ILienBase.LienActionEncumber memory params)
+  function createLien(ILienToken.LienActionEncumber memory params)
     external
     requiresAuth
     returns (uint256 lienId)
@@ -282,8 +286,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       collateralId: collateralId,
       position: newPosition,
       amount: params.amount,
-      rate: params.terms.rate.safeCastTo240(),
-      last: block.timestamp.safeCastTo32(),
+      rate: params.terms.rate.safeCastTo192(),
+      last: block.timestamp.safeCastTo64(),
       end: uint256(block.timestamp + params.terms.duration).safeCastTo64(),
       payee: address(0)
     });
@@ -330,7 +334,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   function getLien(uint256 lienId) public view returns (Lien memory lien) {
     lien = lienData[lienId];
     lien.amount = _getOwed(lien);
-    lien.last = block.timestamp.safeCastTo32();
+    lien.last = block.timestamp.safeCastTo64();
   }
 
   /**
@@ -426,7 +430,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    * @param lienId The ID for the lien.
    * @return The rate for the specified lien, in WETH per second.
    */
-  function calculateSlope(uint256 lienId) public returns (uint256) {
+  function calculateSlope(uint256 lienId) public view returns (uint256) {
     Lien memory lien = lienData[lienId];
     uint256 owedAtEnd = _getOwed(lien, lien.end);
     return (owedAtEnd - lien.amount).mulDivDown(1, lien.end - lien.last);
@@ -605,7 +609,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     if (lien.amount > paymentAmount) {
       lien.amount -= paymentAmount;
       amountSpent = paymentAmount;
-      lien.last = block.timestamp.safeCastTo32();
+      lien.last = block.timestamp.safeCastTo64();
       // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
 
       if (isPublicVault && !isAuctionHouse) {
