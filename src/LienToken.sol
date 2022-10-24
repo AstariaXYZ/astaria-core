@@ -184,12 +184,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       // TODO probably don't need
       return uint256(0);
     }
-    // uint256 delta_t = block.timestamp - lien.last;
-    // return
-    //   delta_t.mulDivDown(lien.rate, 1).mulDivDown(
-    //     lien.amount,
-    //     INTEREST_DENOMINATOR
-    //   );
+
+    if (timestamp == lien.last) {
+      return uint256(0);
+    }
 
     uint256 delta_t;
     if (block.timestamp >= lien.end) {
@@ -202,25 +200,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         lien.amount,
         INTEREST_DENOMINATOR
       );
-  }
-
-  function accrue(uint256 lienId) external {
-    Lien storage lien = lienData[lienId];
-
-    _accrue(lien);
-  }
-
-  function _accrue(Lien storage lien) internal {
-    uint256 delta_t = block.timestamp - lien.last;
-
-    unchecked {
-      lien.amount += delta_t.mulDivDown(lien.rate, 1).mulDivDown(
-        lien.amount,
-        1
-        // INTEREST_DENOMINATOR
-      );
-    }
-    lien.last = block.timestamp.safeCastTo32();
   }
 
   /**
@@ -528,6 +507,24 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     if (totalDebt > uint256(0)) {
       impliedRate = impliedRate.mulDivDown(1, totalDebt);
     }
+  }
+
+  function getAccruedSinceLastPayment(uint256 lienId)
+    external
+    view
+    returns (uint256)
+  {
+    Lien memory lien = lienData[lienId];
+    //    assert(lien.last == lien.start);
+    return _getOwed(lien, lien.last);
+  }
+
+  function getOwed(Lien memory lien, uint256 timestamp)
+    external
+    view
+    returns (uint256)
+  {
+    return _getOwed(lien, timestamp);
   }
 
   /**

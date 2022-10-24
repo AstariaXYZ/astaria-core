@@ -378,8 +378,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return (lien.end <= block.timestamp && lien.amount > 0);
   }
 
-  event LIENAMOUNT(uint256);
-
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
    * @param collateralId The ID of the CollateralToken.
@@ -403,12 +401,15 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
       ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
 
+      uint256 initial = LIEN_TOKEN.getAccruedSinceLastPayment(currentLien);
       address owner = LIEN_TOKEN.getPayee(currentLien);
       if (
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
       ) {
         // subtract slope from PublicVault
         PublicVault(owner).updateVaultAfterLiquidation(
+          initial,
+          lien.amount,
           LIEN_TOKEN.calculateSlope(currentLien)
         );
 
@@ -430,11 +431,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
             }
             LIEN_TOKEN.setPayee(currentLien, accountant);
 
-            // lien.amount+=LIEN_TOKEN.getInterest(currentLien);
-            // lien.last = block.timestamp.safeCastTo32();
-            // LIEN_TOKEN.accrue(currentLien);
-            // uint256 expected = lien.amount + LIEN_TOKEN.getInterest(currentLien);
-            emit LIENAMOUNT(lien.amount);
             LiquidationAccountant(accountant).handleNewLiquidation(
               lien.amount,
               COLLATERAL_TOKEN.auctionWindow() + 1 days
@@ -470,8 +466,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   }
 
   /**
-   * @notice Retrieves the fee the protocol earns on loan origination.
-   * @return The numerator and denominator used to compute the percentage fee taken by the protocol
+   * @notice Retrieves the fee the liquidator earns for processing auctions
+   * @return The numerator and denominator used to compute the percentage fee taken by the liquidator
    */
   function getLiquidatorFee(uint256 amountIn) external view returns (uint256) {
     return

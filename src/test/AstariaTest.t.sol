@@ -163,7 +163,7 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  function testLiquidationAccountant2() public {
+  function testLiquidationAccountant() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
@@ -364,7 +364,7 @@ contract AstariaTest is TestHelpers {
       tokenId: uint256(5),
       lienDetails: standardLien,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: false // TODO look at this
     });
   }
 

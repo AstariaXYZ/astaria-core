@@ -105,13 +105,9 @@ contract WithdrawTest is TestHelpers {
     );
   }
 
-  event Num(uint256);
-
-  event Mun(uint256);
-  event TOTAL_ASSETS(uint256);
-
   function testLiquidationAccountant5050Split() public {
-    TestNFT nft = new TestNFT(5);
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 5);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
     address publicVault = _createPublicVault({
@@ -125,16 +121,10 @@ contract WithdrawTest is TestHelpers {
       publicVault
     );
 
-    emit Mun(PublicVault(publicVault).yIntercept());
-
-    uint256 initialSupply = PublicVault(publicVault).totalSupply();
-
     _lendToVault(
       Lender({addr: address(2), amountToLend: 50 ether}),
       publicVault
     );
-
-    assertEq(initialSupply * 2, PublicVault(publicVault).totalSupply(), "1");
 
     assertEq(
       ERC20(publicVault).balanceOf(address(1)),
@@ -153,7 +143,19 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
+    _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: uint256(5),
+      lienDetails: standardLien,
+      amount: 10 ether,
+      isFirstLien: false
+    });
+
     uint256 collateralId = tokenContract.computeId(tokenId);
+    uint256 collateralId2 = tokenContract.computeId(uint256(5));
 
     _signalWithdraw(address(1), publicVault);
 
@@ -161,18 +163,13 @@ contract WithdrawTest is TestHelpers {
       PublicVault(publicVault).getCurrentEpoch()
     );
 
-    assertEq(
-      ERC20(withdrawProxy).balanceOf(address(1)),
-      ERC20(publicVault).balanceOf(address(2)),
-      "minted supply to LPs not equal"
-    );
-
-    vm.warp(block.timestamp + 10 days);
-    vm.warp(block.timestamp + 4 days); // end of loan
+    vm.warp(block.timestamp + 14 days);
 
     ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
+    ASTARIA_ROUTER.liquidate(collateralId2, uint256(0)); // TODO test this
 
-    _bid(address(3), collateralId, 20 ether);
+    _bid(address(3), collateralId, 5 ether);
+    _bid(address(3), collateralId2, 20 ether);
 
     address liquidationAccountant = PublicVault(publicVault)
       .liquidationAccountants(0);
@@ -183,32 +180,14 @@ contract WithdrawTest is TestHelpers {
     );
     _warpToEpochEnd(publicVault); // epoch boundary
 
-    assertEq(
-      ERC20(withdrawProxy).balanceOf(address(1)),
-      ERC20(publicVault).balanceOf(address(2)),
-      "minted supply to LPs not equal"
-    );
-
-    assertEq(
-      PublicVault(publicVault).totalSupply(),
-      ERC20(publicVault).balanceOf(publicVault) +
-        ERC20(publicVault).balanceOf(address(2)),
-      "2"
-    );
-
-    emit TOTAL_ASSETS(PublicVault(publicVault).totalAssets());
     PublicVault(publicVault).processEpoch();
-    emit Num(PublicVault(publicVault).withdrawReserve());
 
     vm.warp(block.timestamp + 13 days);
 
-    // emit Num(WETH9.balanceOf(publicVault));
     LiquidationAccountant(liquidationAccountant).claim();
     uint256 publicVaultBalance = WETH9.balanceOf(publicVault);
 
-    emit Mun(publicVaultBalance);
     PublicVault(publicVault).transferWithdrawReserve();
-    emit Mun(publicVaultBalance);
 
     vm.startPrank(address(1));
     WithdrawProxy(withdrawProxy).redeem(
@@ -217,9 +196,6 @@ contract WithdrawTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    // emit Num(WETH9.balanceOf(publicVault));
-
-    // assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
 
     _signalWithdraw(address(2), publicVault);
     withdrawProxy = PublicVault(publicVault).withdrawProxies(
@@ -229,9 +205,6 @@ contract WithdrawTest is TestHelpers {
     _warpToEpochEnd(publicVault);
 
     PublicVault(publicVault).processEpoch();
-    // emit Num(PublicVault(publicVault).withdrawReserve());
-    // emit Num(WETH9.balanceOf(publicVault));
-    emit Num(PublicVault(publicVault).withdrawReserve());
     PublicVault(publicVault).transferWithdrawReserve();
     vm.startPrank(address(2));
     WithdrawProxy(withdrawProxy).redeem(
@@ -241,11 +214,11 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(publicVault), 0, "booo publicvault should be 0");
+    assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault should have 0 assets");
     assertEq(
       WETH9.balanceOf(PublicVault(publicVault).liquidationAccountants(0)),
       0,
-      "booo liquidationAccountant should be 0"
+      "LiquidationAccountant should have 0 assets"
     );
     assertEq(
       WETH9.balanceOf(address(1)),
