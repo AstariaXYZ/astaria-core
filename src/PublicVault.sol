@@ -16,7 +16,7 @@ import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
 import {
   IVault,
   ERC4626Cloned,
@@ -282,8 +282,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       // uint256 withdrawAssets = convertToAssets(proxySupply);
-      uint256 withdrawAssets = totalAssets().mulDivDown(liquidationWithdrawRatio, 1e18);
-
+      uint256 withdrawAssets = totalAssets().mulWadUp(liquidationWithdrawRatio);
 
       // compute the withdrawReserve
 
@@ -363,31 +362,31 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   function transferWithdrawReserve() public {
     // check the available balance to be withdrawn
-    uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
-    emit TransferWithdraw(withdraw, withdrawReserve);
+    uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
+    emit TransferWithdraw(withdrawBalance, withdrawReserve);
 
     // prevent transfer of more assets then are available
-    if (withdrawReserve <= withdraw) {
-      withdraw = withdrawReserve;
+    if (withdrawReserve <= withdrawBalance) {
+      withdrawBalance = withdrawReserve;
       withdrawReserve = 0;
     } else {
-      withdrawReserve -= withdraw;
+      withdrawReserve -= withdrawBalance;
     }
-    emit TransferWithdraw(withdraw, withdrawReserve);
+    emit TransferWithdraw(withdrawBalance, withdrawReserve);
 
     address currentWithdrawProxy = withdrawProxies[currentEpoch - 1]; //
     // prevents transfer to a non-existent WithdrawProxy
     // withdrawProxies are indexed by the epoch where they're deployed
     if (currentWithdrawProxy != address(0)) {
-      ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
-      emit WithdrawReserveTransferred(withdraw);
+      ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+      emit WithdrawReserveTransferred(withdrawBalance);
     }
   }
 
   function _beforeCommitToLien(
     IAstariaRouter.Commitment calldata params,
     address receiver
-  ) internal virtual override {
+  ) internal virtual override(VaultImplementation) {
     if (timeToEpochEnd() == uint256(0)) {
       processEpoch();
     }
@@ -403,10 +402,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     virtual
     override
   {
-    if (last == 0) {
-      last = block.timestamp;
-    }
-
     uint256 delta_t = block.timestamp - last;
 
     yIntercept += delta_t.mulDivDown(slope, 1);
@@ -417,12 +412,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
 
-    uint256 epoch = Math.ceilDiv(
-      lien.start + lien.duration - START(),
-      EPOCH_LENGTH()
-    ) - 1;
+    uint256 epoch = Math.ceilDiv(lien.end - START(), EPOCH_LENGTH()) - 1;
 
-    liensOpenForEpoch[epoch]++;
+    liensOpenForEpoch[getLienEpoch(lien.end)]++;
+    if (last == 0) {
+      last = block.timestamp;
+    }
     emit LienOpen(lienId, epoch);
   }
 
@@ -506,7 +501,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * helper to return the LienEpoch for a given end date
    * @param end time to compute the end for
    */
-  function getLienEpoch(uint256 end) external view returns (uint256) {
+  function getLienEpoch(uint256 end) public view returns (uint256) {
     return Math.ceilDiv(end - START(), EPOCH_LENGTH()) - 1;
   }
 

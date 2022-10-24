@@ -23,15 +23,15 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
-import {IERC20} from "../interfaces/IERC20.sol";
-import {ILienToken} from "../interfaces/ILienToken.sol";
-import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {IERC20} from "core/interfaces/IERC20.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
-import {CollateralLookup} from "../libraries/CollateralLookup.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {
   ICollectionValidator,
@@ -167,7 +167,8 @@ contract TestHelpers is Test {
       MRA,
       ICollateralToken(address(COLLATERAL_TOKEN)),
       ILienToken(address(LIEN_TOKEN)),
-      TRANSFER_PROXY
+      TRANSFER_PROXY,
+      ASTARIA_ROUTER
     );
 
     COLLATERAL_TOKEN.file(
@@ -538,7 +539,7 @@ contract TestHelpers is Test {
     vm.startPrank(lender.addr);
     WETH9.deposit{value: lender.amountToLend}();
     WETH9.approve(vault, lender.amountToLend);
-    PublicVault(vault).deposit(lender.amountToLend, lender.addr);
+    IVault(vault).deposit(lender.amountToLend, lender.addr);
     vm.stopPrank();
   }
 

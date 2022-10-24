@@ -19,21 +19,21 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {ERC721} from "gpl/ERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IERC721} from "gpl/interfaces/IERC721.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
-import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {
   ICollateralBase,
   ICollateralToken
 } from "./interfaces/ICollateralToken.sol";
-import {IERC165} from "./interfaces/IERC721.sol";
-import {IERC721Receiver} from "./interfaces/IERC721Receiver.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {VaultImplementation} from "./VaultImplementation.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
 
 interface IFlashAction {
   struct Underlying {
@@ -220,9 +220,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
    */
   function _releaseToAddress(uint256 collateralId, address releaseTo) internal {
     (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
-    IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
     delete idToUnderlying[collateralId];
     _burn(collateralId);
+    IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
     emit ReleaseTo(underlyingAsset, assetId, releaseTo);
   }
 
@@ -249,7 +249,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     public
     view
     virtual
-    override
+    override(ERC721, IERC721)
     returns (string memory)
   {
     (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
@@ -307,11 +307,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
    * @param collateralId The ID of the CollateralToken being liquidated.
    * @param liquidator The address of the user that triggered the liquidation.
    */
-  function auctionVault(
-    uint256 collateralId,
-    address liquidator,
-    uint256 liquidatorFee
-  ) external whenNotPaused requiresAuth returns (uint256 reserve) {
+  function auctionVault(uint256 collateralId, address liquidator)
+    external
+    whenNotPaused
+    requiresAuth
+    returns (uint256 reserve)
+  {
     require(
       !AUCTION_HOUSE.auctionExists(collateralId),
       "auctionVault: auction already exists"
@@ -319,8 +320,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     reserve = AUCTION_HOUSE.createAuction(
       collateralId,
       auctionWindow,
-      liquidator,
-      liquidatorFee
+      liquidator
     );
   }
 

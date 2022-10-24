@@ -109,6 +109,7 @@ contract WithdrawTest is TestHelpers {
 
   event Mun(uint256);
   event TOTAL_ASSETS(uint256);
+
   function testLiquidationAccountant5050Split() public {
     TestNFT nft = new TestNFT(5);
     address tokenContract = address(nft);
@@ -127,7 +128,6 @@ contract WithdrawTest is TestHelpers {
     emit Mun(PublicVault(publicVault).yIntercept());
 
     uint256 initialSupply = PublicVault(publicVault).totalSupply();
-
 
     _lendToVault(
       Lender({addr: address(2), amountToLend: 50 ether}),

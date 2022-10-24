@@ -17,16 +17,17 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 import {ERC721} from "gpl/ERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {Base64} from "./libraries/Base64.sol";
-import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
-import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienBase, ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {IPublicVault} from "./PublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
@@ -148,9 +149,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     );
 
     lienData[lienId].last = block.timestamp.safeCastTo32();
-    lienData[lienId].start = block.timestamp.safeCastTo32();
+    lienData[lienId].end = uint256(block.timestamp.safeCastTo32() + ld.duration)
+      .safeCastTo64();
     lienData[lienId].rate = ld.rate.safeCastTo240();
-    lienData[lienId].duration = ld.duration.safeCastTo32();
 
     _transfer(ownerOf(lienId), address(params.receiver), lienId);
   }
@@ -191,10 +192,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     //   );
 
     uint256 delta_t;
-    if (block.timestamp >= lien.start + lien.duration) {
-      delta_t = uint256(lien.start + lien.duration - lien.last);
+    if (block.timestamp >= lien.end) {
+      delta_t = uint256(lien.end - lien.last);
     } else {
-      delta_t = uint256(timestamp.safeCastTo32() - lien.last);
+      delta_t = uint256(timestamp - lien.last);
     }
     return
       delta_t.mulDivDown(lien.rate, 1).mulDivDown(
@@ -209,7 +210,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     _accrue(lien);
   }
 
-  function _accrue(Lien memory lien) internal {
+  function _accrue(Lien storage lien) internal {
     uint256 delta_t = block.timestamp - lien.last;
 
     unchecked {
@@ -250,7 +251,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   function tokenURI(uint256 tokenId)
     public
     pure
-    override
+    override(ERC721, IERC721)
     returns (string memory)
   {
     return "";
@@ -322,8 +323,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       active: true,
       rate: params.terms.rate.safeCastTo240(),
       last: block.timestamp.safeCastTo32(),
-      start: block.timestamp.safeCastTo32(),
-      duration: params.terms.duration.safeCastTo32(),
+      end: uint256(block.timestamp + params.terms.duration).safeCastTo64(),
       payee: address(0)
     });
 
@@ -467,33 +467,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    */
   function calculateSlope(uint256 lienId) public view returns (uint256) {
     Lien memory lien = lienData[lienId];
-    uint256 end = (lien.start + lien.duration);
-    uint256 owedAtEnd = _getOwed(lien, end);
-    return (owedAtEnd - lien.amount).mulDivDown(1, end - lien.last);
-  }
-
-  /**
-   * @notice Computes the change in rate for a lien if a specific payment amount was made.
-   * @param lienId The ID for the lien.
-   * @param paymentAmount The hypothetical payment amount that would be made to the lien.
-   * @return slope The difference between the current lien rate and the lien rate if the payment was made.
-   */
-  function changeInSlope(uint256 lienId, uint256 paymentAmount)
-    public
-    view
-    returns (uint256 slope)
-  {
-    Lien memory lien = lienData[lienId];
-    uint256 oldSlope = calculateSlope(lienId);
-    uint256 newAmount = (lien.amount - paymentAmount);
-
-    // slope = (rate*time*amount - amount) / time -> amount(rate*time - 1) / time
-    uint256 newSlope = newAmount.mulDivDown(
-      (uint256(lien.rate).mulDivDown(lien.duration, 1) - 1),
-      lien.duration
-    );
-
-    slope = oldSlope - newSlope;
+    uint256 owedAtEnd = _getOwed(lien, lien.end);
+    return (owedAtEnd - lien.amount).mulDivDown(1, lien.end - lien.last);
   }
 
   /**
@@ -588,12 +563,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     view
     returns (uint256)
   {
-    uint256 end = lien.start + lien.duration;
+    uint256 end = lien.end;
     if (buyout) {
       uint32 getBuyoutInterestWindow = ASTARIA_ROUTER.getBuyoutInterestWindow();
-      if (
-        lien.start + lien.duration >= block.timestamp + getBuyoutInterestWindow
-      ) {
+      if (end >= block.timestamp + getBuyoutInterestWindow) {
         end = block.timestamp + getBuyoutInterestWindow;
       }
     }
@@ -631,11 +604,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
     uint256 lienId = liens[collateralId][position];
     Lien storage lien = lienData[lienId];
-    uint256 end = (lien.start + lien.duration);
     bool isAuctionHouse = address(msg.sender) == address(AUCTION_HOUSE);
 
     require(
-      block.timestamp < end || isAuctionHouse,
+      block.timestamp < lien.end || isAuctionHouse,
       "cannot pay off an expired lien"
     );
 
@@ -666,7 +638,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         // since the openLiens count is only positive when there are liens that haven't been paid off
         // that should be liquidated, this lien should not be counted anymore
         IPublicVault(lienOwner).decreaseEpochLienCount(
-          IPublicVault(lienOwner).getLienEpoch(end)
+          IPublicVault(lienOwner).getLienEpoch(lien.end)
         );
       }
       //delete liens

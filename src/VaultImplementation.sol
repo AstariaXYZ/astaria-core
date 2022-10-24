@@ -18,12 +18,12 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IVault, AstariaVaultBase} from "gpl/ERC4626-Cloned.sol";
 
-import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
-import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienBase, ILienToken} from "core/interfaces/ILienToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 /**
  * @title VaultImplementation

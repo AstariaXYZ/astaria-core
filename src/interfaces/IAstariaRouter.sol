@@ -4,14 +4,14 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
 pragma solidity ^0.8.17;
 
-import {IERC721} from "gpl/interfaces/IERC721.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {IVault} from "gpl/ERC4626-Cloned.sol";
 
 import {ICollateralToken} from "./ICollateralToken.sol";
@@ -126,6 +126,8 @@ interface IAstariaRouter is IPausable {
   function getProtocolFee(uint256) external view returns (uint256);
 
   function getBuyoutFee(uint256) external view returns (uint256);
+
+  function getLiquidatorFee(uint256) external view returns (uint256);
 
   function getBuyoutInterestWindow() external view returns (uint32);
 

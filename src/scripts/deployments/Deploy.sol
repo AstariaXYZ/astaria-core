@@ -19,22 +19,22 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {WEth} from "eip4626/WEth.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
-import {IERC20} from "../../interfaces/IERC20.sol";
+import {IERC20} from "core/interfaces/IERC20.sol";
 
-import {CollateralToken} from "../../CollateralToken.sol";
-import {LienToken} from "../../LienToken.sol";
-import {AstariaRouter} from "../../AstariaRouter.sol";
+import {CollateralToken} from "core/CollateralToken.sol";
+import {LienToken} from "core/LienToken.sol";
+import {AstariaRouter} from "core/AstariaRouter.sol";
 
-import {Vault, PublicVault} from "../../PublicVault.sol";
-import {TransferProxy} from "../../TransferProxy.sol";
+import {Vault, PublicVault} from "core/PublicVault.sol";
+import {TransferProxy} from "core/TransferProxy.sol";
 
-import {ICollateralToken} from "../../interfaces/ICollateralToken.sol";
-import {ILienToken} from "../../interfaces/ILienToken.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {WithdrawProxy} from "../../WithdrawProxy.sol";
-import {LiquidationAccountant} from "../../LiquidationAccountant.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
+import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
 
 interface IWETH9 is IERC20 {
   function deposit() external payable;
@@ -218,7 +218,8 @@ contract Deploy is Script {
       MRA,
       ICollateralToken(address(COLLATERAL_TOKEN)),
       ILienToken(address(LIEN_TOKEN)),
-      TRANSFER_PROXY
+      TRANSFER_PROXY,
+      ASTARIA_ROUTER
     );
     vm.writeLine(
       string(".env"),

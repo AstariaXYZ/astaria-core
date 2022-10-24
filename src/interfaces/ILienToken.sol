@@ -10,18 +10,17 @@
 
 pragma solidity ^0.8.17;
 
-import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
 
-import {IAstariaRouter} from "./IAstariaRouter.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 
 interface ILienBase {
   struct Lien {
     uint256 amount; //32
     uint256 collateralId; //32
     address payee; // 20
-    uint32 start; // 4
     uint32 last; // 4
-    uint32 duration; // 4
+    uint64 end;
     uint240 rate; // 30
     bool active; // 1
     uint8 position; // 1
@@ -43,11 +42,6 @@ interface ILienBase {
   }
 
   function calculateSlope(uint256 lienId) external returns (uint256 slope);
-
-  function changeInSlope(uint256 lienId, uint256 paymentAmount)
-    external
-    view
-    returns (uint256 slope);
 
   function stopLiens(uint256 collateralId)
     external
