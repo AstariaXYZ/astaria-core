@@ -22,7 +22,6 @@ interface ILienBase {
     uint32 last; // 4
     uint64 end;
     uint240 rate; // 30
-    bool active; // 1
     uint8 position; // 1
   }
 

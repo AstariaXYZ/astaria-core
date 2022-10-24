@@ -180,26 +180,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     view
     returns (uint256)
   {
-    if (!lien.active) {
-      // TODO probably don't need
-      return uint256(0);
-    }
+    uint256 delta_t = timestamp - lien.last;
 
-    if (timestamp == lien.last) {
-      return uint256(0);
-    }
-
-    uint256 delta_t;
-    if (block.timestamp >= lien.end) {
-      delta_t = uint256(lien.end - lien.last);
-    } else {
-      delta_t = uint256(timestamp - lien.last);
-    }
-    return
-      delta_t.mulDivDown(lien.rate, 1).mulDivDown(
-        lien.amount,
-        INTEREST_DENOMINATOR
-      );
+    return delta_t.mulDivDown(lien.rate, 1).mulDivDown(lien.amount, INTEREST_DENOMINATOR);
   }
 
   /**
@@ -220,7 +203,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
         reserve += lien.amount;
       }
       lien.last = block.timestamp.safeCastTo32();
-      lien.active = false;
+      lien.rate = uint240(0);
     }
   }
 
@@ -299,7 +282,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       collateralId: collateralId,
       position: newPosition,
       amount: params.amount,
-      active: true,
       rate: params.terms.rate.safeCastTo240(),
       last: block.timestamp.safeCastTo32(),
       end: uint256(block.timestamp + params.terms.duration).safeCastTo64(),
@@ -439,14 +421,17 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     _payment(collateralId, position, paymentAmount, payer);
   }
 
+  event SlopeCalc(uint256, uint256);
   /**
    * @notice Computes the rate for a specified lien.
    * @param lienId The ID for the lien.
    * @return The rate for the specified lien, in WETH per second.
    */
-  function calculateSlope(uint256 lienId) public view returns (uint256) {
+  function calculateSlope(uint256 lienId) public returns (uint256) {
     Lien memory lien = lienData[lienId];
     uint256 owedAtEnd = _getOwed(lien, lien.end);
+    emit SlopeCalc(owedAtEnd, lien.amount);
+    emit SlopeCalc(lien.end, lien.last);
     return (owedAtEnd - lien.amount).mulDivDown(1, lien.end - lien.last);
   }
 

@@ -163,6 +163,7 @@ contract AstariaTest is TestHelpers {
     );
   }
 
+  
   function testLiquidationAccountant() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
@@ -180,6 +181,7 @@ contract AstariaTest is TestHelpers {
 
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
+    emit log_uint(PublicVault(publicVault).slope());
     _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
@@ -190,10 +192,12 @@ contract AstariaTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: true
     });
+    emit log_uint(PublicVault(publicVault).slope());
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     _signalWithdraw(address(1), publicVault);
+    emit log_uint(PublicVault(publicVault).slope());
 
     address withdrawProxy = PublicVault(publicVault).withdrawProxies(
       PublicVault(publicVault).getCurrentEpoch()
@@ -203,6 +207,7 @@ contract AstariaTest is TestHelpers {
 
     vm.warp(block.timestamp + 14 days); // end of loan
     ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
+    emit log_uint(PublicVault(publicVault).slope());
 
     address liquidationAccountant = PublicVault(publicVault)
       .liquidationAccountants(0);
@@ -230,7 +235,8 @@ contract AstariaTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
+    // assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
+    assertEq(WETH9.balanceOf(address(1)), 50575342465745600000);
   }
 
   function testReleaseToAddress() public {

@@ -375,6 +375,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
+  event AfterCommitSlope(uint256);
   /**
    * @dev Hook for updating the slope of the PublicVault after a LienToken is issued.
    * @param lienId The ID of the lien.
@@ -388,10 +389,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 delta_t = block.timestamp - last;
 
     yIntercept += delta_t.mulDivDown(slope, 1);
+
+    emit AfterCommitSlope(LIEN_TOKEN().calculateSlope(lienId));
     // increment slope for the new lien
     unchecked {
       slope += LIEN_TOKEN().calculateSlope(lienId);
     }
+
+    emit AfterCommitSlope(slope);
 
     ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
 
@@ -541,12 +546,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
+
+  event SLOPE_DIFFERENCE(uint256, uint256);
   function updateVaultAfterLiquidation(
     uint256 debtAccruedSinceLastPayment,
     uint256 accrued,
     uint256 lienSlope
   ) public {
     require(msg.sender == ROUTER(), "can only be called by the router");
+    emit SLOPE_DIFFERENCE(slope, lienSlope);
     slope -= lienSlope;
     last = block.timestamp;
     yIntercept += accrued;
