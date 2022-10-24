@@ -95,7 +95,7 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
     PublicVault(publicVault).transferWithdrawReserve();
 
-    address withdrawProxy = PublicVault(publicVault).withdrawProxies(0);
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
       WithdrawProxy(withdrawProxy).previewRedeem(
@@ -159,8 +159,8 @@ contract WithdrawTest is TestHelpers {
 
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).withdrawProxies(
-      PublicVault(publicVault).getCurrentEpoch()
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      PublicVault(publicVault).currentEpoch()
     );
 
     vm.warp(block.timestamp + 14 days);
@@ -172,7 +172,7 @@ contract WithdrawTest is TestHelpers {
     _bid(address(3), collateralId2, 20 ether);
 
     address liquidationAccountant = PublicVault(publicVault)
-      .liquidationAccountants(0);
+      .getLiquidationAccountant(0);
 
     assertTrue(
       liquidationAccountant != address(0),
@@ -198,8 +198,8 @@ contract WithdrawTest is TestHelpers {
     vm.stopPrank();
 
     _signalWithdraw(address(2), publicVault);
-    withdrawProxy = PublicVault(publicVault).withdrawProxies(
-      PublicVault(publicVault).getCurrentEpoch()
+    withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      PublicVault(publicVault).currentEpoch()
     );
 
     _warpToEpochEnd(publicVault);
@@ -214,9 +214,13 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault should have 0 assets");
     assertEq(
-      WETH9.balanceOf(PublicVault(publicVault).liquidationAccountants(0)),
+      WETH9.balanceOf(publicVault),
+      0,
+      "PublicVault should have 0 assets"
+    );
+    assertEq(
+      WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(0)),
       0,
       "LiquidationAccountant should have 0 assets"
     );

@@ -28,7 +28,7 @@ import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
-import {ILienBase, ILienToken} from "core/interfaces/ILienToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
 import {IPublicVault, PublicVault} from "core/PublicVault.sol";
@@ -330,7 +330,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   ) external whenNotPaused onlyVaults returns (uint256) {
     return
       LIEN_TOKEN.createLien(
-        ILienBase.LienActionEncumber({
+        ILienToken.LienActionEncumber({
           tokenContract: params.tokenContract,
           tokenId: params.tokenId,
           terms: terms,
@@ -413,13 +413,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
           LIEN_TOKEN.calculateSlope(currentLien)
         );
 
-        uint256 lienEpoch = PublicVault(owner).getLienEpoch(lien.end);
-        PublicVault(owner).decreaseEpochLienCount(lienEpoch);
+        PublicVault(owner).decreaseEpochLienCount(
+          PublicVault(owner).getLienEpoch(lien.end)
+        );
         if (
           PublicVault(owner).timeToEpochEnd() <=
           COLLATERAL_TOKEN.auctionWindow()
         ) {
-          uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
+          uint64 currentEpoch = PublicVault(owner).currentEpoch();
           address accountant = PublicVault(owner).getLiquidationAccountant(
             currentEpoch
           );

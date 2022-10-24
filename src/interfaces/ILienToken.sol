@@ -14,15 +14,15 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 
-interface ILienBase {
+interface ILienToken is IERC721 {
   struct Lien {
     uint256 amount; //32
     uint256 collateralId; //32
     address payee; // 20
-    uint32 last; // 4
-    uint64 end;
-    uint240 rate; // 30
+    uint64 last; // 8
     uint8 position; // 1
+    uint64 end; // 8
+    uint192 rate; // 24
   }
 
   struct LienActionEncumber {
@@ -54,9 +54,15 @@ interface ILienBase {
   function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
     external;
 
-  function getOwed(Lien memory lien, uint256 timestamp) external view returns (uint256);
+  function getOwed(Lien memory lien, uint256 timestamp)
+    external
+    view
+    returns (uint256);
 
-  function getAccruedSinceLastPayment(uint256 lienId) external view returns (uint256);
+  function getAccruedSinceLastPayment(uint256 lienId)
+    external
+    view
+    returns (uint256);
 
   function getInterest(uint256 collateralId, uint256 position)
     external
@@ -131,5 +137,3 @@ interface ILienBase {
 
   error InvalidCollateralState(InvalidStates);
 }
-
-interface ILienToken is ILienBase, IERC721 {}

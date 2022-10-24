@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -15,11 +15,9 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-import {
-  ERC4626Cloned,
-  WithdrawVaultBase,
-  ITokenBase
-} from "gpl/ERC4626-Cloned.sol";
+import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
+import {WithdrawVaultBase} from "gpl/WithdrawVaultBase.sol";
+import {ITokenBase} from "gpl/interfaces/ITokenBase.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 
 /**
@@ -80,5 +78,4 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     require(msg.sender == owner(), "only owner can mint");
     _mint(receiver, shares);
   }
-
 }

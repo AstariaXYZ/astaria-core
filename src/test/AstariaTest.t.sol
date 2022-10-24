@@ -136,8 +136,8 @@ contract AstariaTest is TestHelpers {
     // _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).withdrawProxies(
-      PublicVault(publicVault).getCurrentEpoch()
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      PublicVault(publicVault).currentEpoch()
     );
 
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
@@ -163,7 +163,6 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  
   function testLiquidationAccountant() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
@@ -196,8 +195,8 @@ contract AstariaTest is TestHelpers {
 
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).withdrawProxies(
-      PublicVault(publicVault).getCurrentEpoch()
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      PublicVault(publicVault).currentEpoch()
     );
 
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
@@ -206,7 +205,7 @@ contract AstariaTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
 
     address liquidationAccountant = PublicVault(publicVault)
-      .liquidationAccountants(0);
+      .getLiquidationAccountant(0);
 
     assertTrue(
       liquidationAccountant != address(0),
