@@ -246,8 +246,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return super.domainSeparator();
   }
 
-  event MEOW(uint256);
-  event Expexted(uint256, uint256);
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
@@ -308,8 +306,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       } else {
         withdrawReserve = 0;
       }
-      // yIntercept+=slope.mulDivDown(block.timestamp - last, 1);
-      // last = block.timestamp;
       _decreaseYIntercept(
         totalAssets().mulDivDown(liquidationWithdrawRatio, 1e18)
       );
@@ -601,7 +597,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _decreaseEpochLienCount(lienEpoch);
 
     if (timeToEpochEnd() <= COLLATERAL_TOKEN().auctionWindow()) {
-      // if (withdrawReserve == 0) {
         accountantIfAny = getLiquidationAccountant(lienEpoch);
 
         // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
@@ -613,7 +608,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           lien.amount,
           COLLATERAL_TOKEN().auctionWindow() + 1 days
         );
-      // }
     }
   }
 

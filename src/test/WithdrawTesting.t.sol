@@ -399,8 +399,6 @@ contract WithdrawTest is TestHelpers {
     );
   }
 
-
-  event LAST(uint256);
   function testFutureLiquidationWithBlockingWithdrawReserve() public {
     TestNFT nft = new TestNFT(2);
     _mintAndDeposit(address(nft), 5);
@@ -446,8 +444,6 @@ contract WithdrawTest is TestHelpers {
 
     uint256 lienId = liens[0];
 
-    // uint256 last = LIEN_TOKEN.lienData(lienId).last;
-
     assertEq(
       PublicVault(publicVault).slope(),
       4756468797500,
@@ -482,7 +478,6 @@ contract WithdrawTest is TestHelpers {
     _bid(address(4), collateralId, 150 ether);
 
     assertTrue(PublicVault(publicVault).getLiquidationAccountant(1) != address(0), "LiquidationAccountant for epoch 1 not deployed");
-    // assertTrue(WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(1)) != 0, "fuck");
     assertEq(
       PublicVault(publicVault).slope(),
       0,
@@ -496,9 +491,6 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + 3 days);
 
-
-
-    // assertEq(PublicVault(publicVault).withdrawReserve(), 0);
     address accountant1 = PublicVault(publicVault).getLiquidationAccountant(1);
 
     vm.expectRevert("Withdraw reserve not empty");
@@ -519,7 +511,7 @@ contract WithdrawTest is TestHelpers {
       PublicVault(publicVault).yIntercept(),
       0,
       "PublicVault yIntercept calculation incorrect"
-    ); // TODO check
+    );
 
     address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
     assertTrue(WETH9.balanceOf(withdrawProxy) != 0, "WITHDRAWPROXY IS 0");
@@ -544,7 +536,6 @@ contract WithdrawTest is TestHelpers {
     assertEq(WETH9.balanceOf(address(2)), 26438357353481199375, "LP 2 WETH balance incorrect");
 
     LiquidationAccountant(accountant1).claim();
-    // assertEq(WETH9)
     address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
     assertTrue(WETH9.balanceOf(withdrawProxy2) != 0, "WITHDRAWPROXY 2 IS 0");
 
