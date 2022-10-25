@@ -17,20 +17,20 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IVault} from "gpl/interfaces/IVault.sol";
-import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
 
 /**
  * @title VaultImplementation
  * @author androolloyd
  * @notice A base implementation for the minimal features of an Astaria Vault.
  */
-abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
+abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
@@ -149,9 +149,11 @@ abstract contract VaultImplementation is ERC721TokenReceiver, AstariaVaultBase {
   ) internal returns (IAstariaRouter.LienDetails memory) {
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
-    address operator = ERC721(COLLATERAL_TOKEN()).getApproved(collateralId);
+    address operator = ERC721(address(COLLATERAL_TOKEN())).getApproved(
+      collateralId
+    );
 
-    address holder = ERC721(COLLATERAL_TOKEN()).ownerOf(collateralId);
+    address holder = ERC721(address(COLLATERAL_TOKEN())).ownerOf(collateralId);
 
     if (msg.sender != holder) {
       require(msg.sender == operator, "invalid request");

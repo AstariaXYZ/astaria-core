@@ -25,10 +25,7 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
-import {
-  ICollateralBase,
-  ICollateralToken
-} from "./interfaces/ICollateralToken.sol";
+import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";

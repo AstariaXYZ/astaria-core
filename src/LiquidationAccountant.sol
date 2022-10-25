@@ -134,7 +134,7 @@ contract LiquidationAccountant is LiquidationBase {
     uint256 newLienExpectedValue,
     uint256 finalAuctionTimestamp
   ) public {
-    require(msg.sender == ROUTER());
+    require(msg.sender == VAULT());
     expected += newLienExpectedValue;
     finalAuctionEnd = finalAuctionTimestamp;
   }

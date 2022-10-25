@@ -213,12 +213,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   // TODO kill
   function getLiquidationsExpected(uint64 epoch) public view returns (uint256) {
     address accountant = epochData[epoch].liquidationAccountant;
-    if(accountant == address(0)) {
+    if (accountant == address(0)) {
       return uint256(0);
     }
-    return
-      LiquidationAccountant(accountant)
-        .getExpected();
+    return LiquidationAccountant(accountant).getExpected();
   }
 
   function _deployWithdrawProxyIfNotDeployed(uint64 epoch) internal {
@@ -325,10 +323,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @return accountant The address of the deployed LiquidationAccountant.
    */
   function deployLiquidationAccountant(uint64 epoch)
-    public
+    internal
     returns (address accountant)
   {
-    require(msg.sender == ROUTER(), "only router can call");
+    //    require(msg.sender == ROUTER(), "only router can call");
     require(
       getLiquidationAccountant(epoch) == address(0),
       "cannot deploy two liquidation accountants for the same epoch"
@@ -369,7 +367,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
 
   function transferWithdrawReserve() public {
-    require(currentEpoch != 0, "Must be in epoch 1 to call this");
+    require(currentEpoch != 0, "Cannot call in epoch 0");
     // check the available balance to be withdrawn
     uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
 
@@ -491,11 +489,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * hook to modify the liens open for then given epoch
    * @param epoch epoch to decrease liens of
    */
-  function decreaseEpochLienCount(uint64 epoch) external {
+  function decreaseEpochLienCount(uint64 epoch) public {
     require(
       msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN()),
       "only router or lien token"
     );
+    _decreaseEpochLienCount(epoch);
+  }
+
+  function _decreaseEpochLienCount(uint64 epoch) internal {
     unchecked {
       epochData[epoch].liensOpenForEpoch--;
     }
@@ -564,13 +566,43 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function updateVaultAfterLiquidation(
-    uint256 lienSlope
-  ) public {
-    require(msg.sender == ROUTER(), "can only be called by the router");
-    yIntercept+= slope.mulDivDown(block.timestamp - last, 1);
+  function updateVaultAfterLiquidation(uint256 lienId)
+    public
+    returns (address accountantIfAny)
+  {
+    require(
+      msg.sender == address(ROUTER()),
+      "can only be called by the router"
+    );
+    accountantIfAny = address(0);
+    ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
+
+    yIntercept += slope.mulDivDown(block.timestamp - last, 1);
+    uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
     slope -= lienSlope;
     last = block.timestamp;
+
+    if (currentEpoch != 0) {
+      transferWithdrawReserve();
+    }
+    uint64 lienEpoch = getLienEpoch(lien.end);
+    _decreaseEpochLienCount(lienEpoch);
+
+    if (timeToEpochEnd() <= COLLATERAL_TOKEN().auctionWindow()) {
+      if (withdrawReserve == 0) {
+        accountantIfAny = getLiquidationAccountant(lienEpoch);
+
+        // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
+        if (accountantIfAny == address(0)) {
+          accountantIfAny = deployLiquidationAccountant(lienEpoch);
+        }
+
+        LiquidationAccountant(accountantIfAny).handleNewLiquidation(
+          lien.amount,
+          COLLATERAL_TOKEN().auctionWindow() + 1 days
+        );
+      }
+    }
   }
 
   function getYIntercept() public view returns (uint256) {
@@ -584,7 +616,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   function decreaseYIntercept(uint256 amount) public {
     require(
-      msg.sender == AUCTION_HOUSE() ||
+      msg.sender == address(AUCTION_HOUSE()) ||
         (currentEpoch != 0 &&
           msg.sender == epochData[currentEpoch - 1].liquidationAccountant),
       "msg sender only from auction house or liquidation accountant"
