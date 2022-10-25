@@ -452,8 +452,4 @@ contract AstariaTest is TestHelpers {
     }
     _;
   }
-
-  function run() public {
-    testBasicPublicVaultLoan();
-  }
 }
