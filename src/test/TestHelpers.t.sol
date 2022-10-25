@@ -476,15 +476,6 @@ contract TestHelpers is Test {
     IAstariaRouter.LienDetails memory lienDetails, // loan information
     uint256 amount // requested amount
   ) internal returns (IAstariaRouter.Commitment memory terms) {
-    /*if (isFirstLien) {
-          ERC721(tokenContract).safeTransferFrom(
-            address(this),
-            address(COLLATERAL_TOKEN),
-            uint256(tokenId),
-            ""
-          ); // deposit NFT in CollateralToken
-        }*/
-
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
         version: uint8(1),
