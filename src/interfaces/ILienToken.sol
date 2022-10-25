@@ -133,9 +133,7 @@ interface ILienToken is IERC721 {
   error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
   error InvalidTerms();
   error InvalidRefinance();
-
   error InvalidLoanState();
-
   enum InvalidStates {
     AUCTION,
     NO_DEPOSIT,

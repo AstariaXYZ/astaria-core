@@ -376,24 +376,24 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
 
   function transferWithdrawReserve() public {
-    require(currentEpoch != 0, "Cannot call in epoch 0");
-    // check the available balance to be withdrawn
-    uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
+    if (currentEpoch > uint64(0)) {
+      // check the available balance to be withdrawn
+      uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
 
-    // prevent transfer of more assets then are available
-    if (withdrawReserve <= withdrawBalance) {
-      withdrawBalance = withdrawReserve;
-      withdrawReserve = 0;
-    } else {
-      withdrawReserve -= withdrawBalance;
-    }
-    //todo: check on current epoch is 0?
-    address currentWithdrawProxy = getWithdrawProxy(currentEpoch - 1);
-    // prevents transfer to a non-existent WithdrawProxy
-    // withdrawProxies are indexed by the epoch where they're deployed
-    if (currentWithdrawProxy != address(0)) {
-      ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdrawBalance);
-      emit WithdrawReserveTransferred(withdrawBalance);
+      // prevent transfer of more assets then are available
+      if (withdrawReserve <= withdrawBalance) {
+        withdrawBalance = withdrawReserve;
+        withdrawReserve = 0;
+      } else {
+        withdrawReserve -= withdrawBalance;
+      }
+      address currentWithdrawProxy = getWithdrawProxy(currentEpoch - 1);
+      // prevents transfer to a non-existent WithdrawProxy
+      // withdrawProxies are indexed by the epoch where they're deployed
+      if (currentWithdrawProxy != address(0)) {
+        ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+        emit WithdrawReserveTransferred(withdrawBalance);
+      }
     }
 
     
@@ -410,6 +410,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   ) internal virtual override(VaultImplementation) {
     if (timeToEpochEnd() == uint256(0)) {
       processEpoch();
+    } else if (withdrawReserve > uint256(0)) {
+      transferWithdrawReserve();
     }
   }
 
