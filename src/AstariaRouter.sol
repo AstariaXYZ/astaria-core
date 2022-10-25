@@ -105,7 +105,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     SOLO_IMPLEMENTATION = _SOLO_IMPL;
     liquidationFeeNumerator = 130;
     liquidationFeeDenominator = 1000;
-    minInterestBPS = uint256(0.0005 ether) / uint256(365 days); //5 bips / second
+    minInterestBPS = (uint256(1e15) * 5) / (365 days);
     minEpochLength = 7 days;
     maxEpochLength = 45 days;
     maxInterestRate = 63419583966; // 200% apy / second
@@ -113,7 +113,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     strategistFeeDenominator = 1000;
     buyoutFeeNumerator = 200;
     buyoutFeeDenominator = 1000;
-    minDurationIncrease = 14 days;
+    minDurationIncrease = 5 days;
     buyoutInterestWindow = 60 days;
   }
 
@@ -269,25 +269,26 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   /**
    * @notice Deposits collateral and requests loans for multiple NFTs at once.
    * @param commitments The commitment proofs and requested loan data for each loan.
-   * @return totalBorrowed The total amount borrowed by the requested loans.
+   * @return lienIds the lienIds for each loan.
    */
   function commitToLiens(IAstariaRouter.Commitment[] calldata commitments)
     external
     whenNotPaused
-    returns (uint256 totalBorrowed)
+    returns (uint256[] memory lienIds)
   {
-    totalBorrowed = 0;
+    uint256 totalBorrowed = 0;
+    lienIds = new uint256[](commitments.length);
     for (uint256 i = 0; i < commitments.length; ++i) {
       _transferAndDepositAsset(
         commitments[i].tokenContract,
         commitments[i].tokenId
       );
-      totalBorrowed += _executeCommitment(commitments[i]);
+      lienIds[i] = _executeCommitment(commitments[i]);
+      totalBorrowed += commitments[i].lienRequest.amount;
 
       uint256 collateralId = commitments[i].tokenContract.computeId(
         commitments[i].tokenId
       );
-      _returnCollateral(collateralId, address(msg.sender));
     }
     WETH.safeApprove(address(TRANSFER_PROXY), totalBorrowed);
     TRANSFER_PROXY.tokenTransferFrom(
@@ -484,11 +485,18 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   function isValidRefinance(
     ILienToken.Lien memory lien,
     LienDetails memory newLien
-  ) external view returns (bool) {
+  ) external returns (bool) {
     uint256 minNewRate = uint256(lien.rate) - minInterestBPS;
 
-    return (newLien.rate >= minNewRate &&
-      ((block.timestamp + newLien.duration - lien.end) >= minDurationIncrease));
+    if (newLien.rate < minNewRate) {
+      return false;
+    }
+
+    if (block.timestamp + newLien.duration - lien.end < minDurationIncrease) {
+      return false;
+    }
+
+    return true;
   }
 
   //INTERNAL FUNCS
@@ -566,12 +574,11 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     returns (uint256)
   {
     //router must be approved for the collateral to take a loan,
-    VaultImplementation(c.lienRequest.strategy.vault).commitToLien(c, receiver);
-    if (receiver == address(this)) {
-      return c.lienRequest.amount;
-    } else {
-      return uint256(0);
-    }
+    return
+      VaultImplementation(c.lienRequest.strategy.vault).commitToLien(
+        c,
+        receiver
+      );
   }
 
   function _transferAndDepositAsset(address tokenContract, uint256 tokenId)

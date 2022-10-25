@@ -103,6 +103,11 @@ interface ILienToken is IERC721 {
     view
     returns (uint256 totalDebt);
 
+  function getMaxPotentialDebtForCollateral(uint256 collateralId)
+    external
+    view
+    returns (uint256);
+
   function getTotalDebtForCollateralToken(
     uint256 collateralId,
     uint256 timestamp
@@ -129,10 +134,13 @@ interface ILienToken is IERC721 {
   error InvalidTerms();
   error InvalidRefinance();
 
+  error InvalidLoanState();
+
   enum InvalidStates {
     AUCTION,
     NO_DEPOSIT,
-    DEBT_LIMIT
+    DEBT_LIMIT,
+    MAX_LIENS
   }
 
   error InvalidCollateralState(InvalidStates);

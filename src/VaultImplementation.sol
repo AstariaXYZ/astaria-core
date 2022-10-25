@@ -21,7 +21,7 @@ import {IVault} from "gpl/interfaces/IVault.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
-import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {LienToken} from "core/LienToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
 
@@ -148,22 +148,26 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
     address receiver
   ) internal returns (IAstariaRouter.LienDetails memory) {
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
-
-    address operator = ERC721(address(COLLATERAL_TOKEN())).getApproved(
-      collateralId
-    );
+    ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
+    address operator = CT.getApproved(collateralId);
 
     address holder = ERC721(address(COLLATERAL_TOKEN())).ownerOf(collateralId);
 
-    if (msg.sender != holder) {
-      require(msg.sender == operator, "invalid request");
-    }
-
-    if (receiver != holder) {
-      require(
-        receiver == operator || IAstariaRouter(ROUTER()).isValidVault(receiver),
-        "can only issue funds to an vault or operator if not the holder"
-      );
+    if (
+      msg.sender != holder &&
+      receiver != holder &&
+      receiver != operator &&
+      receiver != recipient() &&
+      !IAstariaRouter(ROUTER()).isValidVault(receiver)
+    ) {
+      if (operator != address(0)) {
+        require(
+          operator == receiver,
+          "an operator is defined, only they can borrow if not the user"
+        );
+      } else {
+        require(CT.isApprovedForAll(holder, receiver), "not approved");
+      }
     }
 
     address recovered = ecrecover(
@@ -210,9 +214,9 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       "Vault._validateCommitment(): Attempting to borrow more than maxAmount available for this asset"
     );
 
-    uint256 seniorDebt = IAstariaRouter(ROUTER())
+    uint256 maxPotentialDebt = IAstariaRouter(ROUTER())
       .LIEN_TOKEN()
-      .getTotalDebtForCollateralToken(
+      .getMaxPotentialDebtForCollateral(
         params.tokenContract.computeId(params.tokenId)
       );
     require(
@@ -220,9 +224,8 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
     );
 
-    uint256 potentialDebt = seniorDebt * (ld.rate + 1) * ld.duration;
     require(
-      potentialDebt <= ld.maxPotentialDebt,
+      maxPotentialDebt <= ld.maxPotentialDebt,
       "Vault._validateCommitment(): Attempting to initiate a loan with debt potentially higher than maxPotentialDebt"
     );
 
@@ -308,7 +311,18 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
       buyout
     );
-    IAstariaRouter(ROUTER()).LIEN_TOKEN().buyoutLien(
+
+    LienToken lienToken = LienToken(
+      address(IAstariaRouter(ROUTER()).LIEN_TOKEN())
+    );
+
+    if (
+      recipient() != address(this) &&
+      !lienToken.isApprovedForAll(msg.sender, recipient())
+    ) {
+      lienToken.setApprovalForAll(recipient(), true);
+    }
+    lienToken.buyoutLien(
       ILienToken.LienActionBuyout(incomingTerms, position, recipient())
     );
   }

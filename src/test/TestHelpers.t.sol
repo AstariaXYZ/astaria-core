@@ -88,11 +88,19 @@ contract TestHelpers is Test {
   address bidderOne = vm.addr(0x1342);
   address bidderTwo = vm.addr(0x1343);
 
-  IAstariaRouter.LienDetails public standardLien =
+  IAstariaRouter.LienDetails public standardLienDetails =
     IAstariaRouter.LienDetails({
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 10 days,
+      maxPotentialDebt: 50 ether
+    });
+
+  IAstariaRouter.LienDetails public refinanceLienDetails =
+    IAstariaRouter.LienDetails({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
       maxPotentialDebt: 50 ether
     });
 
@@ -344,6 +352,13 @@ contract TestHelpers is Test {
     );
   }
 
+  function _mintNoDepositApproveRouter(address tokenContract, uint256 tokenId)
+    internal
+  {
+    TestNFT(tokenContract).mint(address(this), tokenId);
+    TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);
+  }
+
   function _mintAndDeposit(address tokenContract, uint256 tokenId) internal {
     _mintAndDeposit(tokenContract, tokenId, address(this));
   }
@@ -432,15 +447,15 @@ contract TestHelpers is Test {
     IAstariaRouter.LienDetails memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien
-  ) internal returns (uint256) {
-    if (isFirstLien) {
-      ERC721(tokenContract).safeTransferFrom(
-        address(this),
-        address(COLLATERAL_TOKEN),
-        uint256(tokenId),
-        ""
-      ); // deposit NFT in CollateralToken
-    }
+  ) internal returns (uint256[] memory) {
+    /*if (isFirstLien) {
+          ERC721(tokenContract).safeTransferFrom(
+            address(this),
+            address(COLLATERAL_TOKEN),
+            uint256(tokenId),
+            ""
+          ); // deposit NFT in CollateralToken
+        }*/
 
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
@@ -488,7 +503,77 @@ contract TestHelpers is Test {
       })
     );
 
-    return VaultImplementation(vault).commitToLien(terms, address(this));
+    //    VaultImplementation(vault).commitToLien(terms, address(this));
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](1);
+    commitments[0] = terms;
+    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    return ASTARIA_ROUTER.commitToLiens(commitments);
+  }
+
+  function _generateValidTerms(
+    address vault, // address of deployed Vault
+    address strategist,
+    uint256 strategistPK,
+    address tokenContract, // original NFT address
+    uint256 tokenId, // original NFT id
+    IAstariaRouter.LienDetails memory lienDetails, // loan information
+    uint256 amount // requested amount
+  ) internal returns (IAstariaRouter.Commitment memory terms) {
+    /*if (isFirstLien) {
+          ERC721(tokenContract).safeTransferFrom(
+            address(this),
+            address(COLLATERAL_TOKEN),
+            uint256(tokenId),
+            ""
+          ); // deposit NFT in CollateralToken
+        }*/
+
+    bytes memory validatorDetails = abi.encode(
+      IUniqueValidator.Details({
+        version: uint8(1),
+        token: tokenContract,
+        tokenId: tokenId,
+        borrower: address(0),
+        lien: lienDetails
+      })
+    );
+
+    (
+      bytes32 rootHash,
+      bytes32[] memory merkleProof
+    ) = _generateLoanMerkleProof2({
+        requestType: IAstariaRouter.LienRequestType.UNIQUE,
+        data: validatorDetails
+      });
+
+    // setup 712 signature
+
+    IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter
+      .StrategyDetails({
+        version: uint8(0),
+        strategist: strategist,
+        deadline: block.timestamp + 10 days,
+        vault: vault
+      });
+
+    bytes32 termHash = keccak256(
+      VaultImplementation(vault).encodeStrategyData(strategyDetails, rootHash)
+    );
+    terms = _generateTerms(
+      GenTerms({
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        termHash: termHash,
+        rootHash: rootHash,
+        pk: strategistPK,
+        strategyDetails: strategyDetails,
+        validatorDetails: validatorDetails,
+        amount: amount,
+        merkleProof: merkleProof
+      })
+    );
   }
 
   struct GenTerms {

@@ -148,6 +148,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       uint256(buyout)
     );
 
+    if (msg.sender != params.receiver) {
+      require(isApprovedForAll[msg.sender][params.receiver]);
+    }
+
     lienData[lienId].last = block.timestamp.safeCastTo64();
     lienData[lienId].end = uint256(block.timestamp + ld.duration)
       .safeCastTo64();
@@ -245,14 +249,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       revert InvalidCollateralState(InvalidStates.NO_DEPOSIT);
     }
 
-    uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
-    uint256 impliedRate = getImpliedRate(collateralId);
+    uint256 maxPotentialDebt = getMaxPotentialDebtForCollateral(collateralId);
 
-    uint256 potentialDebt = totalDebt *
-      (impliedRate + 1) *
-      params.terms.duration;
-
-    if (potentialDebt > params.terms.maxPotentialDebt) {
+    if (maxPotentialDebt > params.terms.maxPotentialDebt) {
       revert InvalidCollateralState(InvalidStates.DEBT_LIMIT);
     }
 
@@ -274,10 +273,10 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     );
 
     //0 - 4 are valid
-    require(
-      uint256(liens[collateralId].length) < MAX_LIENS,
-      "too many liens active"
-    );
+
+    if (liens[collateralId].length == MAX_LIENS) {
+      revert InvalidCollateralState(InvalidStates.MAX_LIENS);
+    }
 
     uint8 newPosition = uint8(liens[collateralId].length);
 
@@ -454,6 +453,26 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   }
 
   /**
+   * @notice Computes the total amount owed on all liens against a CollateralToken.
+   * @param collateralId The ID of the underlying CollateralToken.
+   * @return maxPotentialDebt the total possible debt for the collateral
+   */
+  function getMaxPotentialDebtForCollateral(uint256 collateralId)
+    public
+    view
+    returns (uint256 maxPotentialDebt)
+  {
+    maxPotentialDebt = 0;
+    uint256[] memory openLiens = getLiens(collateralId);
+    for (uint256 i = 0; i < openLiens.length; ++i) {
+      Lien memory lien = lienData[openLiens[i]];
+      maxPotentialDebt +=
+        lien.amount +
+        (lien.rate * lien.amount).mulWadDown(lien.end - lien.last);
+    }
+  }
+
+  /**
    * @notice Computes the total amount owed on all liens against a CollateralToken at a specified timestamp.
    * @param collateralId The ID of the underlying CollateralToken.
    * @param timestamp The timestamp to use to calculate owed debt.
@@ -589,10 +608,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     Lien storage lien = lienData[lienId];
     bool isAuctionHouse = address(msg.sender) == address(AUCTION_HOUSE);
 
-    require(
-      block.timestamp < lien.end || isAuctionHouse,
-      "cannot pay off an expired lien"
-    );
+    if (block.timestamp > lien.end && !isAuctionHouse) {
+      revert InvalidLoanState();
+    }
 
     address lienOwner = ownerOf(lienId);
     bool isPublicVault = IPublicVault(lienOwner).supportsInterface(
@@ -638,7 +656,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
   function _deleteLienPosition(uint256 collateralId, uint256 position) public {
     uint256[] storage stack = liens[collateralId];
-    require(position < stack.length, "index out of bounds");
+    require(position < stack.length);
 
     emit RemoveLien(
       stack[position],
@@ -672,13 +690,9 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     if (AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId)) {
       revert InvalidCollateralState(InvalidStates.AUCTION);
     }
+
     require(
-      !AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId),
-      "collateralId is being liquidated, cannot change payee from LiquidationAccountant"
-    );
-    require(
-      msg.sender == ownerOf(lienId) || msg.sender == address(ASTARIA_ROUTER),
-      "invalid owner"
+      msg.sender == ownerOf(lienId) || msg.sender == address(ASTARIA_ROUTER)
     );
 
     lienData[lienId].payee = newPayee;

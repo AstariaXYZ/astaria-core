@@ -90,7 +90,7 @@ interface IAstariaRouter is IPausable {
 
   function commitToLiens(Commitment[] calldata)
     external
-    returns (uint256 totalBorrowed);
+    returns (uint256[] memory);
 
   function requestLienPosition(
     IAstariaRouter.LienDetails memory,
@@ -138,7 +138,6 @@ interface IAstariaRouter is IPausable {
 
   function isValidRefinance(ILienToken.Lien memory, LienDetails memory)
     external
-    view
     returns (bool);
 
   event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);

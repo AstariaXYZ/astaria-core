@@ -67,7 +67,7 @@ contract AstariaTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });
@@ -105,7 +105,7 @@ contract AstariaTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });
@@ -186,7 +186,7 @@ contract AstariaTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });
@@ -234,6 +234,87 @@ contract AstariaTest is TestHelpers {
     assertEq(WETH9.balanceOf(address(1)), 50575342465745600000);
   }
 
+  function testBuyoutLien() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    uint256[] memory liens = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    // buyout liens
+
+    //    struct LienActionBuyout {
+    //    IAstariaRouter.Commitment incoming;
+    //    uint256 position;
+    //    address receiver;
+    //    }
+
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: refinanceLienDetails,
+      amount: 10 ether
+    });
+
+    _lendToVault(
+      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      privateVault
+    );
+    VaultImplementation(privateVault).buyoutLien(
+      tokenContract.computeId(tokenId),
+      uint256(0),
+      refinanceTerms
+    );
+
+    //     LIEN_TOKEN.buyoutLien(liens[0], 10 ether, address(1), address(1));
+
+    //    uint256 collateralId = tokenContract.computeId(tokenId);
+    //
+    //    // make sure the borrow was successful
+    //    assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
+    //
+    //    vm.warp(block.timestamp + 9 days);
+    //
+    //    _repay(collateralId, 50 ether, address(this));
+    //
+    //    COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
+    //
+    //    assertEq(ERC721(tokenContract).ownerOf(tokenId), address(this));
+  }
+
   function testReleaseToAddress() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
@@ -261,7 +342,7 @@ contract AstariaTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });
@@ -318,7 +399,7 @@ contract AstariaTest is TestHelpers {
     address edgar = address(5);
 
     TestNFT nft = new TestNFT(2);
-    _mintAndDeposit(address(nft), 5);
+    _mintNoDepositApproveRouter(address(nft), 5);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
 
@@ -337,7 +418,7 @@ contract AstariaTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });
@@ -363,7 +444,7 @@ contract AstariaTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: uint256(5),
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: false // TODO look at this
     });
@@ -389,7 +470,7 @@ contract AstariaTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });

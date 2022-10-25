@@ -64,7 +64,7 @@ contract WithdrawTest is TestHelpers {
 
     _signalWithdraw(address(1), publicVault);
 
-    IAstariaRouter.LienDetails memory lien = standardLien;
+    IAstariaRouter.LienDetails memory lien = standardLienDetails;
     lien.duration = 1 days;
 
     // borrow 10 eth against the dummy NFT
@@ -107,7 +107,7 @@ contract WithdrawTest is TestHelpers {
 
   function testLiquidationAccountant5050Split() public {
     TestNFT nft = new TestNFT(2);
-    _mintAndDeposit(address(nft), 5);
+    _mintNoDepositApproveRouter(address(nft), 5);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
     address publicVault = _createPublicVault({
@@ -138,7 +138,7 @@ contract WithdrawTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });
@@ -149,7 +149,7 @@ contract WithdrawTest is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: uint256(5),
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: false
     });
@@ -183,7 +183,6 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
     emit log_uint(PublicVault(publicVault).withdrawReserve());
 
-
     vm.warp(block.timestamp + 13 days);
 
     LiquidationAccountant(liquidationAccountant).claim();
@@ -205,7 +204,7 @@ contract WithdrawTest is TestHelpers {
     );
 
     _warpToEpochEnd(publicVault);
-    
+
     PublicVault(publicVault).processEpoch();
     PublicVault(publicVault).transferWithdrawReserve();
     vm.startPrank(address(2));
@@ -240,7 +239,7 @@ contract WithdrawTest is TestHelpers {
 
   function testLiquidationAccountantEpochOrdering() public {
     TestNFT nft = new TestNFT(2);
-    _mintAndDeposit(address(nft), 2);
+    _mintNoDepositApproveRouter(address(nft), 2);
     address tokenContract = address(nft);
     uint256 tokenId1 = uint256(1);
     uint256 tokenId2 = uint256(2);
@@ -264,9 +263,10 @@ contract WithdrawTest is TestHelpers {
 
     _signalWithdrawAtFutureEpoch(address(2), publicVault, 1);
 
-    IAstariaRouter.LienDetails memory lien1 = standardLien;
+    IAstariaRouter.LienDetails memory lien1 = standardLienDetails;
     lien1.duration = 13 days; // will trigger LiquidationAccountant
-    uint256 lienId1 = _commitToLien({
+
+    uint256[] memory liens = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -277,10 +277,12 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
-    IAstariaRouter.LienDetails memory lien2 = standardLien;
+    uint256 lienId1 = liens[0];
+
+    IAstariaRouter.LienDetails memory lien2 = standardLienDetails;
     lien2.duration = 27 days; // will trigger LiquidationAccountant for next epoch
 
-    uint256 lienId2 = _commitToLien({
+    liens = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -290,6 +292,7 @@ contract WithdrawTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: false
     });
+    uint256 lienId2 = liens[0];
 
     _warpToEpochEnd(publicVault);
 

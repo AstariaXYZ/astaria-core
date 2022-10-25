@@ -94,7 +94,7 @@ contract RevertTesting is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });
@@ -130,7 +130,7 @@ contract RevertTesting is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: true
     });
@@ -141,7 +141,7 @@ contract RevertTesting is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLien,
+      lienDetails: standardLienDetails,
       amount: 10 ether,
       isFirstLien: false
     });
