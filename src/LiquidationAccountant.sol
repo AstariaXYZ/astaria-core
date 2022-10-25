@@ -63,12 +63,11 @@ contract LiquidationAccountant is LiquidationBase {
 
   uint256 withdrawRatio;
 
-  uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
-  uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
+  uint256 public expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
+  uint256 public finalAuctionEnd; // when this is deleted, we know the final auction is over
 
   bool public hasClaimed;
 
-  event Balance(uint256);
 
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
@@ -91,7 +90,6 @@ contract LiquidationAccountant is LiquidationBase {
       );
     }
 
-    emit Balance(balance);
     // would happen if there was no WithdrawProxy for current epoch
     hasClaimed = true;
 
@@ -117,6 +115,19 @@ contract LiquidationAccountant is LiquidationBase {
   }
 
   /**
+   * Called by PublicVault if previous epoch's withdrawReserve hasn't been met
+   */
+  function drain(uint256 amount, address vault) public returns (uint256) {
+    require(msg.sender == VAULT());
+    uint256 balance = ERC20(underlying()).balanceOf(address(this));
+    if (amount > balance) {
+      amount = balance;
+    }
+    ERC20(underlying()).safeTransfer(vault, amount);
+    return amount;
+  }
+
+  /**
    * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
    */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
@@ -137,13 +148,5 @@ contract LiquidationAccountant is LiquidationBase {
     require(msg.sender == VAULT());
     expected += newLienExpectedValue;
     finalAuctionEnd = finalAuctionTimestamp;
-  }
-
-  function getFinalAuctionEnd() external view returns (uint256) {
-    return finalAuctionEnd;
-  }
-
-  function getExpected() external view returns (uint256) {
-    return expected;
   }
 }

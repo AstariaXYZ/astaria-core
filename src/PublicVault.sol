@@ -210,15 +210,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return epochData[epoch].liquidationAccountant;
   }
 
-  // TODO kill
-  function getLiquidationsExpected(uint64 epoch) public view returns (uint256) {
-    address accountant = epochData[epoch].liquidationAccountant;
-    if (accountant == address(0)) {
-      return uint256(0);
-    }
-    return LiquidationAccountant(accountant).getExpected();
-  }
-
   function _deployWithdrawProxyIfNotDeployed(uint64 epoch) internal {
     if (epochData[epoch].withdrawProxy == address(0)) {
       address proxy = ClonesWithImmutableArgs.clone(
@@ -262,13 +253,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // check to make sure epoch is over
     require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
     require(
-      currentEpoch == 0 || withdrawReserve == 0,
+      withdrawReserve == 0,
       "Withdraw reserve not empty"
     );
     address currentLA = getLiquidationAccountant(currentEpoch);
     if (currentLA != address(0)) {
       require(
-        LiquidationAccountant(currentLA).getFinalAuctionEnd() < block.timestamp,
+        LiquidationAccountant(currentLA).finalAuctionEnd() < block.timestamp,
         "Final auction not ended"
       );
     }
@@ -301,12 +292,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           liquidationWithdrawRatio
         );
       }
-      uint256 expected = getLiquidationsExpected(currentEpoch);
-      withdrawReserve = (totalAssets() - expected).mulDivDown(
-        liquidationWithdrawRatio,
-        1e18
-      );
 
+      uint256 expected = 0;
+      if (currentLA != address(0)) {
+        expected = LiquidationAccountant(currentLA).expected();
+      }
+      
+      if(totalAssets() > expected) {
+        withdrawReserve = (totalAssets() - expected).mulDivDown(
+          liquidationWithdrawRatio,
+          1e18
+        );
+      } else {
+        withdrawReserve = 0;
+      }
       _decreaseYIntercept(
         totalAssets().mulDivDown(liquidationWithdrawRatio, 1e18)
       );
@@ -386,6 +385,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         emit WithdrawReserveTransferred(withdrawBalance);
       }
     }
+
+    
+    address accountant = epochData[currentEpoch].liquidationAccountant;
+    if(withdrawReserve > 0 && timeToEpochEnd() == 0 && accountant != address(0)) {
+      withdrawReserve -= LiquidationAccountant(accountant).drain(withdrawReserve, epochData[currentEpoch - 1].withdrawProxy);
+    }
+    
   }
 
   function _beforeCommitToLien(
@@ -591,7 +597,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _decreaseEpochLienCount(lienEpoch);
 
     if (timeToEpochEnd() <= COLLATERAL_TOKEN().auctionWindow()) {
-      if (withdrawReserve == 0) {
         accountantIfAny = getLiquidationAccountant(lienEpoch);
 
         // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
@@ -603,7 +608,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           lien.amount,
           COLLATERAL_TOKEN().auctionWindow() + 1 days
         );
-      }
     }
   }
 
