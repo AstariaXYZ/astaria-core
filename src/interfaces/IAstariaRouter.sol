@@ -72,14 +72,6 @@ interface IAstariaRouter is IPausable {
     Commitment incoming;
   }
 
-  struct BorrowAndBuyParams {
-    Commitment[] commitments;
-    address invoker;
-    uint256 purchasePrice;
-    bytes purchaseData;
-    address receiver;
-  }
-
   function strategistNonce(address strategist) external view returns (uint256);
 
   function validateCommitment(Commitment calldata)

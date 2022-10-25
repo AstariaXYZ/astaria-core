@@ -524,9 +524,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       abi.encodePacked(
         address(msg.sender),
         address(WETH),
-        address(COLLATERAL_TOKEN),
         address(this),
-        address(COLLATERAL_TOKEN.AUCTION_HOUSE()),
         block.timestamp,
         epochLength,
         vaultType,
