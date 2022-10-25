@@ -181,7 +181,6 @@ contract WithdrawTest is TestHelpers {
     _warpToEpochEnd(publicVault); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
-    emit log_uint(PublicVault(publicVault).withdrawReserve());
 
     vm.warp(block.timestamp + 13 days);
 
@@ -468,12 +467,7 @@ contract WithdrawTest is TestHelpers {
       "incorrect PublicVault slope calc"
     );
 
-    emit log_uint(PublicVault(publicVault).totalAssets());
-    emit log_uint(PublicVault(publicVault).last());
-    emit log_uint(block.timestamp);
-    emit log_uint(PublicVault(publicVault).yIntercept());
     PublicVault(publicVault).processEpoch();
-    emit log_uint(PublicVault(publicVault).yIntercept());
 
     assertEq(
       PublicVault(publicVault).withdrawReserve(),
@@ -494,6 +488,7 @@ contract WithdrawTest is TestHelpers {
     _bid(address(4), collateralId, 120 ether);
 
     assertTrue(PublicVault(publicVault).getLiquidationAccountant(1) != address(0), "LiquidationAccountant for epoch 1 not deployed");
+    // assertTrue(WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(1)) != 0, "fuck");
     assertEq(
       PublicVault(publicVault).slope(),
       0,
@@ -508,19 +503,18 @@ contract WithdrawTest is TestHelpers {
     vm.warp(block.timestamp + 3 days);
 
 
-    assertEq(PublicVault(publicVault).withdrawReserve(), 0);
-    address accountant = PublicVault(publicVault).getLiquidationAccountant(1);
 
-    emit log_uint(LiquidationAccountant(accountant).getExpected());
-    emit log_uint(PublicVault(publicVault).totalAssets());
+    // assertEq(PublicVault(publicVault).withdrawReserve(), 0);
+    address accountant1 = PublicVault(publicVault).getLiquidationAccountant(1);
 
     vm.expectRevert("Withdraw reserve not empty");
     PublicVault(publicVault).processEpoch();
 
     PublicVault(publicVault).transferWithdrawReserve();
     PublicVault(publicVault).processEpoch();
-
-    // PublicVault(publicVault).transferWithdrawReserve();
+    
+    PublicVault(publicVault).transferWithdrawReserve();
+   
     assertEq(
       PublicVault(publicVault).withdrawReserve(),
       0,
@@ -534,6 +528,8 @@ contract WithdrawTest is TestHelpers {
     ); // TODO check
 
     address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    assertTrue(WETH9.balanceOf(withdrawProxy) != 0, "WITHDRAWPROXY IS 0");
+
     vm.startPrank(address(1));
     WithdrawProxy(withdrawProxy).redeem(
       IERC20(withdrawProxy).balanceOf(address(1)),
@@ -552,6 +548,26 @@ contract WithdrawTest is TestHelpers {
 
     assertEq(WETH9.balanceOf(address(1)), 26438357353481199375, "LP 1 WETH balance incorrect");
     assertEq(WETH9.balanceOf(address(2)), 26438357353481199375, "LP 2 WETH balance incorrect");
+
+    LiquidationAccountant(accountant1).claim();
+    // assertEq(WETH9)
+    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
+    assertTrue(WETH9.balanceOf(withdrawProxy2) != 0, "WITHDRAWPROXY 2 IS 0");
+
+
+    vm.startPrank(address(3));
+    WithdrawProxy(withdrawProxy2).redeem(
+      IERC20(withdrawProxy2).balanceOf(address(3)),
+      address(3),
+      address(3)
+    );
+    vm.stopPrank();
+
+    assertEq(WETH9.balanceOf(address(3)), 51523285293037601250, "LP 3 WETH balance incorrect");
+
+    assertEq(WETH9.balanceOf(publicVault), 0, "PUBLICVAULT STILL HAS ASSETS");
+    assertEq(WETH9.balanceOf(accountant1), 0, "LIQUIDATIONACCOUNTANT STILL HAS ASSETS");
+
 
     // _warpToEpochEnd(publicVault);
     // PublicVault(publicVault).transferWithdrawReserve();

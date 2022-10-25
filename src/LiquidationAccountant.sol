@@ -117,15 +117,15 @@ contract LiquidationAccountant is LiquidationBase {
   /**
    * Called by PublicVault if previous epoch's withdrawReserve hasn't been met
    */
-  function drain(uint256 amount) public returns (uint256) {
+  function drain(uint256 amount, address vault) public returns (uint256) {
     require(msg.sender == VAULT());
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
     if(amount > balance) { // TODO refactor
-      ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), balance);
+      ERC20(underlying()).safeTransfer(vault, balance);
       // expected-=balance;
       return balance;
     } else {
-      ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), amount);
+      ERC20(underlying()).safeTransfer(vault, amount);
       // expected-=amount;
       return amount;
     }

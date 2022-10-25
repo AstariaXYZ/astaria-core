@@ -399,7 +399,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     
     address accountant = epochData[currentEpoch].liquidationAccountant;
     if(withdrawReserve > 0 && timeToEpochEnd() == 0 && accountant != address(0)) {
-      withdrawReserve -= LiquidationAccountant(accountant).drain(withdrawReserve);
+      withdrawReserve -= LiquidationAccountant(accountant).drain(withdrawReserve, epochData[currentEpoch - 1].withdrawProxy);
     }
     
   }
