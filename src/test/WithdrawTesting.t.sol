@@ -399,4 +399,168 @@ contract WithdrawTest is TestHelpers {
       "LPs have different amounts"
     );
   }
+
+
+  event LAST(uint256);
+  function testFutureLiquidationWithBlockingWithdrawReserve() public {
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 5);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 25 ether}),
+      publicVault
+    );
+    _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 25 ether}),
+      publicVault
+    );
+    _signalWithdrawAtFutureEpoch(address(2), publicVault, 0);
+
+    _lendToVault(
+      Lender({addr: address(3), amountToLend: 50 ether}),
+      publicVault
+    );
+    _signalWithdrawAtFutureEpoch(address(3), publicVault, 1);
+
+    IAstariaRouter.LienDetails memory lien1 = standardLienDetails;
+    lien1.duration = 28 days; // will trigger LiquidationAccountant
+    lien1.maxAmount = 100 ether;
+    uint256[] memory liens = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien1,
+      amount: 100 ether,
+      isFirstLien: true
+    });
+
+    uint256 lienId = liens[0];
+
+    // uint256 last = LIEN_TOKEN.lienData(lienId).last;
+
+    assertEq(
+      PublicVault(publicVault).slope(),
+      4756468797500,
+      "incorrect PublicVault slope calc"
+    );
+
+    assertTrue(
+      PublicVault(publicVault).getLiquidationAccountant(0) == address(0),
+      "LiquidationAccountant should not be deployed"
+    );
+
+    _warpToEpochEnd(publicVault);
+
+    assertEq(
+      PublicVault(publicVault).slope(),
+      4756468797500,
+      "incorrect PublicVault slope calc"
+    );
+
+    emit log_uint(PublicVault(publicVault).totalAssets());
+    emit log_uint(PublicVault(publicVault).last());
+    emit log_uint(block.timestamp);
+    emit log_uint(PublicVault(publicVault).yIntercept());
+    PublicVault(publicVault).processEpoch();
+    emit log_uint(PublicVault(publicVault).yIntercept());
+
+    assertEq(
+      PublicVault(publicVault).withdrawReserve(),
+      52876714706962398750,
+      "Epoch 0 withdrawReserve calculation incorrect"
+    );
+
+    assertEq(
+      PublicVault(publicVault).getLiquidationsExpected(0),
+      0,
+      "LiquidationsExpected for epoch 0 should be 0"
+    );
+
+    _warpToEpochEnd(publicVault);
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    ASTARIA_ROUTER.liquidate(collateralId, 0);
+    _bid(address(4), collateralId, 120 ether);
+
+    assertTrue(PublicVault(publicVault).getLiquidationAccountant(1) != address(0), "LiquidationAccountant for epoch 1 not deployed");
+    assertEq(
+      PublicVault(publicVault).slope(),
+      0,
+      "PublicVault slope should be 0"
+    );
+    assertEq(
+      PublicVault(publicVault).yIntercept(),
+      58630139364418398750,
+      "PublicVault yIntercept calculation incorrect"
+    );
+
+    vm.warp(block.timestamp + 3 days);
+
+
+    assertEq(PublicVault(publicVault).withdrawReserve(), 0);
+    address accountant = PublicVault(publicVault).getLiquidationAccountant(1);
+
+    emit log_uint(LiquidationAccountant(accountant).getExpected());
+    emit log_uint(PublicVault(publicVault).totalAssets());
+
+    vm.expectRevert("Withdraw reserve not empty");
+    PublicVault(publicVault).processEpoch();
+
+    PublicVault(publicVault).transferWithdrawReserve();
+    PublicVault(publicVault).processEpoch();
+
+    // PublicVault(publicVault).transferWithdrawReserve();
+    assertEq(
+      PublicVault(publicVault).withdrawReserve(),
+      0,
+      "withdrawReserve should be 0 after transfer"
+    ); // TODO check
+
+    assertEq(
+      PublicVault(publicVault).yIntercept(),
+      0,
+      "PublicVault yIntercept calculation incorrect"
+    ); // TODO check
+
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    vm.startPrank(address(1));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    vm.stopPrank();
+
+    vm.startPrank(address(2));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(2)),
+      address(2),
+      address(2)
+    );
+    vm.stopPrank();
+
+    assertEq(WETH9.balanceOf(address(1)), 26438357353481199375, "LP 1 WETH balance incorrect");
+    assertEq(WETH9.balanceOf(address(2)), 26438357353481199375, "LP 2 WETH balance incorrect");
+
+    // _warpToEpochEnd(publicVault);
+    // PublicVault(publicVault).transferWithdrawReserve();
+    // assertEq(PublicVault(publicVault).withdrawReserve(), 0, "Epoch 1 withdrawReserve calculation incorrect");
+    
+    
+    
+    
+    // PublicVault(publicVault).processEpoch();
+    // assertEq(PublicVault(publicVault).withdrawReserve(), 58 ether, "Epoch 1 withdrawReserve calculation incorrect");
+  }
 }

@@ -68,7 +68,6 @@ contract LiquidationAccountant is LiquidationBase {
 
   bool public hasClaimed;
 
-  event Balance(uint256);
 
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
@@ -91,7 +90,6 @@ contract LiquidationAccountant is LiquidationBase {
       );
     }
 
-    emit Balance(balance);
     // would happen if there was no WithdrawProxy for current epoch
     hasClaimed = true;
 
@@ -114,6 +112,23 @@ contract LiquidationAccountant is LiquidationBase {
     }
 
     emit Claimed(WITHDRAW_PROXY(), transferAmount, VAULT(), balance);
+  }
+
+  /**
+   * Called by PublicVault if previous epoch's withdrawReserve hasn't been met
+   */
+  function drain(uint256 amount) public returns (uint256) {
+    require(msg.sender == VAULT());
+    uint256 balance = ERC20(underlying()).balanceOf(address(this));
+    if(amount > balance) { // TODO refactor
+      ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), balance);
+      // expected-=balance;
+      return balance;
+    } else {
+      ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), amount);
+      // expected-=amount;
+      return amount;
+    }
   }
 
   /**
@@ -143,6 +158,7 @@ contract LiquidationAccountant is LiquidationBase {
     return finalAuctionEnd;
   }
 
+  // TODO kill
   function getExpected() external view returns (uint256) {
     return expected;
   }
