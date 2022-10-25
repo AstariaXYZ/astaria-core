@@ -448,60 +448,15 @@ contract TestHelpers is Test {
     uint256 amount, // requested amount
     bool isFirstLien
   ) internal returns (uint256[] memory) {
-    /*if (isFirstLien) {
-          ERC721(tokenContract).safeTransferFrom(
-            address(this),
-            address(COLLATERAL_TOKEN),
-            uint256(tokenId),
-            ""
-          ); // deposit NFT in CollateralToken
-        }*/
-
-    bytes memory validatorDetails = abi.encode(
-      IUniqueValidator.Details({
-        version: uint8(1),
-        token: tokenContract,
-        tokenId: tokenId,
-        borrower: address(0),
-        lien: lienDetails
-      })
-    );
-
-    (
-      bytes32 rootHash,
-      bytes32[] memory merkleProof
-    ) = _generateLoanMerkleProof2({
-        requestType: IAstariaRouter.LienRequestType.UNIQUE,
-        data: validatorDetails
-      });
-
-    // setup 712 signature
-
-    IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter
-      .StrategyDetails({
-        version: uint8(0),
-        strategist: strategist,
-        deadline: block.timestamp + 10 days,
-        vault: vault
-      });
-
-    bytes32 termHash = keccak256(
-      VaultImplementation(vault).encodeStrategyData(strategyDetails, rootHash)
-    );
-
-    IAstariaRouter.Commitment memory terms = _generateTerms(
-      GenTerms({
-        tokenContract: tokenContract,
-        tokenId: tokenId,
-        termHash: termHash,
-        rootHash: rootHash,
-        pk: strategistPK,
-        strategyDetails: strategyDetails,
-        validatorDetails: validatorDetails,
-        amount: amount,
-        merkleProof: merkleProof
-      })
-    );
+    IAstariaRouter.Commitment memory terms = _generateValidTerms({
+      vault: vault,
+      strategist: strategist,
+      strategistPK: strategistPK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lienDetails,
+      amount: amount
+    });
 
     //    VaultImplementation(vault).commitToLien(terms, address(this));
     IAstariaRouter.Commitment[]
