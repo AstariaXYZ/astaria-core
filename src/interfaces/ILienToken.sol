@@ -10,21 +10,19 @@
 
 pragma solidity ^0.8.17;
 
-import {IERC721} from "gpl/interfaces/IERC721.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
 
-import {IAstariaRouter} from "./IAstariaRouter.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 
-interface ILienBase {
+interface ILienToken is IERC721 {
   struct Lien {
     uint256 amount; //32
     uint256 collateralId; //32
     address payee; // 20
-    uint32 start; // 4
-    uint32 last; // 4
-    uint32 duration; // 4
-    uint240 rate; // 30
-    bool active; // 1
+    uint64 last; // 8
     uint8 position; // 1
+    uint64 end; // 8
+    uint192 rate; // 24
   }
 
   struct LienActionEncumber {
@@ -44,11 +42,6 @@ interface ILienBase {
 
   function calculateSlope(uint256 lienId) external returns (uint256 slope);
 
-  function changeInSlope(uint256 lienId, uint256 paymentAmount)
-    external
-    view
-    returns (uint256 slope);
-
   function stopLiens(uint256 collateralId)
     external
     returns (uint256 reserve, uint256[] memory lienIds);
@@ -61,7 +54,15 @@ interface ILienBase {
   function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
     external;
 
-  function accrue(uint256 lienId) external;
+  function getOwed(Lien memory lien, uint256 timestamp)
+    external
+    view
+    returns (uint256);
+
+  function getAccruedSinceLastPayment(uint256 lienId)
+    external
+    view
+    returns (uint256);
 
   function getInterest(uint256 collateralId, uint256 position)
     external
@@ -136,5 +137,3 @@ interface ILienBase {
 
   error InvalidCollateralState(InvalidStates);
 }
-
-interface ILienToken is ILienBase, IERC721 {}

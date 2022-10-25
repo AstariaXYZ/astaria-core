@@ -16,27 +16,27 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IERC721} from "gpl/interfaces/IERC721.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
-import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
-import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
-import {IStrategyValidator} from "./interfaces/IStrategyValidator.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
-import {IPublicVault, PublicVault} from "./PublicVault.sol";
-import {IVault, VaultImplementation} from "./VaultImplementation.sol";
-import {LiquidationAccountant} from "./LiquidationAccountant.sol";
+import {IPublicVault, PublicVault} from "core/PublicVault.sol";
+import {IVault, VaultImplementation} from "core/VaultImplementation.sol";
+import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
 
-import {MerkleProofLib} from "./utils/MerkleProofLib.sol";
-import {Pausable} from "./utils/Pausable.sol";
+import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
+import {Pausable} from "core/utils/Pausable.sol";
 
 /**
  * @title AstariaRouter
@@ -58,7 +58,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   address public VAULT_IMPLEMENTATION;
   address public WITHDRAW_IMPLEMENTATION;
   address public feeTo;
-  uint256 public liquidationFeePercent;
+  uint256 public liquidationFeeNumerator;
+  uint256 public liquidationFeeDenominator;
   uint256 public maxInterestRate;
   uint256 public maxEpochLength;
   uint256 public minEpochLength;
@@ -102,13 +103,16 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     TRANSFER_PROXY = _TRANSFER_PROXY;
     VAULT_IMPLEMENTATION = _VAULT_IMPL;
     SOLO_IMPLEMENTATION = _SOLO_IMPL;
-    liquidationFeePercent = 13;
+    liquidationFeeNumerator = 130;
+    liquidationFeeDenominator = 1000;
     minInterestBPS = uint256(0.0005 ether) / uint256(365 days); //5 bips / second
     minEpochLength = 7 days;
     maxEpochLength = 45 days;
     maxInterestRate = 63419583966; // 200% apy / second
     strategistFeeNumerator = 200;
     strategistFeeDenominator = 1000;
+    buyoutFeeNumerator = 200;
+    buyoutFeeDenominator = 1000;
     minDurationIncrease = 14 days;
     buyoutInterestWindow = 60 days;
   }
@@ -146,21 +150,40 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
   }
 
-  function file(File calldata file) public requiresAuth {
-    bytes32 what = file.what;
-    bytes memory data = file.data;
-    if (what == "LIQUIDATION_FEE_PERCENT") {
-      uint256 value = abi.decode(data, (uint256));
-      liquidationFeePercent = value;
+  function file(File calldata incoming) public requiresAuth {
+    bytes32 what = incoming.what;
+    bytes memory data = incoming.data;
+    if (what == "setLiquidationFee") {
+      (uint256 numerator, uint256 denominator) = abi.decode(
+        data,
+        (uint256, uint256)
+      );
+      liquidationFeeNumerator = numerator;
+      liquidationFeeDenominator = denominator;
+    } else if (what == "setStrategistFee") {
+      (uint256 numerator, uint256 denominator) = abi.decode(
+        data,
+        (uint256, uint256)
+      );
+      strategistFeeNumerator = numerator;
+      strategistFeeDenominator = denominator;
+    } else if (what == "setProtocolFee") {
+      (uint256 numerator, uint256 denominator) = abi.decode(
+        data,
+        (uint256, uint256)
+      );
+      protocolFeeNumerator = numerator;
+      protocolFeeDenominator = denominator;
+    } else if (what == "setBuyoutFee") {
+      (uint256 numerator, uint256 denominator) = abi.decode(
+        data,
+        (uint256, uint256)
+      );
+      buyoutFeeNumerator = numerator;
+      buyoutFeeDenominator = denominator;
     } else if (what == "MIN_INTEREST_BPS") {
       uint256 value = abi.decode(data, (uint256));
       minInterestBPS = uint256(value);
-    } else if (what == "APPRAISER_NUMERATOR") {
-      uint256 value = abi.decode(data, (uint256));
-      strategistFeeNumerator = value;
-    } else if (what == "APPRAISER_ORIGINATION_FEE_BASE") {
-      uint256 value = abi.decode(data, (uint256));
-      strategistFeeDenominator = value;
     } else if (what == "MIN_DURATION_INCREASE") {
       uint256 value = abi.decode(data, (uint256));
       minDurationIncrease = value.safeCastTo32();
@@ -307,7 +330,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   ) external whenNotPaused onlyVaults returns (uint256) {
     return
       LIEN_TOKEN.createLien(
-        ILienBase.LienActionEncumber({
+        ILienToken.LienActionEncumber({
           tokenContract: params.tokenContract,
           tokenId: params.tokenId,
           terms: terms,
@@ -352,10 +375,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   {
     ILienToken.Lien memory lien = LIEN_TOKEN.getLien(collateralId, position);
 
-    return (lien.start + lien.duration <= block.timestamp && lien.amount > 0);
+    return (lien.end <= block.timestamp && lien.amount > 0);
   }
 
-  event LIENAMOUNT(uint256);
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
    * @param collateralId The ID of the CollateralToken.
@@ -378,7 +400,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       uint256 currentLien = liens[i];
 
       ILienToken.Lien memory lien = LIEN_TOKEN.getLien(currentLien);
-
       address owner = LIEN_TOKEN.getPayee(currentLien);
       if (
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
@@ -387,49 +408,42 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         PublicVault(owner).updateVaultAfterLiquidation(
           LIEN_TOKEN.calculateSlope(currentLien)
         );
+        
+        uint64 currentEpoch = PublicVault(owner).currentEpoch();
 
-        uint256 lienEpoch = PublicVault(owner).getLienEpoch(
-          lien.start + lien.duration
+        if(currentEpoch != 0) {
+          PublicVault(owner).transferWithdrawReserve();
+        }
+
+        uint64 lienEpoch = PublicVault(owner).getLienEpoch(lien.end);
+        PublicVault(owner).decreaseEpochLienCount(
+          lienEpoch
         );
-        PublicVault(owner).decreaseEpochLienCount(lienEpoch);
         if (
           PublicVault(owner).timeToEpochEnd() <=
           COLLATERAL_TOKEN.auctionWindow()
         ) {
-          uint64 currentEpoch = PublicVault(owner).getCurrentEpoch();
           address accountant = PublicVault(owner).getLiquidationAccountant(
-            currentEpoch
+            lienEpoch
           );
 
           // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
           if (PublicVault(owner).withdrawReserve() == 0) {
             if (accountant == address(0)) {
-              accountant = PublicVault(owner).deployLiquidationAccountant();
+              accountant = PublicVault(owner).deployLiquidationAccountant(lienEpoch);
             }
             LIEN_TOKEN.setPayee(currentLien, accountant);
 
-            // lien.amount+=LIEN_TOKEN.getInterest(currentLien);
-            // lien.last = block.timestamp.safeCastTo32();
-            // LIEN_TOKEN.accrue(currentLien);
-            // uint256 expected = lien.amount + LIEN_TOKEN.getInterest(currentLien);
-            emit LIENAMOUNT(lien.amount);
             LiquidationAccountant(accountant).handleNewLiquidation(
               lien.amount,
               COLLATERAL_TOKEN.auctionWindow() + 1 days
-            );
-            PublicVault(owner).increaseLiquidationsExpectedAtBoundary(
-              lien.amount
             );
           }
         }
       }
     }
 
-    reserve = COLLATERAL_TOKEN.auctionVault(
-      collateralId,
-      address(msg.sender),
-      liquidationFeePercent
-    );
+    reserve = COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender));
 
     emit Liquidation(collateralId, position, reserve);
   }
@@ -449,6 +463,15 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    */
   function getProtocolFee(uint256 amountIn) external view returns (uint256) {
     return amountIn.mulDivDown(protocolFeeNumerator, protocolFeeDenominator);
+  }
+
+  /**
+   * @notice Retrieves the fee the liquidator earns for processing auctions
+   * @return The numerator and denominator used to compute the percentage fee taken by the liquidator
+   */
+  function getLiquidatorFee(uint256 amountIn) external view returns (uint256) {
+    return
+      amountIn.mulDivDown(liquidationFeeNumerator, liquidationFeeDenominator);
   }
 
   /**
@@ -495,8 +518,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256 minNewRate = uint256(lien.rate) - minInterestBPS;
 
     return (newLien.rate >= minNewRate &&
-      ((block.timestamp + newLien.duration - lien.start - lien.duration) >=
-        minDurationIncrease));
+      ((block.timestamp + newLien.duration - lien.end) >= minDurationIncrease));
   }
 
   //INTERNAL FUNCS

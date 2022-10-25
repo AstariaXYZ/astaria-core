@@ -4,18 +4,18 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
 pragma solidity ^0.8.17;
 
-import {IERC721} from "gpl/interfaces/IERC721.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {IVault} from "gpl/ERC4626-Cloned.sol";
 
 import {ICollateralToken} from "./ICollateralToken.sol";
-import {ILienBase, ILienToken} from "./ILienToken.sol";
+import {ILienToken} from "./ILienToken.sol";
 
 import {IPausable} from "../utils/Pausable.sol";
 
@@ -127,6 +127,8 @@ interface IAstariaRouter is IPausable {
 
   function getBuyoutFee(uint256) external view returns (uint256);
 
+  function getLiquidatorFee(uint256) external view returns (uint256);
+
   function getBuyoutInterestWindow() external view returns (uint32);
 
   function lendToVault(IVault vault, uint256 amount) external;
@@ -142,7 +144,7 @@ interface IAstariaRouter is IPausable {
 
   function isValidVault(address) external view returns (bool);
 
-  function isValidRefinance(ILienBase.Lien memory, LienDetails memory)
+  function isValidRefinance(ILienToken.Lien memory, LienDetails memory)
     external
     view
     returns (bool);

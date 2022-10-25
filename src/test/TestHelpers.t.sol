@@ -23,15 +23,15 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
-import {IERC20} from "../interfaces/IERC20.sol";
-import {ILienToken} from "../interfaces/ILienToken.sol";
-import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {IERC20} from "core/interfaces/IERC20.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
-import {CollateralLookup} from "../libraries/CollateralLookup.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {
   ICollectionValidator,
@@ -167,7 +167,8 @@ contract TestHelpers is Test {
       MRA,
       ICollateralToken(address(COLLATERAL_TOKEN)),
       ILienToken(address(LIEN_TOKEN)),
-      TRANSFER_PROXY
+      TRANSFER_PROXY,
+      ASTARIA_ROUTER
     );
 
     COLLATERAL_TOKEN.file(
@@ -336,10 +337,10 @@ contract TestHelpers is Test {
     //warps to the first second after the epoch end
     assertTrue(
       block.timestamp <
-        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
+        PublicVault(vault).getEpochEnd(PublicVault(vault).currentEpoch()) + 1
     );
     vm.warp(
-      PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
+      PublicVault(vault).getEpochEnd(PublicVault(vault).currentEpoch()) + 1
     );
   }
 
@@ -431,7 +432,7 @@ contract TestHelpers is Test {
     IAstariaRouter.LienDetails memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien
-  ) internal {
+  ) internal returns (uint256) {
     if (isFirstLien) {
       ERC721(tokenContract).safeTransferFrom(
         address(this),
@@ -487,7 +488,7 @@ contract TestHelpers is Test {
       })
     );
 
-    VaultImplementation(vault).commitToLien(terms, address(this));
+    return VaultImplementation(vault).commitToLien(terms, address(this));
   }
 
   struct GenTerms {
@@ -538,7 +539,7 @@ contract TestHelpers is Test {
     vm.startPrank(lender.addr);
     WETH9.deposit{value: lender.amountToLend}();
     WETH9.approve(vault, lender.amountToLend);
-    PublicVault(vault).deposit(lender.amountToLend, lender.addr);
+    IVault(vault).deposit(lender.amountToLend, lender.addr);
     vm.stopPrank();
   }
 
@@ -588,7 +589,7 @@ contract TestHelpers is Test {
     _signalWithdrawAtFutureEpoch(
       lender,
       publicVault,
-      PublicVault(publicVault).getCurrentEpoch()
+      PublicVault(publicVault).currentEpoch()
     );
   }
 
@@ -610,7 +611,7 @@ contract TestHelpers is Test {
       epoch: epoch
     });
 
-    address withdrawProxy = PublicVault(publicVault).withdrawProxies(epoch);
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(epoch);
     assertEq(
       IERC20(withdrawProxy).balanceOf(lender),
       vaultTokenBalance,

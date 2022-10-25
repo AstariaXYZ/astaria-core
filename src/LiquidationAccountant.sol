@@ -93,6 +93,8 @@ contract LiquidationAccountant is LiquidationBase {
 
     emit Balance(balance);
     // would happen if there was no WithdrawProxy for current epoch
+    hasClaimed = true;
+
     if (withdrawRatio == uint256(0)) {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     } else {
@@ -111,7 +113,6 @@ contract LiquidationAccountant is LiquidationBase {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     }
 
-    hasClaimed = true;
     emit Claimed(WITHDRAW_PROXY(), transferAmount, VAULT(), balance);
   }
 
@@ -124,7 +125,6 @@ contract LiquidationAccountant is LiquidationBase {
     withdrawRatio = liquidationWithdrawRatio;
   }
 
-  event Expexted(uint256);
   /**
    * @notice Adds an auction scheduled to end in a new epoch to this LiquidationAccountant.
    * @param newLienExpectedValue The expected auction value for the lien being auctioned.
@@ -135,12 +135,15 @@ contract LiquidationAccountant is LiquidationBase {
     uint256 finalAuctionTimestamp
   ) public {
     require(msg.sender == ROUTER());
-    emit Expexted(newLienExpectedValue);
     expected += newLienExpectedValue;
     finalAuctionEnd = finalAuctionTimestamp;
   }
 
   function getFinalAuctionEnd() external view returns (uint256) {
     return finalAuctionEnd;
+  }
+
+  function getExpected() external view returns (uint256) {
+    return expected;
   }
 }

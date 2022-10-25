@@ -136,8 +136,8 @@ contract AstariaTest is TestHelpers {
     // _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).withdrawProxies(
-      PublicVault(publicVault).getCurrentEpoch()
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      PublicVault(publicVault).currentEpoch()
     );
 
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
@@ -163,7 +163,7 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  function testLiquidationAccountant2() public {
+  function testLiquidationAccountant() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
@@ -195,8 +195,8 @@ contract AstariaTest is TestHelpers {
 
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).withdrawProxies(
-      PublicVault(publicVault).getCurrentEpoch()
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      PublicVault(publicVault).currentEpoch()
     );
 
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
@@ -205,7 +205,7 @@ contract AstariaTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint256(0));
 
     address liquidationAccountant = PublicVault(publicVault)
-      .liquidationAccountants(0);
+      .getLiquidationAccountant(0);
 
     assertTrue(
       liquidationAccountant != address(0),
@@ -230,7 +230,8 @@ contract AstariaTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
+    // assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
+    assertEq(WETH9.balanceOf(address(1)), 50575342465745600000);
   }
 
   function testReleaseToAddress() public {
@@ -364,7 +365,7 @@ contract AstariaTest is TestHelpers {
       tokenId: uint256(5),
       lienDetails: standardLien,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: false // TODO look at this
     });
   }
 
@@ -450,9 +451,5 @@ contract AstariaTest is TestHelpers {
       }
     }
     _;
-  }
-
-  function run() public {
-    testBasicPublicVaultLoan();
   }
 }
