@@ -193,12 +193,10 @@ contract TestHelpers is Test {
       data: abi.encode(address(AUCTION_HOUSE))
     });
 
+    address UNI_V3_NFT = address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
     ctfiles[2] = CollateralToken.File({
       what: bytes32("setSecurityHook"),
-      data: abi.encode(
-        address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88),
-        address(V3_SECURITY_HOOK)
-      )
+      data: abi.encode(UNI_V3_NFT, address(V3_SECURITY_HOOK))
     });
 
     COLLATERAL_TOKEN.fileBatch(ctfiles);
@@ -220,7 +218,7 @@ contract TestHelpers is Test {
       abi.encode(address(LIQUIDATION_IMPLEMENTATION))
     );
 
-    //ASTARIA_ROUTER.file(
+    //    ASTARIA_ROUTER.file(
     //      "setStrategyValidator",
     //      abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
     //    );

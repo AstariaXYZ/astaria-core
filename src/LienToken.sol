@@ -460,9 +460,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     uint256[] memory openLiens = getLiens(collateralId);
     for (uint256 i = 0; i < openLiens.length; ++i) {
       Lien memory lien = lienData[openLiens[i]];
-      maxPotentialDebt +=
-        lien.amount +
-        (lien.rate * lien.amount).mulWadDown(lien.end - lien.last);
+      maxPotentialDebt += _getOwed(lien, lien.end);
     }
   }
 
@@ -484,29 +482,29 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     }
   }
 
-  /**
-   * @notice Computes the combined rate of all liens against a CollateralToken
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @return impliedRate The aggregate rate for all loans against the specified collateral.
-   */
-  function getImpliedRate(uint256 collateralId)
-    public
-    view
-    returns (uint256 impliedRate)
-  {
-    uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
-    uint256[] memory openLiens = getLiens(collateralId);
-    impliedRate = 0;
-    for (uint256 i = 0; i < openLiens.length; ++i) {
-      Lien memory lien = lienData[openLiens[i]];
-
-      impliedRate += lien.rate * lien.amount;
-    }
-
-    if (totalDebt > uint256(0)) {
-      impliedRate = impliedRate.mulDivDown(1, totalDebt);
-    }
-  }
+  //  /**
+  //   * @notice Computes the combined rate of all liens against a CollateralToken
+  //   * @param collateralId The ID of the underlying CollateralToken.
+  //   * @return impliedRate The aggregate rate for all loans against the specified collateral.
+  //   */
+  //  function getImpliedRate(uint256 collateralId)
+  //    public
+  //    view
+  //    returns (uint256 impliedRate)
+  //  {
+  //    uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
+  //    uint256[] memory openLiens = getLiens(collateralId);
+  //    impliedRate = 0;
+  //    for (uint256 i = 0; i < openLiens.length; ++i) {
+  //      Lien memory lien = lienData[openLiens[i]];
+  //
+  //      impliedRate += lien.rate * lien.amount;
+  //    }
+  //
+  //    if (totalDebt > uint256(0)) {
+  //      impliedRate = impliedRate.mulDivDown(1, totalDebt);
+  //    }
+  //  }
 
   function getAccruedSinceLastPayment(uint256 lienId)
     external
