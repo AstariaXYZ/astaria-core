@@ -178,18 +178,30 @@ contract TestHelpers is Test {
       TRANSFER_PROXY,
       ASTARIA_ROUTER
     );
-
-    COLLATERAL_TOKEN.file(
-      bytes32("setAstariaRouter"),
-      abi.encode(address(ASTARIA_ROUTER))
-    );
-    COLLATERAL_TOKEN.file(
-      bytes32("setAuctionHouse"),
-      abi.encode(address(AUCTION_HOUSE))
-    );
     V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(
       address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88)
     );
+
+    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](3);
+
+    ctfiles[0] = CollateralToken.File({
+      what: "setAstariaRouter",
+      data: abi.encode(address(ASTARIA_ROUTER))
+    });
+    ctfiles[1] = CollateralToken.File({
+      what: "setAuctionHouse",
+      data: abi.encode(address(AUCTION_HOUSE))
+    });
+
+    ctfiles[2] = CollateralToken.File({
+      what: bytes32("setSecurityHook"),
+      data: abi.encode(
+        address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88),
+        address(V3_SECURITY_HOOK)
+      )
+    });
+
+    COLLATERAL_TOKEN.fileBatch(ctfiles);
 
     //strategy unique
     UniqueValidator UNIQUE_STRATEGY_VALIDATOR = new UniqueValidator();
@@ -235,13 +247,6 @@ contract TestHelpers is Test {
     );
     ASTARIA_ROUTER.fileBatch(files);
 
-    COLLATERAL_TOKEN.file(
-      bytes32("setSecurityHook"),
-      abi.encode(
-        address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88),
-        address(V3_SECURITY_HOOK)
-      )
-    );
     //v3 NFT manager address
 
     LIEN_TOKEN.file(

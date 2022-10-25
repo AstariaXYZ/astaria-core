@@ -230,14 +230,17 @@ contract Deploy is Script {
         )
       )
     );
-    COLLATERAL_TOKEN.file(
-      bytes32("setAstariaRouter"),
-      abi.encode(address(ASTARIA_ROUTER))
-    );
-    COLLATERAL_TOKEN.file(
-      bytes32("setAuctionHouse"),
-      abi.encode(address(AUCTION_HOUSE))
-    );
+    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](2);
+
+    ctfiles[0] = CollateralToken.File({
+      what: "setAstariaRouter",
+      data: abi.encode(address(ASTARIA_ROUTER))
+    });
+    ctfiles[1] = CollateralToken.File({
+      what: "setAuctionHouse",
+      data: abi.encode(address(AUCTION_HOUSE))
+    });
+    COLLATERAL_TOKEN.fileBatch(ctfiles);
     emit Deployed(address(AUCTION_HOUSE));
 
     _setupRolesAndCapabilities();

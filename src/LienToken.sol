@@ -56,8 +56,6 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   IAstariaRouter public ASTARIA_ROUTER;
   ICollateralToken public COLLATERAL_TOKEN;
 
-  uint256 INTEREST_DENOMINATOR = 1e18; //wad per second
-
   uint256 constant MAX_LIENS = uint256(5);
 
   mapping(uint256 => Lien) public lienData;
@@ -186,11 +184,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   {
     uint256 delta_t = timestamp - lien.last;
 
-    return
-      delta_t.mulDivDown(lien.rate, 1).mulDivDown(
-        lien.amount,
-        INTEREST_DENOMINATOR
-      );
+    return delta_t.mulDivDown(lien.rate, 1).mulWadDown(lien.amount);
   }
 
   /**
@@ -575,11 +569,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
     uint256 delta_t = end - block.timestamp;
 
-    return
-      delta_t.mulDivDown(lien.rate, 1).mulDivDown(
-        lien.amount,
-        INTEREST_DENOMINATOR
-      );
+    return delta_t.mulDivDown(lien.rate, 1).mulWadDown(lien.amount);
   }
 
   function getInterest(uint256 lienId) public view returns (uint256) {

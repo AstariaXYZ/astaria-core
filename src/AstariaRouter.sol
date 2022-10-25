@@ -108,7 +108,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     minInterestBPS = (uint256(1e15) * 5) / (365 days);
     minEpochLength = 7 days;
     maxEpochLength = 45 days;
-    maxInterestRate = 63419583966; // 200% apy / second
+    maxInterestRate = (uint256(1e16) * 200) / (365 days); //63419583966; // 200% apy / second
     strategistFeeNumerator = 200;
     strategistFeeDenominator = 1000;
     buyoutFeeNumerator = 200;
@@ -140,6 +140,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     bytes data;
   }
 
+  event FileUpdated(bytes32 indexed what, bytes data);
+
   /**
    * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
    * @param files structs to file
@@ -150,6 +152,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
   }
 
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param incoming incoming files
+   */
   function file(File calldata incoming) public requiresAuth {
     bytes32 what = incoming.what;
     bytes memory data = incoming.data;
@@ -217,6 +223,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     } else {
       revert("unsupported/file");
     }
+
+    emit FileUpdated(what, data);
   }
 
   // MODIFIERS
@@ -488,11 +496,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   ) external returns (bool) {
     uint256 minNewRate = uint256(lien.rate) - minInterestBPS;
 
-    if (newLien.rate < minNewRate) {
-      return false;
-    }
-
-    if (block.timestamp + newLien.duration - lien.end < minDurationIncrease) {
+    if (
+      (newLien.rate < minNewRate) ||
+      (block.timestamp + newLien.duration - lien.end < minDurationIncrease)
+    ) {
       return false;
     }
 
@@ -590,9 +597,5 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       tokenId,
       ""
     );
-  }
-
-  function _returnCollateral(uint256 collateralId, address receiver) internal {
-    COLLATERAL_TOKEN.transferFrom(address(this), receiver, collateralId);
   }
 }

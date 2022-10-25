@@ -44,6 +44,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     uint256 tokenId;
   }
 
+  mapping(address => bool) public flashEnabled;
   //mapping of the collateralToken ID and its underlying asset
   mapping(uint256 => Asset) idToUnderlying;
   //mapping of a security token hook for an nft's token contract address
@@ -66,7 +67,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     uint256 assetId,
     address indexed to
   );
-  event File(bytes32 indexed what, bytes data);
+  event FileUpdated(bytes32 indexed what, bytes data);
 
   constructor(
     Authority AUTHORITY_,
@@ -93,12 +94,28 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
       super.supportsInterface(interfaceId);
   }
 
+  struct File {
+    bytes32 what;
+    bytes data;
+  }
+
   /**
-   * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use, as well as the securityHook.
-   * @param what The identifier for what is being filed.
-   * @param data The encoded address data to be decoded and filed.
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param files structs to file
    */
-  function file(bytes32 what, bytes calldata data) external requiresAuth {
+  function fileBatch(File[] calldata files) external requiresAuth {
+    for (uint256 i = 0; i < files.length; i++) {
+      file(files[i]);
+    }
+  }
+
+  /**
+   * @notice Sets collateral token parameters or changes the addresses for deployed contracts.
+   * @param incoming the incoming files
+   */
+  function file(File calldata incoming) public requiresAuth {
+    bytes32 what = incoming.what;
+    bytes memory data = incoming.data;
     if (what == "setAuctionWindow") {
       uint256 value = abi.decode(data, (uint256));
       auctionWindow = value;
@@ -111,10 +128,13 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     } else if (what == "setSecurityHook") {
       (address target, address hook) = abi.decode(data, (address, address));
       securityHooks[target] = hook;
+    } else if (what == "setFlashEnabled") {
+      (address target, bool enabled) = abi.decode(data, (address, bool));
+      flashEnabled[target] = enabled;
     } else {
       revert("unsupported/file");
     }
-    emit File(what, data);
+    emit FileUpdated(what, data);
   }
 
   modifier releaseCheck(uint256 collateralId) {
@@ -145,6 +165,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     address addr;
     uint256 tokenId;
     (addr, tokenId) = getUnderlying(collateralId);
+    //require flash enabled
+    require(flashEnabled[addr]);
     IERC721 nft = IERC721(addr);
 
     bytes memory preTransferState;
