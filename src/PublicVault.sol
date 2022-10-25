@@ -210,15 +210,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return epochData[epoch].liquidationAccountant;
   }
 
-  // TODO kill
-  function getLiquidationsExpected(uint64 epoch) public view returns (uint256) {
-    address accountant = epochData[epoch].liquidationAccountant;
-    if (accountant == address(0)) {
-      return uint256(0);
-    }
-    return LiquidationAccountant(accountant).getExpected();
-  }
-
   function _deployWithdrawProxyIfNotDeployed(uint64 epoch) internal {
     if (epochData[epoch].withdrawProxy == address(0)) {
       address proxy = ClonesWithImmutableArgs.clone(
@@ -270,7 +261,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     address currentLA = getLiquidationAccountant(currentEpoch);
     if (currentLA != address(0)) {
       require(
-        LiquidationAccountant(currentLA).getFinalAuctionEnd() < block.timestamp,
+        LiquidationAccountant(currentLA).finalAuctionEnd() < block.timestamp,
         "Final auction not ended"
       );
     }
@@ -304,8 +295,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         );
       }
 
+      uint256 expected = 0;
+      if (currentLA != address(0)) {
+        expected = LiquidationAccountant(currentLA).expected();
+      }
       
-      uint256 expected = getLiquidationsExpected(currentEpoch);
       if(totalAssets() > expected) {
         withdrawReserve = (totalAssets() - expected).mulDivDown(
           liquidationWithdrawRatio,

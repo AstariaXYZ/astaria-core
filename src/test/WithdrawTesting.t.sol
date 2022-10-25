@@ -475,17 +475,11 @@ contract WithdrawTest is TestHelpers {
       "Epoch 0 withdrawReserve calculation incorrect"
     );
 
-    assertEq(
-      PublicVault(publicVault).getLiquidationsExpected(0),
-      0,
-      "LiquidationsExpected for epoch 0 should be 0"
-    );
-
     _warpToEpochEnd(publicVault);
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     ASTARIA_ROUTER.liquidate(collateralId, 0);
-    _bid(address(4), collateralId, 120 ether);
+    _bid(address(4), collateralId, 150 ether);
 
     assertTrue(PublicVault(publicVault).getLiquidationAccountant(1) != address(0), "LiquidationAccountant for epoch 1 not deployed");
     // assertTrue(WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(1)) != 0, "fuck");
@@ -563,20 +557,10 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(address(3)), 51523285293037601250, "LP 3 WETH balance incorrect");
+    assertEq(WETH9.balanceOf(address(3)), 58630139364418398750, "LP 3 WETH balance incorrect");
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PUBLICVAULT STILL HAS ASSETS");
     assertEq(WETH9.balanceOf(accountant1), 0, "LIQUIDATIONACCOUNTANT STILL HAS ASSETS");
 
-
-    // _warpToEpochEnd(publicVault);
-    // PublicVault(publicVault).transferWithdrawReserve();
-    // assertEq(PublicVault(publicVault).withdrawReserve(), 0, "Epoch 1 withdrawReserve calculation incorrect");
-    
-    
-    
-    
-    // PublicVault(publicVault).processEpoch();
-    // assertEq(PublicVault(publicVault).withdrawReserve(), 58 ether, "Epoch 1 withdrawReserve calculation incorrect");
   }
 }
