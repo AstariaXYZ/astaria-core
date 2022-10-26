@@ -550,8 +550,8 @@ contract WithdrawTest is TestHelpers {
 
     assertEq(WETH9.balanceOf(address(3)), 58630139364418398750, "LP 3 WETH balance incorrect");
 
-    assertEq(WETH9.balanceOf(publicVault), 0, "PUBLICVAULT STILL HAS ASSETS");
-    assertEq(WETH9.balanceOf(accountant1), 0, "LIQUIDATIONACCOUNTANT STILL HAS ASSETS");
+    assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault still has assets");
+    assertEq(WETH9.balanceOf(accountant1), 0, "LiquidationAccountant still has assets");
 
   }
 

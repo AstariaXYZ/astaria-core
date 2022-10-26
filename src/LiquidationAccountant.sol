@@ -120,20 +120,23 @@ contract LiquidationAccountant is LiquidationBase {
   }
 
   /**
-   * Called by PublicVault if previous epoch's withdrawReserve hasn't been met
+   * @notice Called by PublicVault if previous epoch's withdrawReserve hasn't been met.
+   * @param amount The amount to attempt to drain from the LiquidationAccountant
+   * @param withdrawProxy The address of the withdrawProxy to drain to.
    */
-  function drain(uint256 amount, address vault) public returns (uint256) {
+  function drain(uint256 amount, address withdrawProxy) public returns (uint256) {
     require(msg.sender == VAULT());
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
     if (amount > balance) {
       amount = balance;
     }
-    ERC20(underlying()).safeTransfer(vault, amount);
+    ERC20(underlying()).safeTransfer(withdrawProxy, amount);
     return amount;
   }
 
   /**
    * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
+   * @param liquidationWithdrawRatio The ratio of withdrawing to remaining LPs for the current epoch boundary.
    */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
