@@ -106,11 +106,6 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), hash);
   }
 
-  /**
-   * @dev hook to allow inheriting contracts to perform payout for strategist
-   */
-  function _handleStrategistInterestReward(uint256, uint256) internal virtual {}
-
   struct InitParams {
     address delegate;
   }

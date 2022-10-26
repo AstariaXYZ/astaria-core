@@ -40,8 +40,10 @@ import {Math} from "./utils/Math.sol";
 import {Pausable} from "./utils/Pausable.sol";
 
 interface IPublicVault is IERC165 {
-  function beforePayment(uint256 escrowId, uint256 amount) external;
+  function beforePayment(uint256 lienId, uint256 amount, uint256 lienLast) external;
 
+  function handleStrategistInterestReward(uint256 lienId, uint256 amount, uint256 interestOwing) external;
+  
   function decreaseEpochLienCount(uint64 epoch) external;
 
   function getLienEpoch(uint64 end) external view returns (uint64);
@@ -67,11 +69,9 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
       );
   }
 
-  function _handleStrategistInterestReward(uint256 lienId, uint256 shares)
-    internal
-    virtual
-    override
-  {}
+  // function handleStrategistInterestReward(uint256 lienId, uint256 shares)
+  //   external virtual override
+  // {}
 
   function deposit(uint256 amount, address)
     public
@@ -116,7 +116,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   // block.timestamp of first epoch
   uint256 public withdrawReserve = 0;
-  uint256 liquidationWithdrawRatio = 0;
+  uint256 public liquidationWithdrawRatio = 0;
   uint256 strategistUnclaimedShares = 0;
   uint64 public currentEpoch = 0;
 
@@ -246,8 +246,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return super.domainSeparator();
   }
 
-  event MEOW(uint256);
-  event Expexted(uint256, uint256);
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
@@ -482,9 +480,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param lienId The ID of the lien.
    * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
    */
-  function beforePayment(uint256 lienId, uint256 amount) public {
+  function beforePayment(uint256 lienId, uint256 amount, uint256 lienLast) public {
     require(msg.sender == address(LIEN_TOKEN()));
-    _handleStrategistInterestReward(lienId, amount);
+    
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
     if (lienSlope > slope) {
       // TODO kill
@@ -492,6 +490,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     } else {
       slope -= lienSlope;
     }
+    yIntercept+=lienSlope.mulDivDown(block.timestamp - lienLast, 1);
     last = block.timestamp;
   }
 
@@ -563,13 +562,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param lienId The ID of the lien that received a payment.
    * @param amount The amount that was paid.
    */
-  function _handleStrategistInterestReward(uint256 lienId, uint256 amount)
-    internal
-    virtual
-    override
+  function handleStrategistInterestReward(uint256 lienId, uint256 amount, uint256 interestOwing)
+    public
   {
+    require(msg.sender == address(LIEN_TOKEN()), "only lientoken");
     if (VAULT_FEE() != uint256(0)) {
-      uint256 interestOwing = LIEN_TOKEN().getInterest(lienId);
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //VAULT_FEE is a basis point
       strategistUnclaimedShares += convertToShares(fee);
@@ -582,7 +579,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   {
     require(
       msg.sender == address(ROUTER()),
-      "can only be called by the router"
+      "can only be called by router"
     );
     accountantIfAny = address(0);
     ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
