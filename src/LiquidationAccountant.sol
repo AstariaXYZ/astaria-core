@@ -63,8 +63,8 @@ contract LiquidationAccountant is LiquidationBase {
 
   uint256 withdrawRatio;
 
-  uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
-  uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
+  uint256 public expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
+  uint256 public finalAuctionEnd; // when this is deleted, we know the final auction is over
 
   bool public hasClaimed;
 
@@ -117,18 +117,14 @@ contract LiquidationAccountant is LiquidationBase {
   /**
    * Called by PublicVault if previous epoch's withdrawReserve hasn't been met
    */
-  function drain(uint256 amount) public returns (uint256) {
+  function drain(uint256 amount, address vault) public returns (uint256) {
     require(msg.sender == VAULT());
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
-    if(amount > balance) { // TODO refactor
-      ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), balance);
-      // expected-=balance;
-      return balance;
-    } else {
-      ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), amount);
-      // expected-=amount;
-      return amount;
+    if (amount > balance) {
+      amount = balance;
     }
+    ERC20(underlying()).safeTransfer(vault, amount);
+    return amount;
   }
 
   /**
@@ -152,14 +148,5 @@ contract LiquidationAccountant is LiquidationBase {
     require(msg.sender == VAULT());
     expected += newLienExpectedValue;
     finalAuctionEnd = finalAuctionTimestamp;
-  }
-
-  function getFinalAuctionEnd() external view returns (uint256) {
-    return finalAuctionEnd;
-  }
-
-  // TODO kill
-  function getExpected() external view returns (uint256) {
-    return expected;
   }
 }
