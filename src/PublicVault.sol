@@ -334,7 +334,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         ROUTER(),
         address(this),
         address(LIEN_TOKEN()),
-        address(getWithdrawProxy(epoch))
+        address(getWithdrawProxy(epoch)),
+        epoch + 1
       )
     );
     epochData[epoch].liquidationAccountant = accountant;

@@ -41,6 +41,10 @@ abstract contract LiquidationBase is Clone {
   function WITHDRAW_PROXY() public pure returns (address) {
     return _getArgAddress(80);
   }
+
+  function CLAIMABLE_EPOCH() public pure returns (uint64) {
+    return _getArgUint64(100);
+  }
 }
 
 /**
@@ -73,6 +77,7 @@ contract LiquidationAccountant is LiquidationBase {
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
    */
   function claim() public {
+    require(PublicVault(VAULT()).currentEpoch() >= CLAIMABLE_EPOCH(), "must have called processEpoch() before claim");
     require(
       block.timestamp > finalAuctionEnd || finalAuctionEnd == uint256(0),
       "final auction has not ended"
@@ -115,20 +120,23 @@ contract LiquidationAccountant is LiquidationBase {
   }
 
   /**
-   * Called by PublicVault if previous epoch's withdrawReserve hasn't been met
+   * @notice Called by PublicVault if previous epoch's withdrawReserve hasn't been met.
+   * @param amount The amount to attempt to drain from the LiquidationAccountant
+   * @param withdrawProxy The address of the withdrawProxy to drain to.
    */
-  function drain(uint256 amount, address vault) public returns (uint256) {
+  function drain(uint256 amount, address withdrawProxy) public returns (uint256) {
     require(msg.sender == VAULT());
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
     if (amount > balance) {
       amount = balance;
     }
-    ERC20(underlying()).safeTransfer(vault, amount);
+    ERC20(underlying()).safeTransfer(withdrawProxy, amount);
     return amount;
   }
 
   /**
    * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
+   * @param liquidationWithdrawRatio The ratio of withdrawing to remaining LPs for the current epoch boundary.
    */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
