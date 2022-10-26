@@ -54,10 +54,7 @@ interface ILienToken is IERC721 {
   function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
     external;
 
-  function getOwed(Lien memory lien, uint256 timestamp)
-    external
-    view
-    returns (uint256);
+  function getOwed(uint256, uint256) external view returns (uint256);
 
   function getAccruedSinceLastPayment(uint256 lienId)
     external

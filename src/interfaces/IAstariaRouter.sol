@@ -81,6 +81,9 @@ interface IAstariaRouter is IPausable {
   function newPublicVault(
     uint256,
     address,
+    uint256,
+    bool,
+    address[] calldata,
     uint256
   ) external returns (address);
 

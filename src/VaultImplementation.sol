@@ -41,7 +41,10 @@ abstract contract VaultImplementation is
   using FixedPointMathLib for uint256;
 
   address public delegate; //account connected to the daemon
+  bool public allowListEnabled;
+  uint256 public depositCap;
 
+  mapping(address => bool) public allowList;
   event NewLien(
     bytes32 strategyRoot,
     address tokenContract,
@@ -50,6 +53,34 @@ abstract contract VaultImplementation is
   );
 
   event NewVault(address appraiser, address vault);
+
+  /**
+   * @notice modify the deposit cap for the vault
+   * @param newCap The deposit cap.
+   */
+  function modifyDepositCap(uint256 newCap) public onlyOwner {
+    depositCap = newCap;
+  }
+
+  /**
+   * @notice modify the allowlist for the vault
+   * @param depositor the depositor to modify
+   * @param enabled the status of the depositor
+   */
+  function modifyAllowList(address depositor, bool enabled)
+    external
+    virtual
+    onlyOwner
+  {
+    allowList[depositor] = enabled;
+  }
+
+  /**
+   * @notice disable the allowlist for the vault
+   */
+  function disableAllowList() external virtual onlyOwner {
+    allowListEnabled = false;
+  }
 
   /**
    * @notice receive hook for ERC721 tokens, nothing special done
@@ -118,13 +149,22 @@ abstract contract VaultImplementation is
 
   struct InitParams {
     address delegate;
+    bool allowListEnabled;
+    address[] allowList;
+    uint256 depositCap; // max amount of tokens that can be deposited
   }
 
   function init(InitParams calldata params) external virtual {
     require(msg.sender == address(ROUTER()));
-
     if (params.delegate != address(0)) {
       delegate = params.delegate;
+    }
+    depositCap = params.depositCap;
+    if (params.allowListEnabled) {
+      allowListEnabled = true;
+      for (uint256 i = 0; i < params.allowList.length; i++) {
+        allowList[params.allowList[i]] = true;
+      }
     }
   }
 
@@ -134,6 +174,8 @@ abstract contract VaultImplementation is
   }
 
   function setDelegate(address delegate_) public onlyOwner {
+    allowList[delegate] = false;
+    allowList[delegate_] = true;
     delegate = delegate_;
   }
 

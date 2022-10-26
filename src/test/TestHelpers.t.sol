@@ -399,7 +399,10 @@ contract TestHelpers is Test {
     publicVault = ASTARIA_ROUTER.newPublicVault(
       epochLength,
       delegate,
-      uint256(5000)
+      uint256(5000),
+      false,
+      new address[](0),
+      uint256(0)
     );
     vm.stopPrank();
   }

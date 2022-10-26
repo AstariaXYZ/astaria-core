@@ -170,6 +170,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
+  error InvalidStuff(uint256);
+
   /**
    * @notice Deposit funds into the PublicVault.
    * @param amount The amount of funds to deposit.
@@ -181,6 +183,16 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     whenNotPaused
     returns (uint256)
   {
+    if (allowListEnabled) {
+      require(allowList[receiver]);
+    }
+
+    uint256 assets = totalAssets();
+    if (depositCap != 0 && assets >= depositCap) {
+      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+      //      revert InvalidStuff(assets);
+    }
+
     // yIntercept+=amount;
     return super.deposit(amount, receiver);
   }

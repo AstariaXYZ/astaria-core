@@ -512,15 +512,15 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     returns (uint256)
   {
     Lien memory lien = lienData[lienId];
-    //    assert(lien.last == lien.start);
     return _getOwed(lien, lien.last);
   }
 
-  function getOwed(Lien memory lien, uint256 timestamp)
+  function getOwed(uint256 lienId, uint256 timestamp)
     external
-    pure
+    view
     returns (uint256)
   {
+    Lien memory lien = lienData[lienId];
     return _getOwed(lien, timestamp);
   }
 

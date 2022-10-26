@@ -321,7 +321,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @return The address of the new PrivateVault.
    */
   function newVault(address delegate) external whenNotPaused returns (address) {
-    return _newVault(uint256(0), delegate, uint256(0));
+    address[] memory allowList = new address[](2);
+    allowList[0] = address(msg.sender);
+    allowList[1] = delegate;
+
+    return
+      _newVault(uint256(0), delegate, uint256(0), true, allowList, uint256(0));
   }
 
   /**
@@ -331,9 +336,20 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   function newPublicVault(
     uint256 epochLength,
     address delegate,
-    uint256 vaultFee
+    uint256 vaultFee,
+    bool allowListEnabled,
+    address[] calldata allowList,
+    uint256 depositCap
   ) external whenNotPaused returns (address) {
-    return _newVault(epochLength, delegate, vaultFee);
+    return
+      _newVault(
+        epochLength,
+        delegate,
+        vaultFee,
+        allowListEnabled,
+        allowList,
+        depositCap
+      );
   }
 
   /**
@@ -532,7 +548,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   function _newVault(
     uint256 epochLength,
     address delegate,
-    uint256 vaultFee
+    uint256 vaultFee,
+    bool allowListEnabled,
+    address[] memory allowList,
+    uint256 depositCap
   ) internal returns (address) {
     uint8 vaultType;
 
@@ -569,7 +588,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     //mutable data
     VaultImplementation(vaultAddr).init(
-      VaultImplementation.InitParams(delegate)
+      VaultImplementation.InitParams({
+        delegate: delegate,
+        allowListEnabled: allowListEnabled,
+        allowList: allowList,
+        depositCap: depositCap
+      })
     );
 
     vaults[vaultAddr] = msg.sender;

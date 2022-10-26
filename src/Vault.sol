@@ -52,13 +52,13 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
     override
   {}
 
-  function deposit(uint256 amount, address)
+  function deposit(uint256 amount, address receiver)
     public
     virtual
     override
     returns (uint256)
   {
-    require(msg.sender == owner(), "only the appraiser can fund this vault");
+    require(allowList[msg.sender]);
     ERC20(underlying()).safeTransferFrom(
       address(msg.sender),
       address(this),
@@ -68,11 +68,23 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
   }
 
   function withdraw(uint256 amount) external {
-    require(msg.sender == owner(), "only the appraiser can exit this vault");
     ERC20(underlying()).safeTransferFrom(
       address(this),
       address(msg.sender),
       amount
     );
+  }
+
+  function disableAllowList() external override(VaultImplementation) {
+    //invalid action allowlist must be enabled for private vaults
+    revert();
+  }
+
+  function modifyAllowList(address depositor, bool enabled)
+    external
+    override(VaultImplementation)
+  {
+    //invalid action private vautls can only be the owner or strategist
+    revert();
   }
 }
