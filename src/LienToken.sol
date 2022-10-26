@@ -615,12 +615,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     }
 
     if (isPublicVault && !isAuctionHouse) {
-      IPublicVault(lienOwner).beforePayment(lienId, paymentAmount, lien.last);
-      IPublicVault(lienOwner).handleStrategistInterestReward(
-      lienId,
-      lien.amount,
-      owed - paymentAmount
-    );
+      IPublicVault(lienOwner).beforePayment(lienId, lien.last, lien.amount, owed - paymentAmount);
     }
 
     

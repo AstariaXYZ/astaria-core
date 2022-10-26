@@ -40,9 +40,7 @@ import {Math} from "./utils/Math.sol";
 import {Pausable} from "./utils/Pausable.sol";
 
 interface IPublicVault is IERC165 {
-  function beforePayment(uint256 lienId, uint256 amount, uint256 lienLast) external;
-
-  function handleStrategistInterestReward(uint256 lienId, uint256 amount, uint256 interestOwing) external;
+  function beforePayment(uint256 lienId, uint256 lienLast, uint256 lienAmount, uint256 interestOwing) external;
   
   function decreaseEpochLienCount(uint64 epoch) external;
 
@@ -68,10 +66,6 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
         abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol())
       );
   }
-
-  // function handleStrategistInterestReward(uint256 lienId, uint256 shares)
-  //   external virtual override
-  // {}
 
   function deposit(uint256 amount, address)
     public
@@ -478,9 +472,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
    * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
    * @param lienId The ID of the lien.
-   * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
+   * @param lienLast The lien.last timestamp for the lien.
+   * @param lienAmount The lien.amount for the lien, used in _handleStrategistReward() for determining accrued interest.
+   * @param interestOwing The interest owed on the lien, for use in _handleStrategistReward().
    */
-  function beforePayment(uint256 lienId, uint256 amount, uint256 lienLast) public {
+  function beforePayment(uint256 lienId, uint256 lienLast, uint256 lienAmount, uint256 interestOwing) public {
     require(msg.sender == address(LIEN_TOKEN()));
     
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
@@ -492,6 +488,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
     yIntercept+=lienSlope.mulDivDown(block.timestamp - lienLast, 1);
     last = block.timestamp;
+
+    _handleStrategistInterestReward(lienAmount, interestOwing);
   }
 
   /** @notice
@@ -559,13 +557,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   /**
    * @dev Handles the dilutive fees (on lien repayments) for strategists in VaultTokens.
-   * @param lienId The ID of the lien that received a payment.
-   * @param amount The amount that was paid.
+   * @param amount The amount paid against the lien
+   * @param interestOwing The interest owed against the lien.
    */
-  function handleStrategistInterestReward(uint256 lienId, uint256 amount, uint256 interestOwing)
-    public
+  function _handleStrategistInterestReward(uint256 amount, uint256 interestOwing)
+    internal
   {
-    require(msg.sender == address(LIEN_TOKEN()), "only lientoken");
+    // require(msg.sender == address(LIEN_TOKEN()), "only lientoken");
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //VAULT_FEE is a basis point
