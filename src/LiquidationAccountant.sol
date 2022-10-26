@@ -41,6 +41,10 @@ abstract contract LiquidationBase is Clone {
   function WITHDRAW_PROXY() public pure returns (address) {
     return _getArgAddress(80);
   }
+
+  function CLAIMABLE_EPOCH() public pure returns (uint64) {
+    return _getArgUint64(100);
+  }
 }
 
 /**
@@ -73,6 +77,7 @@ contract LiquidationAccountant is LiquidationBase {
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
    */
   function claim() public {
+    require(PublicVault(VAULT()).currentEpoch() >= CLAIMABLE_EPOCH(), "must have called processEpoch() before claim");
     require(
       block.timestamp > finalAuctionEnd || finalAuctionEnd == uint256(0),
       "final auction has not ended"

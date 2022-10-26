@@ -116,7 +116,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   // block.timestamp of first epoch
   uint256 public withdrawReserve = 0;
-  uint256 liquidationWithdrawRatio = 0;
+  uint256 public liquidationWithdrawRatio = 0;
   uint256 strategistUnclaimedShares = 0;
   uint64 public currentEpoch = 0;
 
@@ -340,7 +340,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         ROUTER(),
         address(this),
         address(LIEN_TOKEN()),
-        address(getWithdrawProxy(epoch))
+        address(getWithdrawProxy(epoch)),
+        epoch + 1
       )
     );
     epochData[epoch].liquidationAccountant = accountant;
