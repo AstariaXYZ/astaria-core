@@ -138,12 +138,32 @@ interface IAstariaRouter is IPausable {
 
   function isValidRefinance(ILienToken.Lien memory, LienDetails memory)
     external
+    view
     returns (bool);
 
   event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
   event NewVault(address appraiser, address vault);
 
-  error InvalidAddress(address);
+  error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);
   error InvalidRefinanceDuration(uint256);
+  error InvalidVaultState(VaultState);
+  error InvalidSenderForCollateral(address, uint256);
+  error InvalidLienState(LienState);
+  enum LienState {
+    HEALTHY,
+    AUCTION
+  }
+  error InvalidCommitmentState(CommitmentState);
+  error InvalidStrategy(uint16);
+  enum CommitmentState {
+    INVALID,
+    EXPIRED
+  }
+
+  enum VaultState {
+    UNINITIALIZED,
+    CLOSED,
+    LIQUIDATED
+  }
 }

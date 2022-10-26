@@ -30,9 +30,12 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 
-import {IPublicVault, PublicVault} from "core/PublicVault.sol";
-import {IVault, VaultImplementation} from "core/VaultImplementation.sol";
+import {IVault} from "gpl/interfaces/IVault.sol";
+
+import {PublicVault} from "core/PublicVault.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
 import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
 
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
@@ -229,10 +232,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   // MODIFIERS
   modifier onlyVaults() {
-    require(
-      vaults[msg.sender] != address(0),
-      "this vault has not been initialized"
-    );
+    if (vaults[msg.sender] == address(0)) {
+      revert InvalidVaultState(VaultState.UNINITIALIZED);
+    }
     _;
   }
 
@@ -242,15 +244,22 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     public
     returns (bool valid, IAstariaRouter.LienDetails memory ld)
   {
-    require(
-      commitment.lienRequest.strategy.deadline >= block.timestamp,
-      "deadline passed"
-    );
+    if (block.timestamp > commitment.lienRequest.strategy.deadline) {
+      revert InvalidCommitmentState(CommitmentState.EXPIRED);
+    }
+    //    require(
+    //      commitment.lienRequest.strategy.deadline >= block.timestamp,
+    //      "deadline passed"
+    //    );
 
-    require(
-      strategyValidators[commitment.lienRequest.nlrType] != address(0),
-      "invalid strategy type"
-    );
+    if (strategyValidators[commitment.lienRequest.nlrType] == address(0)) {
+      revert InvalidStrategy(commitment.lienRequest.nlrType);
+    }
+
+    //    require(
+    //      strategyValidators[commitment.lienRequest.nlrType] != address(0),
+    //      "invalid strategy type"
+    //    );
 
     bytes32 leaf;
     (leaf, ld) = IStrategyValidator(
@@ -363,10 +372,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       amount
     );
 
-    require(
-      vaults[address(vault)] != address(0),
-      "lendToVault: vault doesn't exist"
-    );
+    if (vaults[address(vault)] == address(0)) {
+      revert InvalidVaultState(VaultState.UNINITIALIZED);
+    }
+
+    //    require(
+    //      ,
+    //      "lendToVault: vault doesn't exist"
+    //    );
     WETH.safeApprove(address(vault), amount);
     vault.deposit(amount, address(msg.sender));
   }
@@ -397,10 +410,13 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     external
     returns (uint256 reserve)
   {
-    require(
-      canLiquidate(collateralId, position),
-      "liquidate: borrow is healthy"
-    );
+    if (!canLiquidate(collateralId, position)) {
+      revert InvalidLienState(LienState.HEALTHY);
+    }
+    //    require(
+    //      ,
+    //      "liquidate: borrow is healthy"
+    //    );
 
     // if expiration will be past epoch boundary, then create a LiquidationAccountant
 
@@ -493,7 +509,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   function isValidRefinance(
     ILienToken.Lien memory lien,
     LienDetails memory newLien
-  ) external returns (bool) {
+  ) external view returns (bool) {
     uint256 minNewRate = uint256(lien.rate) - minInterestBPS;
 
     if (
@@ -522,10 +538,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     address implementation;
     if (epochLength > uint256(0)) {
-      require(
-        epochLength >= minEpochLength && epochLength <= maxEpochLength,
-        "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
-      );
+      if (minEpochLength > epochLength || epochLength > maxEpochLength) {
+        revert InvalidEpochLength(epochLength);
+      }
+
+      //      require(
+      //        epochLength >= minEpochLength && epochLength <= maxEpochLength,
+      //        "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
+      //      );
       implementation = VAULT_IMPLEMENTATION;
       vaultType = uint8(VaultType.PUBLIC);
     } else {
@@ -569,10 +589,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     returns (uint256)
   {
     uint256 collateralId = c.tokenContract.computeId(c.tokenId);
-    require(
-      msg.sender == COLLATERAL_TOKEN.ownerOf(collateralId),
-      "invalid sender for collateralId"
-    );
+    //    require(
+    //      msg.sender == COLLATERAL_TOKEN.ownerOf(collateralId),
+    //      "invalid sender for collateralId"
+    //    );
+
+    if (msg.sender != COLLATERAL_TOKEN.ownerOf(collateralId)) {
+      revert InvalidSenderForCollateral(msg.sender, collateralId);
+    }
     return _borrow(c, address(this));
   }
 

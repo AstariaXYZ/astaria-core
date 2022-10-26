@@ -21,4 +21,19 @@ interface ICollateralToken is IERC721 {
   function auctionWindow() external view returns (uint256);
 
   function getUnderlying(uint256) external view returns (address, uint256);
+
+  error InvalidCollateral();
+  error InvalidSender();
+  error InvalidCollateralState(InvalidCollateralStates);
+  error ProtocolPaused();
+
+  enum InvalidCollateralStates {
+    NO_AUCTION,
+    AUCTION,
+    ACTIVE_LIENS
+  }
+
+  error FlashActionCallbackFailed();
+  error FlashActionSecurityCheckFailed();
+  error FlashActionNFTNotReturned();
 }

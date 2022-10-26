@@ -22,6 +22,7 @@ import {
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
@@ -295,7 +296,12 @@ contract WithdrawTest is TestHelpers {
 
     _warpToEpochEnd(publicVault);
 
-    vm.expectRevert("loans are still open for this epoch");
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IPublicVault.InvalidState.selector,
+        IPublicVault.InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
+      )
+    );
     PublicVault(publicVault).processEpoch();
 
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
@@ -399,6 +405,17 @@ contract WithdrawTest is TestHelpers {
     );
   }
 
+  enum InvalidStates {
+    EPOCH_TOO_LOW,
+    EPOCH_TOO_HIGH,
+    EPOCH_NOT_OVER,
+    WITHDRAW_RESERVE_NOT_ZERO,
+    LIENS_OPEN_FOR_EPOCH_NOT_ZERO,
+    LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN,
+    LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH
+  }
+  error InvalidState(InvalidStates);
+
   function testFutureLiquidationWithBlockingWithdrawReserve() public {
     TestNFT nft = new TestNFT(2);
     _mintAndDeposit(address(nft), 5);
@@ -477,7 +494,10 @@ contract WithdrawTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, 0);
     _bid(address(4), collateralId, 150 ether);
 
-    assertTrue(PublicVault(publicVault).getLiquidationAccountant(1) != address(0), "LiquidationAccountant for epoch 1 not deployed");
+    assertTrue(
+      PublicVault(publicVault).getLiquidationAccountant(1) != address(0),
+      "LiquidationAccountant for epoch 1 not deployed"
+    );
     assertEq(
       PublicVault(publicVault).slope(),
       0,
@@ -493,14 +513,19 @@ contract WithdrawTest is TestHelpers {
 
     address accountant1 = PublicVault(publicVault).getLiquidationAccountant(1);
 
-    vm.expectRevert("Withdraw reserve not empty");
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IPublicVault.InvalidState.selector,
+        IPublicVault.InvalidStates.WITHDRAW_RESERVE_NOT_ZERO
+      )
+    );
     PublicVault(publicVault).processEpoch();
 
     PublicVault(publicVault).transferWithdrawReserve();
     PublicVault(publicVault).processEpoch();
-    
+
     PublicVault(publicVault).transferWithdrawReserve();
-   
+
     assertEq(
       PublicVault(publicVault).withdrawReserve(),
       0,
@@ -532,13 +557,20 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(address(1)), 26438357353481199375, "LP 1 WETH balance incorrect");
-    assertEq(WETH9.balanceOf(address(2)), 26438357353481199375, "LP 2 WETH balance incorrect");
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      26438357353481199375,
+      "LP 1 WETH balance incorrect"
+    );
+    assertEq(
+      WETH9.balanceOf(address(2)),
+      26438357353481199375,
+      "LP 2 WETH balance incorrect"
+    );
 
     LiquidationAccountant(accountant1).claim();
     address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
     assertTrue(WETH9.balanceOf(withdrawProxy2) != 0, "WITHDRAWPROXY 2 IS 0");
-
 
     vm.startPrank(address(3));
     WithdrawProxy(withdrawProxy2).redeem(
@@ -548,10 +580,17 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(address(3)), 58630139364418398750, "LP 3 WETH balance incorrect");
+    assertEq(
+      WETH9.balanceOf(address(3)),
+      58630139364418398750,
+      "LP 3 WETH balance incorrect"
+    );
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PUBLICVAULT STILL HAS ASSETS");
-    assertEq(WETH9.balanceOf(accountant1), 0, "LIQUIDATIONACCOUNTANT STILL HAS ASSETS");
-
+    assertEq(
+      WETH9.balanceOf(accountant1),
+      0,
+      "LIQUIDATIONACCOUNTANT STILL HAS ASSETS"
+    );
   }
 }

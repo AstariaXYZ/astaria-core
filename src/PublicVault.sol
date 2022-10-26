@@ -18,11 +18,9 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
-import {IVault} from "gpl/interfaces/IVault.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {ITokenBase} from "gpl/interfaces/ITokenBase.sol";
 import {ERC4626Base} from "gpl/ERC4626Base.sol";
-import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
 
 import {
   ClonesWithImmutableArgs
@@ -30,6 +28,7 @@ import {
 
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
+import {IVault} from "gpl/interfaces/IVault.sol";
 
 import {LienToken} from "./LienToken.sol";
 import {LiquidationAccountant} from "./LiquidationAccountant.sol";
@@ -37,66 +36,10 @@ import {VaultImplementation} from "./VaultImplementation.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
 
 import {Math} from "./utils/Math.sol";
-import {Pausable} from "./utils/Pausable.sol";
 
-interface IPublicVault is IERC165 {
-  function beforePayment(uint256 escrowId, uint256 amount) external;
-
-  function decreaseEpochLienCount(uint64 epoch) external;
-
-  function getLienEpoch(uint64 end) external view returns (uint64);
-
-  function afterPayment(uint256 lienId) external;
-}
-
-/**
- * @title Vault
- * @author androolloyd
- */
-contract Vault is AstariaVaultBase, VaultImplementation, IVault {
-  using SafeTransferLib for ERC20;
-
-  function name() public view override returns (string memory) {
-    return string(abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol()));
-  }
-
-  function symbol() public view override returns (string memory) {
-    return
-      string(
-        abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol())
-      );
-  }
-
-  function _handleStrategistInterestReward(uint256 lienId, uint256 shares)
-    internal
-    virtual
-    override
-  {}
-
-  function deposit(uint256 amount, address)
-    public
-    virtual
-    override
-    returns (uint256)
-  {
-    require(msg.sender == owner(), "only the appraiser can fund this vault");
-    ERC20(underlying()).safeTransferFrom(
-      address(msg.sender),
-      address(this),
-      amount
-    );
-    return amount;
-  }
-
-  function withdraw(uint256 amount) external {
-    require(msg.sender == owner(), "only the appraiser can exit this vault");
-    ERC20(underlying()).safeTransferFrom(
-      address(this),
-      address(msg.sender),
-      amount
-    );
-  }
-}
+import {IPublicVault} from "./interfaces/IPublicVault.sol";
+import {Vault} from "./Vault.sol";
+import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
 
 /*
  * @title PublicVault
@@ -182,9 +125,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint64 epoch
   ) public virtual returns (uint256 assets) {
     // check to ensure that the requested epoch is not the current epoch or in the past
-    require(epoch >= currentEpoch, "Exit epoch too low");
+    //    require(epoch >= currentEpoch, "Exit epoch too low");
 
-    require(msg.sender == owner, "Only the owner can redeem");
+    if (epoch < currentEpoch) {
+      revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
+    }
+
+    require(msg.sender == owner);
     // check for rounding error since we round down in previewRedeem.
 
     ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
@@ -230,7 +177,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function deposit(uint256 amount, address receiver)
     public
-    override(Vault, ERC4626Cloned)
+    override(IVault, Vault, ERC4626Cloned)
     whenNotPaused
     returns (uint256)
   {
@@ -251,17 +198,28 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function processEpoch() public {
     // check to make sure epoch is over
-    require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
-    require(
-      withdrawReserve == 0,
-      "Withdraw reserve not empty"
-    );
+    //    require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
+    if (block.timestamp < getEpochEnd(currentEpoch)) {
+      revert InvalidState(InvalidStates.EPOCH_NOT_OVER);
+    }
+    if (withdrawReserve > 0) {
+      revert InvalidState(InvalidStates.WITHDRAW_RESERVE_NOT_ZERO);
+    }
+    //    require(withdrawReserve == 0, "Withdraw reserve not empty");
+
     address currentLA = getLiquidationAccountant(currentEpoch);
     if (currentLA != address(0)) {
-      require(
-        LiquidationAccountant(currentLA).finalAuctionEnd() < block.timestamp,
-        "Final auction not ended"
-      );
+      if (
+        LiquidationAccountant(currentLA).finalAuctionEnd() > block.timestamp
+      ) {
+        revert InvalidState(
+          InvalidStates.LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN
+        );
+      }
+      //      require(
+      //        LiquidationAccountant(currentLA).finalAuctionEnd() < block.timestamp,
+      //        "Final auction not ended"
+      //      );
     }
 
     // split funds from previous LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
@@ -272,10 +230,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
     }
 
-    require(
-      epochData[currentEpoch].liensOpenForEpoch == uint64(0),
-      "loans are still open for this epoch"
-    );
+    if (epochData[currentEpoch].liensOpenForEpoch > 0) {
+      revert InvalidState(InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO);
+    }
+
+    //    require(
+    //      epochData[currentEpoch].liensOpenForEpoch == uint64(0),
+    //      "loans are still open for this epoch"
+    //    );
 
     // reset liquidationWithdrawRatio to prepare for re calcualtion
     liquidationWithdrawRatio = 0;
@@ -297,8 +259,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       if (currentLA != address(0)) {
         expected = LiquidationAccountant(currentLA).expected();
       }
-      
-      if(totalAssets() > expected) {
+
+      if (totalAssets() > expected) {
         withdrawReserve = (totalAssets() - expected).mulDivDown(
           liquidationWithdrawRatio,
           1e18
@@ -330,6 +292,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       getLiquidationAccountant(epoch) == address(0),
       "cannot deploy two liquidation accountants for the same epoch"
     );
+
+    if (getLiquidationAccountant(epoch) != address(0)) {
+      revert InvalidState(
+        InvalidStates.LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH
+      );
+    }
 
     _deployWithdrawProxyIfNotDeployed(epoch);
 
@@ -386,12 +354,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
     }
 
-    
     address accountant = epochData[currentEpoch].liquidationAccountant;
-    if(withdrawReserve > 0 && timeToEpochEnd() == 0 && accountant != address(0)) {
-      withdrawReserve -= LiquidationAccountant(accountant).drain(withdrawReserve, epochData[currentEpoch - 1].withdrawProxy);
+    if (
+      withdrawReserve > 0 && timeToEpochEnd() == 0 && accountant != address(0)
+    ) {
+      withdrawReserve -= LiquidationAccountant(accountant).drain(
+        withdrawReserve,
+        epochData[currentEpoch - 1].withdrawProxy
+      );
     }
-    
   }
 
   function _beforeCommitToLien(
@@ -499,8 +470,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function decreaseEpochLienCount(uint64 epoch) public {
     require(
-      msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN()),
-      "only router or lien token"
+      msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN())
     );
     _decreaseEpochLienCount(epoch);
   }
@@ -597,17 +567,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _decreaseEpochLienCount(lienEpoch);
 
     if (timeToEpochEnd() <= COLLATERAL_TOKEN().auctionWindow()) {
-        accountantIfAny = getLiquidationAccountant(lienEpoch);
+      accountantIfAny = getLiquidationAccountant(lienEpoch);
 
-        // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
-        if (accountantIfAny == address(0)) {
-          accountantIfAny = deployLiquidationAccountant(lienEpoch);
-        }
+      // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
+      if (accountantIfAny == address(0)) {
+        accountantIfAny = deployLiquidationAccountant(lienEpoch);
+      }
 
-        LiquidationAccountant(accountantIfAny).handleNewLiquidation(
-          lien.amount,
-          COLLATERAL_TOKEN().auctionWindow() + 1 days
-        );
+      LiquidationAccountant(accountantIfAny).handleNewLiquidation(
+        lien.amount,
+        COLLATERAL_TOKEN().auctionWindow() + 1 days
+      );
     }
   }
 
@@ -624,8 +594,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     require(
       msg.sender == address(AUCTION_HOUSE()) ||
         (currentEpoch != 0 &&
-          msg.sender == epochData[currentEpoch - 1].liquidationAccountant),
-      "msg sender only from auction house or liquidation accountant"
+          msg.sender == epochData[currentEpoch - 1].liquidationAccountant)
     );
     _decreaseYIntercept(amount);
   }

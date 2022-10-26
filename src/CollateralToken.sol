@@ -138,16 +138,22 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   }
 
   modifier releaseCheck(uint256 collateralId) {
-    require(
-      uint256(0) == LIEN_TOKEN.getLiens(collateralId).length &&
-        !AUCTION_HOUSE.auctionExists(collateralId),
-      "must be no liens or auctions to call this"
-    );
+    if (LIEN_TOKEN.getLiens(collateralId).length > 0) {
+      revert InvalidCollateralState(InvalidCollateralStates.ACTIVE_LIENS);
+    }
+    if (AUCTION_HOUSE.auctionExists(collateralId)) {
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION);
+    }
+    //    require(
+    //      uint256(0) == LIEN_TOKEN.getLiens(collateralId).length &&
+    //        !AUCTION_HOUSE.auctionExists(collateralId),
+    //      "must be no liens or auctions to call this"
+    //    );
     _;
   }
 
   modifier onlyOwner(uint256 collateralId) {
-    require(ownerOf(collateralId) == msg.sender, "onlyOwner: only the owner");
+    require(ownerOf(collateralId) == msg.sender);
     _;
   }
 
@@ -182,25 +188,39 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
 
     nft.transferFrom(address(this), address(receiver), tokenId);
     // invoke the call passed by the msg.sender
-    require(
-      receiver.onFlashAction(IFlashAction.Underlying(addr, tokenId), data) ==
-        keccak256("FlashAction.onFlashAction"),
-      "flashAction: callback failed"
-    );
 
-    if (securityHooks[addr] != address(0)) {
-      require(
-        keccak256(preTransferState) ==
-          keccak256(ISecurityHook(securityHooks[addr]).getState(addr, tokenId)),
-        "flashAction: Data must be the same"
-      );
+    if (
+      receiver.onFlashAction(IFlashAction.Underlying(addr, tokenId), data) !=
+      keccak256("FlashAction.onFlashAction")
+    ) {
+      revert FlashActionCallbackFailed();
+    }
+    //    require(
+    //      ,
+    //      "flashAction: callback failed"
+    //    );
+
+    if (
+      securityHooks[addr] != address(0) &&
+      (keccak256(preTransferState) !=
+        keccak256(ISecurityHook(securityHooks[addr]).getState(addr, tokenId)))
+    ) {
+      revert FlashActionSecurityCheckFailed();
+      //      require(
+      //        ,
+      //        "flashAction: Data must be the same"
+      //      );
     }
 
     // validate that the NFT returned after the call
-    require(
-      nft.ownerOf(tokenId) == address(this),
-      "flashAction: NFT not returned"
-    );
+
+    if (nft.ownerOf(tokenId) != address(this)) {
+      revert FlashActionNFTNotReturned();
+    }
+    //    require(
+    //      ,
+    //      "flashAction: NFT not returned"
+    //    );
   }
 
   /**
@@ -213,10 +233,13 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     releaseCheck(collateralId)
   {
     //check liens
-    require(
-      msg.sender == ownerOf(collateralId),
-      "You don't have permission to call this"
-    );
+    if (msg.sender != ownerOf(collateralId)) {
+      revert InvalidSender();
+    }
+    //    require(
+    //      ,
+    //      "You don't have permission to call this"
+    //    );
     _releaseToAddress(collateralId, releaseTo);
   }
 
@@ -281,7 +304,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     (address underlyingAsset, ) = getUnderlying(collateralId);
     if (underlyingAsset == address(0)) {
       if (msg.sender == address(this) || msg.sender == address(LIEN_TOKEN)) {
-        revert("system assets are not valid collateral");
+        revert InvalidCollateral();
       }
 
       address depositFor = operator_;
@@ -304,7 +327,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
 
   modifier whenNotPaused() {
     if (ASTARIA_ROUTER.paused()) {
-      revert("protocol is paused");
+      revert ProtocolPaused();
     }
     _;
   }
@@ -320,10 +343,13 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     requiresAuth
     returns (uint256 reserve)
   {
-    require(
-      !AUCTION_HOUSE.auctionExists(collateralId),
-      "auctionVault: auction already exists"
-    );
+    if (AUCTION_HOUSE.auctionExists(collateralId)) {
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION);
+    }
+    //    require(
+    //      !,
+    //      "auctionVault: auction already exists"
+    //    );
     reserve = AUCTION_HOUSE.createAuction(
       collateralId,
       auctionWindow,
@@ -336,7 +362,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
    * @param tokenId The ID of the CollateralToken to cancel the auction for.
    */
   function cancelAuction(uint256 tokenId) external onlyOwner(tokenId) {
-    require(AUCTION_HOUSE.auctionExists(tokenId), "Auction doesn't exist");
+    if (!AUCTION_HOUSE.auctionExists(tokenId)) {
+      revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
+    }
 
     AUCTION_HOUSE.cancelAuction(tokenId, msg.sender);
     _releaseToAddress(tokenId, msg.sender);
@@ -347,7 +375,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
    * @param tokenId The ID of the CollateralToken to stop the auction for.
    */
   function endAuction(uint256 tokenId) external {
-    require(AUCTION_HOUSE.auctionExists(tokenId), "Auction doesn't exist");
+    if (!AUCTION_HOUSE.auctionExists(tokenId)) {
+      revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
+    }
 
     address winner = AUCTION_HOUSE.endAuction(tokenId);
     _releaseToAddress(tokenId, winner);

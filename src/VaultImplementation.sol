@@ -24,13 +24,18 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {LienToken} from "core/LienToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
+import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 
 /**
  * @title VaultImplementation
  * @author androolloyd
  * @notice A base implementation for the minimal features of an Astaria Vault.
  */
-abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
+abstract contract VaultImplementation is
+  AstariaVaultBase,
+  ERC721TokenReceiver,
+  IVaultImplementation
+{
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
@@ -116,7 +121,7 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
   }
 
   function init(InitParams calldata params) external virtual {
-    require(msg.sender == address(ROUTER()), "only router");
+    require(msg.sender == address(ROUTER()));
 
     if (params.delegate != address(0)) {
       delegate = params.delegate;
@@ -124,7 +129,7 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
   }
 
   modifier onlyOwner() {
-    require(msg.sender == owner(), "only strategist");
+    require(msg.sender == owner()); //owner is "strategist"
     _;
   }
 
@@ -147,6 +152,11 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
     IAstariaRouter.Commitment calldata params,
     address receiver
   ) internal returns (IAstariaRouter.LienDetails memory) {
+    if (
+      params.lienRequest.amount > ERC20(underlying()).balanceOf(address(this))
+    ) {
+      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
+    }
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address operator = CT.getApproved(collateralId);
@@ -161,12 +171,9 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       !IAstariaRouter(ROUTER()).isValidVault(receiver)
     ) {
       if (operator != address(0)) {
-        require(
-          operator == receiver,
-          "an operator is defined, only they can borrow if not the user"
-        );
+        require(operator == receiver);
       } else {
-        require(CT.isApprovedForAll(holder, receiver), "not approved");
+        require(CT.isApprovedForAll(holder, receiver));
       }
     }
 
@@ -181,53 +188,84 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       params.lienRequest.r,
       params.lienRequest.s
     );
-    require(
-      recovered == params.lienRequest.strategy.strategist,
-      "strategist must match signature"
-    );
-    require(
-      recovered == owner() || recovered == delegate,
-      "invalid strategist"
-    );
+    if (recovered != params.lienRequest.strategy.strategist) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_SIGNATURE);
+    }
+    if (recovered != owner() && recovered != delegate) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
+    }
+    //    require(
+    //      recovered == params.lienRequest.strategy.strategist,
+    //      "strategist must match signature"
+    //    );
+    //    require(
+    //      ,
+    //      "invalid strategist"
+    //    );
 
     (bool valid, IAstariaRouter.LienDetails memory ld) = IAstariaRouter(
       ROUTER()
     ).validateCommitment(params);
 
-    require(
-      valid,
-      "Vault._validateCommitment(): Verification of provided merkle branch failed for the vault and parameters"
-    );
+    if (!valid) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_COMMITMENT);
+    }
 
-    require(
-      ld.rate > 0,
-      "Vault._validateCommitment(): Cannot have a 0 interest rate"
-    );
+    //    require(
+    //      valid,
+    //      "Vault._validateCommitment(): Verification of provided merkle branch failed for the vault and parameters"
+    //    );
 
-    require(
-      ld.rate < IAstariaRouter(ROUTER()).maxInterestRate(),
-      "Vault._validateCommitment(): Rate is above maximum"
-    );
+    if (ld.rate == uint256(0)) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
+    }
 
-    require(
-      ld.maxAmount >= params.lienRequest.amount,
-      "Vault._validateCommitment(): Attempting to borrow more than maxAmount available for this asset"
-    );
+    if (ld.rate > IAstariaRouter(ROUTER()).maxInterestRate()) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
+    }
+
+    //    require(
+    //      ld.rate > IAstariaRouter(ROUTER()).minInterestRate(),
+    //      "Vault._validateCommitment(): Cannot have a 0 interest rate"
+    //    );
+
+    //    require(
+    //      ld.rate < IAstariaRouter(ROUTER()).maxInterestRate(),
+    //      "Vault._validateCommitment(): Rate is above maximum"
+    //    );
+
+    if (ld.maxAmount < params.lienRequest.amount) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_AMOUNT);
+    }
+
+    //    require(
+    //      ld.maxAmount >= params.lienRequest.amount,
+    //      "Vault._validateCommitment(): Attempting to borrow more than maxAmount available for this asset"
+    //    );
+
+    //    require(
+    //      params.lienRequest.amount <= ERC20(underlying()).balanceOf(address(this)),
+    //      "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
+    //    );
 
     uint256 maxPotentialDebt = IAstariaRouter(ROUTER())
       .LIEN_TOKEN()
       .getMaxPotentialDebtForCollateral(
         params.tokenContract.computeId(params.tokenId)
       );
-    require(
-      params.lienRequest.amount <= ERC20(underlying()).balanceOf(address(this)),
-      "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
-    );
 
-    require(
-      maxPotentialDebt <= ld.maxPotentialDebt,
-      "Vault._validateCommitment(): Attempting to initiate a loan with debt potentially higher than maxPotentialDebt"
-    );
+    if (
+      IAstariaRouter(ROUTER()).LIEN_TOKEN().getMaxPotentialDebtForCollateral(
+        params.tokenContract.computeId(params.tokenId)
+      ) > ld.maxPotentialDebt
+    ) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_POTENTIAL_DEBT);
+    }
+
+    //    require(
+    //      maxPotentialDebt <= ld.maxPotentialDebt,
+    //      "Vault._validateCommitment(): Attempting to initiate a loan with debt potentially higher than maxPotentialDebt"
+    //    );
 
     return ld;
   }
@@ -300,10 +338,13 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       position
     );
 
-    require(
-      buyout <= ERC20(underlying()).balanceOf(address(this)),
-      "not enough balance to buy out loan"
-    );
+    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
+      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
+    }
+    //    require(
+    //      buyout <= ERC20(underlying()).balanceOf(address(this)),
+    //      "not enough balance to buy out loan"
+    //    );
 
     _validateCommitment(incomingTerms, recipient());
 

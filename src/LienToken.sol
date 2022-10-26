@@ -29,7 +29,7 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {IPublicVault} from "./PublicVault.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 
 contract TransferAgent {
@@ -179,7 +179,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    */
   function _getInterest(Lien memory lien, uint256 timestamp)
     internal
-    view
+    pure
     returns (uint256)
   {
     uint256 delta_t = timestamp - lien.last;
@@ -518,7 +518,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
 
   function getOwed(Lien memory lien, uint256 timestamp)
     external
-    view
+    pure
     returns (uint256)
   {
     return _getOwed(lien, timestamp);
@@ -540,7 +540,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    */
   function _getOwed(Lien memory lien, uint256 timestamp)
     internal
-    view
+    pure
     returns (uint256)
   {
     return lien.amount + _getInterest(lien, timestamp);
