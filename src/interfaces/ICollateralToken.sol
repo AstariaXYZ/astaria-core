@@ -12,13 +12,18 @@ pragma solidity ^0.8.15;
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
+import "./IAstariaRouter.sol";
 
 interface ICollateralToken is IERC721 {
   function auctionVault(uint256, address) external returns (uint256);
 
   function AUCTION_HOUSE() external view returns (IAuctionHouse);
 
+  function ASTARIA_ROUTER() external view returns (IAstariaRouter);
+
   function auctionWindow() external view returns (uint256);
+
+  function securityHooks(address) external view returns (address);
 
   function getUnderlying(uint256) external view returns (address, uint256);
 
