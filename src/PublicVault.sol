@@ -531,8 +531,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   function totalSupply() public view virtual override returns (uint256) {
     VaultData storage s = _loadStorageSlot();
-
-    return _totalSupply + s.strategistUnclaimedShares;
+    ERC20Data storage erc20Slot = _loadERC20Slot();
+    return erc20Slot._totalSupply + s.strategistUnclaimedShares;
   }
 
   /**
