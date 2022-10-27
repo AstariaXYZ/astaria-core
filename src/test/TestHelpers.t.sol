@@ -89,6 +89,9 @@ contract TestHelpers is Test {
   address bidderOne = vm.addr(0x1342);
   address bidderTwo = vm.addr(0x1343);
 
+  string private checkpointLabel;
+  uint256 private checkpointGasLeft = 1; // Start the slot warm.
+
   IAstariaRouter.LienDetails public standardLienDetails =
     IAstariaRouter.LienDetails({
       maxAmount: 50 ether,
@@ -142,6 +145,24 @@ contract TestHelpers is Test {
   IWETH9 WETH9;
   MultiRolesAuthority MRA;
   AuctionHouse AUCTION_HOUSE;
+
+  function startMeasuringGas(string memory label) internal virtual {
+    checkpointLabel = label;
+
+    checkpointGasLeft = gasleft();
+  }
+
+  function stopMeasuringGas() internal virtual {
+    uint256 checkpointGasLeft2 = gasleft();
+
+    // Subtract 100 to account for the warm SLOAD in startMeasuringGas.
+    uint256 gasDelta = checkpointGasLeft - checkpointGasLeft2 - 100;
+
+    emit log_named_uint(
+      string(abi.encodePacked(checkpointLabel, " Gas")),
+      gasDelta
+    );
+  }
 
   function setUp() public virtual {
     WETH9 = IWETH9(deployCode(weth9Artifact));
@@ -213,15 +234,15 @@ contract TestHelpers is Test {
     //strategy univ3
     UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
 
-    AstariaRouter.File[] memory files = new AstariaRouter.File[](5);
-    files[0] = AstariaRouter.File(
-      bytes32("WITHDRAW_IMPLEMENTATION"),
-      abi.encode(address(WITHDRAW_PROXY))
-    );
-    files[1] = AstariaRouter.File(
-      bytes32("LIQUIDATION_IMPLEMENTATION"),
-      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
-    );
+    AstariaRouter.File[] memory files = new AstariaRouter.File[](3);
+    //    files[0] = AstariaRouter.File(
+    //      bytes32("WITHDRAW_IMPLEMENTATION"),
+    //      abi.encode(address(WITHDRAW_PROXY))
+    //    );
+    //    files[1] = AstariaRouter.File(
+    //      bytes32("LIQUIDATION_IMPLEMENTATION"),
+    //      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
+    //    );
 
     //    ASTARIA_ROUTER.file(
     //      "setStrategyValidator",
@@ -236,15 +257,15 @@ contract TestHelpers is Test {
     //      abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     //    );
 
-    files[2] = AstariaRouter.File(
+    files[0] = AstariaRouter.File(
       bytes32("setStrategyValidator"),
       abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
     );
-    files[3] = AstariaRouter.File(
+    files[1] = AstariaRouter.File(
       bytes32("setStrategyValidator"),
       abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
     );
-    files[4] = AstariaRouter.File(
+    files[2] = AstariaRouter.File(
       bytes32("setStrategyValidator"),
       abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     );

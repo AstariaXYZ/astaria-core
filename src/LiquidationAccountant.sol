@@ -20,28 +20,7 @@ import {ILienToken} from "./interfaces/ILienToken.sol";
 
 import {PublicVault} from "./PublicVault.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
-
-abstract contract LiquidationBase is Clone {
-  function underlying() public pure returns (address) {
-    return _getArgAddress(0);
-  }
-
-  function ROUTER() public pure returns (address) {
-    return _getArgAddress(20);
-  }
-
-  function VAULT() public pure returns (address) {
-    return _getArgAddress(40);
-  }
-
-  function LIEN_TOKEN() public pure returns (address) {
-    return _getArgAddress(60);
-  }
-
-  function WITHDRAW_PROXY() public pure returns (address) {
-    return _getArgAddress(80);
-  }
-}
+import {LiquidationAccountantBase} from "core/LiquidationAccountantBase.sol";
 
 /**
  * @title LiquidationAccountant
@@ -50,7 +29,7 @@ abstract contract LiquidationBase is Clone {
  * When the final auction being tracked by a LiquidationAccountant for a given epoch is completed,
  * claim() proportionally pays out auction funds to withdrawing liquidity providers and the PublicVault.
  */
-contract LiquidationAccountant is LiquidationBase {
+contract LiquidationAccountant is LiquidationAccountantBase {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
 
@@ -67,7 +46,6 @@ contract LiquidationAccountant is LiquidationBase {
   uint256 public finalAuctionEnd; // when this is deleted, we know the final auction is over
 
   bool public hasClaimed;
-
 
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.

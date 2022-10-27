@@ -58,11 +58,11 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   mapping(uint8 => address) public implementations;
 
-  address public LIQUIDATION_IMPLEMENTATION;
-  address public SOLO_IMPLEMENTATION;
-  address public VAULT_IMPLEMENTATION;
-  address public WITHDRAW_IMPLEMENTATION;
   address public BEACON_PROXY_IMPLEMENTATION;
+
+  address public newGuardian;
+  address public guardian;
+
   address public feeTo;
   uint256 public liquidationFeeNumerator;
   uint256 public liquidationFeeDenominator;
@@ -102,24 +102,21 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     ITransferProxy _TRANSFER_PROXY,
     address _VAULT_IMPL,
     address _SOLO_IMPL,
-    address _WITHDRAW_IMPL,
     address _LIQUIDATION_IMPL,
+    address _WITHDRAW_IMPL,
     address _BEACON_PROXY_IMPL
   ) Auth(address(msg.sender), _AUTHORITY) {
     WETH = ERC20(_WETH);
     COLLATERAL_TOKEN = _COLLATERAL_TOKEN;
     LIEN_TOKEN = _LIEN_TOKEN;
     TRANSFER_PROXY = _TRANSFER_PROXY;
-    //    VAULT_IMPLEMENTATION = _VAULT_IMPL;
     implementations[uint8(ImplementationType.PrivateVault)] = _SOLO_IMPL;
     implementations[uint8(ImplementationType.PublicVault)] = _VAULT_IMPL;
     implementations[
       uint8(ImplementationType.LiquidationAccountant)
     ] = _LIQUIDATION_IMPL;
     implementations[uint8(ImplementationType.WithdrawProxy)] = _WITHDRAW_IMPL;
-    //    SOLO_IMPLEMENTATION = _SOLO_IMPL;
-    //    WITHDRAW_IMPLEMENTATION = _WITHDRAW_IMPL;
-    //    LIQUIDATION_IMPLEMENTATION = _LIQUIDATION_IMPL;
+
     BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
     liquidationFeeNumerator = 130;
     liquidationFeeDenominator = 1000;
@@ -133,6 +130,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     buyoutFeeDenominator = 1000;
     minDurationIncrease = 5 days;
     buyoutInterestWindow = 60 days;
+
+    //
+    guardian = address(msg.sender);
   }
 
   /**
@@ -147,6 +147,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    */
   function __emergencyUnpause() external requiresAuth whenPaused {
     _unpause();
+  }
+
+  function __acceptGuardian() external {
+    require(msg.sender == newGuardian);
+    guardian = msg.sender;
+    newGuardian = address(0);
   }
 
   function incrementNonce() external {
@@ -211,18 +217,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     } else if (what == "MIN_DURATION_INCREASE") {
       uint256 value = abi.decode(data, (uint256));
       minDurationIncrease = value.safeCastTo32();
-    } else if (what == "WITHDRAW_IMPLEMENTATION") {
-      address addr = abi.decode(data, (address));
-      WITHDRAW_IMPLEMENTATION = addr;
-    } else if (what == "LIQUIDATION_IMPLEMENTATION") {
-      address addr = abi.decode(data, (address));
-      LIQUIDATION_IMPLEMENTATION = addr;
-    } else if (what == "VAULT_IMPLEMENTATION") {
-      address addr = abi.decode(data, (address));
-      VAULT_IMPLEMENTATION = addr;
-    } else if (what == "SOLO_IMPLEMENTATION") {
-      address addr = abi.decode(data, (address));
-      SOLO_IMPLEMENTATION = addr;
     } else if (what == "MIN_EPOCH_LENGTH") {
       minEpochLength = abi.decode(data, (uint256));
     } else if (what == "MAX_EPOCH_LENGTH") {
@@ -243,6 +237,29 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
 
     emit FileUpdated(what, data);
+  }
+
+  function setNewGuardian(address _guardian) external {
+    require(msg.sender == guardian);
+
+    newGuardian = _guardian;
+  }
+
+  /* @notice specially guarded file
+   * @param file incoming data to file
+   */
+  function fileGuardian(File[] calldata file) external {
+    require(msg.sender == address(guardian)); //only the guardian can call this
+    for (uint256 i = 0; i < file.length; i++) {
+      bytes32 what = file[i].what;
+      bytes memory data = file[i].data;
+      if (what == "setImplementation") {
+        (uint8 implType, address addr) = abi.decode(data, (uint8, address));
+        implementations[implType] = addr;
+      } else {
+        revert("unsupported/file");
+      }
+    }
   }
 
   // MODIFIERS
@@ -582,15 +599,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         revert InvalidEpochLength(epochLength);
       }
 
-      //      require(
-      //        epochLength >= minEpochLength && epochLength <= maxEpochLength,
-      //        "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
-      //      );
-      //      implementation = implementations[ImplementationType.PublicVault];
       vaultType = uint8(ImplementationType.PublicVault);
     } else {
-      //      implementation = SOLO_IMPLEMENTATION;
-      //      vaultType = uint8(VaultType.SOLO);
       vaultType = uint8(ImplementationType.PrivateVault);
     }
 
@@ -598,12 +608,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     address vaultAddr = ClonesWithImmutableArgs.clone(
       BEACON_PROXY_IMPLEMENTATION,
       abi.encodePacked(
+        address(this),
+        vaultType,
         address(msg.sender),
         address(WETH),
-        address(this),
         block.timestamp,
         epochLength,
-        vaultType,
         vaultFee
       )
     );

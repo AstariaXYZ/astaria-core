@@ -160,8 +160,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function _deployWithdrawProxyIfNotDeployed(uint64 epoch) internal {
     if (epochData[epoch].withdrawProxy == address(0)) {
       address proxy = ClonesWithImmutableArgs.clone(
-        IAstariaRouter(ROUTER()).WITHDRAW_IMPLEMENTATION(),
+        IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
         abi.encodePacked(
+          address(ROUTER()), // router is the beacon
+          uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
           address(this), //owner
           underlying() //token
         )
@@ -211,7 +213,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function processEpoch() public {
     // check to make sure epoch is over
     //    require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
-    if (block.timestamp < getEpochEnd(currentEpoch)) {
+    if (timeToEpochEnd() > 0) {
       revert InvalidState(InvalidStates.EPOCH_NOT_OVER);
     }
     if (withdrawReserve > 0) {
@@ -313,11 +315,36 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     _deployWithdrawProxyIfNotDeployed(epoch);
 
+    //function ROUTER() public pure returns (IAstariaRouter) {
+    //    return IAstariaRouter(_getArgAddress(0));
+    //  }
+    //
+    //  function IMPL_TYPE() public pure returns (uint8) {
+    //    return _getArgUint8(20);
+    //  }
+    //
+    //  function underlying() public pure returns (address) {
+    //    return _getArgAddress(21);
+    //  }
+    //
+    //  function VAULT() public pure returns (address) {
+    //    return _getArgAddress(41);
+    //  }
+    //
+    //  function LIEN_TOKEN() public pure returns (address) {
+    //    return _getArgAddress(61);
+    //  }
+    //
+    //  function WITHDRAW_PROXY() public pure returns (address) {
+    //    return _getArgAddress(81);
+    //  }
+
     accountant = ClonesWithImmutableArgs.clone(
-      IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
+      IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
       abi.encodePacked(
+        address(ROUTER()),
+        uint8(IAstariaRouter.ImplementationType.LiquidationAccountant),
         underlying(),
-        ROUTER(),
         address(this),
         address(LIEN_TOKEN()),
         address(getWithdrawProxy(epoch))

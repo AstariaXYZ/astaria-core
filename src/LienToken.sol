@@ -275,6 +275,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     uint8 newPosition = uint8(liens[collateralId].length);
 
     _mint(VaultImplementation(params.vault).recipient(), lienId);
+
     lienData[lienId] = Lien({
       collateralId: collateralId,
       position: newPosition,

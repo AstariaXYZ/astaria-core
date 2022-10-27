@@ -1,20 +1,29 @@
+// SPDX-License-Identifier: UNLICENSED
+
+/**
+ *       __  ___       __
+ *  /\  /__'  |   /\  |__) |  /\
+ * /~~\ .__/  |  /~~\ |  \ | /~~\
+ *
+ * Copyright (c) Astaria Labs, Inc
+ */
+
 pragma solidity ^0.8.17;
 
 import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {Clone} from "clones-with-immutable-args/Clone.sol";
-import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
 
-contract BeaconProxy is AstariaVaultBase {
-  function name() public view virtual override returns (string memory) {
-    return string(abi.encodePacked("AST-Vault"));
-  }
-
-  function symbol() public view virtual override returns (string memory) {
-    return string(abi.encodePacked("AST-V-"));
-  }
+contract BeaconProxy is Clone {
+  //  function name() public view virtual override returns (string memory) {
+  //    return string(abi.encodePacked("AST-Vault"));
+  //  }
+  //
+  //  function symbol() public view virtual override returns (string memory) {
+  //    return string(abi.encodePacked("AST-V-"));
+  //  }
 
   function _getBeacon() internal pure returns (IBeacon) {
-    return IBeacon(ROUTER());
+    return IBeacon(_getArgAddress(0));
   }
 
   /**
@@ -55,7 +64,7 @@ contract BeaconProxy is AstariaVaultBase {
   function _fallback() internal virtual {
     _beforeFallback();
 
-    _delegate(_getBeacon().getImpl(VAULT_TYPE()));
+    _delegate(_getBeacon().getImpl(_getArgUint8(20)));
   }
 
   /**

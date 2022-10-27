@@ -16,7 +16,7 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
-import {WithdrawVaultBase} from "gpl/WithdrawVaultBase.sol";
+import {WithdrawVaultBase} from "core/WithdrawVaultBase.sol";
 import {ITokenBase} from "gpl/interfaces/ITokenBase.sol";
 import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
 

@@ -190,6 +190,7 @@ abstract contract VaultImplementation is
    * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    * @param receiver The address of the prospective borrower.
    */
+
   function _validateCommitment(
     IAstariaRouter.Commitment calldata params,
     address receiver
@@ -415,7 +416,7 @@ abstract contract VaultImplementation is
    * @return The address of the recipient.
    */
   function recipient() public view returns (address) {
-    if (VAULT_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault)) {
+    if (IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault)) {
       return address(this);
     } else {
       return owner();

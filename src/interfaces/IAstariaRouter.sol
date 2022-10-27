@@ -107,11 +107,12 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function TRANSFER_PROXY() external view returns (ITransferProxy);
 
-  function WITHDRAW_IMPLEMENTATION() external view returns (address);
+  function BEACON_PROXY_IMPLEMENTATION() external view returns (address);
 
-  function LIQUIDATION_IMPLEMENTATION() external view returns (address);
-
-  function VAULT_IMPLEMENTATION() external view returns (address);
+  //
+  //  function LIQUIDATION_IMPLEMENTATION() external view returns (address);
+  //
+  //  function VAULT_IMPLEMENTATION() external view returns (address);
 
   function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
