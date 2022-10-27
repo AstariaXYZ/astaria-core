@@ -564,7 +564,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function _handleStrategistInterestReward(uint256 amount, uint256 interestOwing)
     internal
   {
-    // require(msg.sender == address(LIEN_TOKEN()), "only lientoken");
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //VAULT_FEE is a basis point
