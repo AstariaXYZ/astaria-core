@@ -40,9 +40,18 @@ abstract contract VaultImplementation is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
+  bytes32 constant VI_SLOT =
+    keccak256("xyz.astaria.core.VaultImplementation.storage.location");
   address public delegate; //account connected to the daemon
   bool public allowListEnabled;
   uint256 public depositCap;
+
+  struct VIData {
+    address delegate;
+    bool allowListEnabled;
+    uint256 depositCap;
+    mapping(address => bool) allowList;
+  }
 
   mapping(address => bool) public allowList;
   event NewLien(
@@ -60,6 +69,13 @@ abstract contract VaultImplementation is
    */
   function modifyDepositCap(uint256 newCap) public onlyOwner {
     depositCap = newCap;
+  }
+
+  function _loadVISlot() internal view returns (VIData storage vi) {
+    bytes32 slot = VI_SLOT;
+    assembly {
+      vi.slot := slot
+    }
   }
 
   /**
@@ -156,14 +172,20 @@ abstract contract VaultImplementation is
 
   function init(InitParams calldata params) external virtual {
     require(msg.sender == address(ROUTER()));
+    VIData storage vi;
+    bytes32 slot = VI_SLOT;
+    assembly {
+      vi.slot := slot
+    }
+
     if (params.delegate != address(0)) {
-      delegate = params.delegate;
+      vi.delegate = params.delegate;
     }
     depositCap = params.depositCap;
     if (params.allowListEnabled) {
-      allowListEnabled = true;
+      vi.allowListEnabled = true;
       for (uint256 i = 0; i < params.allowList.length; i++) {
-        allowList[params.allowList[i]] = true;
+        vi.allowList[params.allowList[i]] = true;
       }
     }
   }

@@ -161,7 +161,7 @@ contract WithdrawTest is TestHelpers {
     _signalWithdraw(address(1), publicVault);
 
     address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
-      PublicVault(publicVault).currentEpoch()
+      PublicVault(publicVault).getCurrentEpoch()
     );
 
     vm.warp(block.timestamp + 14 days);
@@ -200,7 +200,7 @@ contract WithdrawTest is TestHelpers {
 
     _signalWithdraw(address(2), publicVault);
     withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
-      PublicVault(publicVault).currentEpoch()
+      PublicVault(publicVault).getCurrentEpoch()
     );
 
     _warpToEpochEnd(publicVault);
@@ -462,7 +462,7 @@ contract WithdrawTest is TestHelpers {
     uint256 lienId = liens[0];
 
     assertEq(
-      PublicVault(publicVault).slope(),
+      PublicVault(publicVault).getSlope(),
       4756468797500,
       "incorrect PublicVault slope calc"
     );
@@ -475,7 +475,7 @@ contract WithdrawTest is TestHelpers {
     _warpToEpochEnd(publicVault);
 
     assertEq(
-      PublicVault(publicVault).slope(),
+      PublicVault(publicVault).getSlope(),
       4756468797500,
       "incorrect PublicVault slope calc"
     );
@@ -483,7 +483,7 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
 
     assertEq(
-      PublicVault(publicVault).withdrawReserve(),
+      PublicVault(publicVault).getWithdrawReserve(),
       52876714706962398750,
       "Epoch 0 withdrawReserve calculation incorrect"
     );
@@ -499,12 +499,12 @@ contract WithdrawTest is TestHelpers {
       "LiquidationAccountant for epoch 1 not deployed"
     );
     assertEq(
-      PublicVault(publicVault).slope(),
+      PublicVault(publicVault).getSlope(),
       0,
       "PublicVault slope should be 0"
     );
     assertEq(
-      PublicVault(publicVault).yIntercept(),
+      PublicVault(publicVault).getYIntercept(),
       58630139364418398750,
       "PublicVault yIntercept calculation incorrect"
     );
@@ -527,13 +527,13 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).transferWithdrawReserve();
 
     assertEq(
-      PublicVault(publicVault).withdrawReserve(),
+      PublicVault(publicVault).getWithdrawReserve(),
       0,
       "withdrawReserve should be 0 after transfer"
     ); // TODO check
 
     assertEq(
-      PublicVault(publicVault).yIntercept(),
+      PublicVault(publicVault).getYIntercept(),
       0,
       "PublicVault yIntercept calculation incorrect"
     );

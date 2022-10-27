@@ -374,10 +374,10 @@ contract TestHelpers is Test {
     //warps to the first second after the epoch end
     assertTrue(
       block.timestamp <
-        PublicVault(vault).getEpochEnd(PublicVault(vault).currentEpoch()) + 1
+        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
     );
     vm.warp(
-      PublicVault(vault).getEpochEnd(PublicVault(vault).currentEpoch()) + 1
+      PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
     );
   }
 
@@ -652,7 +652,7 @@ contract TestHelpers is Test {
     _signalWithdrawAtFutureEpoch(
       lender,
       publicVault,
-      PublicVault(publicVault).currentEpoch()
+      PublicVault(publicVault).getCurrentEpoch()
     );
   }
 

@@ -58,7 +58,8 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
     override
     returns (uint256)
   {
-    require(allowList[msg.sender]);
+    VIData storage s = _loadVISlot();
+    require(s.allowList[msg.sender]);
     ERC20(underlying()).safeTransferFrom(
       address(msg.sender),
       address(this),
