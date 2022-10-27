@@ -31,6 +31,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {IPublicVault} from "./PublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
+import {PublicVault} from "./PublicVault.sol";
 
 contract TransferAgent {
   address public immutable WETH;
@@ -605,13 +606,21 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       type(IPublicVault).interfaceId
     );
 
-    lien.amount = _getOwed(lien);
-
     address payee = getPayee(lienId);
 
-    if (isPublicVault && !isAuctionHouse) {
-      IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
+    uint256 owed = _getOwed(lien);
+
+    if (paymentAmount > owed) {
+      paymentAmount = owed;
     }
+
+    if (isPublicVault && !isAuctionHouse) {
+      IPublicVault(lienOwner).beforePayment(lienId, lien.last, lien.amount, owed - paymentAmount);
+    }
+
+    
+    lien.amount = owed;
+
     if (lien.amount > paymentAmount) {
       lien.amount -= paymentAmount;
       amountSpent = paymentAmount;

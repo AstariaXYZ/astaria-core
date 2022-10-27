@@ -40,7 +40,12 @@ import {Math} from "./utils/Math.sol";
 import {Pausable} from "./utils/Pausable.sol";
 
 interface IPublicVault is IERC165 {
-  function beforePayment(uint256 escrowId, uint256 amount) external;
+  function beforePayment(
+    uint256 lienId,
+    uint256 lienLast,
+    uint256 lienAmount,
+    uint256 interestOwing
+  ) external;
 
   function decreaseEpochLienCount(uint64 epoch) external;
 
@@ -66,12 +71,6 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
         abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol())
       );
   }
-
-  function _handleStrategistInterestReward(uint256 lienId, uint256 shares)
-    internal
-    virtual
-    override
-  {}
 
   function deposit(uint256 amount, address)
     public
@@ -116,7 +115,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   // block.timestamp of first epoch
   uint256 public withdrawReserve = 0;
-  uint256 liquidationWithdrawRatio = 0;
+  uint256 public liquidationWithdrawRatio = 0;
   uint256 strategistUnclaimedShares = 0;
   uint64 public currentEpoch = 0;
 
@@ -246,18 +245,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return super.domainSeparator();
   }
 
-  event MEOW(uint256);
-  event Expexted(uint256, uint256);
   /**
    * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
    */
   function processEpoch() public {
     // check to make sure epoch is over
     require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
-    require(
-      withdrawReserve == 0,
-      "Withdraw reserve not empty"
-    );
+    require(withdrawReserve == 0, "Withdraw reserve not empty");
     address currentLA = getLiquidationAccountant(currentEpoch);
     if (currentLA != address(0)) {
       require(
@@ -299,8 +293,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       if (currentLA != address(0)) {
         expected = LiquidationAccountant(currentLA).expected();
       }
-      
-      if(totalAssets() > expected) {
+
+      if (totalAssets() > expected) {
         withdrawReserve = (totalAssets() - expected).mulDivDown(
           liquidationWithdrawRatio,
           1e18
@@ -342,7 +336,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         ROUTER(),
         address(this),
         address(LIEN_TOKEN()),
-        address(getWithdrawProxy(epoch))
+        address(getWithdrawProxy(epoch)),
+        epoch + 1
       )
     );
     epochData[epoch].liquidationAccountant = accountant;
@@ -388,12 +383,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
     }
 
-    
     address accountant = epochData[currentEpoch].liquidationAccountant;
-    if(withdrawReserve > 0 && timeToEpochEnd() == 0 && accountant != address(0)) {
-      withdrawReserve -= LiquidationAccountant(accountant).drain(withdrawReserve, epochData[currentEpoch - 1].withdrawProxy);
+    if (
+      withdrawReserve > 0 && timeToEpochEnd() == 0 && accountant != address(0)
+    ) {
+      withdrawReserve -= LiquidationAccountant(accountant).drain(
+        withdrawReserve,
+        epochData[currentEpoch - 1].withdrawProxy
+      );
     }
-    
   }
 
   function _beforeCommitToLien(
@@ -480,11 +478,18 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
    * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
    * @param lienId The ID of the lien.
-   * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
+   * @param lienLast The lien.last timestamp for the lien.
+   * @param lienAmount The lien.amount for the lien, used in _handleStrategistReward() for determining accrued interest.
+   * @param interestOwing The interest owed on the lien, for use in _handleStrategistReward().
    */
-  function beforePayment(uint256 lienId, uint256 amount) public {
+  function beforePayment(
+    uint256 lienId,
+    uint256 lienLast,
+    uint256 lienAmount,
+    uint256 interestOwing
+  ) public {
     require(msg.sender == address(LIEN_TOKEN()));
-    _handleStrategistInterestReward(lienId, amount);
+
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
     if (lienSlope > slope) {
       // TODO kill
@@ -492,7 +497,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     } else {
       slope -= lienSlope;
     }
+    yIntercept += lienSlope.mulDivDown(block.timestamp - lienLast, 1);
     last = block.timestamp;
+
+    _handleStrategistInterestReward(lienAmount, interestOwing);
   }
 
   /** @notice
@@ -560,16 +568,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   /**
    * @dev Handles the dilutive fees (on lien repayments) for strategists in VaultTokens.
-   * @param lienId The ID of the lien that received a payment.
-   * @param amount The amount that was paid.
+   * @param amount The amount paid against the lien
+   * @param interestOwing The interest owed against the lien.
    */
-  function _handleStrategistInterestReward(uint256 lienId, uint256 amount)
-    internal
-    virtual
-    override
-  {
+  function _handleStrategistInterestReward(
+    uint256 amount,
+    uint256 interestOwing
+  ) internal {
     if (VAULT_FEE() != uint256(0)) {
-      uint256 interestOwing = LIEN_TOKEN().getInterest(lienId);
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //VAULT_FEE is a basis point
       strategistUnclaimedShares += convertToShares(fee);
@@ -580,10 +586,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     public
     returns (address accountantIfAny)
   {
-    require(
-      msg.sender == address(ROUTER()),
-      "can only be called by the router"
-    );
+    require(msg.sender == address(ROUTER())); // can only be called by router
+
     accountantIfAny = address(0);
     ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
 
@@ -599,17 +603,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _decreaseEpochLienCount(lienEpoch);
 
     if (timeToEpochEnd() <= COLLATERAL_TOKEN().auctionWindow()) {
-        accountantIfAny = getLiquidationAccountant(lienEpoch);
+      accountantIfAny = getLiquidationAccountant(lienEpoch);
 
-        // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
-        if (accountantIfAny == address(0)) {
-          accountantIfAny = deployLiquidationAccountant(lienEpoch);
-        }
+      // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
+      if (accountantIfAny == address(0)) {
+        accountantIfAny = deployLiquidationAccountant(lienEpoch);
+      }
 
-        LiquidationAccountant(accountantIfAny).handleNewLiquidation(
-          lien.amount,
-          COLLATERAL_TOKEN().auctionWindow() + 1 days
-        );
+      LiquidationAccountant(accountantIfAny).handleNewLiquidation(
+        lien.amount,
+        COLLATERAL_TOKEN().auctionWindow() + 1 days
+      );
     }
   }
 
