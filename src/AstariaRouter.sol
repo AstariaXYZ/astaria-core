@@ -56,10 +56,13 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   ILienToken public immutable LIEN_TOKEN;
   ITransferProxy public immutable TRANSFER_PROXY;
 
+  mapping(uint8 => address) public implementations;
+
   address public LIQUIDATION_IMPLEMENTATION;
   address public SOLO_IMPLEMENTATION;
   address public VAULT_IMPLEMENTATION;
   address public WITHDRAW_IMPLEMENTATION;
+  address public BEACON_PROXY_IMPLEMENTATION;
   address public feeTo;
   uint256 public liquidationFeeNumerator;
   uint256 public liquidationFeeDenominator;
@@ -98,14 +101,26 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     ILienToken _LIEN_TOKEN,
     ITransferProxy _TRANSFER_PROXY,
     address _VAULT_IMPL,
-    address _SOLO_IMPL
+    address _SOLO_IMPL,
+    address _WITHDRAW_IMPL,
+    address _LIQUIDATION_IMPL,
+    address _BEACON_PROXY_IMPL
   ) Auth(address(msg.sender), _AUTHORITY) {
     WETH = ERC20(_WETH);
     COLLATERAL_TOKEN = _COLLATERAL_TOKEN;
     LIEN_TOKEN = _LIEN_TOKEN;
     TRANSFER_PROXY = _TRANSFER_PROXY;
-    VAULT_IMPLEMENTATION = _VAULT_IMPL;
-    SOLO_IMPLEMENTATION = _SOLO_IMPL;
+    //    VAULT_IMPLEMENTATION = _VAULT_IMPL;
+    implementations[uint8(ImplementationType.PrivateVault)] = _SOLO_IMPL;
+    implementations[uint8(ImplementationType.PublicVault)] = _VAULT_IMPL;
+    implementations[
+      uint8(ImplementationType.LiquidationAccountant)
+    ] = _LIQUIDATION_IMPL;
+    implementations[uint8(ImplementationType.WithdrawProxy)] = _WITHDRAW_IMPL;
+    //    SOLO_IMPLEMENTATION = _SOLO_IMPL;
+    //    WITHDRAW_IMPLEMENTATION = _WITHDRAW_IMPL;
+    //    LIQUIDATION_IMPLEMENTATION = _LIQUIDATION_IMPL;
+    BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
     liquidationFeeNumerator = 130;
     liquidationFeeDenominator = 1000;
     minInterestBPS = (uint256(1e15) * 5) / (365 days);
@@ -239,6 +254,13 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   }
 
   //PUBLIC
+
+  function getImpl(uint8 implType) external view returns (address impl) {
+    impl = implementations[implType];
+    if (impl == address(0)) {
+      revert("unsupported/impl");
+    }
+  }
 
   function validateCommitment(IAstariaRouter.Commitment calldata commitment)
     public
@@ -555,7 +577,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   ) internal returns (address) {
     uint8 vaultType;
 
-    address implementation;
     if (epochLength > uint256(0)) {
       if (minEpochLength > epochLength || epochLength > maxEpochLength) {
         revert InvalidEpochLength(epochLength);
@@ -565,16 +586,17 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       //        epochLength >= minEpochLength && epochLength <= maxEpochLength,
       //        "epochLength must be greater than or equal to MIN_EPOCH_LENGTH and less than MAX_EPOCH_LENGTH"
       //      );
-      implementation = VAULT_IMPLEMENTATION;
-      vaultType = uint8(VaultType.PUBLIC);
+      //      implementation = implementations[ImplementationType.PublicVault];
+      vaultType = uint8(ImplementationType.PublicVault);
     } else {
-      implementation = SOLO_IMPLEMENTATION;
-      vaultType = uint8(VaultType.SOLO);
+      //      implementation = SOLO_IMPLEMENTATION;
+      //      vaultType = uint8(VaultType.SOLO);
+      vaultType = uint8(ImplementationType.PrivateVault);
     }
 
     //immutable data
     address vaultAddr = ClonesWithImmutableArgs.clone(
-      implementation,
+      BEACON_PROXY_IMPLEMENTATION,
       abi.encodePacked(
         address(msg.sender),
         address(WETH),

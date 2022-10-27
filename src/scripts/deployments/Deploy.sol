@@ -35,6 +35,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
+import {BeaconProxy} from "core/BeaconProxy.sol";
 
 interface IWETH9 is IERC20 {
   function deposit() external payable;
@@ -179,6 +180,7 @@ contract Deploy is Script {
         )
       )
     );
+    BeaconProxy BEACON_PROXY = new BeaconProxy();
     ASTARIA_ROUTER = new AstariaRouter(
       MRA,
       address(WETH9),
@@ -186,7 +188,10 @@ contract Deploy is Script {
       ILienToken(address(LIEN_TOKEN)),
       ITransferProxy(address(TRANSFER_PROXY)),
       address(VAULT_IMPLEMENTATION),
-      address(SOLO_IMPLEMENTATION)
+      address(SOLO_IMPLEMENTATION),
+      address(WITHDRAW_PROXY),
+      address(LIQUIDATION_IMPLEMENTATION),
+      address(BEACON_PROXY)
     );
     emit Deployed(address(ASTARIA_ROUTER));
     vm.writeLine(
@@ -202,16 +207,16 @@ contract Deploy is Script {
     //    data[0] = abi.encode(address(WITHDRAW_PROXY));
     //    data[1] = abi.encode(address(LIQUIDATION_IMPLEMENTATION));
 
-    AstariaRouter.File[] memory files = new AstariaRouter.File[](2);
-    files[0] = AstariaRouter.File(
-      bytes32("WITHDRAW_IMPLEMENTATION"),
-      abi.encode(address(WITHDRAW_PROXY))
-    );
-    files[1] = AstariaRouter.File(
-      bytes32("LIQUIDATION_IMPLEMENTATION"),
-      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
-    );
-    ASTARIA_ROUTER.fileBatch(files);
+    //    AstariaRouter.File[] memory files = new AstariaRouter.File[](2);
+    //    files[0] = AstariaRouter.File(
+    //      bytes32("WITHDRAW_IMPLEMENTATION"),
+    //      abi.encode(address(WITHDRAW_PROXY))
+    //    );
+    //    files[1] = AstariaRouter.File(
+    //      bytes32("LIQUIDATION_IMPLEMENTATION"),
+    //      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
+    //    );
+    //    ASTARIA_ROUTER.fileBatch(files);
 
     AUCTION_HOUSE = new AuctionHouse(
       address(WETH9),

@@ -17,12 +17,15 @@ import {IVault} from "gpl/ERC4626-Cloned.sol";
 import {ICollateralToken} from "./ICollateralToken.sol";
 import {ILienToken} from "./ILienToken.sol";
 
-import {IPausable} from "../utils/Pausable.sol";
+import {IPausable} from "core/utils/Pausable.sol";
+import {IBeacon} from "./IBeacon.sol";
 
-interface IAstariaRouter is IPausable {
-  enum VaultType {
-    SOLO,
-    PUBLIC
+interface IAstariaRouter is IPausable, IBeacon {
+  enum ImplementationType {
+    PrivateVault,
+    PublicVault,
+    LiquidationAccountant,
+    WithdrawProxy
   }
 
   struct LienDetails {

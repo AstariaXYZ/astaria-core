@@ -56,6 +56,7 @@ import {Vault, PublicVault} from "../PublicVault.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import {Strings2} from "./utils/Strings2.sol";
+import {BeaconProxy} from "../BeaconProxy.sol";
 
 string constant weth9Artifact = "src/test/WETH9.json";
 
@@ -159,6 +160,7 @@ contract TestHelpers is Test {
     SOLO_VAULT = new Vault();
     WITHDRAW_PROXY = new WithdrawProxy();
     LIQUIDATION_IMPLEMENTATION = new LiquidationAccountant();
+    BeaconProxy BEACON_PROXY = new BeaconProxy();
 
     ASTARIA_ROUTER = new AstariaRouter(
       MRA,
@@ -167,7 +169,10 @@ contract TestHelpers is Test {
       ILienToken(address(LIEN_TOKEN)),
       ITransferProxy(address(TRANSFER_PROXY)),
       address(PUBLIC_VAULT),
-      address(SOLO_VAULT)
+      address(SOLO_VAULT),
+      address(LIQUIDATION_IMPLEMENTATION),
+      address(WITHDRAW_PROXY),
+      address(BEACON_PROXY)
     );
 
     AUCTION_HOUSE = new AuctionHouse(

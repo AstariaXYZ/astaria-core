@@ -415,7 +415,7 @@ abstract contract VaultImplementation is
    * @return The address of the recipient.
    */
   function recipient() public view returns (address) {
-    if (VAULT_TYPE() == uint8(IAstariaRouter.VaultType.PUBLIC)) {
+    if (VAULT_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault)) {
       return address(this);
     } else {
       return owner();
