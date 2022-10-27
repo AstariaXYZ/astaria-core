@@ -13,6 +13,8 @@ pragma solidity ^0.8.17;
 import {IERC721} from "core/interfaces/IERC721.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 interface ILienToken is IERC721 {
   struct Lien {
@@ -24,6 +26,22 @@ interface ILienToken is IERC721 {
     uint64 end; // 8
     uint192 rate; // 24
   }
+  //uint256 amount; //32
+  //    address payee; // 20
+  //    uint64 last; // 8
+  //    uint8 position; // 1
+  //    uint40 end; // 8
+  //    uint256 rate; // 24
+  //  }
+
+  //bytes32(collateralId),
+  //params.vault,
+  //WETH,
+  //params.terms.maxAmount,
+  //params.terms.rate,
+  //params.terms.duration,
+  //params.terms.maxPotentialDebt,
+  //params.strategyRoot
 
   struct LienActionEncumber {
     address tokenContract;
@@ -39,6 +57,12 @@ interface ILienToken is IERC721 {
     uint256 position;
     address receiver;
   }
+
+  function AUCTION_HOUSE() external view returns (IAuctionHouse);
+
+  function ASTARIA_ROUTER() external view returns (IAstariaRouter);
+
+  function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
   function calculateSlope(uint256 lienId) external returns (uint256 slope);
 
