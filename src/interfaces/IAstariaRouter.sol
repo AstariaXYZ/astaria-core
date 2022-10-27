@@ -116,8 +116,6 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
-  function minInterestBPS() external view returns (uint256);
-
   function maxInterestRate() external view returns (uint256);
 
   function getStrategistFee(uint256) external view returns (uint256);
