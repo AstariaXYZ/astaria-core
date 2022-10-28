@@ -613,23 +613,24 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     address lienOwner = ownerOf(lienId);
     bool isPublicVault = _isPublicVault(lienOwner);
     address payee = getPayee(lienId);
+    uint256 owed = _getOwed(lien);
 
+    if(amount > owed) amount = owed;
     if (isPublicVault && !isAuctionHouse) {
-      IPublicVault(lienOwner).beforePayment(lienId, amount);
+      IPublicVault(lienOwner).beforePayment(lienId, lien.last, lien.amount, owed - amount);
     }
-    lien.amount = _getOwed(lien);
+    lien.amount = owed;
+    lien.last = block.timestamp.safeCastTo64();
     if (lien.amount > amount) {
       lien.amount -= amount;
-      transferAmount = amount;
-      lien.last = block.timestamp.safeCastTo64();
-      // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
 
+      // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
       if (isPublicVault && !isAuctionHouse) {
         IPublicVault(lienOwner).afterPayment(lienId);
       }
     }
     else {
-      transferAmount = lien.amount;
+      amount = lien.amount;
       if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
         // since the openLiens count is only positive when there are liens that haven't been paid off
         // that should be liquidated, this lien should not be counted anymore
@@ -644,7 +645,7 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       _burn(lienId);
     }
 
-    TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, transferAmount);
+    TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, amount);
     emit Payment(lienId, transferAmount);
   }
 
