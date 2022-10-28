@@ -585,7 +585,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
 
     LienDataPoint storage point = s.lienData[lienId];
-    bool isAuctionHouse = address(msg.sender) == address(s.AUCTION_HOUSE);
 
     address lienOwner = ownerOf(lienId);
 
@@ -623,17 +622,17 @@ contract LienToken is ERC721, ILienToken, Auth {
   ) internal {
     LienStorage storage s = _loadLienStorageSlot();
     uint256[] memory openLiens = s.liens[stack[0].collateralId];
-    uint256 paymentAmount = totalCapitalAvailable;
+    uint256 amount = totalCapitalAvailable;
     for (uint256 i = 0; i < openLiens.length; ++i) {
       uint256 lienId = validateLien(stack[i]);
       require(lienId == openLiens[i], "stack mismatch");
       uint256 capitalSpent = _payment2(
         s,
         stack[i],
-        paymentAmount,
+        amount,
         address(msg.sender)
       );
-      paymentAmount -= capitalSpent;
+      amount -= capitalSpent;
     }
   }
 
@@ -783,7 +782,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function getOwed(LienEvent calldata lien, uint256 timestamp)
     external
     view
-    returns (uint256)
+    returns (uint192)
   {
     uint256 lienId = validateLien(lien);
     return _getOwed(_loadLienStorageSlot().lienData[lienId], lien, timestamp);
@@ -936,62 +935,56 @@ contract LienToken is ERC721, ILienToken, Auth {
   /**
    * @dev Make a payment from a payer to a specific lien against a CollateralToken.
    * @param lien The position of the lien to make a payment to.
-   * @param paymentAmount The amount to pay against the debt.
+   * @param amount The amount to pay against the debt.
    * @param payer The address to make the payment.
    * @return amountSpent The amount actually spent for the payment.
    */
   function _payment2(
     LienStorage storage s,
     LienEvent calldata lien,
-    uint256 paymentAmount,
+    uint256 amount,
     address payer
-  ) internal returns (uint256 amountSpent) {
-    if (paymentAmount == uint256(0)) {
+  ) internal returns (uint256) {
+    if (amount == uint256(0)) {
       return uint256(0);
     }
 
-    //    uint256 lienId = s.liens[collateralId][position];
     uint256 lienId = validateLien(lien);
-    if (!_exists(lienId)) {
-      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
-    }
 
     LienDataPoint storage point = s.lienData[lienId];
-    bool isAuctionHouse = address(msg.sender) == address(s.AUCTION_HOUSE);
 
-    if (block.timestamp > lien.end && !isAuctionHouse) {
+    // Blocking off payments for a lien that has exceeded the lien.end to prevent repayment unless the msg.sender() is the AuctionHouse
+    if (block.timestamp > lien.end) {
       revert InvalidLoanState();
     }
 
     address lienOwner = ownerOf(lienId);
-    bool isPublicVault = IPublicVault(lienOwner).supportsInterface(
-      type(IPublicVault).interfaceId
-    );
+    bool isPublicVault = _isPublicVault(lienOwner);
 
     address payee = getPayee(lienId);
-    point.amount = _getOwed(point, lien); //todo: this changes in yet to be  merged branches/tests
+    uint256 owed = _getOwed(point, lien);
 
-    if (isPublicVault && !isAuctionHouse) {
+    if (amount > owed) amount = owed;
+    if (isPublicVault) {
       IPublicVault(lienOwner).beforePayment(
         IPublicVault.BeforePaymentParams({
-          interestOwed: _getInterest(lien, block.timestamp),
-          amount: paymentAmount,
+          interestOwed: owed - point.amount,
+          amount: point.amount,
           lienSlope: calculateSlope(lien)
         })
       );
     }
-    if (point.amount > paymentAmount) {
-      point.amount -= paymentAmount.safeCastTo192();
-      amountSpent = paymentAmount;
-      point.last = block.timestamp.safeCastTo40();
+    point.amount = owed.safeCastTo192();
+    point.last = block.timestamp.safeCastTo40();
+    if (point.amount > amount) {
+      point.amount -= amount.safeCastTo192();
       // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
-
-      if (isPublicVault && !isAuctionHouse) {
+      if (isPublicVault) {
         IPublicVault(lienOwner).afterPayment(calculateSlope(lien));
       }
     } else {
-      amountSpent = point.amount;
-      if (isPublicVault && !s.AUCTION_HOUSE.auctionExists(lien.collateralId)) {
+      amount = point.amount;
+      if (isPublicVault) {
         // since the openLiens count is only positive when there are liens that haven't been paid off
         // that should be liquidated, this lien should not be counted anymore
         IPublicVault(lienOwner).decreaseEpochLienCount(
@@ -1005,9 +998,10 @@ contract LienToken is ERC721, ILienToken, Auth {
       _burn(lienId);
     }
 
-    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, amountSpent);
+    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, amount);
 
-    emit Payment(lienId, amountSpent);
+    emit Payment(lienId, amount);
+    return amount;
   }
 
   function _deleteLienPosition(
@@ -1023,6 +1017,11 @@ contract LienToken is ERC721, ILienToken, Auth {
       stack[i] = stack[i + 1];
     }
     stack.pop();
+  }
+
+  function _isPublicVault(address account) internal view returns (bool) {
+    return
+      IPublicVault(account).supportsInterface(type(IPublicVault).interfaceId);
   }
 
   /**

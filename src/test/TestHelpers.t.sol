@@ -425,7 +425,7 @@ contract TestHelpers is Test {
     publicVault = ASTARIA_ROUTER.newPublicVault(
       epochLength,
       delegate,
-      uint256(5000),
+      uint256(0),
       false,
       new address[](0),
       uint256(0)
@@ -662,6 +662,21 @@ contract TestHelpers is Test {
     WETH9.approve(address(TRANSFER_PROXY), amount * 2);
     WETH9.approve(address(LIEN_TOKEN), amount * 2);
     LIEN_TOKEN.makePayment(lien, amount * 2);
+    vm.stopPrank();
+  }
+
+  function _pay(
+    ILienToken.LienEvent memory lien,
+    uint256 amount,
+    address payer,
+    uint256 position
+  ) internal {
+    vm.deal(payer, amount);
+    vm.startPrank(payer);
+    WETH9.deposit{value: amount}();
+    WETH9.approve(address(TRANSFER_PROXY), amount);
+    WETH9.approve(address(LIEN_TOKEN), amount);
+    LIEN_TOKEN.makePayment(lien, amount);
     vm.stopPrank();
   }
 

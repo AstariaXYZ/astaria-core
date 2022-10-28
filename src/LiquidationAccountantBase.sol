@@ -47,4 +47,8 @@ abstract contract LiquidationAccountantBase is Clone, IRouterBase {
   function WITHDRAW_PROXY() public pure returns (address) {
     return _getArgAddress(81);
   }
+
+  function CLAIMABLE_EPOCH() public pure returns (uint256) {
+    return _getArgUint64(101);
+  }
 }

@@ -124,6 +124,11 @@ interface ILienToken is IERC721 {
 
   function getOwed(LienEvent calldata lien) external view returns (uint192);
 
+  function getOwed(LienEvent calldata lien, uint256 timestamp)
+    external
+    view
+    returns (uint192);
+
   //  function getAccruedSinceLastPayment(uint256 lienId)
   //    external
   //    view

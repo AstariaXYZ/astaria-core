@@ -15,7 +15,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
@@ -36,7 +36,6 @@ import {VaultImplementation} from "./VaultImplementation.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
 
 import {Math} from "./utils/Math.sol";
-
 import {IPublicVault} from "./interfaces/IPublicVault.sol";
 import {Vault} from "./Vault.sol";
 import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
@@ -50,24 +49,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
-  // epoch seconds when yIntercept was calculated last
-  //  uint256 public last;
-  //  // sum of all LienToken amounts
-  //  uint256 public yIntercept;
-  //  // sum of all slopes of each LienToken
-  //  uint256 public slope;
-  //
-  //  // block.timestamp of first epoch
-  //  uint256 public withdrawReserve = 0;
-  //  uint256 liquidationWithdrawRatio = 0;
-  //  uint256 strategistUnclaimedShares = 0;
-  //  uint64 public currentEpoch = 0;
 
   bytes32 constant PUBLIC_VAULT_SLOT =
     keccak256("xyz.astaria.core.PublicVault.storage.location");
-
-  //epoch => epochData
-  //  mapping(uint256 => EpochData) public epochData;
 
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
@@ -169,6 +153,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return s.withdrawReserve;
   }
 
+  function getLiquidationWithdrawRatio() public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+
+    return s.liquidationWithdrawRatio;
+  }
+
   function getYIntercept() public view returns (uint256) {
     VaultData storage s = _loadStorageSlot();
 
@@ -249,6 +239,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     //    require(withdrawReserve == 0, "Withdraw reserve not empty");
 
     address currentLA = s.epochData[s.currentEpoch].liquidationAccountant;
+
     if (currentLA != address(0)) {
       if (
         LiquidationAccountant(currentLA).finalAuctionEnd() > block.timestamp
@@ -302,9 +293,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       if (totalAssets() > expected) {
-        s.withdrawReserve = (totalAssets() - expected).mulDivDown(
-          s.liquidationWithdrawRatio,
-          1e18
+        s.withdrawReserve = (totalAssets() - expected).mulWadDown(
+          s.liquidationWithdrawRatio
         );
       } else {
         s.withdrawReserve = 0;
@@ -371,7 +361,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         underlying(),
         address(this),
         address(LIEN_TOKEN()),
-        address(getWithdrawProxy(epoch))
+        address(getWithdrawProxy(epoch)),
+        epoch + 1
       )
     );
     s.epochData[epoch].liquidationAccountant = accountant;
@@ -466,14 +457,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     uint256 delta_t = block.timestamp - s.last;
 
-    s.yIntercept += delta_t.mulDivDown(s.slope, 1);
-
     // increment slope for the new lien
+    _accrue(s);
     unchecked {
       s.slope += LIEN_TOKEN().calculateSlope(lien);
     }
-
-    ILienToken.LienDataPoint memory point = LIEN_TOKEN().getPoint(lien);
 
     uint256 epoch = Math.ceilDiv(lien.end - START(), EPOCH_LENGTH()) - 1;
 
@@ -482,6 +470,16 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       s.last = block.timestamp;
     }
     emit LienOpen(lienId, epoch);
+  }
+
+  function accrue() public returns (uint256) {
+    return _accrue(_loadStorageSlot());
+  }
+
+  function _accrue(VaultData storage s) internal returns (uint256) {
+    s.yIntercept += (block.timestamp - s.last).mulDivDown(s.slope, 1);
+    s.last = block.timestamp;
+    return s.yIntercept;
   }
 
   event LienOpen(uint256 lienId, uint256 epoch);
@@ -536,15 +534,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     require(msg.sender == address(LIEN_TOKEN()));
     VaultData storage s = _loadStorageSlot();
     // validateLien normally we would call here but we are calling from protected lien token which sends the lien event and id
-    _handleStrategistInterestReward(s, params.interestOwed, params.amount);
 
     //    uint256 lienSlope = LIEN_TOKEN().calculateSlope(lien);
-    if (params.lienSlope > s.slope) {
-      s.slope = 0;
-    } else {
-      s.slope -= params.lienSlope;
-    }
-    s.last = block.timestamp;
+    _accrue(s);
+    s.slope -= params.lienSlope;
+    _handleStrategistInterestReward(s, params.interestOwed, params.amount);
   }
 
   /** @notice
@@ -593,14 +587,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     s.slope += computedSlope;
   }
 
-  function getLienMetaData(ILienToken.LienEvent calldata lien)
-    public
-    view
-    returns (bytes memory)
-  {
-    return abi.encode(getEpochEnd(lien.end));
-  }
-
   /**
    * @notice After-deposit hook to update the yIntercept of the PublicVault to reflect a capital contribution.
    * @param assets The amount of assets deposited to the PublicVault.
@@ -637,17 +623,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     public
     returns (address accountantIfAny)
   {
-    require(
-      msg.sender == address(ROUTER()),
-      "can only be called by the router"
-    );
+    require(msg.sender == address(ROUTER())); // can only be called by router
     VaultData storage s = _loadStorageSlot();
+
     accountantIfAny = address(0);
     ILienToken.LienDataPoint memory point = LIEN_TOKEN().getPoint(lien);
 
     s.yIntercept += s.slope.mulDivDown(block.timestamp - s.last, 1);
     s.slope -= LIEN_TOKEN().calculateSlope(lien);
-    s.last = block.timestamp;
+    s.last = block.timestamp.safeCastTo40();
 
     if (s.currentEpoch != 0) {
       transferWithdrawReserve();
