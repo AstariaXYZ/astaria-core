@@ -184,7 +184,7 @@ interface ILienToken is IERC721 {
   function getMaxPotentialDebtForCollateral(
     uint256,
     ILienToken.LienEvent[] calldata
-  ) external view returns (uint256);
+  ) external returns (uint256);
 
   //  function getTotalDebtForCollateralToken(
   //    uint256 collateralId,

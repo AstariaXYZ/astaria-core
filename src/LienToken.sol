@@ -685,14 +685,18 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   modifier validateStack(uint256 collateralId, LienEvent[] calldata stack) {
     LienStorage storage s = _loadLienStorageSlot();
-    require(s.liens[collateralId].length == stack.length);
+    emit LogStuff(stack.length);
+    emit LogStuff(s.liens[collateralId].length);
+    require(s.liens[collateralId].length == stack.length, "stack length");
     for (uint256 i = 0; i < stack.length; ++i) {
-      require(stack[i].collateralId == collateralId);
-      require(stack[i].position == i);
+      require(stack[i].collateralId == collateralId, "collateral mismatch");
+      require(stack[i].position == i, "position mismatch");
       validateLien(stack[i]);
     }
     _;
   }
+
+  event LogStuff(uint256);
 
   /**
    * @notice Computes the total amount owed on all liens against a CollateralToken.
@@ -704,7 +708,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienEvent[] calldata stack
   )
     public
-    view
     validateStack(collateralId, stack)
     returns (uint256 maxPotentialDebt)
   {
@@ -713,8 +716,12 @@ contract LienToken is ERC721, ILienToken, Auth {
     maxPotentialDebt = 0;
     uint256[] memory openLiens = s.liens[collateralId];
     for (uint256 i = 0; i < openLiens.length; ++i) {
+      emit LogStuff(openLiens[i]);
       LienDataPoint memory point = s.lienData[openLiens[i]];
+      emit LogStuff(point.amount);
+      emit LogStuff(point.last);
       maxPotentialDebt += _getOwed(point, stack[i], stack[i].end);
+      emit LogStuff(maxPotentialDebt);
     }
   }
 

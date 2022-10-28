@@ -84,7 +84,7 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + lien.duration);
 
-    ASTARIA_ROUTER.liquidate(collateralId, 0, stack);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
 
     // _bid(address(2), collateralId, 1 ether);
 
@@ -166,8 +166,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + 14 days);
 
-    ASTARIA_ROUTER.liquidate(collateralId, uint256(0), stack1);
-    ASTARIA_ROUTER.liquidate(collateralId2, uint256(0), stack2); // TODO test this
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack1);
+    ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stack2); // TODO test this
 
     _bid(address(3), collateralId, 5 ether);
     _bid(address(3), collateralId2, 20 ether);
@@ -265,27 +265,25 @@ contract WithdrawTest is TestHelpers {
 
     ILienToken.Details memory lien1 = standardLienDetails;
     lien1.duration = 13 days; // will trigger LiquidationAccountant
+    ILienToken.LienEvent[][] memory stacks = new ILienToken.LienEvent[][](2);
+    uint256[][] memory liens = new uint256[][](2);
 
-    (
-      uint256[] memory liens,
-      ILienToken.LienEvent[] memory stack
-    ) = _commitToLien({
-        vault: publicVault,
-        strategist: strategistOne,
-        strategistPK: strategistOnePK,
-        tokenContract: tokenContract,
-        tokenId: tokenId1,
-        lienDetails: lien1,
-        amount: 10 ether,
-        isFirstLien: true
-      });
+    (liens[0], stacks[0]) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId1,
+      lienDetails: lien1,
+      amount: 10 ether,
+      isFirstLien: true
+    });
 
-    uint256 lienId1 = liens[0];
+    uint256 lienId1 = liens[0][0];
 
     ILienToken.Details memory lien2 = standardLienDetails;
     lien2.duration = 27 days; // will trigger LiquidationAccountant for next epoch
-
-    (liens, stack) = _commitToLien({
+    (liens[1], stacks[1]) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -293,10 +291,9 @@ contract WithdrawTest is TestHelpers {
       tokenId: tokenId2,
       lienDetails: lien2,
       amount: 10 ether,
-      isFirstLien: false,
-      stack: stack
+      isFirstLien: true
     });
-    uint256 lienId2 = liens[0];
+    uint256 lienId2 = liens[1][0];
 
     _warpToEpochEnd(publicVault);
 
@@ -310,7 +307,7 @@ contract WithdrawTest is TestHelpers {
 
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
 
-    ASTARIA_ROUTER.liquidate(collateralId1, 0, stack);
+    ASTARIA_ROUTER.liquidate(collateralId1, uint8(0), stacks[0]);
 
     address liquidationAccountant1 = PublicVault(publicVault)
       .getLiquidationAccountant(0);
@@ -335,7 +332,7 @@ contract WithdrawTest is TestHelpers {
 
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
 
-    ASTARIA_ROUTER.liquidate(collateralId2, 0, stack);
+    ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stacks[1]);
 
     address liquidationAccountant2 = PublicVault(publicVault)
       .getLiquidationAccountant(1);
@@ -498,7 +495,7 @@ contract WithdrawTest is TestHelpers {
     _warpToEpochEnd(publicVault);
 
     uint256 collateralId = tokenContract.computeId(tokenId);
-    ASTARIA_ROUTER.liquidate(collateralId, 0, stack);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _bid(address(4), collateralId, 150 ether);
 
     assertTrue(

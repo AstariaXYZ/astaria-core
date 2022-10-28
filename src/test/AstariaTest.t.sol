@@ -202,7 +202,7 @@ contract AstariaTest is TestHelpers {
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
     vm.warp(block.timestamp + 14 days); // end of loan
-    ASTARIA_ROUTER.liquidate(collateralId, uint256(0), stack);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
 
     address liquidationAccountant = PublicVault(publicVault)
       .getLiquidationAccountant(0);
@@ -487,7 +487,7 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint256(0), stack);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _cancelAuction(collateralId, address(this));
   }
 

@@ -133,15 +133,15 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function liquidate(
     uint256 collateralId,
-    uint256 position,
-    ILienToken.LienEvent[] memory stack
+    uint8 position,
+    ILienToken.LienEvent[] calldata stack
   ) external returns (uint256 reserve);
 
   function canLiquidate(
     uint256 collateralId,
-    uint256 position,
-    ILienToken.LienEvent[] memory stack
-  ) external view returns (bool);
+    uint8 position,
+    ILienToken.LienEvent[] calldata stack
+  ) external returns (bool);
 
   function isValidVault(address) external view returns (bool);
 
