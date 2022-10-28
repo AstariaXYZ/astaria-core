@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -13,6 +13,7 @@ pragma solidity ^0.8.17;
 import {ERC721} from "solmate/tokens/ERC721.sol";
 
 import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
+import {ILienToken} from "../interfaces/ILienToken.sol";
 import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
 
 interface ICollectionValidator is IStrategyValidator {
@@ -20,7 +21,7 @@ interface ICollectionValidator is IStrategyValidator {
     uint8 version;
     address token;
     address borrower;
-    IAstariaRouter.LienDetails lien;
+    ILienToken.Details lien;
   }
 }
 
@@ -50,7 +51,7 @@ contract CollectionValidator is ICollectionValidator {
     external
     pure
     override
-    returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld)
+    returns (bytes32 leaf, ILienToken.Details memory ld)
   {
     ICollectionValidator.Details memory cd = getLeafDetails(params.nlrDetails);
 

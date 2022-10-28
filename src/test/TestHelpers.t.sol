@@ -92,16 +92,16 @@ contract TestHelpers is Test {
   string private checkpointLabel;
   uint256 private checkpointGasLeft = 1; // Start the slot warm.
 
-  IAstariaRouter.LienDetails public standardLienDetails =
-    IAstariaRouter.LienDetails({
+  ILienToken.Details public standardLienDetails =
+    ILienToken.Details({
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 10 days,
       maxPotentialDebt: 50 ether
     });
 
-  IAstariaRouter.LienDetails public refinanceLienDetails =
-    IAstariaRouter.LienDetails({
+  ILienToken.Details public refinanceLienDetails =
+    ILienToken.Details({
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 25 days,
@@ -326,7 +326,7 @@ contract TestHelpers is Test {
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
+      uint8(UserRoles.ASTARIA_ROUTER),
       LienToken.stopLiens.selector,
       true
     );
@@ -337,7 +337,7 @@ contract TestHelpers is Test {
     );
     MRA.setRoleCapability(
       uint8(UserRoles.AUCTION_HOUSE),
-      bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
+      ILienToken.makePaymentAuctionHouse.selector, //bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
       true
     );
     MRA.setUserRole(
@@ -476,10 +476,35 @@ contract TestHelpers is Test {
     uint256 strategistPK,
     address tokenContract, // original NFT address
     uint256 tokenId, // original NFT id
-    IAstariaRouter.LienDetails memory lienDetails, // loan information
+    ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien
-  ) internal returns (uint256[] memory) {
+  ) internal returns (uint256[] memory, ILienToken.LienEvent[] memory stack) {
+    return
+      _commitToLien({
+        vault: vault,
+        strategist: strategist,
+        strategistPK: strategistPK,
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        lienDetails: lienDetails,
+        amount: amount,
+        isFirstLien: isFirstLien,
+        stack: new ILienToken.LienEvent[](0)
+      });
+  }
+
+  function _commitToLien(
+    address vault, // address of deployed Vault
+    address strategist,
+    uint256 strategistPK,
+    address tokenContract, // original NFT address
+    uint256 tokenId, // original NFT id
+    ILienToken.Details memory lienDetails, // loan information
+    uint256 amount, // requested amount
+    bool isFirstLien,
+    ILienToken.LienEvent[] memory stack
+  ) internal returns (uint256[] memory, ILienToken.LienEvent[] memory) {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
       vault: vault,
       strategist: strategist,
@@ -487,7 +512,8 @@ contract TestHelpers is Test {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lienDetails,
-      amount: amount
+      amount: amount,
+      stack: isFirstLien ? new ILienToken.LienEvent[](0) : stack
     });
 
     //    VaultImplementation(vault).commitToLien(terms, address(this));
@@ -505,9 +531,10 @@ contract TestHelpers is Test {
     uint256 strategistPK,
     address tokenContract, // original NFT address
     uint256 tokenId, // original NFT id
-    IAstariaRouter.LienDetails memory lienDetails, // loan information
-    uint256 amount // requested amount
-  ) internal returns (IAstariaRouter.Commitment memory terms) {
+    ILienToken.Details memory lienDetails, // loan information
+    uint256 amount, // requested amount
+    ILienToken.LienEvent[] memory stack
+  ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
         version: uint8(1),
@@ -539,19 +566,21 @@ contract TestHelpers is Test {
     bytes32 termHash = keccak256(
       VaultImplementation(vault).encodeStrategyData(strategyDetails, rootHash)
     );
-    terms = _generateTerms(
-      GenTerms({
-        tokenContract: tokenContract,
-        tokenId: tokenId,
-        termHash: termHash,
-        rootHash: rootHash,
-        pk: strategistPK,
-        strategyDetails: strategyDetails,
-        validatorDetails: validatorDetails,
-        amount: amount,
-        merkleProof: merkleProof
-      })
-    );
+    return
+      _generateTerms(
+        GenTerms({
+          tokenContract: tokenContract,
+          tokenId: tokenId,
+          termHash: termHash,
+          rootHash: rootHash,
+          pk: strategistPK,
+          strategyDetails: strategyDetails,
+          validatorDetails: validatorDetails,
+          amount: amount,
+          merkleProof: merkleProof,
+          stack: stack
+        })
+      );
   }
 
   struct GenTerms {
@@ -561,6 +590,7 @@ contract TestHelpers is Test {
     bytes32 rootHash;
     uint256 pk;
     IAstariaRouter.StrategyDetails strategyDetails;
+    ILienToken.LienEvent[] stack;
     bytes validatorDetails;
     bytes32[] merkleProof;
     uint256 amount;
@@ -584,6 +614,7 @@ contract TestHelpers is Test {
             root: params.rootHash,
             proof: params.merkleProof
           }),
+          stack: params.stack,
           amount: params.amount,
           v: v,
           r: r,
@@ -621,7 +652,7 @@ contract TestHelpers is Test {
   }
 
   function _repay(
-    uint256 collateralId,
+    ILienToken.LienEvent memory lien,
     uint256 amount,
     address payer
   ) internal {
@@ -630,7 +661,7 @@ contract TestHelpers is Test {
     WETH9.deposit{value: amount * 2}();
     WETH9.approve(address(TRANSFER_PROXY), amount * 2);
     WETH9.approve(address(LIEN_TOKEN), amount * 2);
-    LIEN_TOKEN.makePayment(collateralId, amount * 2);
+    LIEN_TOKEN.makePayment(lien, amount * 2);
     vm.stopPrank();
   }
 

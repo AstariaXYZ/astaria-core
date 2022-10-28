@@ -15,7 +15,11 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 import "./IAstariaRouter.sol";
 
 interface ICollateralToken is IERC721 {
-  function auctionVault(uint256, address) external returns (uint256);
+  function auctionVault(
+    uint256,
+    address,
+    uint256
+  ) external;
 
   function AUCTION_HOUSE() external view returns (IAuctionHouse);
 

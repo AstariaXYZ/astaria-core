@@ -15,6 +15,7 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 interface ILienToken is IERC721 {
   struct Lien {
@@ -33,6 +34,40 @@ interface ILienToken is IERC721 {
   //    uint40 end; // 8
   //    uint256 rate; // 24
   //  }
+  struct Details {
+    uint256 maxAmount;
+    uint256 rate; //rate per second
+    uint256 duration;
+    uint256 maxPotentialDebt;
+  }
+
+  struct LienStorage {
+    address WETH;
+    ITransferProxy TRANSFER_PROXY;
+    IAuctionHouse AUCTION_HOUSE;
+    IAstariaRouter ASTARIA_ROUTER;
+    ICollateralToken COLLATERAL_TOKEN;
+    uint256 maxLiens;
+    mapping(uint256 => LienDataPoint) lienData;
+    mapping(uint256 => uint256[]) liens;
+    mapping(uint256 => address) payee;
+  }
+
+  struct LienDataPoint {
+    uint192 amount;
+    uint40 last;
+    bool active;
+  }
+
+  struct LienEvent {
+    uint256 collateralId;
+    address vault;
+    address token;
+    uint8 position;
+    bytes32 strategyRoot;
+    uint40 end;
+    Details details;
+  }
 
   //bytes32(collateralId),
   //params.vault,
@@ -46,10 +81,11 @@ interface ILienToken is IERC721 {
   struct LienActionEncumber {
     address tokenContract;
     uint256 tokenId;
-    IAstariaRouter.LienDetails terms;
+    ILienToken.Details terms;
     bytes32 strategyRoot;
     uint256 amount;
     address vault;
+    LienEvent[] stack;
   }
 
   struct LienActionBuyout {
@@ -58,87 +94,108 @@ interface ILienToken is IERC721 {
     address receiver;
   }
 
+  function validateLien(LienEvent calldata lienEvent)
+    external
+    view
+    returns (uint256 lienId);
+
   function AUCTION_HOUSE() external view returns (IAuctionHouse);
 
   function ASTARIA_ROUTER() external view returns (IAstariaRouter);
 
   function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
-  function calculateSlope(uint256 lienId) external returns (uint256 slope);
-
-  function stopLiens(uint256 collateralId)
+  function calculateSlope(ILienToken.LienEvent calldata)
     external
-    returns (uint256 reserve, uint256[] memory lienIds);
+    returns (uint256 slope);
 
-  function getBuyout(uint256 collateralId, uint256 index)
-    external
-    view
-    returns (uint256, uint256);
+  function stopLiens(
+    uint256 collateralId,
+    ILienToken.LienEvent[] calldata stack
+  ) external returns (uint256 reserve, uint256[] memory lienIds);
+
+  //  function getBuyout(uint256 collateralId, uint256 index)
+  //    external
+  //    view
+  //    returns (uint256, uint256);
 
   function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
     external;
 
-  function getOwed(uint256, uint256) external view returns (uint256);
+  function getOwed(LienEvent calldata lien) external view returns (uint192);
 
-  function getAccruedSinceLastPayment(uint256 lienId)
-    external
-    view
-    returns (uint256);
+  //  function getAccruedSinceLastPayment(uint256 lienId)
+  //    external
+  //    view
+  //    returns (uint256);
 
-  function getInterest(uint256 collateralId, uint256 position)
-    external
-    view
-    returns (uint256);
+  //  function getInterest(uint256 collateralId, uint256 position)
+  //    external
+  //    view
+  //    returns (uint256);
 
-  function getInterest(uint256) external view returns (uint256);
+  //  function getInterest(uint256) external view returns (uint256);
 
   function getLiens(uint256 _collateralId)
     external
     view
     returns (uint256[] memory);
 
-  function getLien(uint256 lienId) external view returns (Lien memory);
+  //  function getLien(uint256 lienId) external view returns (Lien memory);
 
-  function getLien(uint256 collateralId, uint256 position)
+  function getPoint(uint256 collateralId, uint8 position)
     external
     view
-    returns (Lien memory);
+    returns (LienDataPoint memory);
+
+  function getPoint(uint256 lienId)
+    external
+    view
+    returns (LienDataPoint memory);
+
+  function getPoint(ILienToken.LienEvent calldata)
+    external
+    view
+    returns (LienDataPoint memory);
 
   function createLien(LienActionEncumber calldata params)
     external
-    returns (uint256 lienId);
+    returns (uint256 lienId, LienEvent[] memory stack);
 
-  function buyoutLien(LienActionBuyout calldata params) external;
+  //  function buyoutLien(LienActionBuyout calldata params) external;
 
-  function makePayment(uint256 collateralId, uint256 paymentAmount) external;
+  function makePayment(LienEvent[] calldata stack, uint256) external;
 
-  function makePayment(
+  function makePayment(LienEvent calldata, uint256) external;
+
+  function makePaymentAuctionHouse(
+    uint256 lienId,
     uint256 collateralId,
-    uint256 totalCapitalAvailable,
+    uint256 paymentAmount,
     uint8 position,
     address payer
-  ) external;
+  ) external returns (uint256);
 
-  function getTotalDebtForCollateralToken(uint256 collateralId)
-    external
-    view
-    returns (uint256 totalDebt);
+  //  function getTotalDebtForCollateralToken(uint256 collateralId)
+  //    external
+  //    view
+  //    returns (uint256 totalDebt);
 
-  function getMaxPotentialDebtForCollateral(uint256 collateralId)
-    external
-    view
-    returns (uint256);
+  function getMaxPotentialDebtForCollateral(
+    uint256,
+    ILienToken.LienEvent[] calldata
+  ) external view returns (uint256);
 
-  function getTotalDebtForCollateralToken(
-    uint256 collateralId,
-    uint256 timestamp
-  ) external view returns (uint256 totalDebt);
+  //  function getTotalDebtForCollateralToken(
+  //    uint256 collateralId,
+  //    uint256 timestamp
+  //  ) external view returns (uint256 totalDebt);
 
-  function getPayee(uint256 lienId) external view returns (address);
+  function getPayee(uint256) external view returns (address);
 
-  function setPayee(uint256 lienId, address payee) external;
+  function setPayee(LienEvent calldata, address) external;
 
-  event NewLien(uint256 indexed lienId, Lien lien);
+  event LienStackUpdated(uint256 indexed lienId, LienEvent[] lien);
   event RemoveLien(
     uint256 indexed lienId,
     uint256 indexed collateralId,
@@ -156,11 +213,14 @@ interface ILienToken is IERC721 {
   error InvalidRefinance();
   error InvalidLoanState();
   enum InvalidStates {
-    AUCTION,
-    NO_DEPOSIT,
+    INVALID_LIEN_ID,
+    COLLATERAL_AUCTION,
+    COLLATERAL_NOT_DEPOSITED,
+    LIEN_NO_DEBT,
     DEBT_LIMIT,
     MAX_LIENS
   }
 
+  error InvalidState(InvalidStates);
   error InvalidCollateralState(InvalidStates);
 }

@@ -391,13 +391,13 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
    * @notice Begins an auction for the NFT of a liquidated CollateralToken.
    * @param collateralId The ID of the CollateralToken being liquidated.
    * @param liquidator The address of the user that triggered the liquidation.
+   * @param reserve The address of the user that triggered the liquidation.
    */
-  function auctionVault(uint256 collateralId, address liquidator)
-    external
-    whenNotPaused
-    requiresAuth
-    returns (uint256 reserve)
-  {
+  function auctionVault(
+    uint256 collateralId,
+    address liquidator,
+    uint256 reserve
+  ) external whenNotPaused requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
 
     if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
@@ -407,10 +407,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     //      !,
     //      "auctionVault: auction already exists"
     //    );
-    reserve = s.AUCTION_HOUSE.createAuction(
+
+    s.AUCTION_HOUSE.createAuction(
       collateralId,
       s.auctionWindow,
-      liquidator
+      liquidator,
+      reserve
     );
   }
 

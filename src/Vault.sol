@@ -46,12 +46,6 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
       );
   }
 
-  function _handleStrategistInterestReward(uint256 lienId, uint256 shares)
-    internal
-    virtual
-    override
-  {}
-
   function deposit(uint256 amount, address receiver)
     public
     virtual

@@ -161,7 +161,11 @@ abstract contract VaultImplementation is
   /**
    * @dev hook to allow inheriting contracts to perform payout for strategist
    */
-  function _handleStrategistInterestReward(uint256, uint256) internal virtual {}
+  function _handleStrategistInterestReward(
+    VaultData storage,
+    uint256,
+    uint256
+  ) internal virtual {}
 
   struct InitParams {
     address delegate;
@@ -216,7 +220,7 @@ abstract contract VaultImplementation is
   function _validateCommitment(
     IAstariaRouter.Commitment calldata params,
     address receiver
-  ) internal returns (IAstariaRouter.LienDetails memory) {
+  ) internal returns (ILienToken.Details memory) {
     if (
       params.lienRequest.amount > ERC20(underlying()).balanceOf(address(this))
     ) {
@@ -268,9 +272,8 @@ abstract contract VaultImplementation is
     //      "invalid strategist"
     //    );
 
-    (bool valid, IAstariaRouter.LienDetails memory ld) = IAstariaRouter(
-      ROUTER()
-    ).validateCommitment(params);
+    (bool valid, ILienToken.Details memory ld) = IAstariaRouter(ROUTER())
+      .validateCommitment(params);
 
     if (!valid) {
       revert InvalidRequest(InvalidRequestReason.INVALID_COMMITMENT);
@@ -313,15 +316,10 @@ abstract contract VaultImplementation is
     //      "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
     //    );
 
-    uint256 maxPotentialDebt = IAstariaRouter(ROUTER())
-      .LIEN_TOKEN()
-      .getMaxPotentialDebtForCollateral(
-        params.tokenContract.computeId(params.tokenId)
-      );
-
     if (
       IAstariaRouter(ROUTER()).LIEN_TOKEN().getMaxPotentialDebtForCollateral(
-        params.tokenContract.computeId(params.tokenId)
+        params.tokenContract.computeId(params.tokenId),
+        params.lienRequest.stack
       ) > ld.maxPotentialDebt
     ) {
       revert InvalidRequest(InvalidRequestReason.INVALID_POTENTIAL_DEBT);
@@ -335,10 +333,11 @@ abstract contract VaultImplementation is
     return ld;
   }
 
-  function _afterCommitToLien(uint256 lienId, uint256 amount)
-    internal
-    virtual
-  {}
+  function _afterCommitToLien(
+    ILienToken.LienEvent memory lien,
+    uint256 lienId,
+    uint256 amount
+  ) internal virtual {}
 
   function _beforeCommitToLien(
     IAstariaRouter.Commitment calldata,
@@ -356,82 +355,72 @@ abstract contract VaultImplementation is
   function commitToLien(
     IAstariaRouter.Commitment calldata params,
     address receiver
-  ) external whenNotPaused returns (uint256 lienId) {
-    IAstariaRouter.LienDetails memory ld = _validateCommitment(
-      params,
-      receiver
-    );
+  )
+    external
+    whenNotPaused
+    returns (uint256 lienId, ILienToken.LienEvent[] memory stack)
+  {
+    ILienToken.Details memory ld = _validateCommitment(params, receiver);
     _beforeCommitToLien(params, receiver);
-    lienId = _requestLienAndIssuePayout(ld, params, receiver);
-    _afterCommitToLien(lienId, params.lienRequest.amount);
+    (lienId, stack) = _requestLienAndIssuePayout(ld, params, receiver);
+    _afterCommitToLien(
+      stack[stack.length - 1],
+      lienId,
+      params.lienRequest.amount
+    );
     emit NewLien(
       params.lienRequest.merkle.root,
       params.tokenContract,
       params.tokenId,
       params.lienRequest.amount
     );
-    return lienId;
   }
 
-  /**
-   * @notice Returns whether a specific lien can be liquidated.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param position The specified lien position.
-   * @return A boolean value indicating whether the specified lien can be liquidated.
-   */
-  function canLiquidate(uint256 collateralId, uint256 position)
-    public
-    view
-    returns (bool)
-  {
-    return IAstariaRouter(ROUTER()).canLiquidate(collateralId, position);
-  }
-
-  /**
-   * @notice Buy out a lien to replace it with new terms.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param position The position of the specified lien.
-   * @param incomingTerms The loan terms of the new lien.
-   */
-  function buyoutLien(
-    uint256 collateralId,
-    uint256 position,
-    IAstariaRouter.Commitment calldata incomingTerms
-  ) external whenNotPaused {
-    (, uint256 buyout) = IAstariaRouter(ROUTER()).LIEN_TOKEN().getBuyout(
-      collateralId,
-      position
-    );
-
-    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
-      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
-    }
-    //    require(
-    //      buyout <= ERC20(underlying()).balanceOf(address(this)),
-    //      "not enough balance to buy out loan"
-    //    );
-
-    _validateCommitment(incomingTerms, recipient());
-
-    ERC20(underlying()).safeApprove(
-      address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
-      buyout
-    );
-
-    LienToken lienToken = LienToken(
-      address(IAstariaRouter(ROUTER()).LIEN_TOKEN())
-    );
-
-    if (
-      recipient() != address(this) &&
-      !lienToken.isApprovedForAll(msg.sender, recipient())
-    ) {
-      lienToken.setApprovalForAll(recipient(), true);
-    }
-    lienToken.buyoutLien(
-      ILienToken.LienActionBuyout(incomingTerms, position, recipient())
-    );
-  }
+  //  /**
+  //   * @notice Buy out a lien to replace it with new terms.
+  //   * @param collateralId The ID of the underlying CollateralToken.
+  //   * @param position The position of the specified lien.
+  //   * @param incomingTerms The loan terms of the new lien.
+  //   */
+  //  function buyoutLien(
+  //    uint256 collateralId,
+  //    uint256 position,
+  //    IAstariaRouter.Commitment calldata incomingTerms
+  //  ) external whenNotPaused {
+  //    (, uint256 buyout) = IAstariaRouter(ROUTER()).LIEN_TOKEN().getBuyout(
+  //      collateralId,
+  //      position
+  //    );
+  //
+  //    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
+  //      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
+  //    }
+  //    //    require(
+  //    //      buyout <= ERC20(underlying()).balanceOf(address(this)),
+  //    //      "not enough balance to buy out loan"
+  //    //    );
+  //
+  //    _validateCommitment(incomingTerms, recipient());
+  //
+  //    ERC20(underlying()).safeApprove(
+  //      address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
+  //      buyout
+  //    );
+  //
+  //    LienToken lienToken = LienToken(
+  //      address(IAstariaRouter(ROUTER()).LIEN_TOKEN())
+  //    );
+  //
+  //    if (
+  //      recipient() != address(this) &&
+  //      !lienToken.isApprovedForAll(msg.sender, recipient())
+  //    ) {
+  //      lienToken.setApprovalForAll(recipient(), true);
+  //    }
+  //    lienToken.buyoutLien(
+  //      ILienToken.LienActionBuyout(incomingTerms, position, recipient())
+  //    );
+  //  }
 
   /**
    * @notice Retrieves the recipient of loan repayments. For PublicVaults (VAULT_TYPE 2), this is always the vault address. For PrivateVaults, retrieves the owner() of the vault.
@@ -449,18 +438,16 @@ abstract contract VaultImplementation is
    * @dev Generates a Lien for a valid loan commitment proof and sends the loan amount to the borrower.
    * @param c The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    * @param receiver The borrower requesting the loan.
-   * @return The ID of the created Lien.
    */
   function _requestLienAndIssuePayout(
-    IAstariaRouter.LienDetails memory ld,
+    ILienToken.Details memory ld,
     IAstariaRouter.Commitment calldata c,
     address receiver
-  ) internal returns (uint256) {
-    uint256 newLienId = IAstariaRouter(ROUTER()).requestLienPosition(ld, c);
+  ) internal returns (uint256 newLienId, ILienToken.LienEvent[] memory stack) {
+    (newLienId, stack) = IAstariaRouter(ROUTER()).requestLienPosition(ld, c);
 
     uint256 payout = _handleProtocolFee(c.lienRequest.amount);
     ERC20(underlying()).safeTransfer(receiver, payout);
-    return newLienId;
   }
 
   function _handleProtocolFee(uint256 amount) internal returns (uint256) {

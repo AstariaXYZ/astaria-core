@@ -40,6 +40,7 @@ import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
 
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
 import {Pausable} from "core/utils/Pausable.sol";
+import "./interfaces/ILienToken.sol";
 
 /**
  * @title AstariaRouter
@@ -366,7 +367,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   function validateCommitment(IAstariaRouter.Commitment calldata commitment)
     public
-    returns (bool valid, IAstariaRouter.LienDetails memory ld)
+    returns (bool valid, ILienToken.Details memory ld)
   {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
@@ -416,7 +417,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   function commitToLiens(IAstariaRouter.Commitment[] calldata commitments)
     external
     whenNotPaused
-    returns (uint256[] memory lienIds)
+    returns (
+      uint256[] memory lienIds,
+      ILienToken.LienEvent[] memory stack //todo fix this
+    )
   {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -428,7 +432,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         commitments[i].tokenContract,
         commitments[i].tokenId
       );
-      lienIds[i] = _executeCommitment(s, commitments[i]);
+      (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
       totalBorrowed += commitments[i].lienRequest.amount;
 
       uint256 collateralId = commitments[i].tokenContract.computeId(
@@ -487,9 +491,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @return The ID of the created lien.
    */
   function requestLienPosition(
-    IAstariaRouter.LienDetails memory terms,
+    ILienToken.Details memory terms,
     IAstariaRouter.Commitment calldata params
-  ) external whenNotPaused onlyVaults returns (uint256) {
+  )
+    external
+    whenNotPaused
+    onlyVaults
+    returns (uint256, ILienToken.LienEvent[] memory)
+  {
     return
       _loadRouterSlot().LIEN_TOKEN.createLien(
         ILienToken.LienActionEncumber({
@@ -498,6 +507,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
           terms: terms,
           strategyRoot: params.lienRequest.merkle.root,
           amount: params.lienRequest.amount,
+          stack: params.lienRequest.stack,
           vault: address(msg.sender)
         })
       );
@@ -535,17 +545,15 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @param position The specified lien position.
    * @return A boolean value indicating whether the specified lien can be liquidated.
    */
-  function canLiquidate(uint256 collateralId, uint256 position)
-    public
-    view
-    returns (bool)
-  {
-    ILienToken.Lien memory lien = _loadRouterSlot().LIEN_TOKEN.getLien(
-      collateralId,
-      position
-    );
+  function canLiquidate(
+    uint256 collateralId,
+    uint256 position,
+    ILienToken.LienEvent[] memory stack
+  ) public view returns (bool) {
+    RouterStorage storage s = _loadRouterSlot();
+    ILienToken.LienDataPoint memory point = s.LIEN_TOKEN.getPoint(stack[0]);
 
-    return (lien.end <= block.timestamp && lien.amount > 0);
+    return (stack[position].end <= block.timestamp);
   }
 
   /**
@@ -554,13 +562,15 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @param position The position of the defaulted lien.
    * @return reserve The amount owed on all liens for against the collateral being liquidated, including accrued interest.
    */
-  function liquidate(uint256 collateralId, uint256 position)
-    external
-    returns (uint256 reserve)
-  {
-    if (!canLiquidate(collateralId, position)) {
+  function liquidate(
+    uint256 collateralId,
+    uint256 position,
+    ILienToken.LienEvent[] memory stack
+  ) external returns (uint256 reserve) {
+    if (!canLiquidate(collateralId, position, stack)) {
       revert InvalidLienState(LienState.HEALTHY);
     }
+
     //    require(
     //      ,
     //      "liquidate: borrow is healthy"
@@ -572,6 +582,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256[] memory liens = s.LIEN_TOKEN.getLiens(collateralId);
     for (uint256 i = 0; i < liens.length; ++i) {
       uint256 currentLien = liens[i];
+      require(currentLien == LIEN_TOKEN().validateLien(stack[i]));
 
       address owner = s.LIEN_TOKEN.getPayee(currentLien);
       if (
@@ -579,18 +590,16 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       ) {
         // update the public vault state and get the liquidation accountant back if any
         address accountantIfAny = PublicVault(owner)
-          .updateVaultAfterLiquidation(currentLien);
+          .updateVaultAfterLiquidation(stack[i]);
 
         if (accountantIfAny != address(0)) {
-          s.LIEN_TOKEN.setPayee(currentLien, accountantIfAny);
+          s.LIEN_TOKEN.setPayee(stack[i], accountantIfAny);
         }
       }
     }
 
-    reserve = s.COLLATERAL_TOKEN.auctionVault(
-      collateralId,
-      address(msg.sender)
-    );
+    (uint256 reserve, ) = s.LIEN_TOKEN.stopLiens(collateralId, stack);
+    s.COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), reserve);
 
     emit Liquidation(collateralId, position, reserve);
   }
@@ -673,7 +682,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    */
   function isValidRefinance(
     ILienToken.Lien memory lien,
-    LienDetails memory newLien
+    ILienToken.Details memory newLien
   ) external view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
     uint256 minNewRate = uint256(lien.rate) - s.minInterestBPS;
@@ -755,24 +764,17 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment memory c
-  ) internal returns (uint256) {
+  ) internal returns (uint256, ILienToken.LienEvent[] memory stack) {
     uint256 collateralId = c.tokenContract.computeId(c.tokenId);
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
       revert InvalidSenderForCollateral(msg.sender, collateralId);
     }
-    return _borrow(c, address(this));
-  }
-
-  function _borrow(IAstariaRouter.Commitment memory c, address receiver)
-    internal
-    returns (uint256)
-  {
     //router must be approved for the collateral to take a loan,
     return
       VaultImplementation(c.lienRequest.strategy.vault).commitToLien(
         c,
-        receiver
+        address(this)
       );
   }
 

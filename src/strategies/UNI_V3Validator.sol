@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -12,10 +12,11 @@ pragma solidity ^0.8.17;
 
 import {ERC721} from "solmate/tokens/ERC721.sol";
 
-import {CollateralLookup} from "../libraries/CollateralLookup.sol";
-import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
-import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
-import {IV3PositionManager} from "../interfaces/IV3PositionManager.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
+import {IV3PositionManager} from "core/interfaces/IV3PositionManager.sol";
 
 interface IUNI_V3Validator is IStrategyValidator {
   struct Details {
@@ -27,7 +28,7 @@ interface IUNI_V3Validator is IStrategyValidator {
     int24 tickUpper;
     uint128 minLiquidity;
     address borrower;
-    IAstariaRouter.LienDetails lien;
+    ILienToken.Details lien;
   }
 }
 
@@ -62,7 +63,7 @@ contract UNI_V3Validator is IUNI_V3Validator {
     external
     view
     override
-    returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld)
+    returns (bytes32 leaf, ILienToken.Details memory ld)
   {
     IUNI_V3Validator.Details memory details = getLeafDetails(params.nlrDetails);
 

@@ -14,7 +14,15 @@ import {IERC165} from "./IERC165.sol";
 import {IVault} from "gpl/interfaces/IVault.sol";
 
 interface IPublicVault is IERC165, IVault {
-  function beforePayment(uint256 escrowId, uint256 amount) external;
+  struct BeforePaymentParams {
+    //    ILienToken.LienEvent lien;
+    uint256 lienSlope;
+    //    uint256 lienId;
+    uint256 amount;
+    uint256 interestOwed;
+  }
+
+  function beforePayment(BeforePaymentParams calldata params) external;
 
   function decreaseEpochLienCount(uint64 epoch) external;
 

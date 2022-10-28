@@ -28,12 +28,12 @@ interface IAstariaRouter is IPausable, IBeacon {
     WithdrawProxy
   }
 
-  struct LienDetails {
-    uint256 maxAmount;
-    uint256 rate; //rate per second
-    uint256 duration;
-    uint256 maxPotentialDebt;
-  }
+  //  struct LienDetails {
+  //    uint256 maxAmount;
+  //    uint256 rate; //rate per second
+  //    uint256 duration;
+  //    uint256 maxPotentialDebt;
+  //  }
 
   enum LienRequestType {
     UNIQUE,
@@ -55,6 +55,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   struct NewLienRequest {
     StrategyDetails strategy;
+    ILienToken.LienEvent[] stack;
     uint8 nlrType;
     bytes nlrDetails;
     MerkleData merkle;
@@ -79,7 +80,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function validateCommitment(Commitment calldata)
     external
-    returns (bool, IAstariaRouter.LienDetails memory);
+    returns (bool, ILienToken.Details memory);
 
   function newPublicVault(
     uint256,
@@ -96,12 +97,12 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function commitToLiens(Commitment[] calldata)
     external
-    returns (uint256[] memory);
+    returns (uint256[] memory, ILienToken.LienEvent[] memory);
 
   function requestLienPosition(
-    IAstariaRouter.LienDetails memory,
+    ILienToken.Details memory,
     IAstariaRouter.Commitment calldata
-  ) external returns (uint256);
+  ) external returns (uint256, ILienToken.LienEvent[] memory);
 
   function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -130,18 +131,21 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function lendToVault(IVault vault, uint256 amount) external;
 
-  function liquidate(uint256 collateralId, uint256 position)
-    external
-    returns (uint256 reserve);
+  function liquidate(
+    uint256 collateralId,
+    uint256 position,
+    ILienToken.LienEvent[] memory stack
+  ) external returns (uint256 reserve);
 
-  function canLiquidate(uint256 collateralId, uint256 position)
-    external
-    view
-    returns (bool);
+  function canLiquidate(
+    uint256 collateralId,
+    uint256 position,
+    ILienToken.LienEvent[] memory stack
+  ) external view returns (bool);
 
   function isValidVault(address) external view returns (bool);
 
-  function isValidRefinance(ILienToken.Lien memory, LienDetails memory)
+  function isValidRefinance(ILienToken.Lien memory, ILienToken.Details memory)
     external
     view
     returns (bool);

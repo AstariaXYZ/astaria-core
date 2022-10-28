@@ -66,24 +66,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   bytes32 constant PUBLIC_VAULT_SLOT =
     keccak256("xyz.astaria.core.PublicVault.storage.location");
 
-  //epoch data
-  struct EpochData {
-    uint256 liensOpenForEpoch;
-    address withdrawProxy;
-    address liquidationAccountant;
-  }
-
-  struct VaultData {
-    uint256 last;
-    uint256 yIntercept;
-    uint256 slope;
-    uint256 withdrawReserve;
-    uint256 liquidationWithdrawRatio;
-    uint256 strategistUnclaimedShares;
-    uint64 currentEpoch;
-    mapping(uint256 => EpochData) epochData;
-  }
-
   //epoch => epochData
   //  mapping(uint256 => EpochData) public epochData;
 
@@ -475,11 +457,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param lienId The ID of the lien.
    * @param amount The amount of debt
    */
-  function _afterCommitToLien(uint256 lienId, uint256 amount)
-    internal
-    virtual
-    override
-  {
+  function _afterCommitToLien(
+    ILienToken.LienEvent memory lien,
+    uint256 lienId,
+    uint256 amount
+  ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
 
     uint256 delta_t = block.timestamp - s.last;
@@ -488,10 +470,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     // increment slope for the new lien
     unchecked {
-      s.slope += LIEN_TOKEN().calculateSlope(lienId);
+      s.slope += LIEN_TOKEN().calculateSlope(lien);
     }
 
-    ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
+    ILienToken.LienDataPoint memory point = LIEN_TOKEN().getPoint(lien);
 
     uint256 epoch = Math.ceilDiv(lien.end - START(), EPOCH_LENGTH()) - 1;
 
@@ -548,19 +530,19 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   /**
    * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
    * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
-   * @param lienId The ID of the lien.
-   * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
+   * @param params The params to adjust things
    */
-  function beforePayment(uint256 lienId, uint256 amount) public {
+  function beforePayment(BeforePaymentParams calldata params) public {
     require(msg.sender == address(LIEN_TOKEN()));
     VaultData storage s = _loadStorageSlot();
+    // validateLien normally we would call here but we are calling from protected lien token which sends the lien event and id
+    _handleStrategistInterestReward(s, params.interestOwed, params.amount);
 
-    _handleStrategistInterestReward(lienId, amount);
-    uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
-    if (lienSlope > s.slope) {
+    //    uint256 lienSlope = LIEN_TOKEN().calculateSlope(lien);
+    if (params.lienSlope > s.slope) {
       s.slope = 0;
     } else {
-      s.slope -= lienSlope;
+      s.slope -= params.lienSlope;
     }
     s.last = block.timestamp;
   }
@@ -603,12 +585,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   /**
    * @notice Hook to recalculate the slope of a lien after a payment has been made.
-   * @param lienId The ID of the lien.
+   * @param computedSlope The ID of the lien.
    */
-  function afterPayment(uint256 lienId) public {
+  function afterPayment(uint256 computedSlope) public {
     VaultData storage s = _loadStorageSlot();
     require(msg.sender == address(LIEN_TOKEN()));
-    s.slope += LIEN_TOKEN().calculateSlope(lienId);
+    s.slope += computedSlope;
+  }
+
+  function getLienMetaData(ILienToken.LienEvent calldata lien)
+    public
+    view
+    returns (bytes memory)
+  {
+    return abi.encode(getEpochEnd(lien.end));
   }
 
   /**
@@ -628,24 +618,22 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   /**
    * @dev Handles the dilutive fees (on lien repayments) for strategists in VaultTokens.
-   * @param lienId The ID of the lien that received a payment.
+   * @param interestOwing the owingInterest for the lien
    * @param amount The amount that was paid.
    */
-  function _handleStrategistInterestReward(uint256 lienId, uint256 amount)
-    internal
-    virtual
-    override
-  {
+  function _handleStrategistInterestReward(
+    VaultData storage s,
+    uint256 interestOwing,
+    uint256 amount
+  ) internal virtual override {
     if (VAULT_FEE() != uint256(0)) {
-      VaultData storage s = _loadStorageSlot();
-      uint256 interestOwing = LIEN_TOKEN().getInterest(lienId);
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //VAULT_FEE is a basis point
       s.strategistUnclaimedShares += convertToShares(fee);
     }
   }
 
-  function updateVaultAfterLiquidation(uint256 lienId)
+  function updateVaultAfterLiquidation(ILienToken.LienEvent calldata lien)
     public
     returns (address accountantIfAny)
   {
@@ -655,11 +643,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     );
     VaultData storage s = _loadStorageSlot();
     accountantIfAny = address(0);
-    ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
+    ILienToken.LienDataPoint memory point = LIEN_TOKEN().getPoint(lien);
 
     s.yIntercept += s.slope.mulDivDown(block.timestamp - s.last, 1);
-    uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
-    s.slope -= lienSlope;
+    s.slope -= LIEN_TOKEN().calculateSlope(lien);
     s.last = block.timestamp;
 
     if (s.currentEpoch != 0) {
@@ -677,7 +664,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       LiquidationAccountant(accountantIfAny).handleNewLiquidation(
-        lien.amount,
+        point.amount,
         COLLATERAL_TOKEN().auctionWindow() + 1 days
       );
     }
