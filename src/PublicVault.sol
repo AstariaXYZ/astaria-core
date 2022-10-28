@@ -233,7 +233,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     whenNotPaused
     returns (uint256)
   {
-    // yIntercept+=amount;
     return super.deposit(amount, receiver);
   }
 
@@ -415,11 +414,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     virtual
     override
   {
-    uint256 delta_t = block.timestamp - last;
-
-    yIntercept += delta_t.mulDivDown(slope, 1);
-
-    // increment slope for the new lien
+    accrue();// increment slope for the new lien
     unchecked {
       slope += LIEN_TOKEN().calculateSlope(lienId);
     }
@@ -433,6 +428,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       last = block.timestamp;
     }
     emit LienOpen(lienId, epoch);
+  }
+
+  function accrue() public returns (uint256) {
+    yIntercept += (block.timestamp - last).mulDivDown(slope, 1);
+    last = block.timestamp;
+    return yIntercept;
   }
 
   event LienOpen(uint256 lienId, uint256 epoch);
@@ -452,11 +453,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
 
   function totalAssets() public view virtual override returns (uint256) {
-    // if (last == 0 || yIntercept == 0) {
-    //   return ERC20(underlying()).balanceOf(address(this));
-    // }
-
-    // uint256 delta_t = (last == 0) ? last : block.timestamp - last;
     uint256 delta_t = block.timestamp - last;
     return slope.mulDivDown(delta_t, 1) + yIntercept;
   }
@@ -489,10 +485,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   ) public {
     require(msg.sender == address(LIEN_TOKEN()));
 
+    accrue();
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
     slope -= lienSlope;
-    last = block.timestamp;
-
     _handleStrategistInterestReward(lienAmount, interestOwing);
   }
 
