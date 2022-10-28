@@ -369,24 +369,24 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
   /**
    * @notice Make a payment for the debt against a CollateralToken.
    * @param collateralId The ID of the underlying CollateralToken.
-   * @param paymentAmount The amount to pay against the debt.
+   * @param amount The amount to pay against the debt.
    */
-  function makePayment(uint256 collateralId, uint256 paymentAmount) public {
-    _makePayment(collateralId, paymentAmount);
+  function makePayment(uint256 collateralId, uint256 amount) public {
+    _makePayment(collateralId, amount);
   }
 
   /**
    * @notice Make a payment for the debt against a CollateralToken for a specific lien.
    * @param collateralId The ID of the underlying CollateralToken.
-   * @param paymentAmount The amount to pay against the debt.
+   * @param amount The amount to pay against the debt.
    * @param position The lien position to make a payment to.
    */
   function makePayment(
     uint256 collateralId,
-    uint256 paymentAmount,
+    uint256 amount,
     uint8 position
   ) external {
-    _payment(collateralId, position, paymentAmount, address(msg.sender));
+    _payment(collateralId, position, amount, address(msg.sender));
   }
 
   /**
@@ -398,25 +398,25 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     internal
   {
     uint256[] memory openLiens = liens[collateralId];
-    uint256 paymentAmount = totalCapitalAvailable;
+    uint256 amount = totalCapitalAvailable;
     for (uint256 i = 0; i < openLiens.length; ++i) {
       uint256 capitalSpent = _payment(
         collateralId,
         uint8(i),
-        paymentAmount,
+        amount,
         address(msg.sender)
       );
-      paymentAmount -= capitalSpent;
+      amount -= capitalSpent;
     }
   }
 
   function makePayment(
     uint256 collateralId,
-    uint256 paymentAmount,
+    uint256 amount,
     uint8 position,
     address payer
   ) public requiresAuth {
-    _payment(collateralId, position, paymentAmount, payer);
+    _payment(collateralId, position, amount, payer);
   }
 
   /**
@@ -525,6 +525,14 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     return _getOwed(lien, timestamp);
   }
 
+  function getOwed(uint256 lienId, uint256 timestamp)
+  external
+  view
+  returns (uint256)
+  {
+    return _getOwed(lienData[lienId], timestamp);
+  }
+
   /**
    * @dev Computes the debt owed to a Lien.
    * @param lien The specified Lien.
@@ -579,59 +587,50 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
    * @dev Make a payment from a payer to a specific lien against a CollateralToken.
    * @param collateralId The ID of the underlying CollateralToken.
    * @param position The position of the lien to make a payment to.
-   * @param paymentAmount The amount to pay against the debt.
+   * @param amount The amount to pay against the debt.
    * @param payer The address to make the payment.
-   * @return amountSpent The amount actually spent for the payment.
+   * @return transferAmount The amount actually spent for the payment.
    */
   function _payment(
     uint256 collateralId,
     uint8 position,
-    uint256 paymentAmount,
+    uint256 amount,
     address payer
-  ) internal returns (uint256 amountSpent) {
-    if (paymentAmount == uint256(0)) {
+  ) internal returns (uint256 transferAmount) {
+    if (amount == uint256(0)) {
       return uint256(0);
     }
 
     uint256 lienId = liens[collateralId][position];
     Lien storage lien = lienData[lienId];
-    bool isAuctionHouse = address(msg.sender) == address(AUCTION_HOUSE);
+    bool isAuctionHouse = _isAuctionHouse(msg.sender);
 
+    // Blocking off payments for a lien that has exceeded the lien.end to prevent repayment unless the msg.sender() is the AuctionHouse
     if (block.timestamp > lien.end && !isAuctionHouse) {
       revert InvalidLoanState();
     }
 
     address lienOwner = ownerOf(lienId);
-    bool isPublicVault = IPublicVault(lienOwner).supportsInterface(
-      type(IPublicVault).interfaceId
-    );
-
+    bool isPublicVault = _isPublicVault(lienOwner);
     address payee = getPayee(lienId);
-
     uint256 owed = _getOwed(lien);
 
-    if (paymentAmount > owed) {
-      paymentAmount = owed;
-    }
-
+    if(amount > owed) amount = owed;
     if (isPublicVault && !isAuctionHouse) {
-      IPublicVault(lienOwner).beforePayment(lienId, lien.last, lien.amount, owed - paymentAmount);
+      IPublicVault(lienOwner).beforePayment(lienId, lien.last, lien.amount, owed - amount);
     }
-
-    
     lien.amount = owed;
+    lien.last = block.timestamp.safeCastTo64();
+    if (lien.amount > amount) {
+      lien.amount -= amount;
 
-    if (lien.amount > paymentAmount) {
-      lien.amount -= paymentAmount;
-      amountSpent = paymentAmount;
-      lien.last = block.timestamp.safeCastTo64();
       // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
-
       if (isPublicVault && !isAuctionHouse) {
         IPublicVault(lienOwner).afterPayment(lienId);
       }
-    } else {
-      amountSpent = lien.amount;
+    }
+    else {
+      amount = lien.amount;
       if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
         // since the openLiens count is only positive when there are liens that haven't been paid off
         // that should be liquidated, this lien should not be counted anymore
@@ -646,9 +645,8 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       _burn(lienId);
     }
 
-    TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, amountSpent);
-
-    emit Payment(lienId, amountSpent);
+    TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, amount);
+    emit Payment(lienId, transferAmount);
   }
 
   function _deleteLienPosition(uint256 collateralId, uint256 position) public {
@@ -664,6 +662,16 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       stack[i] = stack[i + 1];
     }
     stack.pop();
+  }
+
+  function _isAuctionHouse(address account) internal view returns (bool) {
+    return address(account) == address(AUCTION_HOUSE);
+  }
+
+  function _isPublicVault(address account) internal view returns (bool) {
+    return IPublicVault(account).supportsInterface(
+      type(IPublicVault).interfaceId
+    );
   }
 
   /**
