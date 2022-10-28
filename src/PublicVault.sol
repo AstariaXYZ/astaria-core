@@ -473,7 +473,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     strategistUnclaimedShares = 0;
     _mint(owner(), unclaimed);
   }
-
   /**
    * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
    * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
@@ -491,13 +490,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     require(msg.sender == address(LIEN_TOKEN()));
 
     uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
-    if (lienSlope > slope) {
-      // TODO kill
-      slope = 0;
-    } else {
-      slope -= lienSlope;
-    }
-    yIntercept += lienSlope.mulDivDown(block.timestamp - lienLast, 1);
+    slope -= lienSlope;
     last = block.timestamp;
 
     _handleStrategistInterestReward(lienAmount, interestOwing);

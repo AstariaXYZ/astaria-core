@@ -605,6 +605,21 @@ contract TestHelpers is Test {
     vm.stopPrank();
   }
 
+  function _pay(
+    uint256 collateralId,
+    uint256 amount,
+    address payer,
+    uint256 position
+  ) internal {
+    vm.deal(payer, amount);
+    vm.startPrank(payer);
+    WETH9.deposit{value: amount}();
+    WETH9.approve(address(TRANSFER_PROXY), amount);
+    WETH9.approve(address(LIEN_TOKEN), amount);
+    LIEN_TOKEN.makePayment(collateralId, amount);
+    vm.stopPrank();
+  }
+
   function _bid(
     address bidder,
     uint256 tokenId,
