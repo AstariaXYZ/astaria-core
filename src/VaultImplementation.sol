@@ -216,7 +216,6 @@ abstract contract VaultImplementation is
    * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    * @param receiver The address of the prospective borrower.
    */
-
   function _validateCommitment(
     IAstariaRouter.Commitment calldata params,
     address receiver
@@ -263,14 +262,6 @@ abstract contract VaultImplementation is
     if (recovered != owner() && recovered != delegate) {
       revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
     }
-    //    require(
-    //      recovered == params.lienRequest.strategy.strategist,
-    //      "strategist must match signature"
-    //    );
-    //    require(
-    //      ,
-    //      "invalid strategist"
-    //    );
 
     (bool valid, ILienToken.Details memory ld) = IAstariaRouter(ROUTER())
       .validateCommitment(params);
@@ -278,11 +269,6 @@ abstract contract VaultImplementation is
     if (!valid) {
       revert InvalidRequest(InvalidRequestReason.INVALID_COMMITMENT);
     }
-
-    //    require(
-    //      valid,
-    //      "Vault._validateCommitment(): Verification of provided merkle branch failed for the vault and parameters"
-    //    );
 
     if (ld.rate == uint256(0)) {
       revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
@@ -292,29 +278,9 @@ abstract contract VaultImplementation is
       revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
     }
 
-    //    require(
-    //      ld.rate > IAstariaRouter(ROUTER()).minInterestRate(),
-    //      "Vault._validateCommitment(): Cannot have a 0 interest rate"
-    //    );
-
-    //    require(
-    //      ld.rate < IAstariaRouter(ROUTER()).maxInterestRate(),
-    //      "Vault._validateCommitment(): Rate is above maximum"
-    //    );
-
     if (ld.maxAmount < params.lienRequest.amount) {
       revert InvalidRequest(InvalidRequestReason.INVALID_AMOUNT);
     }
-
-    //    require(
-    //      ld.maxAmount >= params.lienRequest.amount,
-    //      "Vault._validateCommitment(): Attempting to borrow more than maxAmount available for this asset"
-    //    );
-
-    //    require(
-    //      params.lienRequest.amount <= ERC20(underlying()).balanceOf(address(this)),
-    //      "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
-    //    );
 
     if (
       IAstariaRouter(ROUTER()).LIEN_TOKEN().getMaxPotentialDebtForCollateral(
@@ -324,11 +290,6 @@ abstract contract VaultImplementation is
     ) {
       revert InvalidRequest(InvalidRequestReason.INVALID_POTENTIAL_DEBT);
     }
-
-    //    require(
-    //      maxPotentialDebt <= ld.maxPotentialDebt,
-    //      "Vault._validateCommitment(): Attempting to initiate a loan with debt potentially higher than maxPotentialDebt"
-    //    );
 
     return ld;
   }

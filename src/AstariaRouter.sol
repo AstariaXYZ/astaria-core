@@ -15,7 +15,6 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
@@ -77,7 +76,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256 strategistFeeNumerator;
     uint256 strategistFeeDenominator;
     uint256 buyoutFeeNumerator;
-    uint256 buyoutFeeDenominator;
+    uint64 buyoutFeeDenominator;
     uint32 minDurationIncrease;
     uint32 buyoutInterestWindow;
     //A strategist can have many deployed vaults
@@ -168,7 +167,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     s.minDurationIncrease = 5 days;
     s.buyoutInterestWindow = 60 days;
 
-    //
+    //todo move into state
     guardian = address(msg.sender);
   }
 
@@ -295,7 +294,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         (uint256, uint256)
       );
       s.buyoutFeeNumerator = numerator;
-      s.buyoutFeeDenominator = denominator;
+      s.buyoutFeeDenominator = uint64(denominator);
     } else if (what == "MIN_INTEREST_BPS") {
       uint256 value = abi.decode(data, (uint256));
       s.minInterestBPS = uint256(value);
@@ -499,11 +498,20 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     onlyVaults
     returns (uint256, ILienToken.LienEvent[] memory)
   {
+    RouterStorage storage s = _loadRouterSlot();
+    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
+    if (s.COLLATERAL_TOKEN.AUCTION_HOUSE().auctionExists(collateralId)) {
+      revert InvalidCommitmentState(CommitmentState.COLLATERAL_AUCTION);
+    }
+
+    (address tokenContract, ) = s.COLLATERAL_TOKEN.getUnderlying(collateralId);
+    if (tokenContract == address(0)) {
+      revert InvalidCommitmentState(CommitmentState.COLLATERAL_NO_DEPOSIT);
+    }
     return
-      _loadRouterSlot().LIEN_TOKEN.createLien(
+      s.LIEN_TOKEN.createLien(
         ILienToken.LienActionEncumber({
-          tokenContract: params.tokenContract,
-          tokenId: params.tokenId,
+          collateralId: collateralId,
           terms: terms,
           strategyRoot: params.lienRequest.merkle.root,
           amount: params.lienRequest.amount,
@@ -588,7 +596,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     require(liens.length == stack.length, "liquidate: invalid stack");
     for (uint256 i = 0; i < liens.length; ++i) {
       uint256 currentLien = liens[i];
-      require(currentLien == LIEN_TOKEN().validateLien(stack[i]));
+      require(currentLien == s.LIEN_TOKEN.validateLien(stack[i]));
 
       address owner = s.LIEN_TOKEN.getPayee(currentLien);
       if (
@@ -604,7 +612,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       }
     }
 
-    (uint256 reserve, ) = s.LIEN_TOKEN.stopLiens(collateralId, stack);
+    uint256 reserve = s.LIEN_TOKEN.stopLiens(collateralId, stack);
     s.COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), reserve);
 
     emit Liquidation(collateralId, position, reserve);

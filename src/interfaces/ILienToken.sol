@@ -79,8 +79,9 @@ interface ILienToken is IERC721 {
   //params.strategyRoot
 
   struct LienActionEncumber {
-    address tokenContract;
-    uint256 tokenId;
+    //    address tokenContract;
+    //    uint256 tokenId;
+    uint256 collateralId;
     ILienToken.Details terms;
     bytes32 strategyRoot;
     uint256 amount;
@@ -112,7 +113,7 @@ interface ILienToken is IERC721 {
   function stopLiens(
     uint256 collateralId,
     ILienToken.LienEvent[] calldata stack
-  ) external returns (uint256 reserve, uint256[] memory lienIds);
+  ) external returns (uint256 reserve);
 
   //  function getBuyout(uint256 collateralId, uint256 index)
   //    external
@@ -189,7 +190,7 @@ interface ILienToken is IERC721 {
   function getMaxPotentialDebtForCollateral(
     uint256,
     ILienToken.LienEvent[] calldata
-  ) external returns (uint256);
+  ) external view returns (uint256);
 
   //  function getTotalDebtForCollateralToken(
   //    uint256 collateralId,

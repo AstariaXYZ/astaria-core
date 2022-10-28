@@ -14,14 +14,6 @@ import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {Clone} from "clones-with-immutable-args/Clone.sol";
 
 contract BeaconProxy is Clone {
-  //  function name() public view virtual override returns (string memory) {
-  //    return string(abi.encodePacked("AST-Vault"));
-  //  }
-  //
-  //  function symbol() public view virtual override returns (string memory) {
-  //    return string(abi.encodePacked("AST-V-"));
-  //  }
-
   function _getBeacon() internal pure returns (IBeacon) {
     return IBeacon(_getArgAddress(0));
   }

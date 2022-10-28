@@ -44,15 +44,6 @@ contract LienToken is ERC721, ILienToken, Auth {
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
-  //  IAuctionHouse public AUCTION_HOUSE;
-  //  IAstariaRouter public ASTARIA_ROUTER;
-  //  ICollateralToken public COLLATERAL_TOKEN;
-
-  //  uint256 constant MAX_LIENS = uint256(5);
-
-  //  mapping(uint256 => Lien) public lienData;
-  //  mapping(uint256 => uint256[]) public liens;
-
   bytes32 constant LIEN_SLOT = keccak256("xyz.astaria.lien.storage.location");
 
   /**
@@ -225,12 +216,12 @@ contract LienToken is ERC721, ILienToken, Auth {
     external
     requiresAuth
     validateStack(collateralId, stack)
-    returns (uint256 reserve, uint256[] memory lienIds)
+    returns (uint256 reserve)
   {
     LienStorage storage s = _loadLienStorageSlot();
 
     reserve = 0;
-    lienIds = s.liens[collateralId];
+    uint256[] memory lienIds = s.liens[collateralId];
     for (uint256 i = 0; i < lienIds.length; ++i) {
       LienDataPoint storage point = s.lienData[lienIds[i]];
 
@@ -278,36 +269,36 @@ contract LienToken is ERC721, ILienToken, Auth {
   function createLien(ILienToken.LienActionEncumber calldata params)
     external
     requiresAuth
-    validateStack(params.tokenContract.computeId(params.tokenId), params.stack)
+    validateStack(params.collateralId, params.stack)
     returns (uint256 lienId, LienEvent[] memory stack)
   {
     // require that the auction is not under way
 
-    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
+    //    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
 
     LienStorage storage s = _loadLienStorageSlot();
 
-    if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
-      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
-    }
-
-    (address tokenContract, ) = s.COLLATERAL_TOKEN.getUnderlying(collateralId);
-    if (tokenContract == address(0)) {
-      revert InvalidState(InvalidStates.COLLATERAL_NOT_DEPOSITED);
-    }
+    //    if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
+    //      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    //    }
+    //
+    //    (address tokenContract, ) = s.COLLATERAL_TOKEN.getUnderlying(collateralId);
+    //    if (tokenContract == address(0)) {
+    //      revert InvalidState(InvalidStates.COLLATERAL_NOT_DEPOSITED);
+    //    }
 
     uint256 maxPotentialDebt = getMaxPotentialDebtForCollateral(
-      collateralId,
+      params.collateralId,
       params.stack
     );
 
     if (maxPotentialDebt > params.terms.maxPotentialDebt) {
       revert InvalidState(InvalidStates.DEBT_LIMIT);
     }
-    uint8 newPosition = uint8(s.liens[collateralId].length);
+    uint8 newPosition = uint8(s.liens[params.collateralId].length);
 
     ILienToken.LienEvent memory newLien = LienEvent({
-      collateralId: collateralId,
+      collateralId: params.collateralId,
       vault: params.vault,
       token: s.WETH,
       position: newPosition,
@@ -320,7 +311,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     //0 - 4 are valid
 
-    if (s.liens[collateralId].length == s.maxLiens) {
+    if (s.liens[params.collateralId].length == s.maxLiens) {
       revert InvalidState(InvalidStates.MAX_LIENS);
     }
 
@@ -334,7 +325,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       active: true
     });
 
-    s.liens[collateralId].push(lienId);
+    s.liens[params.collateralId].push(lienId);
 
     emit LienStackUpdated(lienId, stack);
   }
@@ -684,18 +675,12 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   modifier validateStack(uint256 collateralId, LienEvent[] calldata stack) {
     LienStorage storage s = _loadLienStorageSlot();
-    emit LogStuff(stack.length);
-    emit LogStuff(s.liens[collateralId].length);
-    require(s.liens[collateralId].length == stack.length, "stack length");
+    require(s.liens[collateralId].length == stack.length);
     for (uint256 i = 0; i < stack.length; ++i) {
-      require(stack[i].collateralId == collateralId, "collateral mismatch");
-      require(stack[i].position == i, "position mismatch");
-      validateLien(stack[i]);
+      require(s.liens[collateralId][i] == validateLien(stack[i]));
     }
     _;
   }
-
-  event LogStuff(uint256);
 
   /**
    * @notice Computes the total amount owed on all liens against a CollateralToken.
@@ -705,22 +690,14 @@ contract LienToken is ERC721, ILienToken, Auth {
   function getMaxPotentialDebtForCollateral(
     uint256 collateralId,
     LienEvent[] calldata stack
-  )
-    public
-    validateStack(collateralId, stack)
-    returns (uint256 maxPotentialDebt)
-  {
+  ) public view returns (uint256 maxPotentialDebt) {
     LienStorage storage s = _loadLienStorageSlot();
 
     maxPotentialDebt = 0;
     uint256[] memory openLiens = s.liens[collateralId];
     for (uint256 i = 0; i < openLiens.length; ++i) {
-      emit LogStuff(openLiens[i]);
       LienDataPoint memory point = s.lienData[openLiens[i]];
-      emit LogStuff(point.amount);
-      emit LogStuff(point.last);
       maxPotentialDebt += _getOwed(point, stack[i], stack[i].end);
-      emit LogStuff(maxPotentialDebt);
     }
   }
 

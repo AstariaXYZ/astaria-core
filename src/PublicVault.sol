@@ -639,7 +639,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint64 lienEpoch = getLienEpoch(lien.end);
     _decreaseEpochLienCount(s, lienEpoch);
 
-    if (timeToEpochEnd() <= COLLATERAL_TOKEN().auctionWindow()) {
+    uint256 window = COLLATERAL_TOKEN().auctionWindow();
+    if (timeToEpochEnd() <= window) {
       accountantIfAny = s.epochData[lienEpoch].liquidationAccountant;
 
       // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
@@ -649,7 +650,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
       LiquidationAccountant(accountantIfAny).handleNewLiquidation(
         point.amount,
-        COLLATERAL_TOKEN().auctionWindow() + 1 days
+        window + 1 days
       );
     }
   }
