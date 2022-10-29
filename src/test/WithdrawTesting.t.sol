@@ -659,14 +659,24 @@ contract WithdrawTest is TestHelpers {
 
     address accountant1 = PublicVault(publicVault).getLiquidationAccountant(0);
 
-    vm.expectRevert("must have called processEpoch() before claim");
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        LiquidationAccountant.InvalidState.selector,
+        LiquidationAccountant.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
+      )
+    );
     LiquidationAccountant(accountant1).claim();
 
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
     ASTARIA_ROUTER.liquidate(collateralId2, 0, stacks[1]);
     _bid(address(3), collateralId2, 20 ether);
 
-    vm.expectRevert("must have called processEpoch() before claim");
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        LiquidationAccountant.InvalidState.selector,
+        LiquidationAccountant.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
+      )
+    );
     LiquidationAccountant(accountant1).claim();
 
     PublicVault(publicVault).processEpoch();

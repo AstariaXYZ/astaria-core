@@ -351,7 +351,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     address from_,
     uint256 tokenId_,
     bytes calldata data_
-  ) external override returns (bytes4) {
+  ) external override whenNotPaused returns (bytes4) {
     uint256 collateralId = msg.sender.computeId(tokenId_);
 
     CollateralStorage storage s = _loadCollateralSlot();
@@ -398,7 +398,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     address liquidator,
     uint256 reserve,
     uint256[] calldata stack
-  ) external whenNotPaused requiresAuth {
+  ) external requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
 
     //    if (s.AUCTION_HOUSE.auctionExists(collateralId)) {

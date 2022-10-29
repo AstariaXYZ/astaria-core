@@ -80,7 +80,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function validateCommitment(Commitment calldata)
     external
-    returns (bool, ILienToken.Details memory);
+    returns (ILienToken.Details memory);
 
   function newPublicVault(
     uint256,
@@ -145,10 +145,10 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function isValidVault(address) external view returns (bool);
 
-  function isValidRefinance(ILienToken.Lien memory, ILienToken.Details memory)
-    external
-    view
-    returns (bool);
+  function isValidRefinance(
+    ILienToken.LienEvent memory newLien,
+    ILienToken.LienEvent[] memory stack
+  ) external view returns (bool);
 
   event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
   event NewVault(address appraiser, address vault);

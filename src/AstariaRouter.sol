@@ -166,7 +166,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     s.buyoutFeeDenominator = 1000;
     s.minDurationIncrease = 5 days;
     s.buyoutInterestWindow = 60 days;
-
     //todo move into state
     guardian = address(msg.sender);
   }
@@ -366,7 +365,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   function validateCommitment(IAstariaRouter.Commitment calldata commitment)
     public
-    returns (bool valid, ILienToken.Details memory details)
+    returns (ILienToken.Details memory details)
   {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
@@ -389,14 +388,15 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         commitment.tokenId
       );
 
-    return (
-      MerkleProofLib.verify(
+    if (
+      !MerkleProofLib.verify(
         commitment.lienRequest.merkle.proof,
         commitment.lienRequest.merkle.root,
         leaf
-      ),
-      details
-    );
+      )
+    ) {
+      revert InvalidCommitmentState(CommitmentState.INVALID);
+    }
   }
 
   /**
@@ -677,20 +677,24 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   /**
    * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
-   * @param lien The Lien to be refinanced.
+   * @param newLien The new Lien to replace the existing one.
    * @param newLien The new Lien to replace the existing one.
    * @return A boolean representing whether the potential refinance is valid.
    */
   function isValidRefinance(
-    ILienToken.Lien memory lien,
-    ILienToken.Details memory newLien
+    ILienToken.LienEvent memory newLien,
+    ILienToken.LienEvent[] memory stack
   ) external view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
-    uint256 minNewRate = uint256(lien.rate) - s.minInterestBPS;
+    uint256 minNewRate = uint256(stack[newLien.position].details.rate) -
+      s.minInterestBPS;
 
     if (
-      (newLien.rate < minNewRate) ||
-      (block.timestamp + newLien.duration - lien.end < s.minDurationIncrease)
+      (newLien.details.rate < minNewRate) ||
+      (block.timestamp +
+        newLien.details.duration -
+        stack[newLien.position].end <
+        s.minDurationIncrease)
     ) {
       return false;
     }

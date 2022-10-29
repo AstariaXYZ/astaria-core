@@ -40,47 +40,86 @@ contract LiquidationAccountant is LiquidationAccountantBase {
     uint256 publicVaultAmount
   );
 
-  uint256 withdrawRatio;
+  bytes32 constant LIQUIDATION_ACCOUNTANT_SLOT =
+    keccak256("xyz.astaria.liquidationAccountant.storage.location");
 
-  uint256 public expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
-  uint256 public finalAuctionEnd; // when this is deleted, we know the final auction is over
+  struct LAStorage {
+    uint256 withdrawRatio;
+    uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
+    uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
+    bool hasClaimed;
+  }
 
-  bool public hasClaimed;
+  function _loadSlot() internal view returns (LAStorage storage s) {
+    bytes32 slot = LIQUIDATION_ACCOUNTANT_SLOT;
+    assembly {
+      s.slot := slot
+    }
+  }
+
+  function getFinalAuctionEnd() public view returns (uint256) {
+    LAStorage storage s = _loadSlot();
+    return s.finalAuctionEnd;
+  }
+
+  function getWithdrawRatio() public view returns (uint256) {
+    LAStorage storage s = _loadSlot();
+    return s.withdrawRatio;
+  }
+
+  function getExpected() public view returns (uint256) {
+    LAStorage storage s = _loadSlot();
+    return s.expected;
+  }
+
+  function getHasClaimed() public view returns (bool) {
+    LAStorage storage s = _loadSlot();
+    return s.hasClaimed;
+  }
+
+  enum InvalidStates {
+    PROCESS_EPOCH_NOT_COMPLETE,
+    FINAL_AUCTION_NOT_OVER
+  }
+
+  error InvalidState(InvalidStates);
 
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
    */
   function claim() public {
-    require(
-      PublicVault(VAULT()).getCurrentEpoch() >= CLAIMABLE_EPOCH(),
-      "must have called processEpoch() before claim"
-    );
-    require(
-      block.timestamp > finalAuctionEnd || finalAuctionEnd == uint256(0),
-      "final auction has not ended"
-    );
+    LAStorage storage s = _loadSlot();
 
-    require(!hasClaimed);
+    if (PublicVault(VAULT()).getCurrentEpoch() < CLAIMABLE_EPOCH()) {
+      revert InvalidState(InvalidStates.PROCESS_EPOCH_NOT_COMPLETE);
+    }
+    if (
+      block.timestamp < s.finalAuctionEnd || s.finalAuctionEnd == uint256(0)
+    ) {
+      revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);
+    }
+
+    require(!s.hasClaimed);
 
     uint256 transferAmount;
 
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
 
-    if (balance < expected) {
+    if (balance < s.expected) {
       PublicVault(VAULT()).decreaseYIntercept(
-        (expected - balance).mulDivDown(1e18 - withdrawRatio, 1e18)
+        (s.expected - balance).mulWadDown(1e18 - s.withdrawRatio)
       );
     }
 
     // would happen if there was no WithdrawProxy for current epoch
-    hasClaimed = true;
+    s.hasClaimed = true;
 
-    if (withdrawRatio == uint256(0)) {
+    if (s.withdrawRatio == uint256(0)) {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     } else {
       //should be wad multiplication
       // declining
-      transferAmount = withdrawRatio.mulDivDown(balance, 1e18);
+      transferAmount = s.withdrawRatio.mulDivDown(balance, 1e18);
 
       if (transferAmount > uint256(0)) {
         ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), transferAmount);
@@ -120,8 +159,7 @@ contract LiquidationAccountant is LiquidationAccountantBase {
    */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
-
-    withdrawRatio = liquidationWithdrawRatio;
+    _loadSlot().withdrawRatio = liquidationWithdrawRatio;
   }
 
   /**
@@ -134,7 +172,8 @@ contract LiquidationAccountant is LiquidationAccountantBase {
     uint256 finalAuctionTimestamp
   ) public {
     require(msg.sender == VAULT());
-    expected += newLienExpectedValue;
-    finalAuctionEnd = finalAuctionTimestamp;
+    LAStorage storage s = _loadSlot();
+    s.expected += newLienExpectedValue;
+    s.finalAuctionEnd = finalAuctionTimestamp;
   }
 }

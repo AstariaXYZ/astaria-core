@@ -263,12 +263,9 @@ abstract contract VaultImplementation is
       revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
     }
 
-    (bool valid, ILienToken.Details memory ld) = IAstariaRouter(ROUTER())
-      .validateCommitment(params);
-
-    if (!valid) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_COMMITMENT);
-    }
+    ILienToken.Details memory ld = IAstariaRouter(ROUTER()).validateCommitment(
+      params
+    );
 
     if (ld.rate == uint256(0)) {
       revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
@@ -378,7 +375,7 @@ abstract contract VaultImplementation is
   //      lienToken.setApprovalForAll(recipient(), true);
   //    }
   //    lienToken.buyoutLien(
-  //      ILienToken.LienActionBuyout(incomingTerms, position, recipient())
+  //      ILienToken.LienActionBuyout(incomingTerms, position, address(this)
   //    );
   //  }
 

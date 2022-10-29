@@ -242,7 +242,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     if (currentLA != address(0)) {
       if (
-        LiquidationAccountant(currentLA).finalAuctionEnd() > block.timestamp
+        LiquidationAccountant(currentLA).getFinalAuctionEnd() > block.timestamp
       ) {
         revert InvalidState(
           InvalidStates.LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN
@@ -257,7 +257,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // split funds from previous LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
     if (s.currentEpoch != 0) {
       address prevLa = s.epochData[s.currentEpoch - 1].liquidationAccountant;
-      if (prevLa != address(0) && !LiquidationAccountant(prevLa).hasClaimed()) {
+      if (
+        prevLa != address(0) && !LiquidationAccountant(prevLa).getHasClaimed()
+      ) {
         LiquidationAccountant(prevLa).claim();
       }
     }
@@ -289,7 +291,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
       uint256 expected = 0;
       if (currentLA != address(0)) {
-        expected = LiquidationAccountant(currentLA).expected();
+        expected = LiquidationAccountant(currentLA).getExpected();
       }
 
       if (totalAssets() > expected) {
