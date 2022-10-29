@@ -49,7 +49,7 @@ interface ILienToken is IERC721 {
     ICollateralToken COLLATERAL_TOKEN;
     uint256 maxLiens;
     mapping(uint256 => LienDataPoint) lienData;
-    mapping(uint256 => uint256[]) liens;
+    mapping(uint256 => uint8) lienCount;
     mapping(uint256 => address) payee;
   }
 
@@ -69,18 +69,7 @@ interface ILienToken is IERC721 {
     Details details;
   }
 
-  //bytes32(collateralId),
-  //params.vault,
-  //WETH,
-  //params.terms.maxAmount,
-  //params.terms.rate,
-  //params.terms.duration,
-  //params.terms.maxPotentialDebt,
-  //params.strategyRoot
-
   struct LienActionEncumber {
-    //    address tokenContract;
-    //    uint256 tokenId;
     uint256 collateralId;
     ILienToken.Details terms;
     bytes32 strategyRoot;
@@ -93,6 +82,8 @@ interface ILienToken is IERC721 {
     IAstariaRouter.Commitment incoming;
     uint256 position;
     address receiver;
+    ILienToken.LienEvent[] stack;
+    ILienToken.LienEvent newLien;
   }
 
   function validateLien(LienEvent calldata lienEvent)
@@ -142,17 +133,14 @@ interface ILienToken is IERC721 {
 
   //  function getInterest(uint256) external view returns (uint256);
 
-  function getLiens(uint256 _collateralId)
-    external
-    view
-    returns (uint256[] memory);
+  function getLienCount(uint256 _collateralId) external view returns (uint256);
 
   //  function getLien(uint256 lienId) external view returns (Lien memory);
 
-  function getPoint(uint256 collateralId, uint8 position)
-    external
-    view
-    returns (LienDataPoint memory);
+  //  function getPoint(uint256 collateralId, uint8 position)
+  //    external
+  //    view
+  //    returns (LienDataPoint memory);
 
   function getPoint(uint256 lienId)
     external
@@ -187,10 +175,10 @@ interface ILienToken is IERC721 {
   //    view
   //    returns (uint256 totalDebt);
 
-  function getMaxPotentialDebtForCollateral(
-    uint256,
-    ILienToken.LienEvent[] calldata
-  ) external view returns (uint256);
+  function getMaxPotentialDebtForCollateral(ILienToken.LienEvent[] calldata)
+    external
+    view
+    returns (uint256);
 
   //  function getTotalDebtForCollateralToken(
   //    uint256 collateralId,

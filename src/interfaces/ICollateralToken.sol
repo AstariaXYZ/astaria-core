@@ -18,7 +18,8 @@ interface ICollateralToken is IERC721 {
   function auctionVault(
     uint256,
     address,
-    uint256
+    uint256,
+    uint256[] calldata
   ) external;
 
   function AUCTION_HOUSE() external view returns (IAuctionHouse);

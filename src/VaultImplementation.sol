@@ -71,7 +71,7 @@ abstract contract VaultImplementation is
     depositCap = newCap;
   }
 
-  function _loadVISlot() internal view returns (VIData storage vi) {
+  function _loadVISlot() internal pure returns (VIData storage vi) {
     bytes32 slot = VI_SLOT;
     assembly {
       vi.slot := slot
@@ -284,7 +284,6 @@ abstract contract VaultImplementation is
 
     if (
       IAstariaRouter(ROUTER()).LIEN_TOKEN().getMaxPotentialDebtForCollateral(
-        params.tokenContract.computeId(params.tokenId),
         params.lienRequest.stack
       ) > ld.maxPotentialDebt
     ) {

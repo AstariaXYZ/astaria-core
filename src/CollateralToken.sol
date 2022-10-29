@@ -171,7 +171,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   modifier releaseCheck(uint256 collateralId) {
     CollateralStorage storage s = _loadCollateralSlot();
 
-    if (s.LIEN_TOKEN.getLiens(collateralId).length > 0) {
+    if (s.LIEN_TOKEN.getLienCount(collateralId) > 0) {
       revert InvalidCollateralState(InvalidCollateralStates.ACTIVE_LIENS);
     }
     if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
@@ -396,23 +396,26 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   function auctionVault(
     uint256 collateralId,
     address liquidator,
-    uint256 reserve
+    uint256 reserve,
+    uint256[] calldata stack
   ) external whenNotPaused requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
 
-    if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
-      revert InvalidCollateralState(InvalidCollateralStates.AUCTION);
-    }
+    //    if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
+    //      revert InvalidCollateralState(InvalidCollateralStates.AUCTION);
+    //    }
     //    require(
     //      !,
     //      "auctionVault: auction already exists"
     //    );
 
+    //TODO: fix permission
     s.AUCTION_HOUSE.createAuction(
       collateralId,
       s.auctionWindow,
       liquidator,
-      reserve
+      reserve,
+      stack
     );
   }
 

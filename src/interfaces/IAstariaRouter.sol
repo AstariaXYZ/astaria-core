@@ -141,7 +141,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint256 collateralId,
     uint8 position,
     ILienToken.LienEvent[] calldata stack
-  ) external returns (bool);
+  ) external view returns (bool);
 
   function isValidVault(address) external view returns (bool);
 

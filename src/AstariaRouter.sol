@@ -366,28 +366,19 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   function validateCommitment(IAstariaRouter.Commitment calldata commitment)
     public
-    returns (bool valid, ILienToken.Details memory ld)
+    returns (bool valid, ILienToken.Details memory details)
   {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
     }
-    //    require(
-    //      commitment.lienRequest.strategy.deadline >= block.timestamp,
-    //      "deadline passed"
-    //    );
     RouterStorage storage s = _loadRouterSlot();
 
     if (s.strategyValidators[commitment.lienRequest.nlrType] == address(0)) {
       revert InvalidStrategy(commitment.lienRequest.nlrType);
     }
 
-    //    require(
-    //      strategyValidators[commitment.lienRequest.nlrType] != address(0),
-    //      "invalid strategy type"
-    //    );
-
     bytes32 leaf;
-    (leaf, ld) = IStrategyValidator(
+    (leaf, details) = IStrategyValidator(
       s.strategyValidators[commitment.lienRequest.nlrType]
     ).validateAndParse(
         commitment.lienRequest,
@@ -404,7 +395,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         commitment.lienRequest.merkle.root,
         leaf
       ),
-      ld
+      details
     );
   }
 
@@ -547,8 +538,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     vault.deposit(amount, address(msg.sender));
   }
 
-  event LogStuff(uint256);
-
   /**
    * @notice Returns whether a specific lien can be liquidated.
    * @param collateralId The ID of the underlying CollateralToken.
@@ -559,8 +548,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256 collateralId,
     uint8 position,
     ILienToken.LienEvent[] memory stack
-  ) public returns (bool) {
-    emit LogStuff(stack.length);
+  ) public view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
     ILienToken.LienDataPoint memory point = s.LIEN_TOKEN.getPoint(
       stack[position]
@@ -584,20 +572,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       revert InvalidLienState(LienState.HEALTHY);
     }
 
-    //    require(
-    //      ,
-    //      "liquidate: borrow is healthy"
-    //    );
-
-    // if expiration will be past epoch boundary, then create a LiquidationAccountant
-
     RouterStorage storage s = _loadRouterSlot();
-    uint256[] memory liens = s.LIEN_TOKEN.getLiens(collateralId);
-    require(liens.length == stack.length, "liquidate: invalid stack");
-    for (uint256 i = 0; i < liens.length; ++i) {
-      uint256 currentLien = liens[i];
-      require(currentLien == s.LIEN_TOKEN.validateLien(stack[i]));
+    uint256[] memory stackAtLiquidation = new uint256[](stack.length);
 
+    for (uint256 i = 0; i < stack.length; ++i) {
+      uint256 currentLien = s.LIEN_TOKEN.validateLien(stack[i]);
+      require(collateralId == stack[i].collateralId);
+      require(i == stack[i].position);
+      stackAtLiquidation[i] = uint256(keccak256(abi.encode(stack[i])));
       address owner = s.LIEN_TOKEN.getPayee(currentLien);
       if (
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
@@ -611,9 +593,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         }
       }
     }
+    reserve = s.LIEN_TOKEN.stopLiens(collateralId, stack);
 
-    uint256 reserve = s.LIEN_TOKEN.stopLiens(collateralId, stack);
-    s.COLLATERAL_TOKEN.auctionVault(collateralId, address(msg.sender), reserve);
+    s.COLLATERAL_TOKEN.auctionVault(
+      collateralId,
+      address(msg.sender),
+      reserve,
+      stackAtLiquidation
+    );
 
     emit Liquidation(collateralId, position, reserve);
   }

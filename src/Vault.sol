@@ -70,13 +70,14 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
     );
   }
 
-  function disableAllowList() external override(VaultImplementation) {
+  function disableAllowList() external pure override(VaultImplementation) {
     //invalid action allowlist must be enabled for private vaults
     revert();
   }
 
   function modifyAllowList(address depositor, bool enabled)
     external
+    pure
     override(VaultImplementation)
   {
     //invalid action private vautls can only be the owner or strategist
