@@ -80,6 +80,8 @@ interface IPublicVault is IERC165, IVault {
    */
   function processEpoch() external;
 
+  function decreaseYIntercept(uint256 amount) external;
+
   // ERRORS
 
   error InvalidState(InvalidStates);

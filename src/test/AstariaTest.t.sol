@@ -79,7 +79,7 @@ contract AstariaTest is TestHelpers {
 
     vm.warp(block.timestamp + 9 days);
 
-    _repay(stack[0], 10 ether, address(this));
+    _repay(stack, 0, 10 ether, address(this));
   }
 
   function testBasicPrivateVaultLoan() public {
@@ -358,7 +358,7 @@ contract AstariaTest is TestHelpers {
 
     vm.warp(block.timestamp + 9 days);
 
-    _repay(stack[0], 50 ether, address(this));
+    _repay(stack, 0, 50 ether, address(this));
 
     COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
 
@@ -429,7 +429,7 @@ contract AstariaTest is TestHelpers {
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     vm.warp(block.timestamp + 9 days);
-    _repay(stack1[0], 100 ether, address(this));
+    _repay(stack1, 0, 100 ether, address(this));
     _warpToEpochEnd(publicVault);
     //after epoch end
     uint256 balance = ERC20(PublicVault(publicVault).underlying()).balanceOf(

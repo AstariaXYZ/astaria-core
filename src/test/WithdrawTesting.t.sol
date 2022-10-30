@@ -749,7 +749,7 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
-    _repay(stacks[0][0], 10 ether, address(this));
+    _repay(stacks[0], 0, 10 ether, address(this));
 
     _warpToEpochEnd(publicVault);
 
@@ -813,7 +813,7 @@ contract WithdrawTest is TestHelpers {
 
     _warpToEpochEnd(publicVault);
 
-    _repay(stacks[1][0], 10575342465745600000, address(this)); // TODO update to precise val
+    _repay(stacks[1], 0, 10575342465745600000, address(this)); // TODO update to precise val
     assertEq(
       initialVaultSupply,
       PublicVault(publicVault).totalSupply(),

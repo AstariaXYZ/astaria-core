@@ -96,7 +96,7 @@ contract IntegrationTest is TestHelpers {
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
 
     // pay half the lien (5 ETH) w/o warping time so it is the same instant that the Lien was created
-    _pay(stack[0], 5 ether, address(this), 0);
+    _pay(stack, 0, 5 ether, address(this));
 
     // divide the slope by two (because wepaid half the lien so slope shoudl be half the calculation)
     uint256 expectedSlope2 = expectedSlope1.mulDivDown(1, 2);
@@ -113,7 +113,7 @@ contract IntegrationTest is TestHelpers {
     uint256 lienAmount = LIEN_TOKEN.getOwed(stack[0]);
 
     // pay down lien exactly
-    _pay(stack[0], lienAmount, address(this), 0);
+    _pay(stack, 0, lienAmount, address(this));
 
     // assert PublicVault slope is 0 because the Lien was paid off
     assertEq(

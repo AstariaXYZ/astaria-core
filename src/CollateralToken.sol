@@ -110,7 +110,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   modifier releaseCheck(uint256 collateralId) {
     CollateralStorage storage s = _loadCollateralSlot();
 
-    if (s.LIEN_TOKEN.getLienCount(collateralId) > 0) {
+    if (s.LIEN_TOKEN.getCollateralState(collateralId) != bytes32(0)) {
       revert InvalidCollateralState(InvalidCollateralStates.ACTIVE_LIENS);
     }
     if (s.ASTARIA_ROUTER.AUCTION_HOUSE().auctionExists(collateralId)) {

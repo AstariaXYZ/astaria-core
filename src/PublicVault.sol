@@ -545,7 +545,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     accountantIfAny = address(0);
     ILienToken lienToken = LIEN_TOKEN();
-    ILienToken.LienDataPoint memory point = lienToken.getPoint(lien);
+    uint256 owing = lienToken.getAmountOwingAtLiquidation(lien);
 
     s.yIntercept += s.slope.mulDivDown(block.timestamp - s.last, 1);
     s.slope -= lienToken.calculateSlope(lien);
@@ -567,7 +567,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       LiquidationAccountant(accountantIfAny).handleNewLiquidation(
-        point.amount,
+        owing,
         window + 1 days
       );
     }
@@ -582,7 +582,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     VaultData storage s = _loadStorageSlot();
     uint256 currentEpoch = s.currentEpoch;
     require(
-      msg.sender == address(AUCTION_HOUSE()) ||
+      msg.sender == address(LIEN_TOKEN()) ||
         (currentEpoch != 0 &&
           msg.sender == s.epochData[currentEpoch - 1].liquidationAccountant)
     );
