@@ -61,7 +61,7 @@ contract AstariaTest is TestHelpers {
     );
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.LienEvent[] memory stack) = _commitToLien({
+    (, ILienToken.Lien[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -180,7 +180,7 @@ contract AstariaTest is TestHelpers {
 
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
-    (, ILienToken.LienEvent[] memory stack) = _commitToLien({
+    (, ILienToken.Lien[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -257,7 +257,7 @@ contract AstariaTest is TestHelpers {
   //    // borrow 10 eth against the dummy NFT
   //    (
   //      uint256[] memory liens,
-  //      ILienToken.LienEvent[] memory stack
+  //      ILienToken.Lien[] memory stack
   //    ) = _commitToLien({
   //        vault: publicVault,
   //        strategist: strategistOne,
@@ -340,7 +340,7 @@ contract AstariaTest is TestHelpers {
     );
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.LienEvent[] memory stack) = _commitToLien({
+    (, ILienToken.Lien[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -367,25 +367,19 @@ contract AstariaTest is TestHelpers {
 
   function testCollateralTokenFileSetup() public {
     bytes memory astariaRouterAddr = abi.encode(address(0));
-    COLLATERAL_TOKEN.file(
-      CollateralToken.File(bytes32("setAstariaRouter"), astariaRouterAddr)
-    );
-    assert(COLLATERAL_TOKEN.ASTARIA_ROUTER() == IAstariaRouter(address(0)));
-
-    bytes memory auctionHouseAddr = abi.encode(address(0));
-    COLLATERAL_TOKEN.file(
-      CollateralToken.File(bytes32("setAuctionHouse"), auctionHouseAddr)
-    );
-    assert(COLLATERAL_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
+    //    COLLATERAL_TOKEN.file(
+    //      ICollateralToken.File(bytes32("setAstariaRouter"), astariaRouterAddr)
+    //    );
+    //    assert(COLLATERAL_TOKEN.ASTARIA_ROUTER() == IAstariaRouter(address(0)));
 
     bytes memory securityHook = abi.encode(address(0), address(0));
     COLLATERAL_TOKEN.file(
-      CollateralToken.File(bytes32("setSecurityHook"), securityHook)
+      ICollateralToken.File(bytes32("setSecurityHook"), securityHook)
     );
     assert(COLLATERAL_TOKEN.securityHooks(address(0)) == address(0));
 
     vm.expectRevert("unsupported/file");
-    COLLATERAL_TOKEN.file(CollateralToken.File(bytes32("Andrew Redden"), ""));
+    COLLATERAL_TOKEN.file(ICollateralToken.File(bytes32("Andrew Redden"), ""));
   }
 
   function testLienTokenFileSetup() public {
@@ -398,7 +392,7 @@ contract AstariaTest is TestHelpers {
     assert(LIEN_TOKEN.COLLATERAL_TOKEN() == ICollateralToken(address(0)));
 
     vm.expectRevert("unsupported/file");
-    COLLATERAL_TOKEN.file(CollateralToken.File(bytes32("Justin Bram"), ""));
+    COLLATERAL_TOKEN.file(ICollateralToken.File(bytes32("Justin Bram"), ""));
   }
 
   function testEpochProcessionMultipleActors() public {
@@ -422,7 +416,7 @@ contract AstariaTest is TestHelpers {
     _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
 
-    (, ILienToken.LienEvent[] memory stack1) = _commitToLien({
+    (, ILienToken.Lien[] memory stack1) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -448,7 +442,7 @@ contract AstariaTest is TestHelpers {
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
     _signalWithdraw(alice, publicVault);
 
-    (, ILienToken.LienEvent[] memory stack2) = _commitToLien({
+    (, ILienToken.Lien[] memory stack2) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -474,7 +468,7 @@ contract AstariaTest is TestHelpers {
     });
 
     _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
-    (, ILienToken.LienEvent[] memory stack) = _commitToLien({
+    (, ILienToken.Lien[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -492,12 +486,12 @@ contract AstariaTest is TestHelpers {
   }
 
   function _cancelAuction(uint256 auctionId, address sender) internal {
-    vm.startPrank(sender);
-
     (, , , uint256 reserve, ) = AUCTION_HOUSE.getAuctionData(auctionId);
-
-    WETH9.approve(address(TRANSFER_PROXY), reserve);
-    COLLATERAL_TOKEN.cancelAuction(auctionId);
+    vm.deal(sender, reserve);
+    vm.startPrank(sender);
+    WETH9.deposit{value: reserve}();
+    WETH9.approve(address(TRANSFER_PROXY), reserve * 2);
+    ASTARIA_ROUTER.cancelAuction(auctionId);
     vm.stopPrank();
   }
 

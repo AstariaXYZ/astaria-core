@@ -1,11 +1,12 @@
 pragma solidity ^0.8.17;
 
 import {Script} from "forge-std/Script.sol";
-import {AstariaRouter} from "../../../AstariaRouter.sol";
-import {V3SecurityHook} from "../../../security/V3SecurityHook.sol";
-import {UNI_V3Validator} from "../../../strategies/UNI_V3Validator.sol";
+import {AstariaRouter} from "core/AstariaRouter.sol";
+import {V3SecurityHook} from "core/security/V3SecurityHook.sol";
+import {UNI_V3Validator} from "core/strategies/UNI_V3Validator.sol";
 import {AstariaStack} from "../AstariaStack.sol";
-import {CollateralToken} from "../../../CollateralToken.sol";
+import {CollateralToken} from "core/CollateralToken.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 
 contract V3Strategy is AstariaStack {
   function run() external {
@@ -28,7 +29,7 @@ contract V3Strategy is AstariaStack {
     );
 
     ct.file(
-      CollateralToken.File(
+      ICollateralToken.File(
         bytes32("setSecurityHook"),
         abi.encode(
           address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88), //v3 nft address

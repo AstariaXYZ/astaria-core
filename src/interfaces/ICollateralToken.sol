@@ -12,25 +12,75 @@ pragma solidity ^0.8.15;
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
-import "./IAstariaRouter.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
+import {IFlashAction} from "core/interfaces/IFlashAction.sol";
 
 interface ICollateralToken is IERC721 {
-  function auctionVault(
-    uint256,
-    address,
-    uint256,
-    uint256[] calldata
+  struct Asset {
+    address tokenContract;
+    uint256 tokenId;
+  }
+  struct CollateralStorage {
+    ITransferProxy TRANSFER_PROXY;
+    ILienToken LIEN_TOKEN;
+    IAstariaRouter ASTARIA_ROUTER;
+    mapping(address => bool) flashEnabled;
+    //mapping of the collateralToken ID and its underlying asset
+    mapping(uint256 => Asset) idToUnderlying;
+    //mapping of a security token hook for an nft's token contract address
+    mapping(address => address) securityHooks;
+  }
+  struct File {
+    bytes32 what;
+    bytes data;
+  }
+
+  /**
+   * @notice Executes a FlashAction using locked collateral. A valid FlashAction performs a specified action with the collateral within a single transaction and must end with the collateral being returned to the Vault it was locked in.
+   * @param receiver The FlashAction to execute.
+   * @param collateralId The ID of the CollateralToken to temporarily unwrap.
+   * @param data Input data used in the FlashAction.
+   */
+  function flashAction(
+    IFlashAction receiver,
+    uint256 collateralId,
+    bytes calldata data
   ) external;
-
-  function AUCTION_HOUSE() external view returns (IAuctionHouse);
-
-  function ASTARIA_ROUTER() external view returns (IAstariaRouter);
-
-  function auctionWindow() external view returns (uint256);
 
   function securityHooks(address) external view returns (address);
 
-  function getUnderlying(uint256) external view returns (address, uint256);
+  /**
+   * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.
+   * @param collateralId The ID of the CollateralToken wrapping the NFT.
+   * @return The address and tokenId of the underlying NFT.
+   */
+  function getUnderlying(uint256 collateralId)
+    external
+    view
+    returns (address, uint256);
+
+  /**
+   * @notice Unlocks the NFT for a CollateralToken and sends it to a specified address.
+   * @param collateralId The ID for the CollateralToken of the NFT to unlock.
+   * @param releaseTo The address to send the NFT to.
+   */
+  function releaseToAddress(uint256 collateralId, address releaseTo) external;
+
+  event Deposit721(
+    address indexed tokenContract,
+    uint256 indexed tokenId,
+    uint256 indexed collateralId,
+    address depositedFor
+  );
+  event ReleaseTo(
+    address indexed underlyingAsset,
+    uint256 assetId,
+    address indexed to
+  );
+  event FileUpdated(bytes32 indexed what, bytes data);
 
   error InvalidCollateral();
   error InvalidSender();

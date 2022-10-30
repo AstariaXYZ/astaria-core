@@ -9,18 +9,16 @@
  */
 
 pragma solidity ^0.8.17;
+import {ILienToken} from "./interfaces/ILienToken.sol";
+import {Clone} from "clones-with-immutable-args/Clone.sol";
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {LiquidationAccountantBase} from "core/LiquidationAccountantBase.sol";
+import {PublicVault} from "./PublicVault.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-import {Clone} from "clones-with-immutable-args/Clone.sol";
-
-import {ILienToken} from "./interfaces/ILienToken.sol";
-
-import {PublicVault} from "./PublicVault.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
-import {LiquidationAccountantBase} from "core/LiquidationAccountantBase.sol";
 
 /**
  * @title LiquidationAccountant
@@ -50,7 +48,7 @@ contract LiquidationAccountant is LiquidationAccountantBase {
     bool hasClaimed;
   }
 
-  function _loadSlot() internal view returns (LAStorage storage s) {
+  function _loadSlot() internal pure returns (LAStorage storage s) {
     bytes32 slot = LIQUIDATION_ACCOUNTANT_SLOT;
     assembly {
       s.slot := slot
@@ -117,8 +115,6 @@ contract LiquidationAccountant is LiquidationAccountantBase {
     if (s.withdrawRatio == uint256(0)) {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     } else {
-      //should be wad multiplication
-      // declining
       transferAmount = s.withdrawRatio.mulDivDown(balance, 1e18);
 
       if (transferAmount > uint256(0)) {

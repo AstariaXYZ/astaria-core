@@ -235,13 +235,13 @@ contract Deploy is Script {
         )
       )
     );
-    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](2);
+    CollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
 
-    ctfiles[0] = CollateralToken.File({
-      what: "setAstariaRouter",
-      data: abi.encode(address(ASTARIA_ROUTER))
-    });
-    ctfiles[1] = CollateralToken.File({
+    //    ctfiles[0] = CollateralToken.File({
+    //      what: "setAstariaRouter",
+    //      data: abi.encode(address(ASTARIA_ROUTER))
+    //    });
+    ctfiles[0] = ICollateralToken.File({
       what: "setAuctionHouse",
       data: abi.encode(address(AUCTION_HOUSE))
     });
@@ -255,12 +255,12 @@ contract Deploy is Script {
 
   function _setupRolesAndCapabilities() internal {
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.createAuction.selector,
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.endAuction.selector,
       true
     );
@@ -274,11 +274,11 @@ contract Deploy is Script {
       AuctionHouse.cancelAuction.selector,
       true
     );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      CollateralToken.auctionVault.selector,
-      true
-    );
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.ASTARIA_ROUTER),
+    //      CollateralToken.auctionVault.selector,
+    //      true
+    //    );
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
       TRANSFER_PROXY.tokenTransferFrom.selector,

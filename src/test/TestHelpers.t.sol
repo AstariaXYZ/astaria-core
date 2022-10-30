@@ -208,19 +208,15 @@ contract TestHelpers is Test {
       address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88)
     );
 
-    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](3);
+    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](2);
 
-    ctfiles[0] = CollateralToken.File({
+    ctfiles[0] = ICollateralToken.File({
       what: "setAstariaRouter",
       data: abi.encode(address(ASTARIA_ROUTER))
     });
-    ctfiles[1] = CollateralToken.File({
-      what: "setAuctionHouse",
-      data: abi.encode(address(AUCTION_HOUSE))
-    });
 
     address UNI_V3_NFT = address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
-    ctfiles[2] = CollateralToken.File({
+    ctfiles[1] = ICollateralToken.File({
       what: bytes32("setSecurityHook"),
       data: abi.encode(UNI_V3_NFT, address(V3_SECURITY_HOOK))
     });
@@ -235,27 +231,6 @@ contract TestHelpers is Test {
     UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
 
     AstariaRouter.File[] memory files = new AstariaRouter.File[](3);
-    //    files[0] = AstariaRouter.File(
-    //      bytes32("WITHDRAW_IMPLEMENTATION"),
-    //      abi.encode(address(WITHDRAW_PROXY))
-    //    );
-    //    files[1] = AstariaRouter.File(
-    //      bytes32("LIQUIDATION_IMPLEMENTATION"),
-    //      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
-    //    );
-
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
-    //    );
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
-    //    );
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
-    //    );
 
     files[0] = AstariaRouter.File(
       bytes32("setStrategyValidator"),
@@ -269,9 +244,15 @@ contract TestHelpers is Test {
       bytes32("setStrategyValidator"),
       abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     );
-    ASTARIA_ROUTER.fileBatch(files);
 
-    //v3 NFT manager address
+    ASTARIA_ROUTER.fileBatch(files);
+    files = new AstariaRouter.File[](1);
+
+    files[0] = AstariaRouter.File(
+      bytes32("setAuctionHouse"),
+      abi.encode(address(AUCTION_HOUSE))
+    );
+    ASTARIA_ROUTER.fileGuardian(files);
 
     LIEN_TOKEN.file(
       bytes32("setAuctionHouse"),
@@ -291,17 +272,17 @@ contract TestHelpers is Test {
 
   function _setupRolesAndCapabilities() internal {
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.createAuction.selector,
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.endAuction.selector,
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.cancelAuction.selector,
       true
     );
@@ -310,11 +291,11 @@ contract TestHelpers is Test {
       LienToken.createLien.selector,
       true
     );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      CollateralToken.auctionVault.selector,
-      true
-    );
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.ASTARIA_ROUTER),
+    //      CollateralToken.auctionVault.selector,
+    //      true
+    //    );
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
       TRANSFER_PROXY.tokenTransferFrom.selector,
@@ -479,7 +460,7 @@ contract TestHelpers is Test {
     ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien
-  ) internal returns (uint256[] memory, ILienToken.LienEvent[] memory stack) {
+  ) internal returns (uint256[] memory, ILienToken.Lien[] memory stack) {
     return
       _commitToLien({
         vault: vault,
@@ -490,7 +471,7 @@ contract TestHelpers is Test {
         lienDetails: lienDetails,
         amount: amount,
         isFirstLien: isFirstLien,
-        stack: new ILienToken.LienEvent[](0)
+        stack: new ILienToken.Lien[](0)
       });
   }
 
@@ -503,8 +484,8 @@ contract TestHelpers is Test {
     ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien,
-    ILienToken.LienEvent[] memory stack
-  ) internal returns (uint256[] memory, ILienToken.LienEvent[] memory) {
+    ILienToken.Lien[] memory stack
+  ) internal returns (uint256[] memory, ILienToken.Lien[] memory) {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
       vault: vault,
       strategist: strategist,
@@ -513,7 +494,7 @@ contract TestHelpers is Test {
       tokenId: tokenId,
       lienDetails: lienDetails,
       amount: amount,
-      stack: isFirstLien ? new ILienToken.LienEvent[](0) : stack
+      stack: isFirstLien ? new ILienToken.Lien[](0) : stack
     });
 
     //    VaultImplementation(vault).commitToLien(terms, address(this));
@@ -533,7 +514,7 @@ contract TestHelpers is Test {
     uint256 tokenId, // original NFT id
     ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
-    ILienToken.LienEvent[] memory stack
+    ILienToken.Lien[] memory stack
   ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
@@ -590,7 +571,7 @@ contract TestHelpers is Test {
     bytes32 rootHash;
     uint256 pk;
     IAstariaRouter.StrategyDetails strategyDetails;
-    ILienToken.LienEvent[] stack;
+    ILienToken.Lien[] stack;
     bytes validatorDetails;
     bytes32[] merkleProof;
     uint256 amount;
@@ -652,7 +633,7 @@ contract TestHelpers is Test {
   }
 
   function _repay(
-    ILienToken.LienEvent memory lien,
+    ILienToken.Lien memory lien,
     uint256 amount,
     address payer
   ) internal {
@@ -666,7 +647,7 @@ contract TestHelpers is Test {
   }
 
   function _pay(
-    ILienToken.LienEvent memory lien,
+    ILienToken.Lien memory lien,
     uint256 amount,
     address payer,
     uint256 position

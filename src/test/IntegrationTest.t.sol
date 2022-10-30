@@ -71,19 +71,16 @@ contract IntegrationTest is TestHelpers {
 
     // commit to a new lien of 10 ETH under LienDetails
     uint256 amount = 10 ether;
-    (
-      uint256[] memory liens,
-      ILienToken.LienEvent[] memory stack
-    ) = _commitToLien({
-        vault: publicVault,
-        strategist: strategistOne,
-        strategistPK: strategistOnePK,
-        tokenContract: tokenContract,
-        tokenId: tokenId1,
-        lienDetails: lienDetails,
-        amount: amount,
-        isFirstLien: true
-      });
+    (uint256[] memory liens, ILienToken.Lien[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId1,
+      lienDetails: lienDetails,
+      amount: amount,
+      isFirstLien: true
+    });
 
     // calculating slope as y2 - y1 / x2 - x1
     uint256 expectedSlope1 = amount.mulDivDown(lienDetails.rate, 1e18);

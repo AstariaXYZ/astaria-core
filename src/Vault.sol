@@ -30,7 +30,6 @@ import {VaultImplementation} from "./VaultImplementation.sol";
 
 /**
  * @title Vault
- * @author androolloyd
  */
 contract Vault is AstariaVaultBase, VaultImplementation, IVault {
   using SafeTransferLib for ERC20;

@@ -48,8 +48,6 @@ contract WithdrawTest is TestHelpers {
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
 
-    uint256 initialBalance = WETH9.balanceOf(address(this));
-
     // create a PublicVault with a 14-day epoch
     address publicVault = _createPublicVault({
       strategist: strategistOne,
@@ -69,7 +67,7 @@ contract WithdrawTest is TestHelpers {
     lien.duration = 1 days;
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.LienEvent[] memory stack) = _commitToLien({
+    (, ILienToken.Lien[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -133,7 +131,7 @@ contract WithdrawTest is TestHelpers {
       "minted supply to LPs not equal"
     );
 
-    (, ILienToken.LienEvent[] memory stack1) = _commitToLien({
+    (, ILienToken.Lien[] memory stack1) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -144,7 +142,7 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
-    (, ILienToken.LienEvent[] memory stack2) = _commitToLien({
+    (, ILienToken.Lien[] memory stack2) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -186,7 +184,6 @@ contract WithdrawTest is TestHelpers {
     vm.warp(block.timestamp + 13 days);
 
     LiquidationAccountant(liquidationAccountant).claim();
-    uint256 publicVaultBalance = WETH9.balanceOf(publicVault);
 
     PublicVault(publicVault).transferWithdrawReserve();
 
@@ -265,7 +262,7 @@ contract WithdrawTest is TestHelpers {
 
     ILienToken.Details memory lien1 = standardLienDetails;
     lien1.duration = 13 days; // will trigger LiquidationAccountant
-    ILienToken.LienEvent[][] memory stacks = new ILienToken.LienEvent[][](2);
+    ILienToken.Lien[][] memory stacks = new ILienToken.Lien[][](2);
     uint256[][] memory liens = new uint256[][](2);
 
     (liens[0], stacks[0]) = _commitToLien({
@@ -449,21 +446,16 @@ contract WithdrawTest is TestHelpers {
     ILienToken.Details memory lien1 = standardLienDetails;
     lien1.duration = 28 days; // will trigger LiquidationAccountant
     lien1.maxAmount = 100 ether;
-    (
-      uint256[] memory liens,
-      ILienToken.LienEvent[] memory stack
-    ) = _commitToLien({
-        vault: publicVault,
-        strategist: strategistOne,
-        strategistPK: strategistOnePK,
-        tokenContract: tokenContract,
-        tokenId: tokenId,
-        lienDetails: lien1,
-        amount: 100 ether,
-        isFirstLien: true
-      });
-
-    uint256 lienId = liens[0];
+    (uint256[] memory liens, ILienToken.Lien[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien1,
+      amount: 100 ether,
+      isFirstLien: true
+    });
 
     assertEq(
       PublicVault(publicVault).getSlope(),
@@ -623,7 +615,7 @@ contract WithdrawTest is TestHelpers {
     );
     _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
     uint256[][] memory liens = new uint256[][](2);
-    ILienToken.LienEvent[][] memory stacks = new ILienToken.LienEvent[][](2);
+    ILienToken.Lien[][] memory stacks = new ILienToken.Lien[][](2);
 
     (liens[0], stacks[0]) = _commitToLien({
       vault: publicVault,
@@ -636,8 +628,6 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
-    uint256 lienId1 = liens[0][0];
-
     (liens[1], stacks[1]) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
@@ -648,7 +638,6 @@ contract WithdrawTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: false
     });
-    uint256 lienId2 = liens[1][0];
 
     _warpToEpochEnd(publicVault);
 
@@ -748,7 +737,7 @@ contract WithdrawTest is TestHelpers {
     uint256 initialVaultSupply = PublicVault(publicVault).totalSupply();
     _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
     uint256[][] memory liens = new uint256[][](2);
-    ILienToken.LienEvent[][] memory stacks = new ILienToken.LienEvent[][](2);
+    ILienToken.Lien[][] memory stacks = new ILienToken.Lien[][](2);
     (liens[0], stacks[0]) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
@@ -759,9 +748,6 @@ contract WithdrawTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: true
     });
-
-    uint256 lienId1 = liens[0][0];
-    uint256 collateralId1 = tokenContract.computeId(tokenId1);
 
     _repay(stacks[0][0], 10 ether, address(this));
 
@@ -824,9 +810,6 @@ contract WithdrawTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: false
     });
-    uint256 lienId2 = liens[1][0];
-
-    uint256 collateralId2 = tokenContract.computeId(tokenId2);
 
     _warpToEpochEnd(publicVault);
 

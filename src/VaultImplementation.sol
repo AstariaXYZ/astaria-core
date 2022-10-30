@@ -28,7 +28,6 @@ import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 
 /**
  * @title VaultImplementation
- * @author androolloyd
  * @notice A base implementation for the minimal features of an Astaria Vault.
  */
 abstract contract VaultImplementation is
@@ -280,7 +279,7 @@ abstract contract VaultImplementation is
     }
 
     if (
-      IAstariaRouter(ROUTER()).LIEN_TOKEN().getMaxPotentialDebtForCollateral(
+      ROUTER().LIEN_TOKEN().getMaxPotentialDebtForCollateral(
         params.lienRequest.stack
       ) > ld.maxPotentialDebt
     ) {
@@ -291,7 +290,7 @@ abstract contract VaultImplementation is
   }
 
   function _afterCommitToLien(
-    ILienToken.LienEvent memory lien,
+    ILienToken.Lien memory lien,
     uint256 lienId,
     uint256 amount
   ) internal virtual {}
@@ -315,7 +314,7 @@ abstract contract VaultImplementation is
   )
     external
     whenNotPaused
-    returns (uint256 lienId, ILienToken.LienEvent[] memory stack)
+    returns (uint256 lienId, ILienToken.Lien[] memory stack)
   {
     ILienToken.Details memory ld = _validateCommitment(params, receiver);
     _beforeCommitToLien(params, receiver);
@@ -400,7 +399,7 @@ abstract contract VaultImplementation is
     ILienToken.Details memory ld,
     IAstariaRouter.Commitment calldata c,
     address receiver
-  ) internal returns (uint256 newLienId, ILienToken.LienEvent[] memory stack) {
+  ) internal returns (uint256 newLienId, ILienToken.Lien[] memory stack) {
     (newLienId, stack) = IAstariaRouter(ROUTER()).requestLienPosition(ld, c);
 
     uint256 payout = _handleProtocolFee(c.lienRequest.amount);
