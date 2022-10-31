@@ -460,7 +460,7 @@ contract TestHelpers is Test {
     ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien
-  ) internal returns (uint256[] memory, ILienToken.Lien[] memory stack) {
+  ) internal returns (uint256[] memory, ILienToken.Stack[] memory stack) {
     return
       _commitToLien({
         vault: vault,
@@ -471,7 +471,7 @@ contract TestHelpers is Test {
         lienDetails: lienDetails,
         amount: amount,
         isFirstLien: isFirstLien,
-        stack: new ILienToken.Lien[](0)
+        stack: new ILienToken.Stack[](0)
       });
   }
 
@@ -484,8 +484,8 @@ contract TestHelpers is Test {
     ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien,
-    ILienToken.Lien[] memory stack
-  ) internal returns (uint256[] memory, ILienToken.Lien[] memory) {
+    ILienToken.Stack[] memory stack
+  ) internal returns (uint256[] memory, ILienToken.Stack[] memory) {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
       vault: vault,
       strategist: strategist,
@@ -494,7 +494,7 @@ contract TestHelpers is Test {
       tokenId: tokenId,
       lienDetails: lienDetails,
       amount: amount,
-      stack: isFirstLien ? new ILienToken.Lien[](0) : stack
+      stack: isFirstLien ? new ILienToken.Stack[](0) : stack
     });
 
     //    VaultImplementation(vault).commitToLien(terms, address(this));
@@ -514,7 +514,7 @@ contract TestHelpers is Test {
     uint256 tokenId, // original NFT id
     ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
-    ILienToken.Lien[] memory stack
+    ILienToken.Stack[] memory stack
   ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
@@ -571,7 +571,7 @@ contract TestHelpers is Test {
     bytes32 rootHash;
     uint256 pk;
     IAstariaRouter.StrategyDetails strategyDetails;
-    ILienToken.Lien[] stack;
+    ILienToken.Stack[] stack;
     bytes validatorDetails;
     bytes32[] merkleProof;
     uint256 amount;
@@ -633,7 +633,7 @@ contract TestHelpers is Test {
   }
 
   function _repay(
-    ILienToken.Lien[] memory stack,
+    ILienToken.Stack[] memory stack,
     uint8 position,
     uint256 amount,
     address payer
@@ -648,17 +648,17 @@ contract TestHelpers is Test {
   }
 
   function _pay(
-    ILienToken.Lien[] memory stack,
+    ILienToken.Stack[] memory stack,
     uint8 position,
     uint256 amount,
     address payer
-  ) internal {
+  ) internal returns (ILienToken.Stack[] memory newStack) {
     vm.deal(payer, amount);
     vm.startPrank(payer);
     WETH9.deposit{value: amount}();
     WETH9.approve(address(TRANSFER_PROXY), amount);
     WETH9.approve(address(LIEN_TOKEN), amount);
-    LIEN_TOKEN.makePayment(stack, position, amount);
+    newStack = LIEN_TOKEN.makePayment(stack, position, amount);
     vm.stopPrank();
   }
 

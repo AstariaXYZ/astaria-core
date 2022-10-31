@@ -71,7 +71,7 @@ contract IntegrationTest is TestHelpers {
 
     // commit to a new lien of 10 ETH under LienDetails
     uint256 amount = 10 ether;
-    (uint256[] memory liens, ILienToken.Lien[] memory stack) = _commitToLien({
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -96,7 +96,7 @@ contract IntegrationTest is TestHelpers {
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
 
     // pay half the lien (5 ETH) w/o warping time so it is the same instant that the Lien was created
-    _pay(stack, 0, 5 ether, address(this));
+    stack = _pay(stack, 0, 5 ether, address(this));
 
     // divide the slope by two (because wepaid half the lien so slope shoudl be half the calculation)
     uint256 expectedSlope2 = expectedSlope1.mulDivDown(1, 2);

@@ -61,7 +61,7 @@ contract AstariaTest is TestHelpers {
     );
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Lien[] memory stack) = _commitToLien({
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -180,7 +180,7 @@ contract AstariaTest is TestHelpers {
 
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
-    (, ILienToken.Lien[] memory stack) = _commitToLien({
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -257,7 +257,7 @@ contract AstariaTest is TestHelpers {
   //    // borrow 10 eth against the dummy NFT
   //    (
   //      uint256[] memory liens,
-  //      ILienToken.Lien[] memory stack
+  //      ILienToken.Stack[] memory stack;
   //    ) = _commitToLien({
   //        vault: publicVault,
   //        strategist: strategistOne,
@@ -340,7 +340,7 @@ contract AstariaTest is TestHelpers {
     );
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Lien[] memory stack) = _commitToLien({
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -416,7 +416,7 @@ contract AstariaTest is TestHelpers {
     _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
 
-    (, ILienToken.Lien[] memory stack1) = _commitToLien({
+    (, ILienToken.Stack[] memory stack1) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -442,7 +442,7 @@ contract AstariaTest is TestHelpers {
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), publicVault);
     _signalWithdraw(alice, publicVault);
 
-    (, ILienToken.Lien[] memory stack2) = _commitToLien({
+    (, ILienToken.Stack[] memory stack2) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -468,7 +468,7 @@ contract AstariaTest is TestHelpers {
     });
 
     _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
-    (, ILienToken.Lien[] memory stack) = _commitToLien({
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,

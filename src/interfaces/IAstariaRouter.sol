@@ -49,7 +49,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   struct NewLienRequest {
     StrategyDetails strategy;
-    ILienToken.Lien[] stack;
+    ILienToken.Stack[] stack;
     uint8 nlrType;
     bytes nlrDetails;
     MerkleData merkle;
@@ -110,7 +110,7 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function commitToLiens(Commitment[] calldata commitments)
     external
-    returns (uint256[] memory, ILienToken.Lien[] memory);
+    returns (uint256[] memory, ILienToken.Stack[] memory);
 
   /**
    * @notice Create a new lien against a CollateralToken.
@@ -121,7 +121,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   function requestLienPosition(
     ILienToken.Details memory terms,
     IAstariaRouter.Commitment calldata params
-  ) external returns (uint256, ILienToken.Lien[] memory);
+  ) external returns (uint256, ILienToken.Stack[] memory);
 
   function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -163,20 +163,19 @@ interface IAstariaRouter is IPausable, IBeacon {
   function liquidate(
     uint256 collateralId,
     uint8 position,
-    ILienToken.Lien[] calldata stack
+    ILienToken.Stack[] calldata stack
   ) external returns (uint256 reserve);
 
-  function canLiquidate(
-    uint256 collateralId,
-    uint8 position,
-    ILienToken.Lien[] calldata stack
-  ) external view returns (bool);
+  function canLiquidate(ILienToken.Lien calldata lien)
+    external
+    view
+    returns (bool);
 
   function isValidVault(address) external view returns (bool);
 
   function isValidRefinance(
     ILienToken.Lien memory newLien,
-    ILienToken.Lien[] memory stack
+    ILienToken.Stack[] memory stack
   ) external view returns (bool);
 
   /**

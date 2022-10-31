@@ -290,7 +290,7 @@ abstract contract VaultImplementation is
   }
 
   function _afterCommitToLien(
-    ILienToken.Lien memory lien,
+    ILienToken.Stack memory stack,
     uint256 lienId,
     uint256 amount
   ) internal virtual {}
@@ -314,7 +314,7 @@ abstract contract VaultImplementation is
   )
     external
     whenNotPaused
-    returns (uint256 lienId, ILienToken.Lien[] memory stack)
+    returns (uint256 lienId, ILienToken.Stack[] memory stack)
   {
     ILienToken.Details memory ld = _validateCommitment(params, receiver);
     _beforeCommitToLien(params, receiver);
@@ -399,7 +399,7 @@ abstract contract VaultImplementation is
     ILienToken.Details memory ld,
     IAstariaRouter.Commitment calldata c,
     address receiver
-  ) internal returns (uint256 newLienId, ILienToken.Lien[] memory stack) {
+  ) internal returns (uint256 newLienId, ILienToken.Stack[] memory stack) {
     (newLienId, stack) = IAstariaRouter(ROUTER()).requestLienPosition(ld, c);
 
     uint256 payout = _handleProtocolFee(c.lienRequest.amount);

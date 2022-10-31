@@ -399,7 +399,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     whenNotPaused
     returns (
       uint256[] memory lienIds,
-      ILienToken.Lien[] memory stack //todo fix this
+      ILienToken.Stack[] memory stack //todo fix this
     )
   {
     RouterStorage storage s = _loadRouterSlot();
@@ -463,7 +463,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     external
     whenNotPaused
     onlyVaults
-    returns (uint256, ILienToken.Lien[] memory)
+    returns (uint256, ILienToken.Stack[] memory)
   {
     RouterStorage storage s = _loadRouterSlot();
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
@@ -511,26 +511,22 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   /**
    * @notice Returns whether a specific lien can be liquidated.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param position The specified lien position.
    * @return A boolean value indicating whether the specified lien can be liquidated.
    */
-  function canLiquidate(
-    uint256 collateralId,
-    uint8 position,
-    ILienToken.Lien[] memory stack
-  ) public view returns (bool) {
-    RouterStorage storage s = _loadRouterSlot();
-
-    return (stack[position].end <= block.timestamp);
+  function canLiquidate(ILienToken.Lien memory lien)
+    public
+    view
+    returns (bool)
+  {
+    return (lien.end <= block.timestamp);
   }
 
   function liquidate(
     uint256 collateralId,
     uint8 position,
-    ILienToken.Lien[] calldata stack
+    ILienToken.Stack[] memory stack
   ) external returns (uint256 reserve) {
-    if (!canLiquidate(collateralId, position, stack)) {
+    if (!canLiquidate(stack[position].lien)) {
       revert InvalidLienState(LienState.HEALTHY);
     }
 
@@ -538,11 +534,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256[] memory stackAtLiquidation = new uint256[](stack.length);
 
     for (uint256 i = 0; i < stack.length; ++i) {
-      uint256 currentLien = s.LIEN_TOKEN.validateLien(stack[i]);
-      require(collateralId == stack[i].collateralId);
-      require(i == stack[i].position);
-      stackAtLiquidation[i] = uint256(keccak256(abi.encode(stack[i])));
-      address owner = s.LIEN_TOKEN.getPayee(currentLien);
+      uint256 currentLien = stack[i].point.lienId;
+      stackAtLiquidation[i] = currentLien;
+      address owner = s.LIEN_TOKEN.getPayee(currentLien); //todo: payee or owner?
       if (
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
       ) {
@@ -551,11 +545,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
           .updateVaultAfterLiquidation(stack[i]);
 
         if (accountantIfAny != address(0)) {
-          s.LIEN_TOKEN.setPayee(stack[i], accountantIfAny);
+          s.LIEN_TOKEN.setPayee(stack[i].lien, accountantIfAny);
         }
       }
     }
-    reserve = s.LIEN_TOKEN.stopLiens(collateralId, stack);
+
+    (reserve, stack) = s.LIEN_TOKEN.stopLiens(collateralId, stack);
 
     s.AUCTION_HOUSE.createAuction(
       collateralId,
@@ -666,17 +661,17 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    */
   function isValidRefinance(
     ILienToken.Lien memory newLien,
-    ILienToken.Lien[] memory stack
+    ILienToken.Stack[] memory stack
   ) external view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
-    uint256 minNewRate = uint256(stack[newLien.position].details.rate) -
+    uint256 minNewRate = uint256(stack[newLien.position].lien.details.rate) -
       s.minInterestBPS;
 
     if (
       (newLien.details.rate < minNewRate) ||
       (block.timestamp +
         newLien.details.duration -
-        stack[newLien.position].end <
+        stack[newLien.position].lien.end <
         s.minDurationIncrease)
     ) {
       return false;
@@ -752,7 +747,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment memory c
-  ) internal returns (uint256, ILienToken.Lien[] memory stack) {
+  ) internal returns (uint256, ILienToken.Stack[] memory stack) {
     uint256 collateralId = c.tokenContract.computeId(c.tokenId);
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {

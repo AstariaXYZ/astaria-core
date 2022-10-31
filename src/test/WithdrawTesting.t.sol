@@ -67,7 +67,7 @@ contract WithdrawTest is TestHelpers {
     lien.duration = 1 days;
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Lien[] memory stack) = _commitToLien({
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -131,7 +131,7 @@ contract WithdrawTest is TestHelpers {
       "minted supply to LPs not equal"
     );
 
-    (, ILienToken.Lien[] memory stack1) = _commitToLien({
+    (, ILienToken.Stack[] memory stack1) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -142,7 +142,7 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
-    (, ILienToken.Lien[] memory stack2) = _commitToLien({
+    (, ILienToken.Stack[] memory stack2) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -262,7 +262,7 @@ contract WithdrawTest is TestHelpers {
 
     ILienToken.Details memory lien1 = standardLienDetails;
     lien1.duration = 13 days; // will trigger LiquidationAccountant
-    ILienToken.Lien[][] memory stacks = new ILienToken.Lien[][](2);
+    ILienToken.Stack[][] memory stacks = new ILienToken.Stack[][](2);
     uint256[][] memory liens = new uint256[][](2);
 
     (liens[0], stacks[0]) = _commitToLien({
@@ -446,7 +446,7 @@ contract WithdrawTest is TestHelpers {
     ILienToken.Details memory lien1 = standardLienDetails;
     lien1.duration = 28 days; // will trigger LiquidationAccountant
     lien1.maxAmount = 100 ether;
-    (uint256[] memory liens, ILienToken.Lien[] memory stack) = _commitToLien({
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -615,7 +615,7 @@ contract WithdrawTest is TestHelpers {
     );
     _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
     uint256[][] memory liens = new uint256[][](2);
-    ILienToken.Lien[][] memory stacks = new ILienToken.Lien[][](2);
+    ILienToken.Stack[][] memory stacks = new ILienToken.Stack[][](2);
 
     (liens[0], stacks[0]) = _commitToLien({
       vault: publicVault,
@@ -737,7 +737,7 @@ contract WithdrawTest is TestHelpers {
     uint256 initialVaultSupply = PublicVault(publicVault).totalSupply();
     _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
     uint256[][] memory liens = new uint256[][](2);
-    ILienToken.Lien[][] memory stacks = new ILienToken.Lien[][](2);
+    ILienToken.Stack[][] memory stacks = new ILienToken.Stack[][](2);
     (liens[0], stacks[0]) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,

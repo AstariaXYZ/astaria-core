@@ -337,12 +337,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       interfaceId == type(IERC165).interfaceId;
   }
 
+  event log_named_uint(string, uint256);
+
   function transferWithdrawReserve() public {
     VaultData storage s = _loadStorageSlot();
 
     if (s.currentEpoch > uint64(0)) {
       // check the available balance to be withdrawn
+      emit log_named_uint("currentEpoch", s.currentEpoch);
       uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
+      emit log_named_uint("withdrawBalance", withdrawBalance);
+      emit log_named_uint("withdrawReserve", s.withdrawReserve);
 
       // prevent transfer of more assets then are available
       if (s.withdrawReserve <= withdrawBalance) {
@@ -399,7 +404,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param amount The amount of debt
    */
   function _afterCommitToLien(
-    ILienToken.Lien memory lien,
+    ILienToken.Stack memory stack,
     uint256 lienId,
     uint256 amount
   ) internal virtual override {
@@ -410,12 +415,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // increment slope for the new lien
     _accrue(s);
     unchecked {
-      s.slope += LIEN_TOKEN().calculateSlope(lien);
+      s.slope += LIEN_TOKEN().calculateSlope(stack);
     }
 
-    uint256 epoch = Math.ceilDiv(lien.end - START(), EPOCH_LENGTH()) - 1;
+    uint256 epoch = Math.ceilDiv(stack.lien.end - START(), EPOCH_LENGTH()) - 1;
 
-    _increaseOpenLiens(s, getLienEpoch(lien.end));
+    _increaseOpenLiens(s, getLienEpoch(stack.lien.end));
     if (s.last == 0) {
       s.last = block.timestamp;
     }
@@ -535,7 +540,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return ROUTER().LIEN_TOKEN();
   }
 
-  function updateVaultAfterLiquidation(ILienToken.Lien calldata lien)
+  function updateVaultAfterLiquidation(ILienToken.Stack calldata stack)
     public
     returns (address accountantIfAny)
   {
@@ -545,16 +550,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     accountantIfAny = address(0);
     ILienToken lienToken = LIEN_TOKEN();
-    uint256 owing = lienToken.getAmountOwingAtLiquidation(lien);
 
     s.yIntercept += s.slope.mulDivDown(block.timestamp - s.last, 1);
-    s.slope -= lienToken.calculateSlope(lien);
+    s.slope -= lienToken.calculateSlope(stack);
     s.last = block.timestamp.safeCastTo40();
 
     if (s.currentEpoch != 0) {
       transferWithdrawReserve();
     }
-    uint64 lienEpoch = getLienEpoch(lien.end);
+    uint64 lienEpoch = getLienEpoch(stack.lien.end);
     _decreaseEpochLienCount(s, lienEpoch);
 
     uint256 window = router.getAuctionWindow();
@@ -567,7 +571,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       LiquidationAccountant(accountantIfAny).handleNewLiquidation(
-        owing,
+        stack.point.amount,
         window + 1 days
       );
     }
