@@ -237,11 +237,11 @@ contract Deploy is Script {
     );
     CollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
 
-    //    ctfiles[0] = CollateralToken.File({
-    //      what: "setAstariaRouter",
-    //      data: abi.encode(address(ASTARIA_ROUTER))
-    //    });
     ctfiles[0] = ICollateralToken.File({
+      what: "setAstariaRouter",
+      data: abi.encode(address(ASTARIA_ROUTER))
+    });
+    ctfiles[1] = ICollateralToken.File({
       what: "setAuctionHouse",
       data: abi.encode(address(AUCTION_HOUSE))
     });
