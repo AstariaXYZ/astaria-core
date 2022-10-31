@@ -53,9 +53,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   bytes32 constant PUBLIC_VAULT_SLOT =
     keccak256("xyz.astaria.core.PublicVault.storage.location");
 
-  event YInterceptChanged(uint256 newYintercept);
-  event WithdrawReserveTransferred(uint256 amount);
-
   function underlying()
     public
     pure
@@ -100,7 +97,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint64 epoch
   ) public virtual returns (uint256 assets) {
     // check to ensure that the requested epoch is not the current epoch or in the past
-    //    require(epoch >= currentEpoch, "Exit epoch too low");
     require(msg.sender == owner);
     VaultData storage s = _loadStorageSlot();
 
@@ -337,17 +333,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       interfaceId == type(IERC165).interfaceId;
   }
 
-  event log_named_uint(string, uint256);
-
   function transferWithdrawReserve() public {
     VaultData storage s = _loadStorageSlot();
 
     if (s.currentEpoch > uint64(0)) {
       // check the available balance to be withdrawn
-      emit log_named_uint("currentEpoch", s.currentEpoch);
       uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
-      emit log_named_uint("withdrawBalance", withdrawBalance);
-      emit log_named_uint("withdrawReserve", s.withdrawReserve);
 
       // prevent transfer of more assets then are available
       if (s.withdrawReserve <= withdrawBalance) {
@@ -404,23 +395,22 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param amount The amount of debt
    */
   function _afterCommitToLien(
-    ILienToken.Stack memory stack,
+    uint40 lienEnd,
     uint256 lienId,
-    uint256 amount
+    uint256 amount,
+    uint256 lienSlope
   ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
-
-    uint256 delta_t = block.timestamp - s.last;
 
     // increment slope for the new lien
     _accrue(s);
     unchecked {
-      s.slope += LIEN_TOKEN().calculateSlope(stack);
+      s.slope += lienSlope;
     }
 
-    uint256 epoch = Math.ceilDiv(stack.lien.end - START(), EPOCH_LENGTH()) - 1;
+    uint256 epoch = Math.ceilDiv(lienEnd - START(), EPOCH_LENGTH()) - 1;
 
-    _increaseOpenLiens(s, getLienEpoch(stack.lien.end));
+    _increaseOpenLiens(s, getLienEpoch(lienEnd));
     if (s.last == 0) {
       s.last = block.timestamp;
     }
@@ -433,11 +423,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   function _accrue(VaultData storage s) internal returns (uint256) {
     s.yIntercept += (block.timestamp - s.last).mulDivDown(s.slope, 1);
+    emit YInterceptChanged(s.yIntercept);
     s.last = block.timestamp;
     return s.yIntercept;
   }
-
-  event LienOpen(uint256 lienId, uint256 epoch);
 
   /**
    * @notice Computes the implied value of this PublicVault. This includes interest payments that have not yet been made.
@@ -540,30 +529,25 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return ROUTER().LIEN_TOKEN();
   }
 
-  function updateVaultAfterLiquidation(ILienToken.Stack calldata stack)
-    public
-    returns (address accountantIfAny)
-  {
-    IAstariaRouter router = ROUTER();
-    require(msg.sender == address(router)); // can only be called by router
+  function updateVaultAfterLiquidation(
+    uint256 auctionWindow,
+    AfterLiquidationParams calldata params
+  ) public returns (address accountantIfAny) {
+    require(msg.sender == address(ROUTER())); // can only be called by router
     VaultData storage s = _loadStorageSlot();
 
     accountantIfAny = address(0);
-    ILienToken lienToken = LIEN_TOKEN();
-
-    uint256 newAmount = LIEN_TOKEN().getOwed(stack);
     s.yIntercept += s.slope.mulDivDown(block.timestamp - s.last, 1);
-    s.slope -= lienToken.calculateSlope(stack);
+    s.slope -= params.lienSlope;
     s.last = block.timestamp.safeCastTo40();
 
     if (s.currentEpoch != 0) {
       transferWithdrawReserve();
     }
-    uint64 lienEpoch = getLienEpoch(stack.lien.end);
+    uint64 lienEpoch = getLienEpoch(params.lienEnd);
     _decreaseEpochLienCount(s, lienEpoch);
 
-    uint256 window = router.getAuctionWindow();
-    if (timeToEpochEnd() <= window) {
+    if (timeToEpochEnd() <= auctionWindow) {
       accountantIfAny = s.epochData[lienEpoch].liquidationAccountant;
 
       // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
@@ -572,8 +556,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       LiquidationAccountant(accountantIfAny).handleNewLiquidation(
-        newAmount,
-        window + 1 days
+        params.newAmount,
+        auctionWindow + 1 days
       );
     }
   }

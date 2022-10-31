@@ -20,6 +20,12 @@ interface IPublicVault is IERC165, IVault {
     uint256 interestOwed;
   }
 
+  struct AfterLiquidationParams {
+    uint256 lienSlope;
+    uint256 newAmount;
+    uint40 lienEnd;
+  }
+
   /**
    * @notice Signal a withdrawal of funds (redeeming for underlying asset) in an arbitrary future epoch.
    * @param shares The number of VaultToken shares to redeem.
@@ -96,4 +102,8 @@ interface IPublicVault is IERC165, IVault {
     LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH,
     DEPOSIT_CAP_EXCEEDED
   }
+
+  event YInterceptChanged(uint256 newYintercept);
+  event WithdrawReserveTransferred(uint256 amount);
+  event LienOpen(uint256 lienId, uint256 epoch);
 }

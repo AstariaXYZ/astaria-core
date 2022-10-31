@@ -67,14 +67,14 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function strategistNonce(address strategist) external view returns (uint256);
 
-  /**
-   * @notice Validates the incoming commitment
-   * @param commitment The commitment proofs and requested loan data for each loan.
-   * @return details LienDetails
-   */
-  function validateCommitment(Commitment calldata commitment)
-    external
-    returns (ILienToken.Details memory details);
+  //  /**
+  //   * @notice Validates the incoming commitment
+  //   * @param commitment The commitment proofs and requested loan data for each loan.
+  //   * @return the new Lien data
+  //   */
+  //  function validateCommitment(Commitment calldata commitment)
+  //    external
+  //    returns (ILienToken.Lien memory lien);
 
   /**
    * @notice Deploys a new PublicVault.
@@ -114,14 +114,19 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   /**
    * @notice Create a new lien against a CollateralToken.
-   * @param terms the decoded lien details from the commitment
    * @param params The valid proof and lien details for the new loan.
    * @return The ID of the created lien.
    */
   function requestLienPosition(
-    ILienToken.Details memory terms,
-    IAstariaRouter.Commitment calldata params
-  ) external returns (uint256, ILienToken.Stack[] memory);
+    IAstariaRouter.Commitment calldata params,
+    address recipient
+  )
+    external
+    returns (
+      uint256,
+      ILienToken.Stack[] memory,
+      uint256
+    );
 
   function LIEN_TOKEN() external view returns (ILienToken);
 

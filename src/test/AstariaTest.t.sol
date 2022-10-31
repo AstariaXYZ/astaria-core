@@ -163,7 +163,7 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  function testLiquidationAccountant() public {
+  function testJustLiquidationAccountant() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
@@ -255,19 +255,16 @@ contract AstariaTest is TestHelpers {
   //    );
   //
   //    // borrow 10 eth against the dummy NFT
-  //    (
-  //      uint256[] memory liens,
-  //      ILienToken.Stack[] memory stack;
-  //    ) = _commitToLien({
-  //        vault: publicVault,
-  //        strategist: strategistOne,
-  //        strategistPK: strategistOnePK,
-  //        tokenContract: tokenContract,
-  //        tokenId: tokenId,
-  //        lienDetails: standardLienDetails,
-  //        amount: 10 ether,
-  //        isFirstLien: true
-  //      });
+  //    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+  //      vault: publicVault,
+  //      strategist: strategistOne,
+  //      strategistPK: strategistOnePK,
+  //      tokenContract: tokenContract,
+  //      tokenId: tokenId,
+  //      lienDetails: standardLienDetails,
+  //      amount: 10 ether,
+  //      isFirstLien: true
+  //    });
   //
   //    // buyout liens
   //
@@ -299,8 +296,9 @@ contract AstariaTest is TestHelpers {
   //    );
   //    VaultImplementation(privateVault).buyoutLien(
   //      tokenContract.computeId(tokenId),
-  //      uint256(0),
-  //      refinanceTerms
+  //      uint8(0),
+  //      refinanceTerms,
+  //      stack
   //    );
   //
   //    //     LIEN_TOKEN.buyoutLien(liens[0], 10 ether, address(1), address(1));
