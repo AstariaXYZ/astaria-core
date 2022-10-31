@@ -551,6 +551,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     accountantIfAny = address(0);
     ILienToken lienToken = LIEN_TOKEN();
 
+    uint256 newAmount = LIEN_TOKEN().getOwed(stack);
     s.yIntercept += s.slope.mulDivDown(block.timestamp - s.last, 1);
     s.slope -= lienToken.calculateSlope(stack);
     s.last = block.timestamp.safeCastTo40();
@@ -571,7 +572,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
 
       LiquidationAccountant(accountantIfAny).handleNewLiquidation(
-        stack.point.amount,
+        newAmount,
         window + 1 days
       );
     }
