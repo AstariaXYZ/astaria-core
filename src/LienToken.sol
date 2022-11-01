@@ -102,90 +102,93 @@ contract LienToken is ERC721, ILienToken, Auth {
       super.supportsInterface(interfaceId);
   }
 
-  //  function buyoutLien(ILienToken.LienActionBuyout calldata params)
-  //    external
-  //    validateStack(params.stack[0].lien.collateralId, params.stack)
-  //    returns (Stack[] memory, Stack memory newStack)
-  //  {
-  //    if (msg.sender != params.receiver) {
-  //      require(_loadERC721Slot().isApprovedForAll[msg.sender][params.receiver]);
-  //    }
-  //    //    uint256 outgoingLienId = params.stack[params.position].point.lienId;
-  //
-  //    LienStorage storage s = _loadLienStorageSlot();
-  //
-  //    ILienToken.Details memory details = s.ASTARIA_ROUTER.validateCommitment(
-  //      params.incoming
-  //    );
-  //
-  //    (uint256 owed, uint256 buyout) = getBuyout(params.stack[params.position]);
-  //
-  //    //the borrower shouldn't incur more debt from the buyout than they already owe
-  //    if (details.maxAmount < owed) {
-  //      revert InvalidBuyoutDetails(details.maxAmount, owed);
-  //    }
-  //  }
+  function buyoutLien(ILienToken.LienActionBuyout calldata params)
+    external
+    validateStack(
+      params.encumber.stack[0].lien.collateralId,
+      params.encumber.stack
+    )
+    returns (Stack[] memory, Stack memory newStack)
+  {
+    if (msg.sender != params.encumber.receiver) {
+      require(
+        _loadERC721Slot().isApprovedForAll[msg.sender][params.encumber.receiver]
+      );
+    }
+    //    uint256 outgoingLienId = params.stack[params.position].point.lienId;
 
-  //  function _buyoutLien(
-  //    LienStorage storage s,
-  //    ILienToken.LienActionBuyout calldata params,
-  //    ILienToken.Lien memory newLien
-  //  ) internal {
-  //    (, newStack) = _createLien(s, params);
-  //
-  //    s.TRANSFER_PROXY.tokenTransferFrom(
-  //      s.WETH,
-  //      address(msg.sender),
-  //      getPayee(params.stack[params.position].point.lienId),
-  //      buyout
-  //    );
-  //
-  //    if (
-  //      !s.ASTARIA_ROUTER.isValidRefinance({
-  //        newLien: newStack.lien,
-  //        stack: params.stack
-  //      })
-  //    ) {
-  //      revert InvalidRefinance();
-  //    }
-  //
-  //    //_burn original lien
-  //    _burn(params.stack[params.position].point.lienId);
-  //    return (
-  //      _replaceStackAtPositionWithNewLien(
-  //        s,
-  //        owed,
-  //        params.stack,
-  //        params.position,
-  //        newStack,
-  //        params.stack[params.position].point.lienId,
-  //        newStack.point.lienId
-  //      ),
-  //      newStack
-  //    );
-  //    delete s.amountAtLiquidation[params.stack[params.position].point.lienId];
-  //  }
+    LienStorage storage s = _loadLienStorageSlot();
+
+    return _buyoutLien(s, params);
+  }
+
+  function _buyoutLien(
+    LienStorage storage s,
+    ILienToken.LienActionBuyout calldata params
+  ) internal returns (Stack[] memory, Stack memory newStack) {
+    //the borrower shouldn't incur more debt from the buyout than they already owe
+    (, newStack) = _createLien(s, params.encumber);
+    if (
+      !s.ASTARIA_ROUTER.isValidRefinance({
+        newLien: params.encumber.lien,
+        position: params.position,
+        stack: params.encumber.stack
+      })
+    ) {
+      revert InvalidRefinance();
+    }
+
+    if (
+      s.amountAtLiquidation[
+        params.encumber.stack[params.position].point.lienId
+      ] > 0
+    ) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+    (uint256 owed, uint256 buyout) = getBuyout(
+      params.encumber.stack[params.position]
+    );
+    if (params.encumber.lien.details.maxAmount < owed) {
+      revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
+    }
+    s.TRANSFER_PROXY.tokenTransferFrom(
+      s.WETH,
+      address(msg.sender),
+      getPayee(params.encumber.stack[params.position].point.lienId),
+      buyout
+    );
+
+    return (
+      _replaceStackAtPositionWithNewLien(
+        s,
+        params.encumber.stack,
+        params.position,
+        newStack,
+        params.encumber.stack[params.position].point.lienId,
+        newStack.point.lienId
+      ),
+      newStack
+    );
+  }
 
   function _replaceStackAtPositionWithNewLien(
     LienStorage storage s,
-    uint256 amount,
     ILienToken.Stack[] calldata stack,
     uint256 position,
     Stack memory newLien,
     uint256 oldLienId,
     uint256 newLienId
-  ) internal returns (ILienToken.Stack[] memory) {
-    ILienToken.Stack[] memory newStack = new ILienToken.Stack[](stack.length);
+  ) internal returns (ILienToken.Stack[] memory newStack) {
+    newStack = new ILienToken.Stack[](stack.length);
     for (uint256 i = 0; i < stack.length; i++) {
       if (i == position) {
         newStack[i] = newLien;
         _burn(oldLienId);
-        delete s.amountAtLiquidation[oldLienId];
       } else {
         newStack[i] = stack[i];
       }
     }
-    return newStack;
+    emit LienStackUpdated(stack[0].lien.collateralId, newStack);
   }
 
   //
@@ -212,7 +215,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       );
   }
 
-  modifier validateStack(uint256 collateralId, Stack[] calldata stack) {
+  modifier validateStack(uint256 collateralId, Stack[] memory stack) {
     LienStorage storage s = _loadLienStorageSlot();
     bytes32 stateHash = s.collateralStateHash[collateralId];
     if (stateHash != bytes32(0)) {
@@ -294,7 +297,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     return _loadERC721Slot()._ownerOf[tokenId] != address(0);
   }
 
-  function createLien(ILienToken.LienActionEncumber calldata params)
+  function createLien(ILienToken.LienActionEncumber memory params)
     external
     requiresAuth
     validateStack(params.collateralId, params.stack)
@@ -358,7 +361,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function _appendStack(
     LienStorage storage s,
-    Stack[] calldata stack,
+    Stack[] memory stack,
     Stack memory newSlot
   ) internal pure returns (Stack[] memory newStack) {
     newStack = new Stack[](stack.length + 1);
@@ -547,15 +550,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
   }
 
-  //  function makePayment(
-  //    Stack[] memory stack,
-  //    uint8 position,
-  //    uint256 paymentAmount,
-  //    address payer
-  //  ) public requiresAuth {
-  //    _payment(_loadLienStorageSlot(), stack, paymentAmount, payer);
-  //  }
-
   function calculateSlope(Stack memory stack) public pure returns (uint256) {
     uint256 owedAtEnd = _getOwed(stack, stack.point.end);
     return
@@ -579,17 +573,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       maxPotentialDebt += _getOwed(stack[i], stack[i].point.end);
     }
   }
-
-  //  function getAccruedSinceLastPayment(Lien calldata lien)
-  //    external
-  //    view
-  //    returns (uint256)
-  //  {
-  //    LienStorage storage s = _loadLienStorageSlot();
-  //    uint256 lienId = validateLien(lien);
-  //    LienDataPoint memory point = s.amountAtLiquidation[lienId];
-  //    return _getOwed(lien, bll);
-  //  }
 
   function getOwed(Stack memory stack) external view returns (uint192) {
     return _getOwed(stack, block.timestamp);

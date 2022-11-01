@@ -67,14 +67,14 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function strategistNonce(address strategist) external view returns (uint256);
 
-  //  /**
-  //   * @notice Validates the incoming commitment
-  //   * @param commitment The commitment proofs and requested loan data for each loan.
-  //   * @return the new Lien data
-  //   */
-  //  function validateCommitment(Commitment calldata commitment)
-  //    external
-  //    returns (ILienToken.Lien memory lien);
+  /**
+   * @notice Validates the incoming commitment
+   * @param commitment The commitment proofs and requested loan data for each loan.
+   * @return lien the new Lien data
+   */
+  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
+    external
+    returns (ILienToken.Lien memory lien);
 
   /**
    * @notice Deploys a new PublicVault.
@@ -175,10 +175,11 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function isValidVault(address) external view returns (bool);
 
-  //  function isValidRefinance(
-  //    ILienToken.Lien memory newLien,
-  //    ILienToken.Stack[] memory stack
-  //  ) external view returns (bool);
+  function isValidRefinance(
+    ILienToken.Lien calldata newLien,
+    uint8 position,
+    ILienToken.Stack[] calldata stack
+  ) external view returns (bool);
 
   /**
    * @notice Cancels the auction for a CollateralToken and returns the NFT to the borrower.
