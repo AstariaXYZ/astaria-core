@@ -388,11 +388,11 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       );
 
     if (details.rate == uint256(0) || details.rate > s.maxInterestRate) {
-      //      revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
+      revert InvalidCommitmentState(CommitmentState.INVALID_RATE);
     }
 
     if (details.maxAmount < commitment.lienRequest.amount) {
-      //      revert InvalidRequest(InvalidRequestReason.INVALID_AMOUNT);
+      revert InvalidCommitmentState(CommitmentState.INVALID_AMOUNT);
     }
 
     if (

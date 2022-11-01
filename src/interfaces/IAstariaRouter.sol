@@ -218,6 +218,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidStrategy(uint16);
   enum CommitmentState {
     INVALID,
+    INVALID_RATE,
+    INVALID_AMOUNT,
     EXPIRED,
     COLLATERAL_AUCTION,
     COLLATERAL_NO_DEPOSIT
