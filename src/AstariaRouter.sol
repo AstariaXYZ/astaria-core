@@ -357,9 +357,15 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _loadRouterSlot().auctionWindow;
   }
 
+  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
+    external
+    returns (ILienToken.Lien memory lien)
+  {
+    return _validateCommitment(_loadRouterSlot(), commitment);
+  }
+
   function _validateCommitment(
     RouterStorage storage s,
-    address vault,
     IAstariaRouter.Commitment calldata commitment
   ) internal returns (ILienToken.Lien memory lien) {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
@@ -412,7 +418,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       details: details,
       strategyRoot: commitment.lienRequest.merkle.root,
       collateralId: commitment.tokenContract.computeId(commitment.tokenId),
-      vault: vault,
+      vault: commitment.lienRequest.strategy.vault,
       token: address(s.WETH)
     });
   }
@@ -489,7 +495,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     )
   {
     RouterStorage storage s = _loadRouterSlot();
-    ILienToken.Lien memory newLien = _validateCommitment(s, msg.sender, params);
+    ILienToken.Lien memory newLien = _validateCommitment(s, params);
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
       revert InvalidCommitmentState(CommitmentState.COLLATERAL_AUCTION);
@@ -672,32 +678,31 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _loadRouterSlot().vaults[vault] != address(0);
   }
 
-  //  /**
-  //   * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
-  //   * @param newLien The new Lien to replace the existing one.
-  //   * @param newLien The new Lien to replace the existing one.
-  //   * @return A boolean representing whether the potential refinance is valid.
-  //   */
-  //  function isValidRefinance(
-  //    ILienToken.Lien calldata newLien,
-  //    ILienToken.Stack[] calldata stack
-  //  ) external view returns (bool) {
-  //    RouterStorage storage s = _loadRouterSlot();
-  //    uint256 minNewRate = uint256(stack[newLien.position].lien.details.rate) -
-  //      s.minInterestBPS;
-  //
-  //    if (
-  //      (newLien.details.rate < minNewRate) ||
-  //      (block.timestamp +
-  //        newLien.details.duration -
-  //        stack[newLien.position].point.end <
-  //        s.minDurationIncrease)
-  //    ) {
-  //      return false;
-  //    }
-  //
-  //    return true;
-  //  }
+  /**
+   * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
+   * @param newLien The new Lien to replace the existing one.
+   * @param newLien The new Lien to replace the existing one.
+   * @return A boolean representing whether the potential refinance is valid.
+   */
+  function isValidRefinance(
+    ILienToken.Lien calldata newLien,
+    uint8 position,
+    ILienToken.Stack[] calldata stack
+  ) external view returns (bool) {
+    RouterStorage storage s = _loadRouterSlot();
+    uint256 minNewRate = uint256(stack[position].lien.details.rate) -
+      s.minInterestBPS;
+
+    if (
+      (newLien.details.rate < minNewRate) ||
+      (block.timestamp + newLien.details.duration - stack[position].point.end <
+        s.minDurationIncrease)
+    ) {
+      return false;
+    }
+
+    return true;
+  }
 
   //INTERNAL FUNCS
 

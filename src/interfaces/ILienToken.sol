@@ -71,10 +71,10 @@ interface ILienToken is IERC721 {
 
   struct LienActionBuyout {
     IAstariaRouter.Commitment incoming;
-    uint256 position;
-    address receiver;
-    ILienToken.Stack[] stack;
-    ILienToken.Lien newLien;
+    uint8 position;
+    //    ILienToken.Stack[] stack;
+    LienActionEncumber encumber;
+    //    ILienToken.Lien newLien;
   }
 
   /**
@@ -199,9 +199,9 @@ interface ILienToken is IERC721 {
    * @notice Purchase a LienToken for its buyout price.
    * @param params The LienActionBuyout data specifying the lien position, receiver address, and underlying CollateralToken information of the lien.
    */
-  //  function buyoutLien(LienActionBuyout memory params)
-  //    external
-  //    returns (Stack[] memory, Stack memory);
+  function buyoutLien(LienActionBuyout memory params)
+    external
+    returns (Stack[] memory, Stack memory);
 
   /**
    * @notice Make a payment for the debt against a CollateralToken.

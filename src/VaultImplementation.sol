@@ -313,61 +313,76 @@ abstract contract VaultImplementation is
     );
   }
 
-  //  /**
-  //   * @notice Buy out a lien to replace it with new terms.
-  //   * @param collateralId The ID of the underlying CollateralToken.
-  //   * @param position The position of the specified lien.
-  //   * @param incomingTerms The loan terms of the new lien.
-  //   */
-  //  function buyoutLien(
-  //    uint256 collateralId,
-  //    uint8 position,
-  //    IAstariaRouter.Commitment calldata incomingTerms,
-  //    ILienToken.Stack[] calldata stack
-  //  ) external whenNotPaused {
-  //    (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
-  //      .LIEN_TOKEN()
-  //      .getBuyout(stack[position]);
-  //
-  //    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
-  //      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
-  //    }
-  //
-  //    ILienToken.Details memory newDetails = _validateCommitment(
-  //      incomingTerms,
-  //      recipient()
-  //    );
-  //
-  //    ERC20(underlying()).safeApprove(
-  //      address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
-  //      buyout
-  //    );
-  //
-  //    LienToken lienToken = LienToken(
-  //      address(IAstariaRouter(ROUTER()).LIEN_TOKEN())
-  //    );
-  //
-  //    if (
-  //      recipient() != address(this) &&
-  //      !lienToken.isApprovedForAll(msg.sender, recipient())
-  //    ) {
-  //      lienToken.setApprovalForAll(recipient(), true);
-  //    }
-  //
-  //    //LienActionBuyout {
-  //    //    IAstariaRouter.Commitment incoming;
-  //    //    uint256 position;
-  //    //    address receiver;
-  //    //    ILienToken.Stack[] stack;
-  //    //    ILienToken.Lien newLien;
-  //    //  }
-  //
-  //    lienToken.buyoutLien(
-  //      ILienToken.LienActionBuyout({
-  //        incoming: incomingTerms,
-  //        position: position,
-  //        receiver: address(this),
-  //        stack: stack,
+  /**
+   * @notice Buy out a lien to replace it with new terms.
+   * @param collateralId The ID of the underlying CollateralToken.
+   * @param position The position of the specified lien.
+   * @param incomingTerms The loan terms of the new lien.
+   */
+  function buyoutLien(
+    uint256 collateralId,
+    uint8 position,
+    IAstariaRouter.Commitment calldata incomingTerms,
+    ILienToken.Stack[] calldata stack
+  ) external whenNotPaused {
+    (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
+      .LIEN_TOKEN()
+      .getBuyout(stack[position]);
+
+    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
+      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
+    }
+
+    _validateCommitment(incomingTerms, recipient());
+
+    ERC20(underlying()).safeApprove(
+      address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
+      buyout
+    );
+
+    LienToken lienToken = LienToken(
+      address(IAstariaRouter(ROUTER()).LIEN_TOKEN())
+    );
+
+    if (
+      recipient() != address(this) &&
+      !lienToken.isApprovedForAll(address(this), recipient())
+    ) {
+      lienToken.setApprovalForAll(recipient(), true);
+    }
+
+    //LienActionBuyout {
+    //    IAstariaRouter.Commitment incoming;
+    //    uint256 position;
+    //    address receiver;
+    //    ILienToken.Stack[] stack;
+    //    ILienToken.Lien newLien;
+    //  }
+
+    ILienToken.Lien memory newLien = ROUTER().validateCommitment(incomingTerms);
+
+    //    struct LienActionEncumber {
+    //    uint256 collateralId;
+    //    uint256 amount;
+    //    address receiver;
+    //    ILienToken.Lien lien;
+    //    Stack[] stack;
+    //    }
+    lienToken.buyoutLien(
+      ILienToken.LienActionBuyout({
+        incoming: incomingTerms,
+        position: position,
+        encumber: ILienToken.LienActionEncumber({
+          collateralId: collateralId,
+          amount: incomingTerms.lienRequest.amount,
+          receiver: recipient(),
+          lien: newLien,
+          stack: stack
+        })
+      })
+    );
+  }
+
   //        newLien: ILienToken.Lien({
   //          collateralId: collateralId,
   //          vault: address(this),
@@ -377,8 +392,6 @@ abstract contract VaultImplementation is
   //          end: uint256(block.timestamp + newDetails.duration).safeCastTo40(),
   //          details: newDetails
   //        })
-  //      })
-  //    );
   //  }
 
   /**
