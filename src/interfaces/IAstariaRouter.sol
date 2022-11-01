@@ -171,17 +171,14 @@ interface IAstariaRouter is IPausable, IBeacon {
     ILienToken.Stack[] calldata stack
   ) external returns (uint256 reserve);
 
-  function canLiquidate(ILienToken.Lien calldata lien)
-    external
-    view
-    returns (bool);
+  function canLiquidate(ILienToken.Point calldata) external view returns (bool);
 
   function isValidVault(address) external view returns (bool);
 
-  function isValidRefinance(
-    ILienToken.Lien memory newLien,
-    ILienToken.Stack[] memory stack
-  ) external view returns (bool);
+  //  function isValidRefinance(
+  //    ILienToken.Lien memory newLien,
+  //    ILienToken.Stack[] memory stack
+  //  ) external view returns (bool);
 
   /**
    * @notice Cancels the auction for a CollateralToken and returns the NFT to the borrower.

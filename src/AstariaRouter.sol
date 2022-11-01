@@ -413,9 +413,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       strategyRoot: commitment.lienRequest.merkle.root,
       collateralId: commitment.tokenContract.computeId(commitment.tokenId),
       vault: vault,
-      token: address(s.WETH),
-      position: uint8(commitment.lienRequest.stack.length),
-      end: uint256(block.timestamp + details.duration).safeCastTo40()
+      token: address(s.WETH)
     });
   }
 
@@ -534,7 +532,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @notice Returns whether a specific lien can be liquidated.
    * @return A boolean value indicating whether the specified lien can be liquidated.
    */
-  function canLiquidate(ILienToken.Lien memory lien)
+  function canLiquidate(ILienToken.Point memory lien)
     public
     view
     returns (bool)
@@ -547,7 +545,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint8 position,
     ILienToken.Stack[] memory stack
   ) external returns (uint256 reserve) {
-    if (!canLiquidate(stack[position].lien)) {
+    if (!canLiquidate(stack[position].point)) {
       revert InvalidLienState(LienState.HEALTHY);
     }
 
@@ -674,32 +672,32 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _loadRouterSlot().vaults[vault] != address(0);
   }
 
-  /**
-   * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
-   * @param newLien The new Lien to replace the existing one.
-   * @param newLien The new Lien to replace the existing one.
-   * @return A boolean representing whether the potential refinance is valid.
-   */
-  function isValidRefinance(
-    ILienToken.Lien calldata newLien,
-    ILienToken.Stack[] calldata stack
-  ) external view returns (bool) {
-    RouterStorage storage s = _loadRouterSlot();
-    uint256 minNewRate = uint256(stack[newLien.position].lien.details.rate) -
-      s.minInterestBPS;
-
-    if (
-      (newLien.details.rate < minNewRate) ||
-      (block.timestamp +
-        newLien.details.duration -
-        stack[newLien.position].lien.end <
-        s.minDurationIncrease)
-    ) {
-      return false;
-    }
-
-    return true;
-  }
+  //  /**
+  //   * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
+  //   * @param newLien The new Lien to replace the existing one.
+  //   * @param newLien The new Lien to replace the existing one.
+  //   * @return A boolean representing whether the potential refinance is valid.
+  //   */
+  //  function isValidRefinance(
+  //    ILienToken.Lien calldata newLien,
+  //    ILienToken.Stack[] calldata stack
+  //  ) external view returns (bool) {
+  //    RouterStorage storage s = _loadRouterSlot();
+  //    uint256 minNewRate = uint256(stack[newLien.position].lien.details.rate) -
+  //      s.minInterestBPS;
+  //
+  //    if (
+  //      (newLien.details.rate < minNewRate) ||
+  //      (block.timestamp +
+  //        newLien.details.duration -
+  //        stack[newLien.position].point.end <
+  //        s.minDurationIncrease)
+  //    ) {
+  //      return false;
+  //    }
+  //
+  //    return true;
+  //  }
 
   //INTERNAL FUNCS
 

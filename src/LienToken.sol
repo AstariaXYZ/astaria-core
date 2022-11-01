@@ -256,7 +256,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         liqData[i] = IPublicVault.AfterLiquidationParams({
           lienSlope: lienSlope,
           newAmount: owed,
-          lienEnd: stack[i].lien.end
+          lienEnd: stack[i].point.end
         });
       }
 
@@ -316,7 +316,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     );
 
     lienSlope = calculateSlope(newStackSlot);
-    emit AddLien(params.collateralId, lienId, newStackSlot.lien.position);
+    emit AddLien(params.collateralId, lienId, newStackSlot.point.position);
     emit LienStackUpdated(params.collateralId, newStack);
   }
 
@@ -348,7 +348,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     Point memory point = Point({
       lienId: newLienId,
       amount: params.amount.safeCastTo192(),
-      last: block.timestamp.safeCastTo40()
+      last: block.timestamp.safeCastTo40(),
+      position: uint8(params.stack.length),
+      end: (block.timestamp + params.lien.details.duration).safeCastTo40()
     });
     _mint(params.receiver, newLienId);
     return (newLienId, Stack({lien: params.lien, point: point}));
@@ -555,11 +557,11 @@ contract LienToken is ERC721, ILienToken, Auth {
   //  }
 
   function calculateSlope(Stack memory stack) public pure returns (uint256) {
-    uint256 owedAtEnd = _getOwed(stack, stack.lien.end);
+    uint256 owedAtEnd = _getOwed(stack, stack.point.end);
     return
       (owedAtEnd - stack.point.amount).mulDivDown(
         1,
-        stack.lien.end - stack.point.last
+        stack.point.end - stack.point.last
       );
   }
 
@@ -574,7 +576,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     maxPotentialDebt = 0;
     for (uint256 i = 0; i < stack.length; ++i) {
-      maxPotentialDebt += _getOwed(stack[i], stack[i].lien.end);
+      maxPotentialDebt += _getOwed(stack[i], stack[i].point.end);
     }
   }
 
@@ -627,7 +629,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     Stack memory stack,
     bool buyout
   ) internal view returns (uint256) {
-    uint256 end = stack.lien.end;
+    uint256 end = stack.point.end;
     if (buyout) {
       uint32 buyoutInterestWindow = s.ASTARIA_ROUTER.getBuyoutInterestWindow();
       if (end >= block.timestamp + buyoutInterestWindow) {
@@ -663,7 +665,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
     // Blocking off payments for a lien that has exceeded the lien.end to prevent repayment unless the msg.sender() is the AuctionHouse
-    if (block.timestamp > activeStack[position].lien.end) {
+    if (block.timestamp > activeStack[position].point.end) {
       revert InvalidLoanState();
     }
     uint256 owed = _getOwed(activeStack[position], block.timestamp);
@@ -700,7 +702,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         // since the openLiens count is only positive when there are liens that haven't been paid off
         // that should be liquidated, this lien should not be counted anymore
         IPublicVault(lienOwner).decreaseEpochLienCount(
-          IPublicVault(lienOwner).getLienEpoch(stack.lien.end)
+          IPublicVault(lienOwner).getLienEpoch(stack.point.end)
         );
       }
       delete s.amountAtLiquidation[lienId]; //full delete of point data for the lien

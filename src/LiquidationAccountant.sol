@@ -98,7 +98,7 @@ contract LiquidationAccountant is LiquidationAccountantBase {
     }
 
     require(!s.hasClaimed);
-
+    uint256 transferAmount = 0;
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
 
     if (balance < s.expected) {

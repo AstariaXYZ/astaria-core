@@ -19,13 +19,6 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import "./IPublicVault.sol";
 
 interface ILienToken is IERC721 {
-  struct Details {
-    uint256 maxAmount;
-    uint256 rate; //rate per second
-    uint256 duration;
-    uint256 maxPotentialDebt;
-  }
-
   struct LienStorage {
     address WETH;
     ITransferProxy TRANSFER_PROXY;
@@ -40,20 +33,27 @@ interface ILienToken is IERC721 {
     mapping(uint256 => bytes32) collateralStateHash;
   }
 
+  struct Details {
+    uint256 maxAmount;
+    uint256 rate; //rate per second
+    uint256 duration;
+    uint256 maxPotentialDebt;
+  }
+
   struct Lien {
     Details details;
     bytes32 strategyRoot;
     uint256 collateralId;
     address vault;
     address token;
-    uint8 position;
-    uint40 end;
   }
 
   struct Point {
-    uint40 last;
-    uint192 amount;
     uint256 lienId;
+    uint192 amount;
+    uint8 position;
+    uint40 last;
+    uint40 end;
   }
 
   struct Stack {

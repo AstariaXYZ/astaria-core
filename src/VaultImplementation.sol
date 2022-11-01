@@ -300,7 +300,7 @@ abstract contract VaultImplementation is
       receiver
     );
     _afterCommitToLien(
-      stack[stack.length - 1].lien.end,
+      stack[stack.length - 1].point.end,
       lienId,
       params.lienRequest.amount,
       slopeAddition
