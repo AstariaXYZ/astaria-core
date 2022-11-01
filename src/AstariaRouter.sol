@@ -557,25 +557,28 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     RouterStorage storage s = _loadRouterSlot();
     uint256[] memory stackAtLiquidation = new uint256[](stack.length);
-    IPublicVault.AfterLiquidationParams[] memory afterLiq;
-    (reserve, stack, afterLiq) = s.LIEN_TOKEN.stopLiens(collateralId, stack);
+    (reserve, stack, stackAtLiquidation) = s.LIEN_TOKEN.stopLiens(
+      collateralId,
+      s.auctionWindow,
+      stack
+    );
 
-    for (uint256 i = 0; i < stack.length; ++i) {
-      uint256 currentLien = stack[i].point.lienId;
-      stackAtLiquidation[i] = currentLien;
-      address owner = s.LIEN_TOKEN.getPayee(currentLien); //todo: payee or owner?
-      if (
-        IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
-      ) {
-        // update the public vault state and get the liquidation accountant back if any
-        address accountantIfAny = PublicVault(owner)
-          .updateVaultAfterLiquidation(s.auctionWindow, afterLiq[i]);
-
-        if (accountantIfAny != address(0)) {
-          s.LIEN_TOKEN.setPayee(stack[i].lien, accountantIfAny);
-        }
-      }
-    }
+    //    for (uint256 i = 0; i < stack.length; ++i) {
+    //      uint256 currentLien = stack[i].point.lienId;
+    //      stackAtLiquidation[i] = currentLien;
+    //      address owner = s.LIEN_TOKEN.getPayee(currentLien); //todo: payee or owner?
+    //      if (
+    //        IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
+    //      ) {
+    //        // update the public vault state and get the liquidation accountant back if any
+    //        address accountantIfAny = PublicVault(owner)
+    //          .updateVaultAfterLiquidation(s.auctionWindow, afterLiq[i]);
+    //
+    //        if (accountantIfAny != address(0)) {
+    //          s.LIEN_TOKEN.setPayee(stack[i].lien, accountantIfAny);
+    //        }
+    //      }
+    //    }
 
     s.AUCTION_HOUSE.createAuction(
       collateralId,

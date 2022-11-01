@@ -533,7 +533,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 auctionWindow,
     AfterLiquidationParams calldata params
   ) public returns (address accountantIfAny) {
-    require(msg.sender == address(ROUTER())); // can only be called by router
+    require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
     VaultData storage s = _loadStorageSlot();
 
     accountantIfAny = address(0);

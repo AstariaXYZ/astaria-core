@@ -106,12 +106,16 @@ interface ILienToken is IERC721 {
    * @notice Stops accruing interest for all liens against a single CollateralToken.
    * @param collateralId The ID for the  CollateralToken of the NFT used as collateral for the liens.
    */
-  function stopLiens(uint256 collateralId, ILienToken.Stack[] memory stack)
+  function stopLiens(
+    uint256 collateralId,
+    uint256 auctionWindow,
+    ILienToken.Stack[] memory stack
+  )
     external
     returns (
       uint256 reserve,
       Stack[] memory,
-      IPublicVault.AfterLiquidationParams[] memory
+      uint256[] memory
     );
 
   /**

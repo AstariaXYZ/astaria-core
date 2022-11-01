@@ -88,6 +88,11 @@ interface IPublicVault is IERC165, IVault {
 
   function decreaseYIntercept(uint256 amount) external;
 
+  function updateVaultAfterLiquidation(
+    uint256 auctionWindow,
+    AfterLiquidationParams calldata params
+  ) external returns (address accountantIfAny);
+
   // ERRORS
 
   error InvalidState(InvalidStates);

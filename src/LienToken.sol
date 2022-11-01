@@ -233,20 +233,24 @@ contract LienToken is ERC721, ILienToken, Auth {
     _;
   }
 
-  function stopLiens(uint256 collateralId, Stack[] calldata stack)
+  function stopLiens(
+    uint256 collateralId,
+    uint256 auctionWindow,
+    Stack[] calldata stack
+  )
     external
     requiresAuth
     returns (
       uint256 reserve,
       Stack[] memory,
-      IPublicVault.AfterLiquidationParams[] memory liqData
+      uint256[] memory lienIds
     )
   {
     LienStorage storage s = _loadLienStorageSlot();
 
     reserve = 0;
-    uint256[] memory lienIds = new uint256[](stack.length);
-    liqData = new IPublicVault.AfterLiquidationParams[](stack.length);
+    lienIds = new uint256[](stack.length);
+
     for (uint256 i = 0; i < stack.length; ++i) {
       lienIds[i] = stack[i].point.lienId;
       uint256 lienSlope;
@@ -256,21 +260,34 @@ contract LienToken is ERC721, ILienToken, Auth {
         owed = _getOwed(stack[i], block.timestamp);
         reserve += owed;
         s.amountAtLiquidation[stack[i].point.lienId] = owed;
-        liqData[i] = IPublicVault.AfterLiquidationParams({
-          lienSlope: lienSlope,
-          newAmount: owed,
-          lienEnd: stack[i].point.end
-        });
+      }
+      if (
+        IPublicVault(getPayee(lienIds[i])).supportsInterface(
+          type(IPublicVault).interfaceId
+        )
+      ) {
+        // update the public vault state and get the liquidation accountant back if any
+        address accountantIfAny = IPublicVault(getPayee(lienIds[i]))
+          .updateVaultAfterLiquidation(
+            auctionWindow,
+            IPublicVault.AfterLiquidationParams({
+              lienSlope: lienSlope,
+              newAmount: owed,
+              lienEnd: stack[i].point.end
+            })
+          );
+
+        if (accountantIfAny != address(0)) {
+          setPayee(stack[i].lien, accountantIfAny);
+        }
       }
 
       //stack[i].point.last = block.timestamp.safeCastTo40();
     }
 
     s.collateralStateHash[collateralId] = keccak256(abi.encode(lienIds));
-    return (reserve, stack, liqData);
+    return (reserve, stack, lienIds);
   }
-
-  event log_named_uint(string, uint256);
 
   function tokenURI(uint256 tokenId)
     public
