@@ -557,7 +557,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     RouterStorage storage s = _loadRouterSlot();
     uint256[] memory stackAtLiquidation = new uint256[](stack.length);
-    (reserve, stack, stackAtLiquidation) = s.LIEN_TOKEN.stopLiens(
+    (reserve, stackAtLiquidation) = s.LIEN_TOKEN.stopLiens(
       collateralId,
       s.auctionWindow,
       stack

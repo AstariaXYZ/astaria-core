@@ -110,13 +110,7 @@ interface ILienToken is IERC721 {
     uint256 collateralId,
     uint256 auctionWindow,
     ILienToken.Stack[] memory stack
-  )
-    external
-    returns (
-      uint256 reserve,
-      Stack[] memory,
-      uint256[] memory
-    );
+  ) external returns (uint256 reserve, uint256[] memory);
 
   /**
    * @notice Computes and returns the buyout amount for a Lien.

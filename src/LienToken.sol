@@ -239,24 +239,31 @@ contract LienToken is ERC721, ILienToken, Auth {
     Stack[] calldata stack
   )
     external
+    validateStack(collateralId, stack)
     requiresAuth
-    returns (
-      uint256 reserve,
-      Stack[] memory,
-      uint256[] memory lienIds
-    )
+    returns (uint256 reserve, uint256[] memory lienIds)
   {
-    LienStorage storage s = _loadLienStorageSlot();
+    (reserve, lienIds) = _stopLiens(
+      _loadLienStorageSlot(),
+      collateralId,
+      auctionWindow,
+      stack
+    );
+  }
 
+  function _stopLiens(
+    LienStorage storage s,
+    uint256 collateralId,
+    uint256 auctionWindow,
+    Stack[] calldata stack
+  ) internal returns (uint256 reserve, uint256[] memory lienIds) {
     reserve = 0;
     lienIds = new uint256[](stack.length);
 
     for (uint256 i = 0; i < stack.length; ++i) {
       lienIds[i] = stack[i].point.lienId;
-      uint256 lienSlope;
       uint256 owed;
       unchecked {
-        lienSlope = calculateSlope(stack[i]);
         owed = _getOwed(stack[i], block.timestamp);
         reserve += owed;
         s.amountAtLiquidation[stack[i].point.lienId] = owed;
@@ -271,7 +278,7 @@ contract LienToken is ERC721, ILienToken, Auth {
           .updateVaultAfterLiquidation(
             auctionWindow,
             IPublicVault.AfterLiquidationParams({
-              lienSlope: lienSlope,
+              lienSlope: calculateSlope(stack[i]),
               newAmount: owed,
               lienEnd: stack[i].point.end
             })
@@ -281,12 +288,8 @@ contract LienToken is ERC721, ILienToken, Auth {
           setPayee(stack[i].lien, accountantIfAny);
         }
       }
-
-      //stack[i].point.last = block.timestamp.safeCastTo40();
     }
-
     s.collateralStateHash[collateralId] = keccak256(abi.encode(lienIds));
-    return (reserve, stack, lienIds);
   }
 
   function tokenURI(uint256 tokenId)
