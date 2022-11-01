@@ -4,6 +4,7 @@ out = 'out'
 cache_path = 'cache'
 libs = ['lib']
 fs_permissions = [{ access = "read-write", path = "./"}]
+gas_reports_ignore = ["Strings2", "MockERC721", "MultiRolesAuthority", "TransferProxy"]
 remappings = [
     'solmate/=lib/solmate/src/',
     'gpl/=lib/gpl/src/',
