@@ -25,6 +25,7 @@ import {LienToken} from "core/LienToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 /**
  * @title VaultImplementation
@@ -36,6 +37,7 @@ abstract contract VaultImplementation is
   IVaultImplementation
 {
   using SafeTransferLib for ERC20;
+  using SafeCastLib for uint256;
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
@@ -218,7 +220,7 @@ abstract contract VaultImplementation is
   function _validateCommitment(
     IAstariaRouter.Commitment calldata params,
     address receiver
-  ) internal returns (ILienToken.Details memory) {
+  ) internal view {
     if (
       params.lienRequest.amount > ERC20(underlying()).balanceOf(address(this))
     ) {
@@ -261,38 +263,13 @@ abstract contract VaultImplementation is
     if (recovered != owner() && recovered != delegate) {
       revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
     }
-
-    ILienToken.Details memory ld = IAstariaRouter(ROUTER()).validateCommitment(
-      params
-    );
-
-    if (ld.rate == uint256(0)) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
-    }
-
-    if (ld.rate > IAstariaRouter(ROUTER()).maxInterestRate()) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
-    }
-
-    if (ld.maxAmount < params.lienRequest.amount) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_AMOUNT);
-    }
-
-    if (
-      ROUTER().LIEN_TOKEN().getMaxPotentialDebtForCollateral(
-        params.lienRequest.stack
-      ) > ld.maxPotentialDebt
-    ) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_POTENTIAL_DEBT);
-    }
-
-    return ld;
   }
 
   function _afterCommitToLien(
-    ILienToken.Stack memory stack,
+    uint40 end,
     uint256 lienId,
-    uint256 amount
+    uint256 amount,
+    uint256 slope
   ) internal virtual {}
 
   function _beforeCommitToLien(
@@ -316,13 +293,17 @@ abstract contract VaultImplementation is
     whenNotPaused
     returns (uint256 lienId, ILienToken.Stack[] memory stack)
   {
-    ILienToken.Details memory ld = _validateCommitment(params, receiver);
     _beforeCommitToLien(params, receiver);
-    (lienId, stack) = _requestLienAndIssuePayout(ld, params, receiver);
+    uint256 slopeAddition;
+    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(
+      params,
+      receiver
+    );
     _afterCommitToLien(
-      stack[stack.length - 1],
+      stack[stack.length - 1].point.end,
       lienId,
-      params.lienRequest.amount
+      params.lienRequest.amount,
+      slopeAddition
     );
     emit NewLien(
       params.lienRequest.merkle.root,
@@ -340,23 +321,22 @@ abstract contract VaultImplementation is
   //   */
   //  function buyoutLien(
   //    uint256 collateralId,
-  //    uint256 position,
-  //    IAstariaRouter.Commitment calldata incomingTerms
+  //    uint8 position,
+  //    IAstariaRouter.Commitment calldata incomingTerms,
+  //    ILienToken.Stack[] calldata stack
   //  ) external whenNotPaused {
-  //    (, uint256 buyout) = IAstariaRouter(ROUTER()).LIEN_TOKEN().getBuyout(
-  //      collateralId,
-  //      position
-  //    );
+  //    (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
+  //      .LIEN_TOKEN()
+  //      .getBuyout(stack[position]);
   //
   //    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
   //      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
   //    }
-  //    //    require(
-  //    //      buyout <= ERC20(underlying()).balanceOf(address(this)),
-  //    //      "not enough balance to buy out loan"
-  //    //    );
   //
-  //    _validateCommitment(incomingTerms, recipient());
+  //    ILienToken.Details memory newDetails = _validateCommitment(
+  //      incomingTerms,
+  //      recipient()
+  //    );
   //
   //    ERC20(underlying()).safeApprove(
   //      address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
@@ -373,8 +353,31 @@ abstract contract VaultImplementation is
   //    ) {
   //      lienToken.setApprovalForAll(recipient(), true);
   //    }
+  //
+  //    //LienActionBuyout {
+  //    //    IAstariaRouter.Commitment incoming;
+  //    //    uint256 position;
+  //    //    address receiver;
+  //    //    ILienToken.Stack[] stack;
+  //    //    ILienToken.Lien newLien;
+  //    //  }
+  //
   //    lienToken.buyoutLien(
-  //      ILienToken.LienActionBuyout(incomingTerms, position, address(this)
+  //      ILienToken.LienActionBuyout({
+  //        incoming: incomingTerms,
+  //        position: position,
+  //        receiver: address(this),
+  //        stack: stack,
+  //        newLien: ILienToken.Lien({
+  //          collateralId: collateralId,
+  //          vault: address(this),
+  //          token: underlying(),
+  //          position: position,
+  //          strategyRoot: incomingTerms.lienRequest.merkle.root,
+  //          end: uint256(block.timestamp + newDetails.duration).safeCastTo40(),
+  //          details: newDetails
+  //        })
+  //      })
   //    );
   //  }
 
@@ -396,11 +399,20 @@ abstract contract VaultImplementation is
    * @param receiver The borrower requesting the loan.
    */
   function _requestLienAndIssuePayout(
-    ILienToken.Details memory ld,
     IAstariaRouter.Commitment calldata c,
     address receiver
-  ) internal returns (uint256 newLienId, ILienToken.Stack[] memory stack) {
-    (newLienId, stack) = IAstariaRouter(ROUTER()).requestLienPosition(ld, c);
+  )
+    internal
+    returns (
+      uint256 newLienId,
+      ILienToken.Stack[] memory stack,
+      uint256 slope
+    )
+  {
+    (newLienId, stack, slope) = IAstariaRouter(ROUTER()).requestLienPosition(
+      c,
+      recipient()
+    );
 
     uint256 payout = _handleProtocolFee(c.lienRequest.amount);
     ERC20(underlying()).safeTransfer(receiver, payout);

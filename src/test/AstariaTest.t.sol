@@ -40,6 +40,28 @@ contract AstariaTest is TestHelpers {
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
+  //  function testHashCosts() public {
+  //    ILienToken.Lien memory lien = ILienToken.Lien({
+  //      strategyRoot: bytes32(0),
+  //      collateralId: uint256(0),
+  //      vault: address(0),
+  //      details: ILienToken.Details({
+  //        maxAmount: 50 ether,
+  //        rate: uint256(1e16).mulDivDown(150, 1).mulDivDown(1, 365 days),
+  //        duration: 14 days,
+  //        maxPotentialDebt: 0 ether
+  //      }),
+  //      token: address(0),
+  //      position: uint8(1),
+  //      end: uint40(block.timestamp + 14 days)
+  //    });
+  //    ILienToken.Point memory point = ILienToken.Point({
+  //      last: uint40(block.timestamp),
+  //      amount: 50 ether,
+  //      lienId: uint256(keccak256(abi.encode(lien)))
+  //    });
+  //  }
+
   function testBasicPublicVaultLoan() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
@@ -163,7 +185,7 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  function testLiquidationAccountant() public {
+  function testJustLiquidationAccountant() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
@@ -255,19 +277,16 @@ contract AstariaTest is TestHelpers {
   //    );
   //
   //    // borrow 10 eth against the dummy NFT
-  //    (
-  //      uint256[] memory liens,
-  //      ILienToken.Stack[] memory stack;
-  //    ) = _commitToLien({
-  //        vault: publicVault,
-  //        strategist: strategistOne,
-  //        strategistPK: strategistOnePK,
-  //        tokenContract: tokenContract,
-  //        tokenId: tokenId,
-  //        lienDetails: standardLienDetails,
-  //        amount: 10 ether,
-  //        isFirstLien: true
-  //      });
+  //    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+  //      vault: publicVault,
+  //      strategist: strategistOne,
+  //      strategistPK: strategistOnePK,
+  //      tokenContract: tokenContract,
+  //      tokenId: tokenId,
+  //      lienDetails: standardLienDetails,
+  //      amount: 10 ether,
+  //      isFirstLien: true
+  //    });
   //
   //    // buyout liens
   //
@@ -299,8 +318,9 @@ contract AstariaTest is TestHelpers {
   //    );
   //    VaultImplementation(privateVault).buyoutLien(
   //      tokenContract.computeId(tokenId),
-  //      uint256(0),
-  //      refinanceTerms
+  //      uint8(0),
+  //      refinanceTerms,
+  //      stack
   //    );
   //
   //    //     LIEN_TOKEN.buyoutLien(liens[0], 10 ether, address(1), address(1));

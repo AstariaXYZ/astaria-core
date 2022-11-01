@@ -14,8 +14,7 @@ import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-
-import {IERC721} from "core/interfaces/IERC721.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
@@ -358,21 +357,20 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _loadRouterSlot().auctionWindow;
   }
 
-  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
-    public
-    returns (ILienToken.Details memory details)
-  {
+  function _validateCommitment(
+    RouterStorage storage s,
+    address vault,
+    IAstariaRouter.Commitment calldata commitment
+  ) internal returns (ILienToken.Lien memory lien) {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
     }
-    RouterStorage storage s = _loadRouterSlot();
 
     if (s.strategyValidators[commitment.lienRequest.nlrType] == address(0)) {
       revert InvalidStrategy(commitment.lienRequest.nlrType);
     }
 
-    bytes32 leaf;
-    (leaf, details) = IStrategyValidator(
+    (bytes32 leaf, ILienToken.Details memory details) = IStrategyValidator(
       s.strategyValidators[commitment.lienRequest.nlrType]
     ).validateAndParse(
         commitment.lienRequest,
@@ -383,6 +381,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         commitment.tokenId
       );
 
+    if (details.rate == uint256(0) || details.rate > s.maxInterestRate) {
+      //      revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
+    }
+
+    if (details.maxAmount < commitment.lienRequest.amount) {
+      //      revert InvalidRequest(InvalidRequestReason.INVALID_AMOUNT);
+    }
+
     if (
       !MerkleProofLib.verify(
         commitment.lienRequest.merkle.proof,
@@ -392,6 +398,23 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     ) {
       revert InvalidCommitmentState(CommitmentState.INVALID);
     }
+
+    //struct Lien {
+    //    Details details;
+    //    bytes32 strategyRoot;
+    //    uint256 collateralId;
+    //    address vault;
+    //    address token;
+    //    uint8 position;
+    //    uint40 end;
+    //  }
+    lien = ILienToken.Lien({
+      details: details,
+      strategyRoot: commitment.lienRequest.merkle.root,
+      collateralId: commitment.tokenContract.computeId(commitment.tokenId),
+      vault: vault,
+      token: address(s.WETH)
+    });
   }
 
   function commitToLiens(IAstariaRouter.Commitment[] calldata commitments)
@@ -407,17 +430,13 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256 totalBorrowed = 0;
     lienIds = new uint256[](commitments.length);
     for (uint256 i = 0; i < commitments.length; ++i) {
-      _transferAndDepositAsset(
+      _transferAndDepositAssetIfAble(
         s,
         commitments[i].tokenContract,
         commitments[i].tokenId
       );
       (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
       totalBorrowed += commitments[i].lienRequest.amount;
-
-      uint256 collateralId = commitments[i].tokenContract.computeId(
-        commitments[i].tokenId
-      );
     }
     s.WETH.safeApprove(address(s.TRANSFER_PROXY), totalBorrowed);
     s.TRANSFER_PROXY.tokenTransferFrom(
@@ -457,15 +476,20 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   }
 
   function requestLienPosition(
-    ILienToken.Details memory terms,
-    IAstariaRouter.Commitment calldata params
+    IAstariaRouter.Commitment calldata params,
+    address receiver
   )
     external
     whenNotPaused
     onlyVaults
-    returns (uint256, ILienToken.Stack[] memory)
+    returns (
+      uint256,
+      ILienToken.Stack[] memory,
+      uint256
+    )
   {
     RouterStorage storage s = _loadRouterSlot();
+    ILienToken.Lien memory newLien = _validateCommitment(s, msg.sender, params);
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
       revert InvalidCommitmentState(CommitmentState.COLLATERAL_AUCTION);
@@ -479,11 +503,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       s.LIEN_TOKEN.createLien(
         ILienToken.LienActionEncumber({
           collateralId: collateralId,
-          terms: terms,
-          strategyRoot: params.lienRequest.merkle.root,
+          lien: newLien,
           amount: params.lienRequest.amount,
           stack: params.lienRequest.stack,
-          vault: address(msg.sender)
+          receiver: receiver
         })
       );
   }
@@ -501,10 +524,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       revert InvalidVaultState(VaultState.UNINITIALIZED);
     }
 
-    //    require(
-    //      ,
-    //      "lendToVault: vault doesn't exist"
-    //    );
     s.WETH.safeApprove(address(vault), amount);
     vault.deposit(amount, address(msg.sender));
   }
@@ -513,7 +532,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @notice Returns whether a specific lien can be liquidated.
    * @return A boolean value indicating whether the specified lien can be liquidated.
    */
-  function canLiquidate(ILienToken.Lien memory lien)
+  function canLiquidate(ILienToken.Point memory lien)
     public
     view
     returns (bool)
@@ -526,12 +545,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint8 position,
     ILienToken.Stack[] memory stack
   ) external returns (uint256 reserve) {
-    if (!canLiquidate(stack[position].lien)) {
+    if (!canLiquidate(stack[position].point)) {
       revert InvalidLienState(LienState.HEALTHY);
     }
 
     RouterStorage storage s = _loadRouterSlot();
     uint256[] memory stackAtLiquidation = new uint256[](stack.length);
+    IPublicVault.AfterLiquidationParams[] memory afterLiq;
+    (reserve, stack, afterLiq) = s.LIEN_TOKEN.stopLiens(collateralId, stack);
 
     for (uint256 i = 0; i < stack.length; ++i) {
       uint256 currentLien = stack[i].point.lienId;
@@ -542,15 +563,13 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       ) {
         // update the public vault state and get the liquidation accountant back if any
         address accountantIfAny = PublicVault(owner)
-          .updateVaultAfterLiquidation(stack[i]);
+          .updateVaultAfterLiquidation(s.auctionWindow, afterLiq[i]);
 
         if (accountantIfAny != address(0)) {
           s.LIEN_TOKEN.setPayee(stack[i].lien, accountantIfAny);
         }
       }
     }
-
-    (reserve, stack) = s.LIEN_TOKEN.stopLiens(collateralId, stack);
 
     s.AUCTION_HOUSE.createAuction(
       collateralId,
@@ -653,32 +672,32 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _loadRouterSlot().vaults[vault] != address(0);
   }
 
-  /**
-   * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
-   * @param newLien The new Lien to replace the existing one.
-   * @param newLien The new Lien to replace the existing one.
-   * @return A boolean representing whether the potential refinance is valid.
-   */
-  function isValidRefinance(
-    ILienToken.Lien memory newLien,
-    ILienToken.Stack[] memory stack
-  ) external view returns (bool) {
-    RouterStorage storage s = _loadRouterSlot();
-    uint256 minNewRate = uint256(stack[newLien.position].lien.details.rate) -
-      s.minInterestBPS;
-
-    if (
-      (newLien.details.rate < minNewRate) ||
-      (block.timestamp +
-        newLien.details.duration -
-        stack[newLien.position].lien.end <
-        s.minDurationIncrease)
-    ) {
-      return false;
-    }
-
-    return true;
-  }
+  //  /**
+  //   * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
+  //   * @param newLien The new Lien to replace the existing one.
+  //   * @param newLien The new Lien to replace the existing one.
+  //   * @return A boolean representing whether the potential refinance is valid.
+  //   */
+  //  function isValidRefinance(
+  //    ILienToken.Lien calldata newLien,
+  //    ILienToken.Stack[] calldata stack
+  //  ) external view returns (bool) {
+  //    RouterStorage storage s = _loadRouterSlot();
+  //    uint256 minNewRate = uint256(stack[newLien.position].lien.details.rate) -
+  //      s.minInterestBPS;
+  //
+  //    if (
+  //      (newLien.details.rate < minNewRate) ||
+  //      (block.timestamp +
+  //        newLien.details.duration -
+  //        stack[newLien.position].point.end <
+  //        s.minDurationIncrease)
+  //    ) {
+  //      return false;
+  //    }
+  //
+  //    return true;
+  //  }
 
   //INTERNAL FUNCS
 
@@ -761,16 +780,19 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       );
   }
 
-  function _transferAndDepositAsset(
+  function _transferAndDepositAssetIfAble(
     RouterStorage storage s,
     address tokenContract,
     uint256 tokenId
   ) internal {
-    IERC721(tokenContract).safeTransferFrom(
-      address(msg.sender),
-      address(s.COLLATERAL_TOKEN),
-      tokenId,
-      ""
-    );
+    ERC721 token = ERC721(tokenContract);
+    if (token.ownerOf(tokenId) == address(msg.sender)) {
+      ERC721(tokenContract).safeTransferFrom(
+        address(msg.sender),
+        address(s.COLLATERAL_TOKEN),
+        tokenId,
+        ""
+      );
+    }
   }
 }
