@@ -388,7 +388,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       );
 
     if (details.rate == uint256(0) || details.rate > s.maxInterestRate) {
-      //      revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
+          //  revert InvalidRequest(InvalidRequestReason.INVALID_RATE);
     }
 
     if (details.maxAmount < commitment.lienRequest.amount) {
