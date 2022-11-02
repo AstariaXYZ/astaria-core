@@ -139,9 +139,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
 
     if (
-      s.amountAtLiquidation[
-        params.encumber.stack[params.position].point.lienId
-      ] > 0
+      s
+        .lienMeta[params.encumber.stack[params.position].point.lienId]
+        .amountAtLiquidation > 0
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -154,7 +154,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     s.TRANSFER_PROXY.tokenTransferFrom(
       s.WETH,
       address(msg.sender),
-      getPayee(params.encumber.stack[params.position].point.lienId),
+      _getPayee(s, params.encumber.stack[params.position].point.lienId),
       buyout
     );
 
@@ -266,15 +266,15 @@ contract LienToken is ERC721, ILienToken, Auth {
       unchecked {
         owed = _getOwed(stack[i], block.timestamp);
         reserve += owed;
-        s.amountAtLiquidation[stack[i].point.lienId] = owed;
+        s.lienMeta[stack[i].point.lienId].amountAtLiquidation = owed;
       }
       if (
-        IPublicVault(getPayee(lienIds[i])).supportsInterface(
+        IPublicVault(_getPayee(s, lienIds[i])).supportsInterface(
           type(IPublicVault).interfaceId
         )
       ) {
         // update the public vault state and get the liquidation accountant back if any
-        address accountantIfAny = IPublicVault(getPayee(lienIds[i]))
+        address accountantIfAny = IPublicVault(_getPayee(s, lienIds[i]))
           .updateVaultAfterLiquidation(
             auctionWindow,
             IPublicVault.AfterLiquidationParams({
@@ -285,7 +285,7 @@ contract LienToken is ERC721, ILienToken, Auth {
           );
 
         if (accountantIfAny != address(0)) {
-          setPayee(stack[i].lien, accountantIfAny);
+          _setPayee(s, lienIds[i], accountantIfAny);
         }
       }
     }
@@ -402,11 +402,11 @@ contract LienToken is ERC721, ILienToken, Auth {
         IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
       ) {
         IPublicVault(owner).decreaseYIntercept(
-          s.amountAtLiquidation[remainingLiens[i]]
+          s.lienMeta[remainingLiens[i]].amountAtLiquidation
         );
       }
 
-      delete s.amountAtLiquidation[remainingLiens[i]];
+      delete s.lienMeta[remainingLiens[i]];
       _burn(remainingLiens[i]); //burn the underlying lien associated
     }
     delete s.collateralStateHash[collateralId];
@@ -418,7 +418,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     view
     returns (uint256)
   {
-    return _loadLienStorageSlot().amountAtLiquidation[lienId];
+    return _loadLienStorageSlot().lienMeta[lienId].amountAtLiquidation;
   }
 
   function getAmountOwingAtLiquidation(ILienToken.Stack calldata stack)
@@ -427,9 +427,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     returns (uint256)
   {
     return
-      _loadLienStorageSlot().amountAtLiquidation[
-        uint256(keccak256(abi.encode(stack.lien)))
-      ];
+      _loadLienStorageSlot()
+        .lienMeta[uint256(keccak256(abi.encode(stack.lien)))]
+        .amountAtLiquidation;
   }
 
   function validateLien(Lien memory lien) public view returns (uint256 lienId) {
@@ -524,15 +524,15 @@ contract LienToken is ERC721, ILienToken, Auth {
   ) internal returns (uint256[] memory newStack, uint256) {
     uint256 lienId = stack[0];
     //checks the lien exists
-    address payee = getPayee(lienId);
+    address payee = _getPayee(s, lienId);
 
     //owing at liquidation
-    if (s.amountAtLiquidation[lienId] > payment) {
-      s.amountAtLiquidation[lienId] -= payment.safeCastTo88();
+    if (s.lienMeta[lienId].amountAtLiquidation > payment) {
+      s.lienMeta[lienId].amountAtLiquidation -= payment.safeCastTo88();
       newStack = stack;
     } else {
-      payment = s.amountAtLiquidation[lienId];
-      delete s.amountAtLiquidation[lienId]; //full delete
+      payment = s.lienMeta[lienId].amountAtLiquidation;
+      delete s.lienMeta[lienId]; //full delete
       _burn(lienId);
       newStack = new uint256[](stack.length - 1);
       for (uint256 i = 1; i < stack.length; i++) {
@@ -663,7 +663,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   ) internal returns (Stack[] memory, uint256) {
     Stack memory stack = activeStack[position];
     uint256 lienId = stack.point.lienId;
-    uint256 liquidatedAmount = s.amountAtLiquidation[lienId];
+    uint256 liquidatedAmount = s.lienMeta[lienId].amountAtLiquidation;
     if (liquidatedAmount > 0) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -676,7 +676,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     address lienOwner = ownerOf(lienId);
     bool isPublicVault = _isPublicVault(lienOwner);
 
-    address payee = getPayee(lienId);
+    address payee = _getPayee(s, lienId);
 
     if (amount > owed) amount = owed;
     if (isPublicVault) {
@@ -708,7 +708,7 @@ contract LienToken is ERC721, ILienToken, Auth {
           IPublicVault(lienOwner).getLienEpoch(stack.point.end)
         );
       }
-      delete s.amountAtLiquidation[lienId]; //full delete of point data for the lien
+      delete s.lienMeta[lienId]; //full delete of point data for the lien
       _burn(lienId);
       activeStack = _removeStackPosition(activeStack, position);
     }
@@ -749,8 +749,19 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function getPayee(uint256 lienId) public view returns (address) {
     LienStorage storage s = _loadLienStorageSlot();
+    require(_exists(lienId), "Lien does not exist");
+    return _getPayee(s, lienId);
+  }
 
-    return s.payee[lienId] != address(0) ? s.payee[lienId] : ownerOf(lienId);
+  function _getPayee(LienStorage storage s, uint256 lienId)
+    internal
+    view
+    returns (address)
+  {
+    return
+      s.lienMeta[lienId].payee != address(0)
+        ? s.lienMeta[lienId].payee
+        : ownerOf(lienId);
   }
 
   function setPayee(Lien calldata lien, address newPayee) public {
@@ -762,8 +773,15 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (s.AUCTION_HOUSE.auctionExists(lien.collateralId)) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
+    _setPayee(s, lienId, newPayee);
+  }
 
-    s.payee[lienId] = newPayee;
+  function _setPayee(
+    LienStorage storage s,
+    uint256 lienId,
+    address newPayee
+  ) internal {
+    s.lienMeta[lienId].payee = newPayee;
     emit PayeeChanged(lienId, newPayee);
   }
 }

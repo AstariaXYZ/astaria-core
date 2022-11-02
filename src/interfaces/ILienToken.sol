@@ -19,17 +19,24 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 interface ILienToken is IERC721 {
   struct LienStorage {
+    uint256 maxLiens;
     address WETH;
     ITransferProxy TRANSFER_PROXY;
     IAuctionHouse AUCTION_HOUSE;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
-    uint256 maxLiens;
     //lien payee
-    mapping(uint256 => address) payee;
-    //lienDebt at liquidation
-    mapping(uint256 => uint88) amountAtLiquidation;
+    //    mapping(uint256 => address) payee;
+    //    //lienDebt at liquidation
+    //    mapping(uint256 => uint88) amountAtLiquidation;
+
     mapping(uint256 => bytes32) collateralStateHash;
+    mapping(uint256 => LienMeta) lienMeta;
+  }
+
+  struct LienMeta {
+    address payee;
+    uint88 amountAtLiquidation;
   }
 
   struct Details {
