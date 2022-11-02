@@ -39,6 +39,7 @@ import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
 import {Pausable} from "core/utils/Pausable.sol";
 import "./interfaces/ILienToken.sol";
+import "./interfaces/IAstariaRouter.sol";
 
 /**
  * @title AstariaRouter
@@ -423,13 +424,37 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     });
   }
 
+  //
+  //  function commitToLien(IAstariaRouter.Commitment calldata commitment)
+  //    external
+  //    whenNotPaused
+  //    returns (uint256 lienId, ILienToken.Stack[] memory stack)
+  //  {
+  //    RouterStorage storage s = _loadRouterSlot();
+  //    _transferAndDepositAssetIfAble(
+  //      s,
+  //      commitments.tokenContract,
+  //      commitments.tokenId
+  //    );
+  //
+  //    (lienIds, stack) = _executeCommitment(s, commitment);
+  //    s.WETH.safeApprove(
+  //      address(s.TRANSFER_PROXY),
+  //      commitment.lienRequest.amount
+  //    );
+  //    s.TRANSFER_PROXY.tokenTransferFrom(
+  //      address(s.WETH),
+  //      address(this),
+  //      address(msg.sender),
+  //      commitment.lienRequest.amount
+  //    );
+  //  }
+
+  //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
   function commitToLiens(IAstariaRouter.Commitment[] calldata commitments)
     external
     whenNotPaused
-    returns (
-      uint256[] memory lienIds,
-      ILienToken.Stack[] memory stack //todo fix this
-    )
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory stack)
   {
     RouterStorage storage s = _loadRouterSlot();
 

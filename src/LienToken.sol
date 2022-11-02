@@ -262,7 +262,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     for (uint256 i = 0; i < stack.length; ++i) {
       lienIds[i] = stack[i].point.lienId;
-      uint256 owed;
+      uint88 owed;
       unchecked {
         owed = _getOwed(stack[i], block.timestamp);
         reserve += owed;
@@ -370,7 +370,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
     Point memory point = Point({
       lienId: newLienId,
-      amount: params.amount.safeCastTo192(),
+      amount: params.amount.safeCastTo88(),
       last: block.timestamp.safeCastTo40(),
       position: uint8(params.stack.length),
       end: (block.timestamp + params.lien.details.duration).safeCastTo40()
@@ -528,7 +528,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     //owing at liquidation
     if (s.amountAtLiquidation[lienId] > payment) {
-      s.amountAtLiquidation[lienId] -= payment;
+      s.amountAtLiquidation[lienId] -= payment.safeCastTo88();
       newStack = stack;
     } else {
       payment = s.amountAtLiquidation[lienId];
@@ -615,9 +615,9 @@ contract LienToken is ERC721, ILienToken, Auth {
   function _getOwed(Stack memory stack, uint256 timestamp)
     internal
     pure
-    returns (uint192)
+    returns (uint88)
   {
-    return stack.point.amount + _getInterest(stack, timestamp).safeCastTo192();
+    return stack.point.amount + _getInterest(stack, timestamp).safeCastTo88();
   }
 
   /**
@@ -690,11 +690,11 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
 
     //bring the point up to block.timestamp, compute the owed
-    stack.point.amount = owed.safeCastTo192();
+    stack.point.amount = owed.safeCastTo88();
     stack.point.last = block.timestamp.safeCastTo40();
 
     if (stack.point.amount > amount) {
-      stack.point.amount -= amount.safeCastTo192();
+      stack.point.amount -= amount.safeCastTo88();
       //      // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
       if (isPublicVault) {
         IPublicVault(lienOwner).afterPayment(calculateSlope(stack));

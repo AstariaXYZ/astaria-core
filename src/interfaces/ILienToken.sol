@@ -16,7 +16,6 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-import "./IPublicVault.sol";
 
 interface ILienToken is IERC721 {
   struct LienStorage {
@@ -29,7 +28,7 @@ interface ILienToken is IERC721 {
     //lien payee
     mapping(uint256 => address) payee;
     //lienDebt at liquidation
-    mapping(uint256 => uint256) amountAtLiquidation;
+    mapping(uint256 => uint88) amountAtLiquidation;
     mapping(uint256 => bytes32) collateralStateHash;
   }
 
@@ -50,7 +49,7 @@ interface ILienToken is IERC721 {
 
   struct Point {
     uint256 lienId;
-    uint192 amount;
+    uint88 amount;
     uint8 position;
     uint40 last;
     uint40 end;

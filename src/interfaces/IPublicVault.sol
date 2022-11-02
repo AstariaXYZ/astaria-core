@@ -25,10 +25,10 @@ interface IPublicVault is IERC165, IVault {
     uint88 yIntercept;
     uint48 slope;
     uint40 last;
-    uint256 withdrawReserve;
-    uint256 liquidationWithdrawRatio;
-    uint256 strategistUnclaimedShares;
     uint64 currentEpoch;
+    uint88 withdrawReserve;
+    uint88 liquidationWithdrawRatio;
+    uint88 strategistUnclaimedShares;
     mapping(uint256 => EpochData) epochData;
   }
 

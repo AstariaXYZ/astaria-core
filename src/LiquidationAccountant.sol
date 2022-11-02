@@ -17,7 +17,7 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {LiquidationAccountantBase} from "core/LiquidationAccountantBase.sol";
 import {PublicVault} from "./PublicVault.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
 
 /**
@@ -30,7 +30,7 @@ import {WithdrawProxy} from "./WithdrawProxy.sol";
 contract LiquidationAccountant is LiquidationAccountantBase {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
-
+  using SafeCastLib for uint256;
   event Claimed(
     address withdrawProxy,
     uint256 withdrawProxyAmount,
@@ -42,9 +42,9 @@ contract LiquidationAccountant is LiquidationAccountantBase {
     keccak256("xyz.astaria.liquidationAccountant.storage.location");
 
   struct LAStorage {
-    uint256 withdrawRatio;
-    uint256 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
-    uint256 finalAuctionEnd; // when this is deleted, we know the final auction is over
+    uint88 withdrawRatio;
+    uint88 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
+    uint40 finalAuctionEnd; // when this is deleted, we know the final auction is over
     bool hasClaimed;
   }
 
@@ -113,7 +113,7 @@ contract LiquidationAccountant is LiquidationAccountantBase {
     if (s.withdrawRatio == uint256(0)) {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     } else {
-      transferAmount = s.withdrawRatio.mulDivDown(balance, 1e18);
+      transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
 
       if (transferAmount > uint256(0)) {
         ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), transferAmount);
@@ -153,7 +153,9 @@ contract LiquidationAccountant is LiquidationAccountantBase {
    */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
-    _loadSlot().withdrawRatio = liquidationWithdrawRatio;
+    unchecked {
+      _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
+    }
   }
 
   /**
@@ -167,7 +169,9 @@ contract LiquidationAccountant is LiquidationAccountantBase {
   ) public {
     require(msg.sender == VAULT());
     LAStorage storage s = _loadSlot();
-    s.expected += newLienExpectedValue;
-    s.finalAuctionEnd = finalAuctionTimestamp;
+    unchecked {
+      s.expected += newLienExpectedValue.safeCastTo88();
+      s.finalAuctionEnd = finalAuctionTimestamp.safeCastTo40();
+    }
   }
 }
