@@ -132,7 +132,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function getSlope() public view returns (uint256) {
     VaultData storage s = _loadStorageSlot();
 
-    return s.slope;
+    return uint256(s.slope);
   }
 
   function getWithdrawReserve() public view returns (uint256) {
@@ -405,14 +405,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     // increment slope for the new lien
     _accrue(s);
     unchecked {
-      s.slope += lienSlope;
+      s.slope += lienSlope.safeCastTo48();
     }
 
     uint256 epoch = Math.ceilDiv(lienEnd - START(), EPOCH_LENGTH()) - 1;
 
     _increaseOpenLiens(s, getLienEpoch(lienEnd));
     if (s.last == 0) {
-      s.last = block.timestamp;
+      s.last = block.timestamp.safeCastTo40();
     }
     emit LienOpen(lienId, epoch);
   }
@@ -422,9 +422,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   }
 
   function _accrue(VaultData storage s) internal returns (uint256) {
-    s.yIntercept += (block.timestamp - s.last).mulDivDown(s.slope, 1);
-    emit YInterceptChanged(s.yIntercept);
-    s.last = block.timestamp;
+    unchecked {
+      s.yIntercept += uint256(block.timestamp - s.last)
+        .mulDivDown(uint256(s.slope), 1)
+        .safeCastTo88();
+      emit YInterceptChanged(s.yIntercept);
+      s.last = block.timestamp.safeCastTo40();
+    }
     return s.yIntercept;
   }
 
@@ -435,7 +439,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function totalAssets() public view virtual override returns (uint256) {
     VaultData storage s = _loadStorageSlot();
     uint256 delta_t = block.timestamp - s.last;
-    return s.slope.mulDivDown(delta_t, 1) + s.yIntercept;
+    return uint256(s.slope).mulDivDown(delta_t, 1) + uint256(s.yIntercept);
   }
 
   function totalSupply() public view virtual override returns (uint256) {
@@ -455,7 +459,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     require(msg.sender == address(LIEN_TOKEN()));
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
-    s.slope -= params.lienSlope;
+    unchecked {
+      s.slope -= params.lienSlope.safeCastTo48();
+    }
     _handleStrategistInterestReward(s, params.interestOwed, params.amount);
   }
 
@@ -484,13 +490,17 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   }
 
   function _increaseOpenLiens(VaultData storage s, uint64 epoch) internal {
-    s.epochData[epoch].liensOpenForEpoch++;
+    unchecked {
+      s.epochData[epoch].liensOpenForEpoch++;
+    }
   }
 
   function afterPayment(uint256 computedSlope) public {
     VaultData storage s = _loadStorageSlot();
     require(msg.sender == address(LIEN_TOKEN()));
-    s.slope += computedSlope;
+    unchecked {
+      s.slope += computedSlope.safeCastTo48();
+    }
   }
 
   /**
@@ -504,7 +514,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     override
   {
     VaultData storage s = _loadStorageSlot();
-    s.yIntercept += assets;
+
+    s.yIntercept += assets.safeCastTo88();
+
     emit YInterceptChanged(s.yIntercept);
   }
 
@@ -517,7 +529,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     VaultData storage s,
     uint256 interestOwing,
     uint256 amount
-  ) internal virtual override {
+  ) internal virtual {
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //TODO: make const VAULT_FEE is a basis point
@@ -537,8 +549,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     VaultData storage s = _loadStorageSlot();
 
     accountantIfAny = address(0);
-    s.yIntercept += s.slope.mulDivDown(block.timestamp - s.last, 1);
-    s.slope -= params.lienSlope;
+    s.yIntercept += uint256(s.slope)
+      .mulDivDown(block.timestamp - s.last, 1)
+      .safeCastTo88();
+    s.slope -= params.lienSlope.safeCastTo48();
     s.last = block.timestamp.safeCastTo40();
 
     if (s.currentEpoch != 0) {
@@ -563,7 +577,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   }
 
   function _decreaseYIntercept(VaultData storage s, uint256 amount) internal {
-    s.yIntercept -= amount;
+    s.yIntercept -= amount.safeCastTo88();
     emit YInterceptChanged(s.yIntercept);
   }
 

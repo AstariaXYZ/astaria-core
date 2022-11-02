@@ -14,6 +14,24 @@ import {IERC165} from "./IERC165.sol";
 import {IVault} from "gpl/interfaces/IVault.sol";
 
 interface IPublicVault is IERC165, IVault {
+  //epoch data
+  struct EpochData {
+    uint64 liensOpenForEpoch;
+    address withdrawProxy;
+    address liquidationAccountant;
+  }
+
+  struct VaultData {
+    uint88 yIntercept;
+    uint48 slope;
+    uint40 last;
+    uint256 withdrawReserve;
+    uint256 liquidationWithdrawRatio;
+    uint256 strategistUnclaimedShares;
+    uint64 currentEpoch;
+    mapping(uint256 => EpochData) epochData;
+  }
+
   struct BeforePaymentParams {
     uint256 lienSlope;
     uint256 amount;
@@ -108,7 +126,7 @@ interface IPublicVault is IERC165, IVault {
     DEPOSIT_CAP_EXCEEDED
   }
 
-  event YInterceptChanged(uint256 newYintercept);
+  event YInterceptChanged(uint88 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
   event LienOpen(uint256 lienId, uint256 epoch);
 }
