@@ -195,9 +195,48 @@ contract AstariaTest is TestHelpers {
       epochLength: 14 days
     });
 
+    address publicVault2 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+    address publicVault3 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    address publicVault4 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    address publicVault5 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
     _lendToVault(
       Lender({addr: address(1), amountToLend: 50 ether}),
       publicVault
+    );
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault2
+    );
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault3
+    );
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault4
+    );
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault5
     );
 
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
@@ -214,7 +253,7 @@ contract AstariaTest is TestHelpers {
     });
     skip(10 seconds);
     (, stack) = _commitToLien({
-      vault: publicVault,
+      vault: publicVault2,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
@@ -226,7 +265,7 @@ contract AstariaTest is TestHelpers {
     });
     skip(10 seconds);
     (, stack) = _commitToLien({
-      vault: publicVault,
+      vault: publicVault3,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
@@ -238,7 +277,7 @@ contract AstariaTest is TestHelpers {
     });
     skip(10 seconds);
     (, stack) = _commitToLien({
-      vault: publicVault,
+      vault: publicVault4,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
@@ -250,7 +289,7 @@ contract AstariaTest is TestHelpers {
     });
     skip(10 seconds);
     (, stack) = _commitToLien({
-      vault: publicVault,
+      vault: publicVault5,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
@@ -264,6 +303,10 @@ contract AstariaTest is TestHelpers {
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     _signalWithdraw(address(1), publicVault);
+    _signalWithdraw(address(1), publicVault2);
+    _signalWithdraw(address(1), publicVault3);
+    _signalWithdraw(address(1), publicVault4);
+    _signalWithdraw(address(1), publicVault5);
 
     address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       PublicVault(publicVault).getCurrentEpoch()
