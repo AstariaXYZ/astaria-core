@@ -97,15 +97,44 @@ contract TestHelpers is Test {
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 10 days,
-      maxPotentialDebt: 50 ether
+      maxPotentialDebt: 0 ether
     });
 
+  ILienToken.Details public refinanceLienDetails5 =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
+      maxPotentialDebt: 54 ether
+    });
   ILienToken.Details public refinanceLienDetails =
     ILienToken.Details({
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 25 days,
-      maxPotentialDebt: 50 ether
+      maxPotentialDebt: 53 ether
+    });
+  ILienToken.Details public refinanceLienDetails2 =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
+      maxPotentialDebt: 52 ether
+    });
+
+  ILienToken.Details public refinanceLienDetails3 =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
+      maxPotentialDebt: 51 ether
+    });
+  ILienToken.Details public refinanceLienDetails4 =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
+      maxPotentialDebt: 55 ether
     });
 
   enum UserRoles {
@@ -671,6 +700,7 @@ contract TestHelpers is Test {
     vm.startPrank(bidder);
     WETH9.deposit{value: amount}();
     WETH9.approve(address(TRANSFER_PROXY), amount);
+    emit log_named_uint("bidder balance", WETH9.balanceOf(bidder));
     AUCTION_HOUSE.createBid(tokenId, amount);
     vm.stopPrank();
   }

@@ -355,7 +355,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (maxPotentialDebt > params.lien.details.maxPotentialDebt) {
       revert InvalidState(InvalidStates.DEBT_LIMIT);
     }
-    //    Lien memory newLien = Lien({
+    //    params.lien.details.maxPotentialDebt = maxPotentialDebt;
+    //        Lien memory newLien = Lien({
     //      collateralId: params.collateralId,
     //      vault: params.vault,
     //      token: s.WETH,
@@ -502,14 +503,27 @@ contract LienToken is ERC721, ILienToken, Auth {
     external
     validateAuctionStack(collateralId, stack)
     requiresAuth
-    returns (uint256[] memory newStack, uint256 spent)
+    returns (uint256[] memory outStack, uint256 spent)
   {
+    spent = 0;
+    outStack = stack;
     LienStorage storage s = _loadLienStorageSlot();
-    for (uint256 i = 0; i < stack.length; i++) {
-      (newStack, spent) = _paymentAH(s, stack, collateralId, payment, payer);
+    uint256 loops = stack.length;
+    for (uint256 i = 0; i < loops; i++) {
+      uint256 paymentMade;
+      (outStack, paymentMade) = _paymentAH(
+        s,
+        outStack,
+        collateralId,
+        payment,
+        payer
+      );
+      unchecked {
+        spent += paymentMade;
+      }
     }
-    if (newStack.length != 0) {
-      s.collateralStateHash[collateralId] = keccak256(abi.encode(newStack));
+    if (outStack.length != 0) {
+      s.collateralStateHash[collateralId] = keccak256(abi.encode(outStack));
     } else {
       delete s.collateralStateHash[collateralId];
     }
@@ -521,7 +535,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 collateralId,
     uint256 payment,
     address payer
-  ) internal returns (uint256[] memory newStack, uint256) {
+  ) internal returns (uint256[] memory, uint256) {
     uint256 lienId = stack[0];
     //checks the lien exists
     address payee = _getPayee(s, lienId);
@@ -529,21 +543,22 @@ contract LienToken is ERC721, ILienToken, Auth {
     //owing at liquidation
     if (s.lienMeta[lienId].amountAtLiquidation > payment) {
       s.lienMeta[lienId].amountAtLiquidation -= payment.safeCastTo88();
-      newStack = stack;
     } else {
       payment = s.lienMeta[lienId].amountAtLiquidation;
       delete s.lienMeta[lienId]; //full delete
       _burn(lienId);
-      newStack = new uint256[](stack.length - 1);
+      uint256[] memory newStack = new uint256[](stack.length - 1);
+
       for (uint256 i = 1; i < stack.length; i++) {
-        newStack[i] = stack[i];
+        newStack[i - 1] = stack[i];
       }
+      stack = newStack;
     }
 
     s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
 
     emit Payment(lienId, payment);
-    return (newStack, payment);
+    return (stack, payment);
   }
 
   /**
