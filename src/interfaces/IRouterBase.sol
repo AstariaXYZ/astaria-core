@@ -10,13 +10,10 @@
 
 pragma solidity ^0.8.17;
 
-interface IFlashAction {
-  struct Underlying {
-    address token;
-    uint256 tokenId;
-  }
+import {IAstariaRouter} from "./IAstariaRouter.sol";
 
-  function onFlashAction(Underlying calldata, bytes calldata)
-    external
-    returns (bytes32);
+interface IRouterBase {
+  function ROUTER() external view returns (IAstariaRouter);
+
+  function IMPL_TYPE() external view returns (uint8);
 }

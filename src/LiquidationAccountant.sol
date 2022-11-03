@@ -9,43 +9,16 @@
  */
 
 pragma solidity ^0.8.17;
+import {ILienToken} from "./interfaces/ILienToken.sol";
+import {Clone} from "clones-with-immutable-args/Clone.sol";
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-
-import {Clone} from "clones-with-immutable-args/Clone.sol";
-
-import {ILienToken} from "./interfaces/ILienToken.sol";
-
+import {LiquidationAccountantBase} from "core/LiquidationAccountantBase.sol";
 import {PublicVault} from "./PublicVault.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
-
-abstract contract LiquidationBase is Clone {
-  function underlying() public pure returns (address) {
-    return _getArgAddress(0);
-  }
-
-  function ROUTER() public pure returns (address) {
-    return _getArgAddress(20);
-  }
-
-  function VAULT() public pure returns (address) {
-    return _getArgAddress(40);
-  }
-
-  function LIEN_TOKEN() public pure returns (address) {
-    return _getArgAddress(60);
-  }
-
-  function WITHDRAW_PROXY() public pure returns (address) {
-    return _getArgAddress(80);
-  }
-
-  function CLAIMABLE_EPOCH() public pure returns (uint64) {
-    return _getArgUint64(100);
-  }
-}
 
 /**
  * @title LiquidationAccountant
@@ -54,10 +27,10 @@ abstract contract LiquidationBase is Clone {
  * When the final auction being tracked by a LiquidationAccountant for a given epoch is completed,
  * claim() proportionally pays out auction funds to withdrawing liquidity providers and the PublicVault.
  */
-contract LiquidationAccountant is LiquidationBase {
+contract LiquidationAccountant is LiquidationAccountantBase {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
-
+  using SafeCastLib for uint256;
   event Claimed(
     address withdrawProxy,
     uint256 withdrawProxyAmount,
@@ -65,45 +38,82 @@ contract LiquidationAccountant is LiquidationBase {
     uint256 publicVaultAmount
   );
 
-  uint256 withdrawRatio;
+  bytes32 constant LIQUIDATION_ACCOUNTANT_SLOT =
+    keccak256("xyz.astaria.liquidationAccountant.storage.location");
 
-  uint256 public expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
-  uint256 public finalAuctionEnd; // when this is deleted, we know the final auction is over
+  struct LAStorage {
+    uint88 withdrawRatio;
+    uint88 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
+    uint40 finalAuctionEnd; // when this is deleted, we know the final auction is over
+    bool hasClaimed;
+  }
 
-  bool public hasClaimed;
+  function _loadSlot() internal pure returns (LAStorage storage s) {
+    bytes32 slot = LIQUIDATION_ACCOUNTANT_SLOT;
+    assembly {
+      s.slot := slot
+    }
+  }
 
+  function getFinalAuctionEnd() public view returns (uint256) {
+    LAStorage storage s = _loadSlot();
+    return s.finalAuctionEnd;
+  }
+
+  function getWithdrawRatio() public view returns (uint256) {
+    LAStorage storage s = _loadSlot();
+    return s.withdrawRatio;
+  }
+
+  function getExpected() public view returns (uint256) {
+    LAStorage storage s = _loadSlot();
+    return s.expected;
+  }
+
+  function getHasClaimed() public view returns (bool) {
+    LAStorage storage s = _loadSlot();
+    return s.hasClaimed;
+  }
+
+  enum InvalidStates {
+    PROCESS_EPOCH_NOT_COMPLETE,
+    FINAL_AUCTION_NOT_OVER
+  }
+
+  error InvalidState(InvalidStates);
 
   /**
    * @notice Proportionally sends funds collected from auctions to withdrawing liquidity providers and the PublicVault for this LiquidationAccountant.
    */
   function claim() public {
-    require(PublicVault(VAULT()).currentEpoch() >= CLAIMABLE_EPOCH(), "must have called processEpoch() before claim");
-    require(
-      block.timestamp > finalAuctionEnd || finalAuctionEnd == uint256(0),
-      "final auction has not ended"
-    );
+    LAStorage storage s = _loadSlot();
 
-    require(!hasClaimed);
+    if (PublicVault(VAULT()).getCurrentEpoch() < CLAIMABLE_EPOCH()) {
+      revert InvalidState(InvalidStates.PROCESS_EPOCH_NOT_COMPLETE);
+    }
+    if (
+      block.timestamp < s.finalAuctionEnd || s.finalAuctionEnd == uint256(0)
+    ) {
+      revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);
+    }
 
-    uint256 transferAmount;
-
+    require(!s.hasClaimed);
+    uint256 transferAmount = 0;
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
 
-    if (balance < expected) {
+    if (balance < s.expected) {
       PublicVault(VAULT()).decreaseYIntercept(
-        (expected - balance).mulDivDown(1e18 - withdrawRatio, 1e18)
+        (s.expected - balance).mulWadDown(1e18 - s.withdrawRatio)
       );
     }
 
     // would happen if there was no WithdrawProxy for current epoch
-    hasClaimed = true;
+    s.hasClaimed = true;
 
-    if (withdrawRatio == uint256(0)) {
+    if (s.withdrawRatio == uint256(0)) {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     } else {
-      //should be wad multiplication
-      // declining
-      transferAmount = withdrawRatio.mulDivDown(balance, 1e18);
+      transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
 
       if (transferAmount > uint256(0)) {
         ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), transferAmount);
@@ -124,7 +134,10 @@ contract LiquidationAccountant is LiquidationBase {
    * @param amount The amount to attempt to drain from the LiquidationAccountant
    * @param withdrawProxy The address of the withdrawProxy to drain to.
    */
-  function drain(uint256 amount, address withdrawProxy) public returns (uint256) {
+  function drain(uint256 amount, address withdrawProxy)
+    public
+    returns (uint256)
+  {
     require(msg.sender == VAULT());
     uint256 balance = ERC20(underlying()).balanceOf(address(this));
     if (amount > balance) {
@@ -140,8 +153,9 @@ contract LiquidationAccountant is LiquidationBase {
    */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
-
-    withdrawRatio = liquidationWithdrawRatio;
+    unchecked {
+      _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
+    }
   }
 
   /**
@@ -154,7 +168,10 @@ contract LiquidationAccountant is LiquidationBase {
     uint256 finalAuctionTimestamp
   ) public {
     require(msg.sender == VAULT());
-    expected += newLienExpectedValue;
-    finalAuctionEnd = finalAuctionTimestamp;
+    LAStorage storage s = _loadSlot();
+    unchecked {
+      s.expected += newLienExpectedValue.safeCastTo88();
+      s.finalAuctionEnd = finalAuctionTimestamp.safeCastTo40();
+    }
   }
 }

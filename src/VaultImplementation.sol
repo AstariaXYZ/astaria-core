@@ -16,27 +16,45 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IVault} from "gpl/interfaces/IVault.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {LienToken} from "core/LienToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
+import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
+import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 /**
  * @title VaultImplementation
- * @author androolloyd
  * @notice A base implementation for the minimal features of an Astaria Vault.
  */
-abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
+abstract contract VaultImplementation is
+  AstariaVaultBase,
+  ERC721TokenReceiver,
+  IVaultImplementation
+{
   using SafeTransferLib for ERC20;
+  using SafeCastLib for uint256;
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
+  bytes32 constant VI_SLOT =
+    keccak256("xyz.astaria.core.VaultImplementation.storage.location");
   address public delegate; //account connected to the daemon
+  bool public allowListEnabled;
+  uint256 public depositCap;
 
+  struct VIData {
+    address delegate;
+    bool allowListEnabled;
+    uint256 depositCap;
+    mapping(address => bool) allowList;
+  }
+
+  mapping(address => bool) public allowList;
   event NewLien(
     bytes32 strategyRoot,
     address tokenContract,
@@ -45,6 +63,41 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
   );
 
   event NewVault(address appraiser, address vault);
+
+  /**
+   * @notice modify the deposit cap for the vault
+   * @param newCap The deposit cap.
+   */
+  function modifyDepositCap(uint256 newCap) public onlyOwner {
+    depositCap = newCap;
+  }
+
+  function _loadVISlot() internal pure returns (VIData storage vi) {
+    bytes32 slot = VI_SLOT;
+    assembly {
+      vi.slot := slot
+    }
+  }
+
+  /**
+   * @notice modify the allowlist for the vault
+   * @param depositor the depositor to modify
+   * @param enabled the status of the depositor
+   */
+  function modifyAllowList(address depositor, bool enabled)
+    external
+    virtual
+    onlyOwner
+  {
+    allowList[depositor] = enabled;
+  }
+
+  /**
+   * @notice disable the allowlist for the vault
+   */
+  function disableAllowList() external virtual onlyOwner {
+    allowListEnabled = false;
+  }
 
   /**
    * @notice receive hook for ERC721 tokens, nothing special done
@@ -108,22 +161,39 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
 
   struct InitParams {
     address delegate;
+    bool allowListEnabled;
+    address[] allowList;
+    uint256 depositCap; // max amount of tokens that can be deposited
   }
 
   function init(InitParams calldata params) external virtual {
-    require(msg.sender == address(ROUTER()), "only router");
+    require(msg.sender == address(ROUTER()));
+    VIData storage vi;
+    bytes32 slot = VI_SLOT;
+    assembly {
+      vi.slot := slot
+    }
 
     if (params.delegate != address(0)) {
-      delegate = params.delegate;
+      vi.delegate = params.delegate;
+    }
+    depositCap = params.depositCap;
+    if (params.allowListEnabled) {
+      vi.allowListEnabled = true;
+      for (uint256 i = 0; i < params.allowList.length; i++) {
+        vi.allowList[params.allowList[i]] = true;
+      }
     }
   }
 
   modifier onlyOwner() {
-    require(msg.sender == owner(), "only strategist");
+    require(msg.sender == owner()); //owner is "strategist"
     _;
   }
 
   function setDelegate(address delegate_) public onlyOwner {
+    allowList[delegate] = false;
+    allowList[delegate_] = true;
     delegate = delegate_;
   }
 
@@ -141,7 +211,12 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
   function _validateCommitment(
     IAstariaRouter.Commitment calldata params,
     address receiver
-  ) internal returns (IAstariaRouter.LienDetails memory) {
+  ) internal view {
+    if (
+      params.lienRequest.amount > ERC20(underlying()).balanceOf(address(this))
+    ) {
+      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
+    }
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address operator = CT.getApproved(collateralId);
@@ -156,12 +231,9 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       !IAstariaRouter(ROUTER()).isValidVault(receiver)
     ) {
       if (operator != address(0)) {
-        require(
-          operator == receiver,
-          "an operator is defined, only they can borrow if not the user"
-        );
+        require(operator == receiver);
       } else {
-        require(CT.isApprovedForAll(holder, receiver), "not approved");
+        require(CT.isApprovedForAll(holder, receiver));
       }
     }
 
@@ -176,61 +248,20 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
       params.lienRequest.r,
       params.lienRequest.s
     );
-    require(
-      recovered == params.lienRequest.strategy.strategist,
-      "strategist must match signature"
-    );
-    require(
-      recovered == owner() || recovered == delegate,
-      "invalid strategist"
-    );
-
-    (bool valid, IAstariaRouter.LienDetails memory ld) = IAstariaRouter(
-      ROUTER()
-    ).validateCommitment(params);
-
-    require(
-      valid,
-      "Vault._validateCommitment(): Verification of provided merkle branch failed for the vault and parameters"
-    );
-
-    require(
-      ld.rate > 0,
-      "Vault._validateCommitment(): Cannot have a 0 interest rate"
-    );
-
-    require(
-      ld.rate < IAstariaRouter(ROUTER()).maxInterestRate(),
-      "Vault._validateCommitment(): Rate is above maximum"
-    );
-
-    require(
-      ld.maxAmount >= params.lienRequest.amount,
-      "Vault._validateCommitment(): Attempting to borrow more than maxAmount available for this asset"
-    );
-
-    uint256 maxPotentialDebt = IAstariaRouter(ROUTER())
-      .LIEN_TOKEN()
-      .getMaxPotentialDebtForCollateral(
-        params.tokenContract.computeId(params.tokenId)
-      );
-    require(
-      params.lienRequest.amount <= ERC20(underlying()).balanceOf(address(this)),
-      "Vault._validateCommitment():  Attempting to borrow more than available in the specified vault"
-    );
-
-    require(
-      maxPotentialDebt <= ld.maxPotentialDebt,
-      "Vault._validateCommitment(): Attempting to initiate a loan with debt potentially higher than maxPotentialDebt"
-    );
-
-    return ld;
+    if (recovered != params.lienRequest.strategy.strategist) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_SIGNATURE);
+    }
+    if (recovered != owner() && recovered != delegate) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
+    }
   }
 
-  function _afterCommitToLien(uint256 lienId, uint256 amount)
-    internal
-    virtual
-  {}
+  function _afterCommitToLien(
+    uint40 end,
+    uint256 lienId,
+    uint256 amount,
+    uint256 slope
+  ) internal virtual {}
 
   function _beforeCommitToLien(
     IAstariaRouter.Commitment calldata,
@@ -248,35 +279,29 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
   function commitToLien(
     IAstariaRouter.Commitment calldata params,
     address receiver
-  ) external whenNotPaused returns (uint256 lienId) {
-    IAstariaRouter.LienDetails memory ld = _validateCommitment(
+  )
+    external
+    whenNotPaused
+    returns (uint256 lienId, ILienToken.Stack[] memory stack)
+  {
+    _beforeCommitToLien(params, receiver);
+    uint256 slopeAddition;
+    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(
       params,
       receiver
     );
-    _beforeCommitToLien(params, receiver);
-    lienId = _requestLienAndIssuePayout(ld, params, receiver);
-    _afterCommitToLien(lienId, params.lienRequest.amount);
+    _afterCommitToLien(
+      stack[stack.length - 1].point.end,
+      lienId,
+      params.lienRequest.amount,
+      slopeAddition
+    );
     emit NewLien(
       params.lienRequest.merkle.root,
       params.tokenContract,
       params.tokenId,
       params.lienRequest.amount
     );
-    return lienId;
-  }
-
-  /**
-   * @notice Returns whether a specific lien can be liquidated.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param position The specified lien position.
-   * @return A boolean value indicating whether the specified lien can be liquidated.
-   */
-  function canLiquidate(uint256 collateralId, uint256 position)
-    public
-    view
-    returns (bool)
-  {
-    return IAstariaRouter(ROUTER()).canLiquidate(collateralId, position);
   }
 
   /**
@@ -287,18 +312,17 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
    */
   function buyoutLien(
     uint256 collateralId,
-    uint256 position,
-    IAstariaRouter.Commitment calldata incomingTerms
+    uint8 position,
+    IAstariaRouter.Commitment calldata incomingTerms,
+    ILienToken.Stack[] calldata stack
   ) external whenNotPaused {
-    (, uint256 buyout) = IAstariaRouter(ROUTER()).LIEN_TOKEN().getBuyout(
-      collateralId,
-      position
-    );
+    (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
+      .LIEN_TOKEN()
+      .getBuyout(stack[position]);
 
-    require(
-      buyout <= ERC20(underlying()).balanceOf(address(this)),
-      "not enough balance to buy out loan"
-    );
+    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
+      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
+    }
 
     _validateCommitment(incomingTerms, recipient());
 
@@ -313,12 +337,25 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
 
     if (
       recipient() != address(this) &&
-      !lienToken.isApprovedForAll(msg.sender, recipient())
+      !lienToken.isApprovedForAll(address(this), recipient())
     ) {
       lienToken.setApprovalForAll(recipient(), true);
     }
+
+    ILienToken.Lien memory newLien = ROUTER().validateCommitment(incomingTerms);
+
     lienToken.buyoutLien(
-      ILienToken.LienActionBuyout(incomingTerms, position, recipient())
+      ILienToken.LienActionBuyout({
+        incoming: incomingTerms,
+        position: position,
+        encumber: ILienToken.LienActionEncumber({
+          collateralId: collateralId,
+          amount: incomingTerms.lienRequest.amount,
+          receiver: recipient(),
+          lien: newLien,
+          stack: stack
+        })
+      })
     );
   }
 
@@ -327,7 +364,7 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
    * @return The address of the recipient.
    */
   function recipient() public view returns (address) {
-    if (VAULT_TYPE() == uint8(IAstariaRouter.VaultType.PUBLIC)) {
+    if (IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault)) {
       return address(this);
     } else {
       return owner();
@@ -338,18 +375,25 @@ abstract contract VaultImplementation is AstariaVaultBase, ERC721TokenReceiver {
    * @dev Generates a Lien for a valid loan commitment proof and sends the loan amount to the borrower.
    * @param c The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    * @param receiver The borrower requesting the loan.
-   * @return The ID of the created Lien.
    */
   function _requestLienAndIssuePayout(
-    IAstariaRouter.LienDetails memory ld,
     IAstariaRouter.Commitment calldata c,
     address receiver
-  ) internal returns (uint256) {
-    uint256 newLienId = IAstariaRouter(ROUTER()).requestLienPosition(ld, c);
+  )
+    internal
+    returns (
+      uint256 newLienId,
+      ILienToken.Stack[] memory stack,
+      uint256 slope
+    )
+  {
+    (newLienId, stack, slope) = IAstariaRouter(ROUTER()).requestLienPosition(
+      c,
+      recipient()
+    );
 
     uint256 payout = _handleProtocolFee(c.lienRequest.amount);
     ERC20(underlying()).safeTransfer(receiver, payout);
-    return newLienId;
   }
 
   function _handleProtocolFee(uint256 amount) internal returns (uint256) {

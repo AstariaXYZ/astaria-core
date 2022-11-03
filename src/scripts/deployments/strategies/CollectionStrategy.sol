@@ -9,8 +9,8 @@
  */
 pragma solidity ^0.8.17;
 import {Script} from "forge-std/Script.sol";
-import {AstariaRouter} from "../../../AstariaRouter.sol";
-import {CollectionValidator} from "../../../strategies/CollectionValidator.sol";
+import {AstariaRouter} from "core/AstariaRouter.sol";
+import {CollectionValidator} from "core/strategies/CollectionValidator.sol";
 import {AstariaStack} from "../AstariaStack.sol";
 
 contract CollectionStrategy is AstariaStack {

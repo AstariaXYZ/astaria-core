@@ -49,8 +49,7 @@ contract IntegrationTest is TestHelpers {
     uint256 tokenId2 = uint256(2);
 
     // initialize LienDetails 14 days, 50 ETH, @150%
-    IAstariaRouter.LienDetails memory lienDetails =
-    IAstariaRouter.LienDetails({
+    ILienToken.Details memory lienDetails = ILienToken.Details({
       maxAmount: 50 ether,
       rate: uint256(1e16).mulDivDown(150, 1).mulDivDown(1, 365 days),
       duration: 14 days,
@@ -63,7 +62,7 @@ contract IntegrationTest is TestHelpers {
       delegate: strategistTwo,
       epochLength: 14 days
     });
-    
+
     // address 1 lends 50 ETH to the fault
     _lendToVault(
       Lender({addr: address(1), amountToLend: 50 ether}),
@@ -72,7 +71,7 @@ contract IntegrationTest is TestHelpers {
 
     // commit to a new lien of 10 ETH under LienDetails
     uint256 amount = 10 ether;
-    uint256[] memory liens = _commitToLien({
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -89,20 +88,20 @@ contract IntegrationTest is TestHelpers {
     // assert slope matches the calculation
     assertEq(
       expectedSlope1,
-      PublicVault(publicVault).slope(),
+      PublicVault(publicVault).getSlope(),
       "Incorrect PublicVault slope calc"
     );
-    
+
     // compute the collateralId
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
 
     // pay half the lien (5 ETH) w/o warping time so it is the same instant that the Lien was created
-    _pay(collateralId1, 5 ether, address(this), 0);
+    stack = _pay(stack, 0, 5 ether, address(this));
 
     // divide the slope by two (because wepaid half the lien so slope shoudl be half the calculation)
     uint256 expectedSlope2 = expectedSlope1.mulDivDown(1, 2);
     assertEq(
-      PublicVault(publicVault).slope(),
+      PublicVault(publicVault).getSlope(),
       expectedSlope2,
       "Incorrect PublicVault slope calc"
     );
@@ -111,17 +110,16 @@ contract IntegrationTest is TestHelpers {
     vm.warp(block.timestamp + 14 days);
 
     // should be 5 ETH + accrual
-    uint256 lienAmount = LIEN_TOKEN.getOwed(liens[0], block.timestamp);
+    uint256 lienAmount = LIEN_TOKEN.getOwed(stack[0]);
 
     // pay down lien exactly
-    _pay(collateralId1, lienAmount, address(this), 0);
+    _pay(stack, 0, lienAmount, address(this));
 
     // assert PublicVault slope is 0 because the Lien was paid off
     assertEq(
-      PublicVault(publicVault).slope(),
+      PublicVault(publicVault).getSlope(),
       0,
       "Incorrect PublicVault slope calc"
     );
   }
-
 }

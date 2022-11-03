@@ -66,6 +66,42 @@ contract RevertTesting is TestHelpers {
     );
   }
 
+  function testFailBorrowMoreThanMaxAmount() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory details = standardLienDetails;
+    details.maxAmount = 10 ether;
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details,
+      amount: 11 ether,
+      isFirstLien: true
+    });
+  }
+
   // PublicVaults should not be able to progress to the next epoch unless all liens that are able to be liquidated have been liquidated
   function testFailProcessEpochWithUnliquidatedLien() public {
     TestNFT nft = new TestNFT(3);
@@ -145,5 +181,114 @@ contract RevertTesting is TestHelpers {
       amount: 10 ether,
       isFirstLien: false
     });
+  }
+
+  function testFailLienDurationZero() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory zeroDuration = standardLienDetails;
+    zeroDuration.duration = 0;
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: zeroDuration,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+  }
+
+  function testFailLienRateZero() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory zeroRate = standardLienDetails;
+    zeroRate.rate = 0;
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: zeroRate,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+  }
+
+  function testFailPayLienAfterLiquidate() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // uint256[][] memory liens = new uint256[][](1);
+    ILienToken.Stack[][] memory stack = new ILienToken.Stack[][](1);
+    (, stack[0]) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+   
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    vm.warp(block.timestamp + 14 days);
+
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack[0]);
+
+    _repay(stack[0], 0, 10 ether, address(this));
   }
 }

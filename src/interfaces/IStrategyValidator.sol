@@ -4,13 +4,14 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
 pragma solidity ^0.8.17;
 
 import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
+import {ILienToken} from "../interfaces/IAstariaRouter.sol";
 import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
 
 interface IStrategyValidator {
@@ -19,5 +20,5 @@ interface IStrategyValidator {
     address borrower,
     address collateralTokenContract,
     uint256 collateralTokenId
-  ) external returns (bytes32, IAstariaRouter.LienDetails memory);
+  ) external returns (bytes32, ILienToken.Details memory);
 }

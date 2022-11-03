@@ -56,6 +56,7 @@ import {Vault, PublicVault} from "../PublicVault.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import {Strings2} from "./utils/Strings2.sol";
+import {BeaconProxy} from "../BeaconProxy.sol";
 
 string constant weth9Artifact = "src/test/WETH9.json";
 
@@ -88,20 +89,52 @@ contract TestHelpers is Test {
   address bidderOne = vm.addr(0x1342);
   address bidderTwo = vm.addr(0x1343);
 
-  IAstariaRouter.LienDetails public standardLienDetails =
-    IAstariaRouter.LienDetails({
+  string private checkpointLabel;
+  uint256 private checkpointGasLeft = 1; // Start the slot warm.
+
+  ILienToken.Details public standardLienDetails =
+    ILienToken.Details({
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 10 days,
-      maxPotentialDebt: 50 ether
+      maxPotentialDebt: 0 ether
     });
 
-  IAstariaRouter.LienDetails public refinanceLienDetails =
-    IAstariaRouter.LienDetails({
+  ILienToken.Details public refinanceLienDetails5 =
+    ILienToken.Details({
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 25 days,
-      maxPotentialDebt: 50 ether
+      maxPotentialDebt: 54 ether
+    });
+  ILienToken.Details public refinanceLienDetails =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
+      maxPotentialDebt: 53 ether
+    });
+  ILienToken.Details public refinanceLienDetails2 =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
+      maxPotentialDebt: 52 ether
+    });
+
+  ILienToken.Details public refinanceLienDetails3 =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
+      maxPotentialDebt: 51 ether
+    });
+  ILienToken.Details public refinanceLienDetails4 =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 25 days,
+      maxPotentialDebt: 55 ether
     });
 
   enum UserRoles {
@@ -142,6 +175,24 @@ contract TestHelpers is Test {
   MultiRolesAuthority MRA;
   AuctionHouse AUCTION_HOUSE;
 
+  function startMeasuringGas(string memory label) internal virtual {
+    checkpointLabel = label;
+
+    checkpointGasLeft = gasleft();
+  }
+
+  function stopMeasuringGas() internal virtual {
+    uint256 checkpointGasLeft2 = gasleft();
+
+    // Subtract 100 to account for the warm SLOAD in startMeasuringGas.
+    uint256 gasDelta = checkpointGasLeft - checkpointGasLeft2 - 100;
+
+    emit log_named_uint(
+      string(abi.encodePacked(checkpointLabel, " Gas")),
+      gasDelta
+    );
+  }
+
   function setUp() public virtual {
     WETH9 = IWETH9(deployCode(weth9Artifact));
 
@@ -159,6 +210,7 @@ contract TestHelpers is Test {
     SOLO_VAULT = new Vault();
     WITHDRAW_PROXY = new WithdrawProxy();
     LIQUIDATION_IMPLEMENTATION = new LiquidationAccountant();
+    BeaconProxy BEACON_PROXY = new BeaconProxy();
 
     ASTARIA_ROUTER = new AstariaRouter(
       MRA,
@@ -167,7 +219,10 @@ contract TestHelpers is Test {
       ILienToken(address(LIEN_TOKEN)),
       ITransferProxy(address(TRANSFER_PROXY)),
       address(PUBLIC_VAULT),
-      address(SOLO_VAULT)
+      address(SOLO_VAULT),
+      address(LIQUIDATION_IMPLEMENTATION),
+      address(WITHDRAW_PROXY),
+      address(BEACON_PROXY)
     );
 
     AUCTION_HOUSE = new AuctionHouse(
@@ -182,19 +237,15 @@ contract TestHelpers is Test {
       address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88)
     );
 
-    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](3);
+    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](2);
 
-    ctfiles[0] = CollateralToken.File({
+    ctfiles[0] = ICollateralToken.File({
       what: "setAstariaRouter",
       data: abi.encode(address(ASTARIA_ROUTER))
     });
-    ctfiles[1] = CollateralToken.File({
-      what: "setAuctionHouse",
-      data: abi.encode(address(AUCTION_HOUSE))
-    });
 
     address UNI_V3_NFT = address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
-    ctfiles[2] = CollateralToken.File({
+    ctfiles[1] = ICollateralToken.File({
       what: bytes32("setSecurityHook"),
       data: abi.encode(UNI_V3_NFT, address(V3_SECURITY_HOOK))
     });
@@ -208,44 +259,29 @@ contract TestHelpers is Test {
     //strategy univ3
     UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
 
-    AstariaRouter.File[] memory files = new AstariaRouter.File[](5);
+    AstariaRouter.File[] memory files = new AstariaRouter.File[](3);
+
     files[0] = AstariaRouter.File(
-      bytes32("WITHDRAW_IMPLEMENTATION"),
-      abi.encode(address(WITHDRAW_PROXY))
-    );
-    files[1] = AstariaRouter.File(
-      bytes32("LIQUIDATION_IMPLEMENTATION"),
-      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
-    );
-
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
-    //    );
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
-    //    );
-    //    ASTARIA_ROUTER.file(
-    //      "setStrategyValidator",
-    //      abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
-    //    );
-
-    files[2] = AstariaRouter.File(
       bytes32("setStrategyValidator"),
       abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
     );
-    files[3] = AstariaRouter.File(
+    files[1] = AstariaRouter.File(
       bytes32("setStrategyValidator"),
       abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
     );
-    files[4] = AstariaRouter.File(
+    files[2] = AstariaRouter.File(
       bytes32("setStrategyValidator"),
       abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     );
-    ASTARIA_ROUTER.fileBatch(files);
 
-    //v3 NFT manager address
+    ASTARIA_ROUTER.fileBatch(files);
+    files = new AstariaRouter.File[](1);
+
+    files[0] = AstariaRouter.File(
+      bytes32("setAuctionHouse"),
+      abi.encode(address(AUCTION_HOUSE))
+    );
+    ASTARIA_ROUTER.fileGuardian(files);
 
     LIEN_TOKEN.file(
       bytes32("setAuctionHouse"),
@@ -265,17 +301,17 @@ contract TestHelpers is Test {
 
   function _setupRolesAndCapabilities() internal {
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.createAuction.selector,
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.endAuction.selector,
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.cancelAuction.selector,
       true
     );
@@ -284,11 +320,11 @@ contract TestHelpers is Test {
       LienToken.createLien.selector,
       true
     );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      CollateralToken.auctionVault.selector,
-      true
-    );
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.ASTARIA_ROUTER),
+    //      CollateralToken.auctionVault.selector,
+    //      true
+    //    );
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
       TRANSFER_PROXY.tokenTransferFrom.selector,
@@ -300,7 +336,7 @@ contract TestHelpers is Test {
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
+      uint8(UserRoles.ASTARIA_ROUTER),
       LienToken.stopLiens.selector,
       true
     );
@@ -311,7 +347,7 @@ contract TestHelpers is Test {
     );
     MRA.setRoleCapability(
       uint8(UserRoles.AUCTION_HOUSE),
-      bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
+      ILienToken.makePaymentAuctionHouse.selector, //bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
       true
     );
     MRA.setUserRole(
@@ -348,10 +384,10 @@ contract TestHelpers is Test {
     //warps to the first second after the epoch end
     assertTrue(
       block.timestamp <
-        PublicVault(vault).getEpochEnd(PublicVault(vault).currentEpoch()) + 1
+        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
     );
     vm.warp(
-      PublicVault(vault).getEpochEnd(PublicVault(vault).currentEpoch()) + 1
+      PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
     );
   }
 
@@ -399,7 +435,10 @@ contract TestHelpers is Test {
     publicVault = ASTARIA_ROUTER.newPublicVault(
       epochLength,
       delegate,
-      uint256(5000)
+      uint256(0),
+      false,
+      new address[](0),
+      uint256(0)
     );
     vm.stopPrank();
   }
@@ -447,10 +486,38 @@ contract TestHelpers is Test {
     uint256 strategistPK,
     address tokenContract, // original NFT address
     uint256 tokenId, // original NFT id
-    IAstariaRouter.LienDetails memory lienDetails, // loan information
+    ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
     bool isFirstLien
-  ) internal returns (uint256[] memory) {
+  ) internal returns (uint256[] memory, ILienToken.Stack[] memory stack) {
+    return
+      _commitToLien({
+        vault: vault,
+        strategist: strategist,
+        strategistPK: strategistPK,
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        lienDetails: lienDetails,
+        amount: amount,
+        isFirstLien: isFirstLien,
+        stack: new ILienToken.Stack[](0)
+      });
+  }
+
+  function _commitToLien(
+    address vault, // address of deployed Vault
+    address strategist,
+    uint256 strategistPK,
+    address tokenContract, // original NFT address
+    uint256 tokenId, // original NFT id
+    ILienToken.Details memory lienDetails, // loan information
+    uint256 amount, // requested amount
+    bool isFirstLien,
+    ILienToken.Stack[] memory stack
+  )
+    internal
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
       vault: vault,
       strategist: strategist,
@@ -458,14 +525,18 @@ contract TestHelpers is Test {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lienDetails,
-      amount: amount
+      amount: amount,
+      stack: stack
     });
 
-    //    VaultImplementation(vault).commitToLien(terms, address(this));
+    if (isFirstLien) {
+      ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+    }
+
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
-    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
     return ASTARIA_ROUTER.commitToLiens(commitments);
   }
@@ -476,9 +547,10 @@ contract TestHelpers is Test {
     uint256 strategistPK,
     address tokenContract, // original NFT address
     uint256 tokenId, // original NFT id
-    IAstariaRouter.LienDetails memory lienDetails, // loan information
-    uint256 amount // requested amount
-  ) internal returns (IAstariaRouter.Commitment memory terms) {
+    ILienToken.Details memory lienDetails, // loan information
+    uint256 amount, // requested amount
+    ILienToken.Stack[] memory stack
+  ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
         version: uint8(1),
@@ -510,19 +582,21 @@ contract TestHelpers is Test {
     bytes32 termHash = keccak256(
       VaultImplementation(vault).encodeStrategyData(strategyDetails, rootHash)
     );
-    terms = _generateTerms(
-      GenTerms({
-        tokenContract: tokenContract,
-        tokenId: tokenId,
-        termHash: termHash,
-        rootHash: rootHash,
-        pk: strategistPK,
-        strategyDetails: strategyDetails,
-        validatorDetails: validatorDetails,
-        amount: amount,
-        merkleProof: merkleProof
-      })
-    );
+    return
+      _generateTerms(
+        GenTerms({
+          tokenContract: tokenContract,
+          tokenId: tokenId,
+          termHash: termHash,
+          rootHash: rootHash,
+          pk: strategistPK,
+          strategyDetails: strategyDetails,
+          validatorDetails: validatorDetails,
+          amount: amount,
+          merkleProof: merkleProof,
+          stack: stack
+        })
+      );
   }
 
   struct GenTerms {
@@ -532,6 +606,7 @@ contract TestHelpers is Test {
     bytes32 rootHash;
     uint256 pk;
     IAstariaRouter.StrategyDetails strategyDetails;
+    ILienToken.Stack[] stack;
     bytes validatorDetails;
     bytes32[] merkleProof;
     uint256 amount;
@@ -555,6 +630,7 @@ contract TestHelpers is Test {
             root: params.rootHash,
             proof: params.merkleProof
           }),
+          stack: params.stack,
           amount: params.amount,
           v: v,
           r: r,
@@ -592,7 +668,8 @@ contract TestHelpers is Test {
   }
 
   function _repay(
-    uint256 collateralId,
+    ILienToken.Stack[] memory stack,
+    uint8 position,
     uint256 amount,
     address payer
   ) internal {
@@ -601,22 +678,22 @@ contract TestHelpers is Test {
     WETH9.deposit{value: amount * 2}();
     WETH9.approve(address(TRANSFER_PROXY), amount * 2);
     WETH9.approve(address(LIEN_TOKEN), amount * 2);
-    LIEN_TOKEN.makePayment(collateralId, amount * 2);
+    LIEN_TOKEN.makePayment(stack, position, amount * 2);
     vm.stopPrank();
   }
 
   function _pay(
-    uint256 collateralId,
+    ILienToken.Stack[] memory stack,
+    uint8 position,
     uint256 amount,
-    address payer,
-    uint256 position
-  ) internal {
+    address payer
+  ) internal returns (ILienToken.Stack[] memory newStack) {
     vm.deal(payer, amount);
     vm.startPrank(payer);
     WETH9.deposit{value: amount}();
     WETH9.approve(address(TRANSFER_PROXY), amount);
     WETH9.approve(address(LIEN_TOKEN), amount);
-    LIEN_TOKEN.makePayment(collateralId, amount);
+    newStack = LIEN_TOKEN.makePayment(stack, position, amount);
     vm.stopPrank();
   }
 
@@ -629,6 +706,7 @@ contract TestHelpers is Test {
     vm.startPrank(bidder);
     WETH9.deposit{value: amount}();
     WETH9.approve(address(TRANSFER_PROXY), amount);
+    emit log_named_uint("bidder balance", WETH9.balanceOf(bidder));
     AUCTION_HOUSE.createBid(tokenId, amount);
     vm.stopPrank();
   }
@@ -638,7 +716,7 @@ contract TestHelpers is Test {
     _signalWithdrawAtFutureEpoch(
       lender,
       publicVault,
-      PublicVault(publicVault).currentEpoch()
+      PublicVault(publicVault).getCurrentEpoch()
     );
   }
 
