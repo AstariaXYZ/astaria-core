@@ -1,0 +1,3 @@
+src/contracts/**/*.ts
+dist
+abi

@@ -31,7 +31,6 @@ import {ILienToken} from "./interfaces/ILienToken.sol";
 import {IVault} from "gpl/interfaces/IVault.sol";
 
 import {LienToken} from "./LienToken.sol";
-import {LiquidationAccountant} from "./LiquidationAccountant.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {WithdrawProxy} from "./WithdrawProxy.sol";
 
@@ -153,14 +152,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return s.yIntercept;
   }
 
-  function getLiquidationAccountant(uint64 epoch)
-    public
-    view
-    returns (address)
-  {
-    VaultData storage s = _loadStorageSlot();
-    return s.epochData[epoch].liquidationAccountant;
-  }
+  // function getLiquidationAccountant(uint64 epoch)
+  //   public
+  //   view
+  //   returns (address)
+  // {
+  //   VaultData storage s = _loadStorageSlot();
+  //   return s.epochData[epoch].liquidationAccountant;
+  // }
 
   function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
     internal
@@ -171,8 +170,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         abi.encodePacked(
           address(ROUTER()), // router is the beacon
           uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
-          address(this), //owner
-          underlying() //token
+          address(this), // owner
+          underlying(), // token
+          address(this), // vault
+          epoch + 1 // claimable epoch
         )
       );
     }
@@ -221,11 +222,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       revert InvalidState(InvalidStates.WITHDRAW_RESERVE_NOT_ZERO);
     }
 
-    address currentLA = s.epochData[s.currentEpoch].liquidationAccountant;
+    address currentWithdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
 
-    if (currentLA != address(0)) {
+    if (currentWithdrawProxy != address(0)) {
       if (
-        LiquidationAccountant(currentLA).getFinalAuctionEnd() > block.timestamp
+        WithdrawProxy(currentWithdrawProxy).getFinalAuctionEnd() > block.timestamp
       ) {
         revert InvalidState(
           InvalidStates.LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN
@@ -233,13 +234,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       }
     }
 
-    // split funds from previous LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
+    // split funds from previous WithdrawProxy with PublicVault if hasn't been already
     if (s.currentEpoch != 0) {
-      address prevLa = s.epochData[s.currentEpoch - 1].liquidationAccountant;
+      address previousWithdrawProxy = s.epochData[s.currentEpoch - 1].withdrawProxy;
       if (
-        prevLa != address(0) && !LiquidationAccountant(prevLa).getHasClaimed()
+        previousWithdrawProxy != address(0) && WithdrawProxy(previousWithdrawProxy).getFinalAuctionEnd() != 0 && !WithdrawProxy(previousWithdrawProxy).getHasClaimed() // TODO set claimed to true before an eligible auction is added
       ) {
-        LiquidationAccountant(prevLa).claim();
+        WithdrawProxy(previousWithdrawProxy).claim();
       }
     }
 
@@ -261,15 +262,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           .safeCastTo88();
       }
 
-      if (currentLA != address(0)) {
-        LiquidationAccountant(currentLA).setWithdrawRatio(
+      if (currentWithdrawProxy != address(0)) {
+        WithdrawProxy(currentWithdrawProxy).setWithdrawRatio(
           s.liquidationWithdrawRatio
         );
       }
 
       uint256 expected = 0;
-      if (currentLA != address(0)) {
-        expected = LiquidationAccountant(currentLA).getExpected();
+      if (currentWithdrawProxy != address(0)) {
+        expected = WithdrawProxy(currentWithdrawProxy).getExpected();
       }
 
       unchecked {
@@ -293,37 +294,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     unchecked {
       s.currentEpoch++;
     }
-  }
-
-  /**
-   * @notice Deploys a LiquidationAccountant for the WithdrawProxy for the upcoming epoch boundary.
-   * @return accountant The address of the deployed LiquidationAccountant.
-   */
-  function _deployLiquidationAccountant(VaultData storage s, uint64 epoch)
-    internal
-    returns (address accountant)
-  {
-    if (s.epochData[epoch].liquidationAccountant != address(0)) {
-      revert InvalidState(
-        InvalidStates.LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH
-      );
-    }
-
-    _deployWithdrawProxyIfNotDeployed(s, epoch);
-
-    accountant = ClonesWithImmutableArgs.clone(
-      IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
-      abi.encodePacked(
-        address(ROUTER()),
-        uint8(IAstariaRouter.ImplementationType.LiquidationAccountant),
-        underlying(),
-        address(this),
-        address(LIEN_TOKEN()),
-        address(s.epochData[epoch].withdrawProxy),
-        epoch + 1
-      )
-    );
-    s.epochData[epoch].liquidationAccountant = accountant;
   }
 
   function supportsInterface(bytes4 interfaceId)
@@ -364,16 +334,19 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       // withdrawProxies are indexed by the epoch where they're deployed
       if (currentWithdrawProxy != address(0)) {
         ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+        WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
+          withdrawBalance
+        );
         emit WithdrawReserveTransferred(withdrawBalance);
       }
     }
 
-    address accountant = s.epochData[s.currentEpoch].liquidationAccountant;
+    address withdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
     if (
-      s.withdrawReserve > 0 && timeToEpochEnd() == 0 && accountant != address(0)
+      s.withdrawReserve > 0 && timeToEpochEnd() == 0 && withdrawProxy != address(0)
     ) {
       unchecked {
-        s.withdrawReserve -= LiquidationAccountant(accountant)
+        s.withdrawReserve -= WithdrawProxy(withdrawProxy)
           .drain(
             s.withdrawReserve,
             s.epochData[s.currentEpoch - 1].withdrawProxy
@@ -560,14 +533,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return ROUTER().LIEN_TOKEN();
   }
 
+  /**
+   * @notice TODO
+   * @param auctionWindow The auction duration.
+   * @param params AfterLiquidation data.
+   * @return withdrawProxyIfNearBoundary The address of the WithdrawProxy to set the payee to if the liquidation is triggered near an epoch boundary.
+   */
   function updateVaultAfterLiquidation(
     uint256 auctionWindow,
     AfterLiquidationParams calldata params
-  ) public returns (address accountantIfAny) {
+  ) public returns (address withdrawProxyIfNearBoundary) {
     require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
     VaultData storage s = _loadStorageSlot();
 
-    accountantIfAny = address(0);
+    // accountantIfAny = address(0);
     unchecked {
       s.yIntercept += uint256(s.slope)
         .mulDivDown(block.timestamp - s.last, 1)
@@ -583,17 +562,19 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _decreaseEpochLienCount(s, lienEpoch);
 
     if (timeToEpochEnd() <= auctionWindow) {
-      accountantIfAny = s.epochData[lienEpoch].liquidationAccountant;
+      withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
 
       // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
-      if (accountantIfAny == address(0)) {
-        accountantIfAny = _deployLiquidationAccountant(s, lienEpoch);
-      }
+      // if (accountantIfAny == address(0)) {
+      //   accountantIfAny = _deployLiquidationAccountant(s, lienEpoch);
+      // }
 
-      LiquidationAccountant(accountantIfAny).handleNewLiquidation(
-        params.newAmount,
-        auctionWindow + 1 days
-      );
+      if (withdrawProxyIfNearBoundary != address(0)) {
+        WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
+          params.newAmount,
+          auctionWindow + 1 days
+        );
+      }
     }
   }
 
@@ -610,7 +591,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     require(
       msg.sender == address(LIEN_TOKEN()) ||
         (currentEpoch != 0 &&
-          msg.sender == s.epochData[currentEpoch - 1].liquidationAccountant)
+          msg.sender == s.epochData[currentEpoch - 1].withdrawProxy)
     );
     _decreaseYIntercept(s, amount);
   }

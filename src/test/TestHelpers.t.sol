@@ -50,7 +50,6 @@ import {CollateralToken} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {LienToken} from "../LienToken.sol";
-import {LiquidationAccountant} from "../LiquidationAccountant.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {Vault, PublicVault} from "../PublicVault.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
@@ -168,7 +167,6 @@ contract TestHelpers is Test {
   AstariaRouter ASTARIA_ROUTER;
   PublicVault PUBLIC_VAULT;
   WithdrawProxy WITHDRAW_PROXY;
-  LiquidationAccountant LIQUIDATION_IMPLEMENTATION;
   Vault SOLO_VAULT;
   TransferProxy TRANSFER_PROXY;
   IWETH9 WETH9;
@@ -209,7 +207,6 @@ contract TestHelpers is Test {
     PUBLIC_VAULT = new PublicVault();
     SOLO_VAULT = new Vault();
     WITHDRAW_PROXY = new WithdrawProxy();
-    LIQUIDATION_IMPLEMENTATION = new LiquidationAccountant();
     BeaconProxy BEACON_PROXY = new BeaconProxy();
 
     ASTARIA_ROUTER = new AstariaRouter(
@@ -220,7 +217,7 @@ contract TestHelpers is Test {
       ITransferProxy(address(TRANSFER_PROXY)),
       address(PUBLIC_VAULT),
       address(SOLO_VAULT),
-      address(LIQUIDATION_IMPLEMENTATION),
+      // address(LIQUIDATION_IMPLEMENTATION),
       address(WITHDRAW_PROXY),
       address(BEACON_PROXY)
     );

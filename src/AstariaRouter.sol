@@ -34,7 +34,6 @@ import {IVault} from "gpl/interfaces/IVault.sol";
 
 import {PublicVault} from "core/PublicVault.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
-import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
 
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
 import {Pausable} from "core/utils/Pausable.sol";
@@ -105,7 +104,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     ITransferProxy _TRANSFER_PROXY,
     address _VAULT_IMPL,
     address _SOLO_IMPL,
-    address _LIQUIDATION_IMPL,
+    // address _LIQUIDATION_IMPL,
     address _WITHDRAW_IMPL,
     address _BEACON_PROXY_IMPL
   ) Auth(address(msg.sender), _AUTHORITY) {
@@ -117,9 +116,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
     s.implementations[uint8(ImplementationType.PrivateVault)] = _SOLO_IMPL;
     s.implementations[uint8(ImplementationType.PublicVault)] = _VAULT_IMPL;
-    s.implementations[
-      uint8(ImplementationType.LiquidationAccountant)
-    ] = _LIQUIDATION_IMPL;
     s.implementations[uint8(ImplementationType.WithdrawProxy)] = _WITHDRAW_IMPL;
 
     s.BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;

@@ -26,7 +26,6 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
-import {LiquidationAccountant} from "../LiquidationAccountant.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
