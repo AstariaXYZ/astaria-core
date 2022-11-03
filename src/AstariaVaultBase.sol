@@ -18,7 +18,7 @@ import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IERC4626Base} from "core/interfaces/IERC4626Base.sol";
 import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 
-import {ERC4626Base} from "ERC4626Base.sol";
+import {ERC4626Base} from "core/ERC4626Base.sol";
 
 abstract contract AstariaVaultBase is ERC4626Base, IAstariaVaultBase {
   function name() public view virtual returns (string memory);

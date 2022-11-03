@@ -16,7 +16,7 @@ import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
-import {Math} from "utils/Math.sol";
+import {Math} from "core/utils/Math.sol";
 
 import {
   ClonesWithImmutableArgs
