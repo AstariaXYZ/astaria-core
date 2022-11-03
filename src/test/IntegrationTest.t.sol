@@ -121,7 +121,6 @@ contract IntegrationTest is TestHelpers {
       "Incorrect PublicVault slope calc"
     );
   }
-
   function testMultipleVaultsWithLiensOnTheSameCollateral() public {
     // mint 2 new NFTs
     TestNFT nft = new TestNFT(1);
