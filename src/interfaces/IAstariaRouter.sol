@@ -10,6 +10,7 @@
 
 pragma solidity ^0.8.17;
 
+import {ERC20} from "solmate/tokens/ERC20.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
@@ -19,7 +20,7 @@ import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IVault} from "gpl/ERC4626-Cloned.sol";
 
-import {IPausable} from "utils/Pausable.sol";
+import {IPausable} from "core/utils/Pausable.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
   struct RouterStorage {

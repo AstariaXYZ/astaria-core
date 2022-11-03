@@ -18,6 +18,7 @@ import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
@@ -26,13 +27,15 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "core/AstariaRouter.sol";
 import {IVault, VaultImplementation} from "core/VaultImplementation.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
 import {PublicVault} from "core/PublicVault.sol";
 import {TransferProxy} from "core/TransferProxy.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
 import {Strings2} from "core/test/utils/Strings2.sol";
-import {TestHelpers} from "core/test/TestHelpers.t.sol";
+import {TestHelpers, TestNFT, ERC20, IERC20} from "core/test/TestHelpers.t.sol";
 
 contract AstariaTest is TestHelpers {
   using FixedPointMathLib for uint256;

@@ -31,7 +31,7 @@ import {IERC20} from "core/interfaces/IERC20.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
-import {CollateralLookup} from "libraries/CollateralLookup.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {
   ICollectionValidator,
@@ -45,7 +45,7 @@ import {
   UniqueValidator,
   IUniqueValidator
 } from "core/strategies/UniqueValidator.sol";
-import {V3SecurityHook} from "security/V3SecurityHook.sol";
+import {V3SecurityHook} from "core/security/V3SecurityHook.sol";
 
 import {CollateralToken} from "core/CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "core/AstariaRouter.sol";

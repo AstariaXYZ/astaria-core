@@ -22,7 +22,9 @@ import {
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter, AstariaRouter} from "core/AstariaRouter.sol";
 import {IVault, VaultImplementation} from "core/VaultImplementation.sol";
@@ -32,7 +34,7 @@ import {TransferProxy} from "core/TransferProxy.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
 import {Strings2} from "core/test/utils/Strings2.sol";
-import {TestHelpers} from "core/test/TestHelpers.t.sol";
+import {TestHelpers, TestNFT, ERC20} from "core/test/TestHelpers.t.sol";
 
 contract IntegrationTest is TestHelpers {
   using FixedPointMathLib for uint256;

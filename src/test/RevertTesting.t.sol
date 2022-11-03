@@ -28,6 +28,7 @@ import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {CollateralToken, IFlashAction} from "core/CollateralToken.sol";
@@ -39,7 +40,7 @@ import {TransferProxy} from "core/TransferProxy.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
 import {Strings2} from "core/test/utils/Strings2.sol";
-import {TestHelpers} from "core/test/TestHelpers.t.sol";
+import {TestHelpers, TestNFT} from "core/test/TestHelpers.t.sol";
 
 contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
