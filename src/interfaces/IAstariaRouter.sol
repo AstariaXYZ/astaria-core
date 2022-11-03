@@ -16,7 +16,7 @@ import {IVault} from "gpl/ERC4626-Cloned.sol";
 
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {IAuctionHouse} from "core/interfaces/ILienToken.sol";
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {IPausable} from "core/utils/Pausable.sol";
 import {IBeacon} from "./IBeacon.sol";
@@ -171,7 +171,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     ILienToken.Stack[] calldata stack
   ) external returns (uint256 reserve);
 
-  function canLiquidate(ILienToken.Point calldata) external view returns (bool);
+  function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 
   function isValidVault(address) external view returns (bool);
 

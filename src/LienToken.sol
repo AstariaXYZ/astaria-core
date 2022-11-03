@@ -148,15 +148,24 @@ contract LienToken is ERC721, ILienToken, Auth {
     (uint256 owed, uint256 buyout) = getBuyout(
       params.encumber.stack[params.position]
     );
+
     if (params.encumber.lien.details.maxAmount < owed) {
       revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
     }
-    s.TRANSFER_PROXY.tokenTransferFrom(
-      s.WETH,
-      address(msg.sender),
-      _getPayee(s, params.encumber.stack[params.position].point.lienId),
-      buyout
-    );
+    if (
+      msg.sender !=
+      s.COLLATERAL_TOKEN.ownerOf(
+        params.encumber.stack[params.position].lien.collateralId
+      ) &&
+      msg.sender != ownerOf(params.encumber.stack[params.position].point.lienId)
+    ) {
+      s.TRANSFER_PROXY.tokenTransferFrom(
+        s.WETH,
+        address(msg.sender),
+        _getPayee(s, params.encumber.stack[params.position].point.lienId),
+        buyout
+      );
+    }
 
     return (
       _replaceStackAtPositionWithNewLien(

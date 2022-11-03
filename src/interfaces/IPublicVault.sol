@@ -14,7 +14,6 @@ import {IERC165} from "./IERC165.sol";
 import {IVault} from "gpl/interfaces/IVault.sol";
 
 interface IPublicVault is IERC165, IVault {
-  //epoch data
   struct EpochData {
     uint64 liensOpenForEpoch;
     address withdrawProxy;

@@ -150,7 +150,7 @@ contract WithdrawTest is TestHelpers {
       tokenId: uint256(5),
       lienDetails: standardLienDetails,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: true
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
@@ -636,7 +636,7 @@ contract WithdrawTest is TestHelpers {
       tokenId: tokenId2,
       lienDetails: standardLienDetails,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: true
     });
 
     _warpToEpochEnd(publicVault);
@@ -808,7 +808,7 @@ contract WithdrawTest is TestHelpers {
       tokenId: tokenId2,
       lienDetails: lien2,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: true
     });
 
     _warpToEpochEnd(publicVault);

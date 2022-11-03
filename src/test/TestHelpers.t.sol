@@ -514,7 +514,10 @@ contract TestHelpers is Test {
     uint256 amount, // requested amount
     bool isFirstLien,
     ILienToken.Stack[] memory stack
-  ) internal returns (uint256[] memory, ILienToken.Stack[] memory) {
+  )
+    internal
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
       vault: vault,
       strategist: strategist,
@@ -523,10 +526,9 @@ contract TestHelpers is Test {
       tokenId: tokenId,
       lienDetails: lienDetails,
       amount: amount,
-      stack: isFirstLien ? new ILienToken.Stack[](0) : stack
+      stack: stack
     });
 
-    //    VaultImplementation(vault).commitToLien(terms, address(this));
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;

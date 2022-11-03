@@ -406,15 +406,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       revert InvalidCommitmentState(CommitmentState.INVALID);
     }
 
-    //struct Lien {
-    //    Details details;
-    //    bytes32 strategyRoot;
-    //    uint256 collateralId;
-    //    address vault;
-    //    address token;
-    //    uint8 position;
-    //    uint40 end;
-    //  }
     lien = ILienToken.Lien({
       details: details,
       strategyRoot: commitment.lienRequest.merkle.root,
@@ -423,32 +414,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       token: address(s.WETH)
     });
   }
-
-  //
-  //  function commitToLien(IAstariaRouter.Commitment calldata commitment)
-  //    external
-  //    whenNotPaused
-  //    returns (uint256 lienId, ILienToken.Stack[] memory stack)
-  //  {
-  //    RouterStorage storage s = _loadRouterSlot();
-  //    _transferAndDepositAssetIfAble(
-  //      s,
-  //      commitments.tokenContract,
-  //      commitments.tokenId
-  //    );
-  //
-  //    (lienIds, stack) = _executeCommitment(s, commitment);
-  //    s.WETH.safeApprove(
-  //      address(s.TRANSFER_PROXY),
-  //      commitment.lienRequest.amount
-  //    );
-  //    s.TRANSFER_PROXY.tokenTransferFrom(
-  //      address(s.WETH),
-  //      address(this),
-  //      address(msg.sender),
-  //      commitment.lienRequest.amount
-  //    );
-  //  }
 
   //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
   function commitToLiens(IAstariaRouter.Commitment[] calldata commitments)
@@ -460,12 +425,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     uint256 totalBorrowed = 0;
     lienIds = new uint256[](commitments.length);
+    _transferAndDepositAssetIfAble(
+      s,
+      commitments[0].tokenContract,
+      commitments[0].tokenId
+    );
     for (uint256 i = 0; i < commitments.length; ++i) {
-      _transferAndDepositAssetIfAble(
-        s,
-        commitments[i].tokenContract,
-        commitments[i].tokenId
-      );
       (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
       totalBorrowed += commitments[i].lienRequest.amount;
     }
@@ -563,12 +528,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @notice Returns whether a specific lien can be liquidated.
    * @return A boolean value indicating whether the specified lien can be liquidated.
    */
-  function canLiquidate(ILienToken.Point memory lien)
+  function canLiquidate(ILienToken.Stack memory stack)
     public
     view
     returns (bool)
   {
-    return (lien.end <= block.timestamp);
+    RouterStorage storage s = _loadRouterSlot();
+    return (stack.point.end <= block.timestamp ||
+      msg.sender == s.COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId));
   }
 
   function liquidate(
@@ -576,7 +543,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint8 position,
     ILienToken.Stack[] memory stack
   ) external returns (uint256 reserve) {
-    if (!canLiquidate(stack[position].point)) {
+    if (!canLiquidate(stack[position])) {
       revert InvalidLienState(LienState.HEALTHY);
     }
 

@@ -342,23 +342,8 @@ abstract contract VaultImplementation is
       lienToken.setApprovalForAll(recipient(), true);
     }
 
-    //LienActionBuyout {
-    //    IAstariaRouter.Commitment incoming;
-    //    uint256 position;
-    //    address receiver;
-    //    ILienToken.Stack[] stack;
-    //    ILienToken.Lien newLien;
-    //  }
-
     ILienToken.Lien memory newLien = ROUTER().validateCommitment(incomingTerms);
 
-    //    struct LienActionEncumber {
-    //    uint256 collateralId;
-    //    uint256 amount;
-    //    address receiver;
-    //    ILienToken.Lien lien;
-    //    Stack[] stack;
-    //    }
     lienToken.buyoutLien(
       ILienToken.LienActionBuyout({
         incoming: incomingTerms,
@@ -373,17 +358,6 @@ abstract contract VaultImplementation is
       })
     );
   }
-
-  //        newLien: ILienToken.Lien({
-  //          collateralId: collateralId,
-  //          vault: address(this),
-  //          token: underlying(),
-  //          position: position,
-  //          strategyRoot: incomingTerms.lienRequest.merkle.root,
-  //          end: uint256(block.timestamp + newDetails.duration).safeCastTo40(),
-  //          details: newDetails
-  //        })
-  //  }
 
   /**
    * @notice Retrieves the recipient of loan repayments. For PublicVaults (VAULT_TYPE 2), this is always the vault address. For PrivateVaults, retrieves the owner() of the vault.
