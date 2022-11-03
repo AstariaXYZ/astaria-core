@@ -10,13 +10,13 @@
 
 pragma solidity ^0.8.15;
 
+import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
+import {IERC721} from "interfaces/IERC721.sol";
+import {IFlashAction} from "interfaces/IFlashAction.sol";
+import {ILienToken} from "interfaces/ILienToken.sol";
+import {ITransferProxy} from "interfaces/ITransferProxy.sol";
+
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IERC721} from "core/interfaces/IERC721.sol";
-import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
-import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IFlashAction} from "core/interfaces/IFlashAction.sol";
 
 interface ICollateralToken is IERC721 {
   struct Asset {

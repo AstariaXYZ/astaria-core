@@ -9,16 +9,19 @@
  */
 
 pragma solidity ^0.8.17;
-import {ILienToken} from "./interfaces/ILienToken.sol";
+
+import {ILienToken} from "interfaces/ILienToken.sol";
+
 import {Clone} from "clones-with-immutable-args/Clone.sol";
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
-import {LiquidationAccountantBase} from "core/LiquidationAccountantBase.sol";
-import {PublicVault} from "./PublicVault.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
-import {WithdrawProxy} from "./WithdrawProxy.sol";
+
+import {LiquidationAccountantBase} from "LiquidationAccountantBase.sol";
+import {PublicVault} from "PublicVault.sol";
+import {WithdrawProxy} from "WithdrawProxy.sol";
 
 /**
  * @title LiquidationAccountant

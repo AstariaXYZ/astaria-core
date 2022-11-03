@@ -1,10 +1,21 @@
+// SPDX-License-Identifier: UNLICENSED
+
+/**
+ *       __  ___       __
+ *  /\  /__'  |   /\  |__) |  /\
+ * /~~\ .__/  |  /~~\ |  \ | /~~\
+ *
+ * Copyright (c) Astaria Labs, Inc
+ */
+
 pragma solidity ^0.8.16;
 
-import {IERC4626Base} from "./IERC4626Base.sol";
-import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
-import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {IERC4626Base} from "interfaces/IERC4626Base.sol";
+import {ICollateralToken} from "interfaces/ICollateralToken.sol";
+import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
+import {IRouterBase} from "interfaces/IRouterBase.sol";
+
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 
 interface IAstariaVaultBase is IERC4626Base, IRouterBase {
   function owner() external view returns (address);

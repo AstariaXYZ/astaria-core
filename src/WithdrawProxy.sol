@@ -12,13 +12,14 @@ pragma solidity ^0.8.17;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
-import {WithdrawVaultBase} from "core/WithdrawVaultBase.sol";
-import {ITokenBase} from "core/interfaces/ITokenBase.sol";
-import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
+import {ITokenBase} from "interfaces/ITokenBase.sol";
+import {ITransferProxy} from "interfaces/ITransferProxy.sol";
+
+import {WithdrawVaultBase} from "WithdrawVaultBase.sol";
 
 /**
  * @title WithdrawProxy

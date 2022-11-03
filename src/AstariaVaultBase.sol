@@ -1,11 +1,24 @@
+// SPDX-License-Identifier: UNLICENSED
+
+/**
+ *       __  ___       __
+ *  /\  /__'  |   /\  |__) |  /\
+ * /~~\ .__/  |  /~~\ |  \ | /~~\
+ *
+ * Copyright (c) Astaria Labs, Inc
+ */
+
 pragma solidity ^0.8.17;
-import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
-import {ERC4626Base} from "core/ERC4626Base.sol";
-import {IERC4626Base} from "core/interfaces/IERC4626Base.sol";
-import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
-import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IRouterBase} from "core/interfaces/IRouterBase.sol";
+
+import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
+import {IAstariaVaultBase} from "interfaces/IAstariaVaultBase.sol";
+import {ICollateralToken} from "interfaces/ICollateralToken.sol";
+import {IERC4626Base} from "interfaces/IERC4626Base.sol";
+import {IRouterBase} from "interfaces/IRouterBase.sol";
+
+import {ERC4626Base} from "ERC4626Base.sol";
 
 abstract contract AstariaVaultBase is ERC4626Base, IAstariaVaultBase {
   function name() public view virtual returns (string memory);

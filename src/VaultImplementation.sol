@@ -14,18 +14,17 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
+import {CollateralLookup} from "libraries/CollateralLookup.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IVault} from "core/interfaces/IVault.sol";
+import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
+import {ILienToken} from "interfaces/ILienToken.sol";
+import {IVault} from "interfaces/IVault.sol";
+import {IVaultImplementation} from "interfaces/IVaultImplementation.sol";
 
-import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
-
-import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
-import {LienToken} from "core/LienToken.sol";
-import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
-import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
-import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
+import {AstariaVaultBase} from "AstariaVaultBase.sol";
+import {LienToken} from "LienToken.sol";
 
 /**
  * @title VaultImplementation

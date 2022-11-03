@@ -282,7 +282,7 @@ contract RevertTesting is TestHelpers {
       amount: 10 ether,
       isFirstLien: true
     });
-   
+
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     vm.warp(block.timestamp + 14 days);
