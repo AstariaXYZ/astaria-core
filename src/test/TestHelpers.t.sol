@@ -529,10 +529,14 @@ contract TestHelpers is Test {
       stack: stack
     });
 
+    if (isFirstLien) {
+      ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+    }
+
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
-    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
     return ASTARIA_ROUTER.commitToLiens(commitments);
   }
