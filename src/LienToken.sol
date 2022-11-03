@@ -758,7 +758,9 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function getPayee(uint256 lienId) public view returns (address) {
     LienStorage storage s = _loadLienStorageSlot();
-    require(_exists(lienId), "Lien does not exist");
+    if (!_exists(lienId)) {
+      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
+    }
     return _getPayee(s, lienId);
   }
 
