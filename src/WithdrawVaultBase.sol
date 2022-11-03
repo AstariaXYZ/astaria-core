@@ -9,7 +9,7 @@
  */
 
 pragma solidity ^0.8.17;
-import {ERC4626Base} from "gpl/ERC4626Base.sol";
+import {ERC4626Base} from "core/ERC4626Base.sol";
 import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 

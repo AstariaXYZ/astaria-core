@@ -33,11 +33,11 @@ interface IERC721 is IERC165 {
     uint256 id
   ) external;
 
-  function safeTransferFrom(
-    address from,
-    address to,
-    uint256 id
-  ) external;
+  //  function safeTransferFrom(
+  //    address from,
+  //    address to,
+  //    uint256 id
+  //  ) external;
 
   function safeTransferFrom(
     address from,

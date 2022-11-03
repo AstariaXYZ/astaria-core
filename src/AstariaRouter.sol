@@ -30,7 +30,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 
-import {IVault} from "gpl/interfaces/IVault.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 
 import {PublicVault} from "core/PublicVault.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
@@ -554,23 +554,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       s.auctionWindow,
       stack
     );
-
-    //    for (uint256 i = 0; i < stack.length; ++i) {
-    //      uint256 currentLien = stack[i].point.lienId;
-    //      stackAtLiquidation[i] = currentLien;
-    //      address owner = s.LIEN_TOKEN.getPayee(currentLien); //todo: payee or owner?
-    //      if (
-    //        IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
-    //      ) {
-    //        // update the public vault state and get the liquidation accountant back if any
-    //        address accountantIfAny = PublicVault(owner)
-    //          .updateVaultAfterLiquidation(s.auctionWindow, afterLiq[i]);
-    //
-    //        if (accountantIfAny != address(0)) {
-    //          s.LIEN_TOKEN.setPayee(stack[i].lien, accountantIfAny);
-    //        }
-    //      }
-    //    }
 
     s.AUCTION_HOUSE.createAuction(
       collateralId,

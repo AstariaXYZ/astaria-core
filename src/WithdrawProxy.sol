@@ -17,8 +17,8 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {WithdrawVaultBase} from "core/WithdrawVaultBase.sol";
-import {ITokenBase} from "gpl/interfaces/ITokenBase.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {ITokenBase} from "core/interfaces/ITokenBase.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 /**
  * @title WithdrawProxy

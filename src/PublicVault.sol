@@ -19,8 +19,8 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
-import {ITokenBase} from "gpl/interfaces/ITokenBase.sol";
-import {ERC4626Base} from "gpl/ERC4626Base.sol";
+import {ITokenBase} from "core/interfaces/ITokenBase.sol";
+import {ERC4626Base} from "core/ERC4626Base.sol";
 
 import {
   ClonesWithImmutableArgs
@@ -28,7 +28,7 @@ import {
 
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
-import {IVault} from "gpl/interfaces/IVault.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 
 import {LienToken} from "./LienToken.sol";
 import {LiquidationAccountant} from "./LiquidationAccountant.sol";
@@ -38,7 +38,7 @@ import {WithdrawProxy} from "./WithdrawProxy.sol";
 import {Math} from "./utils/Math.sol";
 import {IPublicVault} from "./interfaces/IPublicVault.sol";
 import {Vault} from "./Vault.sol";
-import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
+import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 
 /*
  * @title PublicVault
