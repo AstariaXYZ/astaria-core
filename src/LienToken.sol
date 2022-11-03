@@ -115,7 +115,6 @@ contract LienToken is ERC721, ILienToken, Auth {
         _loadERC721Slot().isApprovedForAll[msg.sender][params.encumber.receiver]
       );
     }
-    //    uint256 outgoingLienId = params.stack[params.position].point.lienId;
 
     LienStorage storage s = _loadLienStorageSlot();
 
@@ -200,7 +199,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     emit LienStackUpdated(stack[0].lien.collateralId, newStack);
   }
 
-  //
   function getInterest(Stack calldata stack) public view returns (uint256) {
     LienStorage storage s = _loadLienStorageSlot();
     return _getInterest(stack, block.timestamp);
@@ -364,16 +362,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (maxPotentialDebt > params.lien.details.maxPotentialDebt) {
       revert InvalidState(InvalidStates.DEBT_LIMIT);
     }
-    //    params.lien.details.maxPotentialDebt = maxPotentialDebt;
-    //        Lien memory newLien = Lien({
-    //      collateralId: params.collateralId,
-    //      vault: params.vault,
-    //      token: s.WETH,
-    //      position: uint8(params.stack.length),
-    //      strategyRoot: params.strategyRoot,
-    //      end: uint256(block.timestamp + params.terms.duration).safeCastTo40(),
-    //      details: params.terms
-    //    });
 
     unchecked {
       newLienId = uint256(keccak256(abi.encode(params.lien)));
@@ -464,9 +452,6 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
 
-    //    if (lien.amount == 0) {
-    //      revert InvalidState(InvalidStates.LIEN_NO_DEBT);
-    //    }
     //validate lien presented
 
     uint256 remainingInterest = _getRemainingInterest(s, stack, true);
