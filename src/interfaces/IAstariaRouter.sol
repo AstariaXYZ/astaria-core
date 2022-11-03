@@ -22,6 +22,40 @@ import {IVault} from "gpl/ERC4626-Cloned.sol";
 import {IPausable} from "utils/Pausable.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
+  struct RouterStorage {
+    //slot 1
+    uint32 minInterestBPS; // was uint64
+    uint32 auctionWindow;
+    uint32 liquidationFeeNumerator;
+    uint32 liquidationFeeDenominator;
+    uint32 maxEpochLength;
+    uint32 minEpochLength;
+    uint32 protocolFeeNumerator;
+    uint32 protocolFeeDenominator;
+    //slot 2
+    ERC20 WETH; //20
+    ICollateralToken COLLATERAL_TOKEN; //20
+    ILienToken LIEN_TOKEN; //20
+    ITransferProxy TRANSFER_PROXY; //20
+    IAuctionHouse AUCTION_HOUSE; //20
+    address feeTo; //20
+    address guardian; //20
+    address BEACON_PROXY_IMPLEMENTATION; //20
+    uint88 maxInterestRate; //6
+    uint32 strategistFeeNumerator; //4
+    uint32 strategistFeeDenominator;
+    //slot 3 +
+    uint32 buyoutFeeNumerator;
+    uint32 buyoutFeeDenominator;
+    uint32 minDurationIncrease;
+    uint32 buyoutInterestWindow;
+    mapping(uint32 => address) strategyValidators;
+    mapping(uint8 => address) implementations;
+    //A strategist can have many deployed vaults
+    mapping(address => uint32) strategistNonce;
+    mapping(address => address) vaults;
+  }
+
   enum ImplementationType {
     PrivateVault,
     PublicVault,
