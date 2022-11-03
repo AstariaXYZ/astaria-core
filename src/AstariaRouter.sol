@@ -54,39 +54,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   bytes32 constant ROUTER_SLOT =
     keccak256("xyz.astaria.router.storage.location");
 
-  address newGuardian;
-  address guardian;
-
-  struct RouterStorage {
-    ERC20 WETH;
-    ICollateralToken COLLATERAL_TOKEN;
-    ILienToken LIEN_TOKEN;
-    ITransferProxy TRANSFER_PROXY;
-    IAuctionHouse AUCTION_HOUSE;
-    mapping(uint8 => address) implementations;
-    address BEACON_PROXY_IMPLEMENTATION;
-    address feeTo;
-    uint256 auctionWindow;
-    uint256 liquidationFeeNumerator;
-    uint256 liquidationFeeDenominator;
-    uint256 maxInterestRate;
-    uint256 maxEpochLength;
-    uint256 minEpochLength;
-    uint256 minInterestBPS; // was uint64
-    uint256 protocolFeeNumerator;
-    uint256 protocolFeeDenominator;
-    uint256 strategistFeeNumerator;
-    uint256 strategistFeeDenominator;
-    uint256 buyoutFeeNumerator;
-    uint64 buyoutFeeDenominator;
-    uint32 minDurationIncrease;
-    uint32 buyoutInterestWindow;
-    //A strategist can have many deployed vaults
-    mapping(address => address) vaults;
-    mapping(address => uint256) strategistNonce;
-    mapping(uint16 => address) strategyValidators;
-  }
-
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
    * @param _AUTHORITY The authority manager.
@@ -121,24 +88,22 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       uint8(ImplementationType.LiquidationAccountant)
     ] = _LIQUIDATION_IMPL;
     s.implementations[uint8(ImplementationType.WithdrawProxy)] = _WITHDRAW_IMPL;
-
     s.BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
-    s.auctionWindow = uint256(2 days);
+    s.auctionWindow = uint32(2 days);
 
-    s.liquidationFeeNumerator = 130;
-    s.liquidationFeeDenominator = 1000;
-    s.minInterestBPS = (uint256(1e15) * 5) / (365 days);
-    s.minEpochLength = 7 days;
-    s.maxEpochLength = 45 days;
-    s.maxInterestRate = (uint256(1e16) * 200) / (365 days); //63419583966; // 200% apy / second
-    s.strategistFeeNumerator = 200;
-    s.strategistFeeDenominator = 1000;
-    s.buyoutFeeNumerator = 200;
-    s.buyoutFeeDenominator = 1000;
-    s.minDurationIncrease = 5 days;
-    s.buyoutInterestWindow = 60 days;
-    //todo move into state
-    guardian = address(msg.sender);
+    s.liquidationFeeNumerator = uint32(130);
+    s.liquidationFeeDenominator = uint32(1000);
+    s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
+    s.minEpochLength = uint32(7 days);
+    s.maxEpochLength = uint32(45 days);
+    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88(); //63419583966; // 200% apy / second
+    s.strategistFeeNumerator = uint32(200);
+    s.strategistFeeDenominator = uint32(1000);
+    s.buyoutFeeNumerator = uint32(200);
+    s.buyoutFeeDenominator = uint32(1000);
+    s.minDurationIncrease = uint32(5 days);
+    s.buyoutInterestWindow = uint32(60 days);
+    s.guardian = address(msg.sender);
   }
 
   function _loadRouterSlot() internal pure returns (RouterStorage storage rs) {
@@ -207,12 +172,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     _unpause();
   }
 
-  function __acceptGuardian() external {
-    require(msg.sender == newGuardian);
-    guardian = msg.sender;
-    newGuardian = address(0);
-  }
-
   function incrementNonce() external {
     _loadRouterSlot().strategistNonce[msg.sender]++;
   }
@@ -244,47 +203,47 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     bytes memory data = incoming.data;
     if (what == "setAuctionWindow") {
       uint256 value = abi.decode(data, (uint256));
-      s.auctionWindow = value;
+      s.auctionWindow = value.safeCastTo32();
     } else if (what == "setLiquidationFee") {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
         (uint256, uint256)
       );
-      s.liquidationFeeNumerator = numerator;
-      s.liquidationFeeDenominator = denominator;
+      s.liquidationFeeNumerator = numerator.safeCastTo32();
+      s.liquidationFeeDenominator = denominator.safeCastTo32();
     } else if (what == "setStrategistFee") {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
         (uint256, uint256)
       );
-      s.strategistFeeNumerator = numerator;
-      s.strategistFeeDenominator = denominator;
+      s.strategistFeeNumerator = numerator.safeCastTo32();
+      s.strategistFeeDenominator = denominator.safeCastTo32();
     } else if (what == "setProtocolFee") {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
         (uint256, uint256)
       );
-      s.protocolFeeNumerator = numerator;
-      s.protocolFeeDenominator = denominator;
+      s.protocolFeeNumerator = numerator.safeCastTo32();
+      s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == "setBuyoutFee") {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
         (uint256, uint256)
       );
-      s.buyoutFeeNumerator = numerator;
-      s.buyoutFeeDenominator = uint64(denominator);
+      s.buyoutFeeNumerator = numerator.safeCastTo32();
+      s.buyoutFeeDenominator = denominator.safeCastTo32();
     } else if (what == "MIN_INTEREST_BPS") {
       uint256 value = abi.decode(data, (uint256));
-      s.minInterestBPS = uint256(value);
+      s.minInterestBPS = value.safeCastTo32();
     } else if (what == "MIN_DURATION_INCREASE") {
       uint256 value = abi.decode(data, (uint256));
       s.minDurationIncrease = value.safeCastTo32();
     } else if (what == "MIN_EPOCH_LENGTH") {
-      s.minEpochLength = abi.decode(data, (uint256));
+      s.minEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == "MAX_EPOCH_LENGTH") {
-      s.maxEpochLength = abi.decode(data, (uint256));
+      s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == "MAX_INTEREST_RATE") {
-      s.maxInterestRate = abi.decode(data, (uint256));
+      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
     } else if (what == "feeTo") {
       address addr = abi.decode(data, (address));
       s.feeTo = addr;
@@ -302,17 +261,17 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   }
 
   function setNewGuardian(address _guardian) external {
-    require(msg.sender == guardian);
-
-    newGuardian = _guardian;
+    RouterStorage storage s = _loadRouterSlot();
+    require(address(msg.sender) == s.guardian);
+    s.guardian = _guardian;
   }
 
   /* @notice specially guarded file
    * @param file incoming data to file
    */
   function fileGuardian(File[] calldata file) external {
-    require(msg.sender == address(guardian)); //only the guardian can call this
     RouterStorage storage s = _loadRouterSlot();
+    require(address(msg.sender) == address(s.guardian)); //only the guardian can call this
     for (uint256 i = 0; i < file.length; i++) {
       bytes32 what = file[i].what;
       bytes memory data = file[i].data;
