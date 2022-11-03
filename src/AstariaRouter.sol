@@ -32,9 +32,9 @@ import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {IVault} from "core/interfaces/IVault.sol";
 
-import {LiquidationAccountant} from "LiquidationAccountant.sol";
-import {PublicVault} from "PublicVault.sol";
-import {VaultImplementation} from "VaultImplementation.sol";
+import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
+import {PublicVault} from "core/PublicVault.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
 
 /**
  * @title AstariaRouter
