@@ -175,24 +175,6 @@ contract TestHelpers is Test {
   MultiRolesAuthority MRA;
   AuctionHouse AUCTION_HOUSE;
 
-  function startMeasuringGas(string memory label) internal virtual {
-    checkpointLabel = label;
-
-    checkpointGasLeft = gasleft();
-  }
-
-  function stopMeasuringGas() internal virtual {
-    uint256 checkpointGasLeft2 = gasleft();
-
-    // Subtract 100 to account for the warm SLOAD in startMeasuringGas.
-    uint256 gasDelta = checkpointGasLeft - checkpointGasLeft2 - 100;
-
-    emit log_named_uint(
-      string(abi.encodePacked(checkpointLabel, " Gas")),
-      gasDelta
-    );
-  }
-
   function setUp() public virtual {
     WETH9 = IWETH9(deployCode(weth9Artifact));
 
@@ -639,6 +621,24 @@ contract TestHelpers is Test {
       });
   }
 
+  function startMeasuringGas(string memory label) internal virtual {
+    checkpointLabel = label;
+
+    checkpointGasLeft = gasleft();
+  }
+
+  function stopMeasuringGas() internal virtual {
+    uint256 checkpointGasLeft2 = gasleft();
+
+    // Subtract 100 to account for the warm SLOAD in startMeasuringGas.
+    uint256 gasDelta = checkpointGasLeft - checkpointGasLeft2 - 100;
+
+    emit log_named_uint(
+      string(abi.encodePacked(checkpointLabel, " Gas")),
+      gasDelta
+    );
+  }
+
   struct Lender {
     address addr;
     uint256 amountToLend;
@@ -746,5 +746,36 @@ contract TestHelpers is Test {
     );
     ERC20(withdrawProxy).safeApprove(address(this), type(uint256).max);
     vm.stopPrank();
+  }
+
+  function _commitToLiensSameCollateral(
+    address[] memory vaults, // address of deployed Vault
+    address strategist,
+    uint256 strategistPK,
+    address tokenContract, // original NFT address
+    uint256 tokenId, // original NFT id
+    ILienToken.Details[] memory lienDetails, // loan information
+    uint256 amount // requested amount
+  ) internal returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack){
+    require(vaults.length == lienDetails.length, "vaults not equal to liens");
+
+    IAstariaRouter.Commitment[] memory commitments = new IAstariaRouter.Commitment[](vaults.length);
+    ILienToken.Stack[] memory stack = new ILienToken.Stack[](0);
+    for(uint256 i; i < vaults.length; i++){
+      commitments[i] = _generateValidTerms({
+        vault: vaults[i],
+        strategist: strategist,
+        strategistPK: strategistPK,
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        lienDetails: lienDetails[i],
+        amount: amount,
+        stack: stack
+      });
+    }
+
+    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    return ASTARIA_ROUTER.commitToLiens(commitments);
   }
 }
