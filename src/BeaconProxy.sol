@@ -10,7 +10,7 @@
 
 pragma solidity ^0.8.17;
 
-import {IBeacon} from "interfaces/IBeacon.sol";
+import {IBeacon} from "core/interfaces/IBeacon.sol";
 
 import {Clone} from "clones-with-immutable-args/Clone.sol";
 

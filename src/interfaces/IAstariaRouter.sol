@@ -10,11 +10,11 @@
 
 pragma solidity ^0.8.17;
 
-import {IERC721} from "interfaces/IERC721.sol";
-import {ITransferProxy} from "interfaces/ITransferProxy.sol";
-import {ICollateralToken} from "interfaces/ICollateralToken.sol";
-import {ILienToken} from "interfaces/ILienToken.sol";
-import {IBeacon} from "interfaces/IBeacon.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IBeacon} from "core/interfaces/IBeacon.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IVault} from "gpl/ERC4626-Cloned.sol";

@@ -17,15 +17,15 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
-import {IERC165} from "interfaces/IERC165.sol";
-import {ILienToken} from "interfaces/ILienToken.sol";
-import {ITokenBase} from "interfaces/ITokenBase.sol";
-import {IVault} from "interfaces/IVault.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {ITokenBase} from "core/interfaces/ITokenBase.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 
-import {AstariaVaultBase} from "AstariaVaultBase.sol";
-import {LienToken} from "LienToken.sol";
-import {VaultImplementation} from "VaultImplementation.sol";
+import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
+import {LienToken} from "core/LienToken.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
 
 /**
  * @title Vault

@@ -16,12 +16,12 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {Clone} from "clones-with-immutable-args/Clone.sol";
 
-import {ILienToken} from "interfaces/ILienToken.sol";
-import {IRouterBase} from "interfaces/IRouterBase.sol";
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IRouterBase} from "core/interfaces/IRouterBase.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 
-import {PublicVault} from "PublicVault.sol";
-import {WithdrawProxy} from "WithdrawProxy.sol";
+import {PublicVault} from "core/PublicVault.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
 abstract contract LiquidationAccountantBase is Clone, IRouterBase {
   function ROUTER() public pure returns (IAstariaRouter) {

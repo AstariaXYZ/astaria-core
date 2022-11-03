@@ -12,9 +12,9 @@ pragma solidity ^0.8.17;
 
 import {ERC721} from "solmate/tokens/ERC721.sol";
 
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
-import {ILienToken} from "interfaces/ILienToken.sol";
-import {IStrategyValidator} from "interfaces/IStrategyValidator.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
 interface IUniqueValidator is IStrategyValidator {
   struct Details {

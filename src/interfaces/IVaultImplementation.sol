@@ -10,7 +10,7 @@
 
 pragma solidity ^0.8.17;
 
-import {ILienToken} from "interfaces/ILienToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 interface IVaultImplementation {
   enum InvalidRequestReason {

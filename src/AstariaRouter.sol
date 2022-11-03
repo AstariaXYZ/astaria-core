@@ -16,21 +16,21 @@ import {ERC721} from "solmate/tokens/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
-import {MerkleProofLib} from "utils/MerkleProofLib.sol";
-import {Pausable} from "utils/Pausable.sol";
-import {CollateralLookup} from "libraries/CollateralLookup.sol";
+import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
+import {Pausable} from "core/utils/Pausable.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
-import {ICollateralToken} from "interfaces/ICollateralToken.sol";
-import {ILienToken} from "interfaces/ILienToken.sol";
-import {IPublicVault} from "interfaces/IPublicVault.sol";
-import {IStrategyValidator} from "interfaces/IStrategyValidator.sol";
-import {ITransferProxy} from "interfaces/ITransferProxy.sol";
-import {IVault} from "interfaces/IVault.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 
 import {LiquidationAccountant} from "LiquidationAccountant.sol";
 import {PublicVault} from "PublicVault.sol";

@@ -10,8 +10,8 @@
 
 pragma solidity ^0.8.17;
 
-import {IV3PositionManager} from "interfaces/IV3PositionManager.sol";
-import {ISecurityHook} from "interfaces/ISecurityHook.sol";
+import {IV3PositionManager} from "core/interfaces/IV3PositionManager.sol";
+import {ISecurityHook} from "core/interfaces/ISecurityHook.sol";
 
 contract V3SecurityHook is ISecurityHook {
   address positionManager;

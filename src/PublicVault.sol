@@ -22,22 +22,22 @@ import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
-import {IERC165} from "interfaces/IERC165.sol";
-import {ILienToken} from "interfaces/ILienToken.sol";
-import {IPublicVault} from "interfaces/IPublicVault.sol";
-import {ITokenBase} from "interfaces/ITokenBase.sol";
-import {IVault} from "interfaces/IVault.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {ITokenBase} from "core/interfaces/ITokenBase.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 
-import {AstariaVaultBase} from "AstariaVaultBase.sol";
-import {ERC4626Base} from "ERC4626Base.sol";
-import {LienToken} from "LienToken.sol";
-import {LiquidationAccountant} from "LiquidationAccountant.sol";
-import {Vault} from "Vault.sol";
-import {VaultImplementation} from "VaultImplementation.sol";
-import {WithdrawProxy} from "WithdrawProxy.sol";
+import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
+import {ERC4626Base} from "core/ERC4626Base.sol";
+import {LienToken} from "core/LienToken.sol";
+import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
+import {Vault} from "core/Vault.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
 /*
  * @title PublicVault

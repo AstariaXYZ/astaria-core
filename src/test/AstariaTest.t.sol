@@ -24,16 +24,15 @@ import {ERC721} from "gpl/ERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {IAstariaRouter, AstariaRouter} from "AstariaRouter.sol";
-import {IVault, VaultImplementation} from "VaultImplementation.sol";
-import {LiquidationAccountant} from "LiquidationAccountant.sol";
-import {PublicVault} from "PublicVault.sol";
-import {TransferProxy} from "TransferProxy.sol";
-import {WithdrawProxy} from "WithdrawProxy.sol";
+import {IAstariaRouter, AstariaRouter} from "core/AstariaRouter.sol";
+import {IVault, VaultImplementation} from "core/VaultImplementation.sol";
+import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
+import {PublicVault} from "core/PublicVault.sol";
+import {TransferProxy} from "core/TransferProxy.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
-import {Strings2} from "test/utils/Strings2.sol";
-
-import "test/TestHelpers.t.sol";
+import {Strings2} from "core/test/utils/Strings2.sol";
+import {TestHelpers} from "core/test/TestHelpers.t.sol";
 
 contract AstariaTest is TestHelpers {
   using FixedPointMathLib for uint256;

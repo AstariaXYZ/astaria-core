@@ -10,8 +10,8 @@
 
 pragma solidity ^0.8.17;
 
-import {IERC165} from "interfaces/IERC165.sol";
-import {IVault} from "interfaces/IVault.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 
 interface IPublicVault is IERC165, IVault {
   struct EpochData {

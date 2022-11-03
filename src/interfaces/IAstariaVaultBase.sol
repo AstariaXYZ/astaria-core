@@ -10,10 +10,10 @@
 
 pragma solidity ^0.8.16;
 
-import {IERC4626Base} from "interfaces/IERC4626Base.sol";
-import {ICollateralToken} from "interfaces/ICollateralToken.sol";
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
-import {IRouterBase} from "interfaces/IRouterBase.sol";
+import {IERC4626Base} from "core/interfaces/IERC4626Base.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 

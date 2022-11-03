@@ -16,21 +16,21 @@ import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {CollateralLookup} from "libraries/CollateralLookup.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {ERC721} from "gpl/ERC721.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
-import {ICollateralToken} from "interfaces/ICollateralToken.sol";
-import {IERC165} from "interfaces/IERC165.sol";
-import {IERC721} from "interfaces/IERC721.sol";
-import {IERC721Receiver} from "interfaces/IERC721Receiver.sol";
-import {IFlashAction} from "interfaces/IFlashAction.sol";
-import {ILienToken} from "interfaces/ILienToken.sol";
-import {ISecurityHook} from "interfaces/ISecurityHook.sol";
-import {ITransferProxy} from "interfaces/ITransferProxy.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
+import {IFlashAction} from "core/interfaces/IFlashAction.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {ISecurityHook} from "core/interfaces/ISecurityHook.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
-import {VaultImplementation} from "VaultImplementation.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
 
 contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   using SafeTransferLib for ERC20;

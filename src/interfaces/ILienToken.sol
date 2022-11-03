@@ -10,11 +10,11 @@
 
 pragma solidity ^0.8.17;
 
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
-import {IAuctionHouse} from "interfaces/IAuctionHouse.sol";
-import {ICollateralToken} from "interfaces/ICollateralToken.sol";
-import {IERC721} from "interfaces/IERC721.sol";
-import {ITransferProxy} from "interfaces/ITransferProxy.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {IAuctionHouse} from "core/interfaces/IAuctionHouse.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 interface ILienToken is IERC721 {
   struct LienStorage {

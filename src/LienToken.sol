@@ -15,20 +15,21 @@ pragma experimental ABIEncoderV2;
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
-import {Base64} from "libraries/Base64.sol";
-import {CollateralLookup} from "libraries/CollateralLookup.sol";
+import {Base64} from "core/libraries/Base64.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
-import {IAstariaRouter} from "interfaces/IAstariaRouter.sol";
-import {ICollateralToken} from "interfaces/ICollateralToken.sol";
-import {ILienToken} from "interfaces/ILienToken.sol";
-import {IPublicVault} from "interfaces/IPublicVault.sol";
-import {ITransferProxy} from "interfaces/ITransferProxy.sol";
-import {IERC165} from "interfaces/IERC165.sol";
-import {IERC721} from "interfaces/IERC721.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {ERC721} from "gpl/ERC721.sol";
-import {VaultImplementation} from "VaultImplementation.sol";
+
+import {VaultImplementation} from "core/VaultImplementation.sol";
 
 /**
  * @title LienToken

@@ -27,20 +27,19 @@ import {Strings} from "openzeppelin/utils/Strings.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {ICollateralToken} from "interfaces/ICollateralToken.sol";
-import {ILienToken} from "interfaces/ILienToken.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {CollateralToken, IFlashAction} from "CollateralToken.sol";
-import {IAstariaRouter, AstariaRouter} from "AstariaRouter.sol";
-import {IVault, VaultImplementation} from "VaultImplementation.sol";
-import {LienToken} from "LienToken.sol";
-import {PublicVault} from "PublicVault.sol";
-import {TransferProxy} from "TransferProxy.sol";
-import {WithdrawProxy} from "WithdrawProxy.sol";
+import {CollateralToken, IFlashAction} from "core/CollateralToken.sol";
+import {IAstariaRouter, AstariaRouter} from "core/AstariaRouter.sol";
+import {IVault, VaultImplementation} from "core/VaultImplementation.sol";
+import {LienToken} from "core/LienToken.sol";
+import {PublicVault} from "core/PublicVault.sol";
+import {TransferProxy} from "core/TransferProxy.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
-import {Strings2} from "test/utils/Strings2.sol";
-
-import "test/TestHelpers.t.sol";
+import {Strings2} from "core/test/utils/Strings2.sol";
+import {TestHelpers} from "core/test/TestHelpers.t.sol";
 
 contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
