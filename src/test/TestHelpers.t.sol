@@ -26,37 +26,38 @@ import {ERC721} from "gpl/ERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
-import {IERC20} from "core/interfaces/IERC20.sol";
-import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
+import {ICollateralToken} from "interfaces/ICollateralToken.sol";
+import {IERC20} from "interfaces/IERC20.sol";
+import {ILienToken} from "interfaces/ILienToken.sol";
+import {IStrategyValidator} from "interfaces/IStrategyValidator.sol";
 
-import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
+import {CollateralLookup} from "libraries/CollateralLookup.sol";
 
 import {
   ICollectionValidator,
   CollectionValidator
-} from "../strategies/CollectionValidator.sol";
+} from "strategies/CollectionValidator.sol";
 import {
   UNI_V3Validator,
   IUNI_V3Validator
-} from "../strategies/UNI_V3Validator.sol";
+} from "strategies/UNI_V3Validator.sol";
 import {
   UniqueValidator,
   IUniqueValidator
-} from "../strategies/UniqueValidator.sol";
-import {V3SecurityHook} from "../security/V3SecurityHook.sol";
-import {CollateralToken} from "../CollateralToken.sol";
-import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
-import {LienToken} from "../LienToken.sol";
-import {LiquidationAccountant} from "../LiquidationAccountant.sol";
-import {TransferProxy} from "../TransferProxy.sol";
-import {Vault, PublicVault} from "../PublicVault.sol";
-import {WithdrawProxy} from "../WithdrawProxy.sol";
+} from "strategies/UniqueValidator.sol";
+import {V3SecurityHook} from "security/V3SecurityHook.sol";
 
-import {Strings2} from "./utils/Strings2.sol";
-import {BeaconProxy} from "../BeaconProxy.sol";
+import {CollateralToken} from "CollateralToken.sol";
+import {IAstariaRouter, AstariaRouter} from "AstariaRouter.sol";
+import {IVault, VaultImplementation} from "VaultImplementation.sol";
+import {LienToken} from "LienToken.sol";
+import {LiquidationAccountant} from "LiquidationAccountant.sol";
+import {TransferProxy} from "TransferProxy.sol";
+import {Vault, PublicVault} from "PublicVault.sol";
+import {WithdrawProxy} from "WithdrawProxy.sol";
+import {BeaconProxy} from "BeaconProxy.sol";
+
+import {Strings2} from "test/utils/Strings2.sol";
 
 string constant weth9Artifact = "src/test/WETH9.json";
 

@@ -25,16 +25,16 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
-import {LiquidationAccountant} from "../LiquidationAccountant.sol";
-import {PublicVault} from "../PublicVault.sol";
-import {TransferProxy} from "../TransferProxy.sol";
-import {WithdrawProxy} from "../WithdrawProxy.sol";
+import {IAstariaRouter, AstariaRouter} from "AstariaRouter.sol";
+import {IVault, VaultImplementation} from "VaultImplementation.sol";
+import {LiquidationAccountant} from "LiquidationAccountant.sol";
+import {PublicVault} from "PublicVault.sol";
+import {TransferProxy} from "TransferProxy.sol";
+import {WithdrawProxy} from "WithdrawProxy.sol";
 
-import {Strings2} from "./utils/Strings2.sol";
+import {Strings2} from "test/utils/Strings2.sol";
 
-import "./TestHelpers.t.sol";
+import "test/TestHelpers.t.sol";
 
 contract WithdrawTest is TestHelpers {
   using FixedPointMathLib for uint256;
