@@ -112,7 +112,7 @@ abstract contract VaultImplementation is
   }
 
   modifier whenNotPaused() {
-    if (IAstariaRouter(ROUTER()).paused()) {
+    if (ROUTER().paused()) {
       revert("protocol is paused");
     }
     _;
@@ -150,7 +150,7 @@ abstract contract VaultImplementation is
     bytes32 hash = keccak256(
       abi.encode(
         STRATEGY_TYPEHASH,
-        IAstariaRouter(ROUTER()).strategistNonce(strategy.strategist),
+        ROUTER().strategistNonce(strategy.strategist),
         strategy.deadline,
         root
       )
@@ -228,7 +228,7 @@ abstract contract VaultImplementation is
       receiver != holder &&
       receiver != operator &&
       receiver != recipient() &&
-      !IAstariaRouter(ROUTER()).isValidVault(receiver)
+      !ROUTER().isValidVault(receiver)
     ) {
       if (operator != address(0)) {
         require(operator == receiver);
@@ -315,7 +315,11 @@ abstract contract VaultImplementation is
     uint8 position,
     IAstariaRouter.Commitment calldata incomingTerms,
     ILienToken.Stack[] calldata stack
-  ) external whenNotPaused {
+  )
+    external
+    whenNotPaused
+    returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
+  {
     (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
       .LIEN_TOKEN()
       .getBuyout(stack[position]);
@@ -326,14 +330,9 @@ abstract contract VaultImplementation is
 
     _validateCommitment(incomingTerms, recipient());
 
-    ERC20(underlying()).safeApprove(
-      address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
-      buyout
-    );
+    ERC20(underlying()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
-    LienToken lienToken = LienToken(
-      address(IAstariaRouter(ROUTER()).LIEN_TOKEN())
-    );
+    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
     if (
       recipient() != address(this) &&
@@ -342,21 +341,20 @@ abstract contract VaultImplementation is
       lienToken.setApprovalForAll(recipient(), true);
     }
 
-    ILienToken.Lien memory newLien = ROUTER().validateCommitment(incomingTerms);
-
-    lienToken.buyoutLien(
-      ILienToken.LienActionBuyout({
-        incoming: incomingTerms,
-        position: position,
-        encumber: ILienToken.LienActionEncumber({
-          collateralId: collateralId,
-          amount: incomingTerms.lienRequest.amount,
-          receiver: recipient(),
-          lien: newLien,
-          stack: stack
+    return
+      lienToken.buyoutLien(
+        ILienToken.LienActionBuyout({
+          incoming: incomingTerms,
+          position: position,
+          encumber: ILienToken.LienActionEncumber({
+            collateralId: collateralId,
+            amount: incomingTerms.lienRequest.amount,
+            receiver: recipient(),
+            lien: ROUTER().validateCommitment(incomingTerms),
+            stack: stack
+          })
         })
-      })
-    );
+      );
   }
 
   /**
@@ -387,20 +385,17 @@ abstract contract VaultImplementation is
       uint256 slope
     )
   {
-    (newLienId, stack, slope) = IAstariaRouter(ROUTER()).requestLienPosition(
-      c,
-      recipient()
-    );
+    (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
 
     uint256 payout = _handleProtocolFee(c.lienRequest.amount);
     ERC20(underlying()).safeTransfer(receiver, payout);
   }
 
   function _handleProtocolFee(uint256 amount) internal returns (uint256) {
-    address feeTo = IAstariaRouter(ROUTER()).feeTo();
+    address feeTo = ROUTER().feeTo();
     bool feeOn = feeTo != address(0);
     if (feeOn) {
-      uint256 fee = IAstariaRouter(ROUTER()).getProtocolFee(amount);
+      uint256 fee = ROUTER().getProtocolFee(amount);
 
       unchecked {
         amount -= fee;
