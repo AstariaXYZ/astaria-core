@@ -121,6 +121,7 @@ contract IntegrationTest is TestHelpers {
       "Incorrect PublicVault slope calc"
     );
   }
+
   function testMultipleVaultsWithLiensOnTheSameCollateral() public {
     // mint 2 new NFTs
     TestNFT nft = new TestNFT(1);
@@ -128,7 +129,7 @@ contract IntegrationTest is TestHelpers {
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
 
-    uint256 lienSize = 3;
+    uint256 lienSize = 5;
     address[] memory publicVaults = new address[](lienSize);
     ILienToken.Details[] memory lienDetails = new ILienToken.Details[](
       lienSize
@@ -173,8 +174,8 @@ contract IntegrationTest is TestHelpers {
     vm.warp(block.timestamp + 11 days);
 
     uint256 collateralId = tokenContract.computeId(tokenId);
-    // ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
 
-    // _bid(address(2), collateralId, 100 ether);s
+    _bid(address(2), collateralId, 200 ether);
   }
 }
