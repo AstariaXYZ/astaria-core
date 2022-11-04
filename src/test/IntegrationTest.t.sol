@@ -121,4 +121,61 @@ contract IntegrationTest is TestHelpers {
       "Incorrect PublicVault slope calc"
     );
   }
+
+  function testMultipleVaultsWithLiensOnTheSameCollateral() public {
+    // mint 2 new NFTs
+    TestNFT nft = new TestNFT(1);
+    _mintNoDepositApproveRouter(address(nft), 1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+
+    uint256 lienSize = 3;
+    address[] memory publicVaults = new address[](lienSize);
+    ILienToken.Details[] memory lienDetails = new ILienToken.Details[](
+      lienSize
+    );
+    for (uint256 i; i < lienSize; i++) {
+      uint256 dayCount = 14 - i;
+
+      publicVaults[i] = _createPublicVault({
+        strategist: strategistOne,
+        delegate: strategistTwo,
+        epochLength: (dayCount * 1 days)
+      });
+
+      _lendToVault(
+        Lender({addr: address(1), amountToLend: 50 ether}),
+        publicVaults[i]
+      );
+
+      lienDetails[i] = ILienToken.Details({
+        maxAmount: 50 ether,
+        rate: uint256(1e16).mulDivDown(150, 1).mulDivDown(1, 365 days),
+        duration: (dayCount * 1 days),
+        maxPotentialDebt: i * 20 ether
+      });
+    }
+
+    // commit to a new lien of 10 ETH under LienDetails
+    uint256 amount = 10 ether;
+    (
+      uint256[] memory liens,
+      ILienToken.Stack[] memory stack
+    ) = _commitToLiensSameCollateral({
+        vaults: publicVaults,
+        strategist: strategistOne,
+        strategistPK: strategistOnePK,
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        lienDetails: lienDetails,
+        amount: amount
+      });
+
+    vm.warp(block.timestamp + 11 days);
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    // ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
+
+    // _bid(address(2), collateralId, 100 ether);s
+  }
 }

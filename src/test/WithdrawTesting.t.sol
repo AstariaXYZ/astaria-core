@@ -150,7 +150,7 @@ contract WithdrawTest is TestHelpers {
       tokenId: uint256(5),
       lienDetails: standardLienDetails,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: true
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
@@ -360,7 +360,7 @@ contract WithdrawTest is TestHelpers {
     );
 
     PublicVault(publicVault).processEpoch();
-    
+
     PublicVault(publicVault).transferWithdrawReserve();
     address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
     WithdrawProxy(withdrawProxy2).claim(); // TODO maybe 2
@@ -642,7 +642,7 @@ contract WithdrawTest is TestHelpers {
       tokenId: tokenId2,
       lienDetails: standardLienDetails,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: true
     });
 
     _warpToEpochEnd(publicVault);
@@ -709,7 +709,7 @@ contract WithdrawTest is TestHelpers {
     //   0,
     //   "LiquidationAccountant balance not 0"
     // );
-    
+
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault balance not 0");
 
@@ -818,7 +818,7 @@ contract WithdrawTest is TestHelpers {
       tokenId: tokenId2,
       lienDetails: lien2,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: true
     });
 
     _warpToEpochEnd(publicVault);

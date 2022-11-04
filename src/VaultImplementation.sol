@@ -16,14 +16,14 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IVault} from "gpl/interfaces/IVault.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {LienToken} from "core/LienToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
+import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
@@ -342,23 +342,8 @@ abstract contract VaultImplementation is
       lienToken.setApprovalForAll(recipient(), true);
     }
 
-    //LienActionBuyout {
-    //    IAstariaRouter.Commitment incoming;
-    //    uint256 position;
-    //    address receiver;
-    //    ILienToken.Stack[] stack;
-    //    ILienToken.Lien newLien;
-    //  }
-
     ILienToken.Lien memory newLien = ROUTER().validateCommitment(incomingTerms);
 
-    //    struct LienActionEncumber {
-    //    uint256 collateralId;
-    //    uint256 amount;
-    //    address receiver;
-    //    ILienToken.Lien lien;
-    //    Stack[] stack;
-    //    }
     lienToken.buyoutLien(
       ILienToken.LienActionBuyout({
         incoming: incomingTerms,

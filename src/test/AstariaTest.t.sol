@@ -39,28 +39,6 @@ contract AstariaTest is TestHelpers {
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
-  //  function testHashCosts() public {
-  //    ILienToken.Lien memory lien = ILienToken.Lien({
-  //      strategyRoot: bytes32(0),
-  //      collateralId: uint256(0),
-  //      vault: address(0),
-  //      details: ILienToken.Details({
-  //        maxAmount: 50 ether,
-  //        rate: uint256(1e16).mulDivDown(150, 1).mulDivDown(1, 365 days),
-  //        duration: 14 days,
-  //        maxPotentialDebt: 0 ether
-  //      }),
-  //      token: address(0),
-  //      position: uint8(1),
-  //      end: uint40(block.timestamp + 14 days)
-  //    });
-  //    ILienToken.Point memory point = ILienToken.Point({
-  //      last: uint40(block.timestamp),
-  //      amount: 50 ether,
-  //      lienId: uint256(keccak256(abi.encode(lien)))
-  //    });
-  //  }
-
   function testBasicPublicVaultLoan() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
@@ -372,12 +350,6 @@ contract AstariaTest is TestHelpers {
 
     // buyout liens
 
-    //    struct LienActionBuyout {
-    //    IAstariaRouter.Commitment incoming;
-    //    uint256 position;
-    //    address receiver;
-    //    }
-
     address privateVault = _createPrivateVault({
       strategist: strategistOne,
       delegate: strategistTwo
@@ -552,7 +524,7 @@ contract AstariaTest is TestHelpers {
       tokenId: uint256(5),
       lienDetails: standardLienDetails,
       amount: 10 ether,
-      isFirstLien: false // TODO look at this
+      isFirstLien: true
     });
   }
 

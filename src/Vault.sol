@@ -18,15 +18,15 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
-import {IVault} from "gpl/interfaces/IVault.sol";
-import {ITokenBase} from "gpl/interfaces/ITokenBase.sol";
-import {AstariaVaultBase} from "gpl/AstariaVaultBase.sol";
+import {IVault} from "core/interfaces/IVault.sol";
+import {ITokenBase} from "core/interfaces/ITokenBase.sol";
+import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {LienToken} from "./LienToken.sol";
-import {VaultImplementation} from "./VaultImplementation.sol";
+import {LienToken} from "core/LienToken.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
 
 /**
  * @title Vault

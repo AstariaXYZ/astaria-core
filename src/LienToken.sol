@@ -115,7 +115,6 @@ contract LienToken is ERC721, ILienToken, Auth {
         _loadERC721Slot().isApprovedForAll[msg.sender][params.encumber.receiver]
       );
     }
-    //    uint256 outgoingLienId = params.stack[params.position].point.lienId;
 
     LienStorage storage s = _loadLienStorageSlot();
 
@@ -148,15 +147,24 @@ contract LienToken is ERC721, ILienToken, Auth {
     (uint256 owed, uint256 buyout) = getBuyout(
       params.encumber.stack[params.position]
     );
+
     if (params.encumber.lien.details.maxAmount < owed) {
       revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
     }
-    s.TRANSFER_PROXY.tokenTransferFrom(
-      s.WETH,
-      address(msg.sender),
-      _getPayee(s, params.encumber.stack[params.position].point.lienId),
-      buyout
-    );
+    if (
+      msg.sender !=
+      s.COLLATERAL_TOKEN.ownerOf(
+        params.encumber.stack[params.position].lien.collateralId
+      ) &&
+      msg.sender != ownerOf(params.encumber.stack[params.position].point.lienId)
+    ) {
+      s.TRANSFER_PROXY.tokenTransferFrom(
+        s.WETH,
+        address(msg.sender),
+        _getPayee(s, params.encumber.stack[params.position].point.lienId),
+        buyout
+      );
+    }
 
     return (
       _replaceStackAtPositionWithNewLien(
@@ -191,7 +199,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     emit LienStackUpdated(stack[0].lien.collateralId, newStack);
   }
 
-  //
   function getInterest(Stack calldata stack) public view returns (uint256) {
     LienStorage storage s = _loadLienStorageSlot();
     return _getInterest(stack, block.timestamp);
@@ -355,16 +362,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (maxPotentialDebt > params.lien.details.maxPotentialDebt) {
       revert InvalidState(InvalidStates.DEBT_LIMIT);
     }
-    //    params.lien.details.maxPotentialDebt = maxPotentialDebt;
-    //        Lien memory newLien = Lien({
-    //      collateralId: params.collateralId,
-    //      vault: params.vault,
-    //      token: s.WETH,
-    //      position: uint8(params.stack.length),
-    //      strategyRoot: params.strategyRoot,
-    //      end: uint256(block.timestamp + params.terms.duration).safeCastTo40(),
-    //      details: params.terms
-    //    });
 
     unchecked {
       newLienId = uint256(keccak256(abi.encode(params.lien)));
@@ -454,11 +451,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     returns (uint256, uint256)
   {
     LienStorage storage s = _loadLienStorageSlot();
-
-    //    if (lien.amount == 0) {
-    //      revert InvalidState(InvalidStates.LIEN_NO_DEBT);
-    //    }
-    //validate lien presented
 
     uint256 remainingInterest = _getRemainingInterest(s, stack, true);
     uint256 buyoutTotal = stack.point.amount +
@@ -764,7 +756,9 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function getPayee(uint256 lienId) public view returns (address) {
     LienStorage storage s = _loadLienStorageSlot();
-    require(_exists(lienId), "Lien does not exist");
+    if (!_exists(lienId)) {
+      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
+    }
     return _getPayee(s, lienId);
   }
 

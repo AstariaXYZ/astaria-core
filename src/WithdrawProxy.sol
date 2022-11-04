@@ -17,10 +17,9 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {WithdrawVaultBase} from "core/WithdrawVaultBase.sol";
-import {ITokenBase} from "gpl/interfaces/ITokenBase.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {ITokenBase} from "core/interfaces/ITokenBase.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {PublicVault} from "./PublicVault.sol";
-
 /**
  * @title WithdrawProxy
  * @notice This contract collects funds for liquidity providers who are exiting. When a liquidity provider is the first
@@ -48,7 +47,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   enum InvalidStates {
     PROCESS_EPOCH_NOT_COMPLETE,
     FINAL_AUCTION_NOT_OVER,
-    NOT_CLAIMED, 
+    NOT_CLAIMED,
     NO_AUCTIONS,
     ALREADY_CLAIMED
   }
@@ -113,7 +112,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     address owner
   ) public virtual override returns (uint256 assets) {
     LAStorage storage s = _loadSlot();
-    // If auction funds have been collected to the WithdrawProxy 
+    // If auction funds have been collected to the WithdrawProxy
     // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
     if (s.finalAuctionEnd != 0 && !s.hasClaimed) { // if finalAuctionEnd is 0, no auctions were added
       revert InvalidState(InvalidStates.NOT_CLAIMED);
@@ -178,7 +177,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       revert InvalidState(InvalidStates.PROCESS_EPOCH_NOT_COMPLETE);
     }
     if (
-      block.timestamp < s.finalAuctionEnd 
+      block.timestamp < s.finalAuctionEnd
       // || s.finalAuctionEnd == uint256(0)
     ) {
       revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);

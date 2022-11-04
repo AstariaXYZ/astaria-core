@@ -25,11 +25,6 @@ interface ILienToken is IERC721 {
     IAuctionHouse AUCTION_HOUSE;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
-    //lien payee
-    //    mapping(uint256 => address) payee;
-    //    //lienDebt at liquidation
-    //    mapping(uint256 => uint88) amountAtLiquidation;
-
     mapping(uint256 => bytes32) collateralStateHash;
     mapping(uint256 => LienMeta) lienMeta;
   }
@@ -78,9 +73,7 @@ interface ILienToken is IERC721 {
   struct LienActionBuyout {
     IAstariaRouter.Commitment incoming;
     uint8 position;
-    //    ILienToken.Stack[] stack;
     LienActionEncumber encumber;
-    //    ILienToken.Lien newLien;
   }
 
   /**
