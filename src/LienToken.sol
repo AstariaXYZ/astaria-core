@@ -231,15 +231,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     _;
   }
 
-  //  modifier validateAuctionStack(uint256 collateralId, uint256[] memory stack) {
-  //    LienStorage storage s = _loadLienStorageSlot();
-  //    bytes32 stateHash = s.collateralStateHash[collateralId];
-  //    if (stateHash != bytes32(0)) {
-  //      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
-  //    }
-  //    _;
-  //  }
-
   function stopLiens(
     uint256 collateralId,
     uint256 auctionWindow,
