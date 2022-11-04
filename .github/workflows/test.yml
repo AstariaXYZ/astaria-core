@@ -22,7 +22,7 @@ jobs:
       - uses: onbjerg/foundry-toolchain@v1
         with:
           version: nightly
-      - run: forge test --ffi -vvvvv --no-match-contract ForkedTest
+      - run: forge test --ffi --no-match-contract ForkedTest
 
       - name: Run snapshot
-        run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
+        run: NO_COLOR=1 forge snapshot --ffi >> $GITHUB_STEP_SUMMARY
