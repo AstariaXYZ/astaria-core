@@ -233,8 +233,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
         .withdrawProxy;
       if (
         previousWithdrawProxy != address(0) &&
-        WithdrawProxy(previousWithdrawProxy).getFinalAuctionEnd() != 0 &&
-        !WithdrawProxy(previousWithdrawProxy).getHasClaimed() // TODO set claimed to true before an eligible auction is added
+        WithdrawProxy(previousWithdrawProxy).getFinalAuctionEnd() != 0
       ) {
         WithdrawProxy(previousWithdrawProxy).claim();
       }
@@ -544,7 +543,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
     VaultData storage s = _loadStorageSlot();
 
-    // accountantIfAny = address(0);
     unchecked {
       s.yIntercept += uint256(s.slope)
         .mulDivDown(block.timestamp - s.last, 1)

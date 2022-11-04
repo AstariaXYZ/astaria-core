@@ -48,7 +48,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint88 withdrawRatio;
     uint88 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
     uint40 finalAuctionEnd; // when this is deleted, we know the final auction is over
-    bool hasClaimed;
     uint256 withdrawReserveReceived; // amount received from PublicVault. The WETH balance of this contract - withdrawReserveReceived = amount received from liquidations.
   }
 
@@ -56,8 +55,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     PROCESS_EPOCH_NOT_COMPLETE,
     FINAL_AUCTION_NOT_OVER,
     NOT_CLAIMED,
-    NO_AUCTIONS,
-    ALREADY_CLAIMED
+    CANT_CLAIM
   }
   error InvalidState(InvalidStates);
 
@@ -122,7 +120,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     WPStorage storage s = _loadSlot();
     // If auction funds have been collected to the WithdrawProxy
     // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
-    if (s.finalAuctionEnd != 0 && !s.hasClaimed) { // if finalAuctionEnd is 0, no auctions were added
+    if (s.finalAuctionEnd != 0) { // if finalAuctionEnd is 0, no auctions were added
       revert InvalidState(InvalidStates.NOT_CLAIMED);
     }
 
@@ -151,11 +149,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     return s.expected;
   }
 
-  function getHasClaimed() public view returns (bool) {
-    WPStorage storage s = _loadSlot();
-    return s.hasClaimed;
-  }
-
   function increaseWithdrawReserveReceived(uint256 amount) public {
     require(msg.sender == VAULT(), "only vault can call");
     WPStorage storage s = _loadSlot();
@@ -169,7 +162,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     WPStorage storage s = _loadSlot();
 
     if(s.finalAuctionEnd == 0) {
-      revert InvalidState(InvalidStates.NO_AUCTIONS);
+      revert InvalidState(InvalidStates.CANT_CLAIM);
     }
 
     if (PublicVault(VAULT()).getCurrentEpoch() < CLAIMABLE_EPOCH()) {
@@ -182,9 +175,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);
     }
 
-    if(s.hasClaimed) {
-      revert InvalidState(InvalidStates.ALREADY_CLAIMED);
-    }
     uint256 transferAmount = 0;
     uint256 balance = ERC20(underlying()).balanceOf(address(this)) - s.withdrawReserveReceived;
 
@@ -194,17 +184,10 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       );
     }
 
-    // would happen if there was no WithdrawProxy for current epoch
-    s.hasClaimed = true;
-
     if (s.withdrawRatio == uint256(0)) {
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     } else {
       transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
-
-      // if (transferAmount > uint256(0)) {
-      //   ERC20(underlying()).safeTransfer(WITHDRAW_PROXY(), transferAmount);
-      // }
 
       unchecked {
         balance -= transferAmount;
@@ -212,6 +195,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
 
       ERC20(underlying()).safeTransfer(VAULT(), balance);
     }
+    s.finalAuctionEnd = 0;
 
     emit Claimed(address(this), transferAmount, VAULT(), balance);
   }
