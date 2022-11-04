@@ -490,12 +490,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 collateralId,
     uint256 payment,
     address payer
-  )
-    external
-    //    validateAuctionStack(collateralId, stack)
-    requiresAuth
-    returns (uint256[] memory outStack, uint256 spent)
-  {
+  ) external requiresAuth returns (uint256[] memory outStack, uint256 spent) {
     spent = 0;
     outStack = stack;
     LienStorage storage s = _loadLienStorageSlot();
