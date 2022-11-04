@@ -624,15 +624,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256 minNewRate = uint256(stack[position].lien.details.rate) -
       s.minInterestBPS;
 
-    if (
-      (newLien.details.rate < minNewRate) ||
-      (block.timestamp + newLien.details.duration - stack[position].point.end <
-        s.minDurationIncrease)
-    ) {
-      return false;
-    }
-
-    return true;
+    return
+      !((newLien.details.rate < minNewRate) ||
+        (block.timestamp +
+          newLien.details.duration -
+          stack[position].point.end <
+          s.minDurationIncrease));
   }
 
   //INTERNAL FUNCS

@@ -138,9 +138,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
 
     if (
-      s
-        .lienMeta[params.encumber.stack[params.position].point.lienId]
-        .amountAtLiquidation > 0
+      s.collateralStateHash[params.encumber.lien.collateralId] ==
+      bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -196,7 +195,11 @@ contract LienToken is ERC721, ILienToken, Auth {
         newStack[i] = stack[i];
       }
     }
-    emit LienStackUpdated(stack[0].lien.collateralId, newStack);
+    emit LienStackUpdated(
+      stack[0].lien.collateralId,
+      StackAction.REPLACE,
+      uint8(newStack.length)
+    );
   }
 
   function getInterest(Stack calldata stack) public view returns (uint256) {
@@ -327,7 +330,6 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
     //0 - 4 are valid
-
     Stack memory newStackSlot;
     (lienId, newStackSlot) = _createLien(s, params);
 
@@ -336,9 +338,20 @@ contract LienToken is ERC721, ILienToken, Auth {
       abi.encode(newStack)
     );
 
-    lienSlope = calculateSlope(newStackSlot);
-    emit AddLien(params.collateralId, lienId, newStackSlot.point.position);
-    emit LienStackUpdated(params.collateralId, newStack);
+    unchecked {
+      lienSlope = calculateSlope(newStackSlot);
+    }
+    emit AddLien(
+      params.collateralId,
+      newStackSlot.point.position,
+      lienId,
+      newStackSlot
+    );
+    emit LienStackUpdated(
+      params.collateralId,
+      StackAction.ADD,
+      uint8(newStack.length)
+    );
   }
 
   function _createLien(
@@ -737,8 +750,11 @@ contract LienToken is ERC721, ILienToken, Auth {
       if (i == position) continue;
       newStack[i] = stack[i];
     }
-    emit RemovedLien(collateralId, position);
-    emit LienStackUpdated(collateralId, newStack);
+    emit LienStackUpdated(
+      collateralId,
+      StackAction.REMOVE,
+      uint8(newStack.length)
+    );
   }
 
   function _isPublicVault(address account) internal view returns (bool) {
