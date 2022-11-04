@@ -359,17 +359,6 @@ abstract contract VaultImplementation is
     );
   }
 
-  //        newLien: ILienToken.Lien({
-  //          collateralId: collateralId,
-  //          vault: address(this),
-  //          token: underlying(),
-  //          position: position,
-  //          strategyRoot: incomingTerms.lienRequest.merkle.root,
-  //          end: uint256(block.timestamp + newDetails.duration).safeCastTo40(),
-  //          details: newDetails
-  //        })
-  //  }
-
   /**
    * @notice Retrieves the recipient of loan repayments. For PublicVaults (VAULT_TYPE 2), this is always the vault address. For PrivateVaults, retrieves the owner() of the vault.
    * @return The address of the recipient.
