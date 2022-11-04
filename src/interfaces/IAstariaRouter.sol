@@ -39,17 +39,17 @@ interface IAstariaRouter is IPausable, IBeacon {
     ITransferProxy TRANSFER_PROXY; //20
     IAuctionHouse AUCTION_HOUSE; //20
     address feeTo; //20
-    address guardian; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
     uint88 maxInterestRate; //6
-    uint32 strategistFeeNumerator; //4
-    uint32 strategistFeeDenominator;
+    mapping(uint32 => address) strategyValidators;
     //slot 3 +
+    address guardian; //20
     uint32 buyoutFeeNumerator;
     uint32 buyoutFeeDenominator;
+    uint32 strategistFeeDenominator;
+    uint32 strategistFeeNumerator; //4
     uint32 minDurationIncrease;
     uint32 buyoutInterestWindow;
-    mapping(uint32 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
     mapping(address => uint32) strategistNonce;

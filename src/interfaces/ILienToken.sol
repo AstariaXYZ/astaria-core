@@ -19,7 +19,7 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 interface ILienToken is IERC721 {
   struct LienStorage {
-    uint256 maxLiens;
+    uint8 maxLiens;
     address WETH;
     ITransferProxy TRANSFER_PROXY;
     IAuctionHouse AUCTION_HOUSE;

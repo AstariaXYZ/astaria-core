@@ -60,7 +60,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
     s.WETH = _WETH;
-    s.maxLiens = uint256(5);
+    s.maxLiens = uint8(5);
   }
 
   function _loadLienStorageSlot()
@@ -231,14 +231,14 @@ contract LienToken is ERC721, ILienToken, Auth {
     _;
   }
 
-  modifier validateAuctionStack(uint256 collateralId, uint256[] memory stack) {
-    LienStorage storage s = _loadLienStorageSlot();
-    bytes32 stateHash = s.collateralStateHash[collateralId];
-    if (stateHash != bytes32(0)) {
-      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
-    }
-    _;
-  }
+  //  modifier validateAuctionStack(uint256 collateralId, uint256[] memory stack) {
+  //    LienStorage storage s = _loadLienStorageSlot();
+  //    bytes32 stateHash = s.collateralStateHash[collateralId];
+  //    if (stateHash != bytes32(0)) {
+  //      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
+  //    }
+  //    _;
+  //  }
 
   function stopLiens(
     uint256 collateralId,
@@ -296,7 +296,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         }
       }
     }
-    s.collateralStateHash[collateralId] = keccak256(abi.encode(lienIds));
+    s.collateralStateHash[collateralId] = bytes32("ACTIVE_AUCTION");
   }
 
   function tokenURI(uint256 tokenId)
@@ -354,6 +354,12 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
+    if (
+      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
+    ) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+
     if (params.stack.length >= s.maxLiens) {
       revert InvalidState(InvalidStates.MAX_LIENS);
     }
@@ -495,7 +501,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     address payer
   )
     external
-    validateAuctionStack(collateralId, stack)
+    //    validateAuctionStack(collateralId, stack)
     requiresAuth
     returns (uint256[] memory outStack, uint256 spent)
   {
@@ -516,9 +522,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         spent += paymentMade;
       }
     }
-    if (outStack.length != 0) {
-      s.collateralStateHash[collateralId] = keccak256(abi.encode(outStack));
-    } else {
+    if (outStack.length == 0) {
       delete s.collateralStateHash[collateralId];
     }
   }
