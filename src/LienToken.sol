@@ -281,7 +281,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         )
       ) {
         // update the public vault state and get the liquidation accountant back if any
-        address accountantIfAny = IPublicVault(_getPayee(s, lienIds[i]))
+        address withdrawProxyIfNearBoundary = IPublicVault(_getPayee(s, lienIds[i]))
           .updateVaultAfterLiquidation(
             auctionWindow,
             IPublicVault.AfterLiquidationParams({
@@ -291,8 +291,8 @@ contract LienToken is ERC721, ILienToken, Auth {
             })
           );
 
-        if (accountantIfAny != address(0)) {
-          _setPayee(s, lienIds[i], accountantIfAny);
+        if (withdrawProxyIfNearBoundary != address(0)) {
+          _setPayee(s, lienIds[i], withdrawProxyIfNearBoundary);
         }
       }
     }
@@ -451,8 +451,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     returns (uint256, uint256)
   {
     LienStorage storage s = _loadLienStorageSlot();
-
-    //validate lien presented
 
     uint256 remainingInterest = _getRemainingInterest(s, stack, true);
     uint256 buyoutTotal = stack.point.amount +

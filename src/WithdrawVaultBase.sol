@@ -39,4 +39,12 @@ abstract contract WithdrawVaultBase is ERC4626Base, IRouterBase {
   {
     return _getArgAddress(41);
   }
+
+  function VAULT() public pure returns (address) {
+    return _getArgAddress(61);
+  }
+
+  function CLAIMABLE_EPOCH() public pure returns (uint256) {
+    return _getArgUint64(81);
+  }
 }
