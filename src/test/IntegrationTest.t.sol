@@ -134,7 +134,7 @@ contract IntegrationTest is TestHelpers {
     ILienToken.Details[] memory lienDetails = new ILienToken.Details[](
       lienSize
     );
-    for (uint256 i; i < lienSize; i++) {
+    for (uint160 i; i < lienSize; i++) {
       uint256 dayCount = 14 - i;
 
       publicVaults[i] = _createPublicVault({
@@ -142,9 +142,9 @@ contract IntegrationTest is TestHelpers {
         delegate: strategistTwo,
         epochLength: (dayCount * 1 days)
       });
-
+      
       _lendToVault(
-        Lender({addr: address(1), amountToLend: 50 ether}),
+        Lender({addr: address(i), amountToLend: 50 ether}),
         publicVaults[i]
       );
 
@@ -167,8 +167,7 @@ contract IntegrationTest is TestHelpers {
         strategistPK: strategistOnePK,
         tokenContract: tokenContract,
         tokenId: tokenId,
-        lienDetails: lienDetails,
-        amount: amount
+        lienDetails: lienDetails
       });
 
     vm.warp(block.timestamp + 11 days);
@@ -177,5 +176,16 @@ contract IntegrationTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
 
     _bid(address(2), collateralId, 200 ether);
+    // assertEq(WETH9.balanceOf(publicVaults[0]), 50045205479452054794);
+    // assertEq(WETH9.balanceOf(publicVaults[1]), 50090410958904109588);
+    // assertEq(WETH9.balanceOf(publicVaults[2]), 50135616438356164382);
+    // assertEq(WETH9.balanceOf(publicVaults[3]), 50180821917808219176);
+    // assertEq(WETH9.balanceOf(publicVaults[4]), 5022602739726027397);
+
+    assertTrue(PublicVault(publicVaults[0]).getWithdrawProxy(0) != address(0)); // 3 days from epoch end
+    assertTrue(PublicVault(publicVaults[1]).getWithdrawProxy(0) != address(0)); // 2 days from epoch end
+    assertTrue(PublicVault(publicVaults[2]).getWithdrawProxy(0) != address(0)); // 1 days from epoch end
+    assertTrue(PublicVault(publicVaults[3]).getWithdrawProxy(0) != address(0)); // 0 days from epoch end
+    assertTrue(PublicVault(publicVaults[3]).getWithdrawProxy(0) == address(0)); // -1 days from epoch end
   }
 }

@@ -743,8 +743,7 @@ contract TestHelpers is Test {
     uint256 strategistPK,
     address tokenContract, // original NFT address
     uint256 tokenId, // original NFT id
-    ILienToken.Details[] memory lienDetails, // loan information
-    uint256 amount // requested amount
+    ILienToken.Details[] memory lienDetails // loan information
   )
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
@@ -762,7 +761,7 @@ contract TestHelpers is Test {
         tokenContract: tokenContract,
         tokenId: tokenId,
         lienDetails: lienDetails[i],
-        amount: amount,
+        amount: (i + 1) * 1 ether,
         stack: stack
       });
     }
