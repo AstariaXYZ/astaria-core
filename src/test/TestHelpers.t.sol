@@ -430,8 +430,8 @@ contract TestHelpers is Test {
     bytes memory data
   ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
     string[] memory inputs = new string[](4);
-    inputs[0] = "node";
-    inputs[1] = "scripts/loanProofGenerator2.js";
+    inputs[0] = "ts-node";
+    inputs[1] = "scripts/loanProofGenerator.ts";
 
     if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
       IUniqueValidator.Details memory terms = abi.decode(
@@ -756,12 +756,16 @@ contract TestHelpers is Test {
     uint256 tokenId, // original NFT id
     ILienToken.Details[] memory lienDetails, // loan information
     uint256 amount // requested amount
-  ) internal returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack){
+  )
+    internal
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
     require(vaults.length == lienDetails.length, "vaults not equal to liens");
 
-    IAstariaRouter.Commitment[] memory commitments = new IAstariaRouter.Commitment[](vaults.length);
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](vaults.length);
     ILienToken.Stack[] memory stack = new ILienToken.Stack[](0);
-    for(uint256 i; i < vaults.length; i++){
+    for (uint256 i; i < vaults.length; i++) {
       commitments[i] = _generateValidTerms({
         vault: vaults[i],
         strategist: strategist,
