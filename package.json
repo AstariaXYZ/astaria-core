@@ -15,8 +15,7 @@
     "keccak256": "^1.0.6",
     "merkletreejs": "^0.2.31",
     "solidity-metrics": "^0.0.5",
-    "ts-generator": "^0.1.1",
-    "tsc": "^2.0.4"
+    "ts-generator": "^0.1.1"
   },
   "engines": {
     "node": "^16.0.0"
