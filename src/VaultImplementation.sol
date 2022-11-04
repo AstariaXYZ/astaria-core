@@ -44,23 +44,6 @@ abstract contract VaultImplementation is
   bytes32 constant VI_SLOT =
     keccak256("xyz.astaria.core.VaultImplementation.storage.location");
 
-  struct VIData {
-    uint88 depositCap;
-    address delegate;
-    bool allowListEnabled;
-    mapping(address => bool) allowList;
-  }
-
-  mapping(address => bool) public allowList;
-  event NewLien(
-    bytes32 strategyRoot,
-    address tokenContract,
-    uint256 tokenId,
-    uint256 amount
-  );
-
-  event NewVault(address appraiser, address vault);
-
   /**
    * @notice modify the deposit cap for the vault
    * @param newCap The deposit cap.
