@@ -43,14 +43,11 @@ abstract contract VaultImplementation is
 
   bytes32 constant VI_SLOT =
     keccak256("xyz.astaria.core.VaultImplementation.storage.location");
-  address public delegate; //account connected to the daemon
-  bool public allowListEnabled;
-  uint256 public depositCap;
 
   struct VIData {
+    uint88 depositCap;
     address delegate;
     bool allowListEnabled;
-    uint256 depositCap;
     mapping(address => bool) allowList;
   }
 
@@ -69,7 +66,7 @@ abstract contract VaultImplementation is
    * @param newCap The deposit cap.
    */
   function modifyDepositCap(uint256 newCap) public onlyOwner {
-    depositCap = newCap;
+    _loadVISlot().depositCap = newCap.safeCastTo88();
   }
 
   function _loadVISlot() internal pure returns (VIData storage vi) {
@@ -89,14 +86,14 @@ abstract contract VaultImplementation is
     virtual
     onlyOwner
   {
-    allowList[depositor] = enabled;
+    _loadVISlot().allowList[depositor] = enabled;
   }
 
   /**
    * @notice disable the allowlist for the vault
    */
   function disableAllowList() external virtual onlyOwner {
-    allowListEnabled = false;
+    _loadVISlot().allowListEnabled = false;
   }
 
   /**
@@ -132,17 +129,17 @@ abstract contract VaultImplementation is
       );
   }
 
+  bytes32 private constant STRATEGY_TYPEHASH =
+    0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
+
+  // cast k "StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)"
+
   /*
    * @notice encodes the data for a 712 signature
    * @param tokenContract The address of the token contract
    * @param tokenId The id of the token
    * @param amount The amount of the token
    */
-
-  // cast k "StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)"
-  bytes32 private constant STRATEGY_TYPEHASH =
-    0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
-
   function encodeStrategyData(
     IAstariaRouter.StrategyDetails calldata strategy,
     bytes32 root
@@ -168,20 +165,16 @@ abstract contract VaultImplementation is
 
   function init(InitParams calldata params) external virtual {
     require(msg.sender == address(ROUTER()));
-    VIData storage vi;
-    bytes32 slot = VI_SLOT;
-    assembly {
-      vi.slot := slot
-    }
+    VIData storage s = _loadVISlot();
 
     if (params.delegate != address(0)) {
-      vi.delegate = params.delegate;
+      s.delegate = params.delegate;
     }
-    depositCap = params.depositCap;
+    s.depositCap = params.depositCap.safeCastTo88();
     if (params.allowListEnabled) {
-      vi.allowListEnabled = true;
+      s.allowListEnabled = true;
       for (uint256 i = 0; i < params.allowList.length; i++) {
-        vi.allowList[params.allowList[i]] = true;
+        s.allowList[params.allowList[i]] = true;
       }
     }
   }
@@ -192,9 +185,10 @@ abstract contract VaultImplementation is
   }
 
   function setDelegate(address delegate_) public onlyOwner {
-    allowList[delegate] = false;
-    allowList[delegate_] = true;
-    delegate = delegate_;
+    VIData storage s = _loadVISlot();
+    s.allowList[s.delegate] = false;
+    s.allowList[delegate_] = true;
+    s.delegate = delegate_;
   }
 
   /**
@@ -251,7 +245,7 @@ abstract contract VaultImplementation is
     if (recovered != params.lienRequest.strategy.strategist) {
       revert InvalidRequest(InvalidRequestReason.INVALID_SIGNATURE);
     }
-    if (recovered != owner() && recovered != delegate) {
+    if (recovered != owner() && recovered != _loadVISlot().delegate) {
       revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
     }
   }
