@@ -430,8 +430,8 @@ contract TestHelpers is Test {
     bytes memory data
   ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
     string[] memory inputs = new string[](4);
-    inputs[0] = "ts-node";
-    inputs[1] = "./scripts/loanProofGenerator.ts";
+    inputs[0] = "node";
+    inputs[1] = "./scripts/loanProofGenerator.js";
 
     if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
       IUniqueValidator.Details memory terms = abi.decode(
