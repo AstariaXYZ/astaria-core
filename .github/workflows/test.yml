@@ -23,4 +23,4 @@ jobs:
       - uses: onbjerg/foundry-toolchain@v1
         with:
           version: nightly
-      - run: yarn add ts-node && forge test --ffi --no-match-contract ForkedTest
+      - run: forge test --ffi --no-match-contract ForkedTest
