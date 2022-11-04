@@ -17,7 +17,6 @@ interface IPublicVault is IERC165, IVault {
   struct EpochData {
     uint64 liensOpenForEpoch;
     address withdrawProxy;
-    address liquidationAccountant;
   }
 
   struct VaultData {
@@ -108,7 +107,7 @@ interface IPublicVault is IERC165, IVault {
   function updateVaultAfterLiquidation(
     uint256 auctionWindow,
     AfterLiquidationParams calldata params
-  ) external returns (address accountantIfAny);
+  ) external returns (address withdrawProxyIfNearBoundary);
 
   // ERRORS
 

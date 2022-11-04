@@ -26,7 +26,6 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
-import {LiquidationAccountant} from "../LiquidationAccountant.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
@@ -39,8 +38,6 @@ contract AstariaTest is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
   using SafeCastLib for uint256;
-
-  function testSelfLiquidate() public {}
 
   function testBasicPublicVaultLoan() public {
     TestNFT nft = new TestNFT(1);
@@ -165,7 +162,7 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  function testJustLiquidationAccountant() public {
+  function testLiquidationAtBoundary() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
@@ -297,14 +294,6 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 14 days); // end of loan
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
 
-    address liquidationAccountant = PublicVault(publicVault)
-      .getLiquidationAccountant(0);
-
-    assertTrue(
-      liquidationAccountant != address(0),
-      "LiquidationAccountant not deployed"
-    );
-
     _bid(address(2), collateralId, 33 ether);
 
     skip(1 days); // epoch boundary
@@ -312,7 +301,7 @@ contract AstariaTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
 
     skip(13 days);
-    LiquidationAccountant(liquidationAccountant).claim();
+    WithdrawProxy(withdrawProxy).claim();
 
     PublicVault(publicVault).transferWithdrawReserve();
 
