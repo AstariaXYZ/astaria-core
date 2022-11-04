@@ -24,7 +24,7 @@
     "lint": "eslint src/**/*.sol",
     "lint:fix": "prettier --write src/**/*.sol",
     "write-headers": "node scripts/writeHeaders.js",
-    "postinstall": "tsc ./scripts/loanProofGenerator.ts && cd lib/astaria-sdk && yarn && yarn build"
+    "postinstall": "cd lib/astaria-sdk && yarn && yarn build"
   },
   "devDependencies": {
     "@dethcrypto/eth-sdk": "^0.3.3",
