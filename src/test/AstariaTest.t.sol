@@ -162,7 +162,7 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  function testJustLiquidationAccountant() public {
+  function testLiquidationAtBoundary() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);

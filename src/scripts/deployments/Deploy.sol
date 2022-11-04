@@ -62,7 +62,6 @@ contract Deploy is Script {
   Vault SOLO_IMPLEMENTATION;
   PublicVault VAULT_IMPLEMENTATION;
   WithdrawProxy WITHDRAW_PROXY;
-  // LiquidationAccountant LIQUIDATION_IMPLEMENTATION;
   AstariaRouter ASTARIA_ROUTER;
   AuctionHouse AUCTION_HOUSE;
 

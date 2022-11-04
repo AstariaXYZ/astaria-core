@@ -561,12 +561,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     if (timeToEpochEnd() <= auctionWindow) {
       withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
-
-      // only deploy a LiquidationAccountant for the next set of withdrawing LPs if the previous set of LPs have been repaid
-      // if (accountantIfAny == address(0)) {
-      //   accountantIfAny = _deployLiquidationAccountant(s, lienEpoch);
-      // }
-
       if (withdrawProxyIfNearBoundary != address(0)) {
         WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
           params.newAmount,

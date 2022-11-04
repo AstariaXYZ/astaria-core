@@ -17,7 +17,6 @@ interface IPublicVault is IERC165, IVault {
   struct EpochData {
     uint64 liensOpenForEpoch;
     address withdrawProxy;
-    address liquidationAccountant;
   }
 
   struct VaultData {

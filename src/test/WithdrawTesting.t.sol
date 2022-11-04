@@ -104,7 +104,7 @@ contract WithdrawTest is TestHelpers {
     );
   }
 
-  function testLiquidationAccountant5050Split() public {
+  function testLiquidation5050Split() public {
     TestNFT nft = new TestNFT(2);
     _mintNoDepositApproveRouter(address(nft), 5);
     address tokenContract = address(nft);
@@ -170,13 +170,6 @@ contract WithdrawTest is TestHelpers {
     _bid(address(3), collateralId, 5 ether);
     _bid(address(3), collateralId2, 20 ether);
 
-    // address liquidationAccountant = PublicVault(publicVault)
-    //   .getLiquidationAccountant(0);
-
-    // assertTrue(
-    //   liquidationAccountant != address(0),
-    //   "LiquidationAccountant not deployed"
-    // );
     _warpToEpochEnd(publicVault); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
@@ -222,11 +215,6 @@ contract WithdrawTest is TestHelpers {
       0,
       "PublicVault should have 0 assets"
     );
-    // assertEq(
-    //   WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(0)),
-    //   0,
-    //   "LiquidationAccountant should have 0 assets"
-    // );
     assertEq(
       WETH9.balanceOf(address(1)),
       WETH9.balanceOf(address(2)),
@@ -234,7 +222,7 @@ contract WithdrawTest is TestHelpers {
     );
   }
 
-  function testLiquidationAccountantEpochOrdering() public {
+  function testLiquidationBoundaryEpochOrdering() public {
     TestNFT nft = new TestNFT(2);
     _mintNoDepositApproveRouter(address(nft), 2);
     address tokenContract = address(nft);
@@ -261,7 +249,7 @@ contract WithdrawTest is TestHelpers {
     _signalWithdrawAtFutureEpoch(address(2), publicVault, 1);
 
     ILienToken.Details memory lien1 = standardLienDetails;
-    lien1.duration = 13 days; // will trigger LiquidationAccountant
+    lien1.duration = 13 days; // will set payee to WithdrawProxy
     ILienToken.Stack[][] memory stacks = new ILienToken.Stack[][](2);
     uint256[][] memory liens = new uint256[][](2);
 
@@ -279,7 +267,7 @@ contract WithdrawTest is TestHelpers {
     uint256 lienId1 = liens[0][0];
 
     ILienToken.Details memory lien2 = standardLienDetails;
-    lien2.duration = 27 days; // will trigger LiquidationAccountant for next epoch
+    lien2.duration = 27 days; // payee will be sent to WithdrawProxy at liquidation
     (liens[1], stacks[1]) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
@@ -306,27 +294,18 @@ contract WithdrawTest is TestHelpers {
 
     ASTARIA_ROUTER.liquidate(collateralId1, uint8(0), stacks[0]);
 
-    // address liquidationAccountant1 = PublicVault(publicVault)
-    //   .getLiquidationAccountant(0);
 
     address withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
 
-    // assertEq(
-    //   LIEN_TOKEN.getPayee(lienId1),
-    //   liquidationAccountant1,
-    //   "First lien not pointing to first LiquidationAccountant"
-    // );
+    assertEq(
+      LIEN_TOKEN.getPayee(lienId1),
+      withdrawProxy1,
+      "First lien not pointing to first WithdrawProxy"
+    );
 
     _bid(address(3), collateralId1, 20 ether);
 
-    // assertTrue(
-    //   liquidationAccountant1 != address(0),
-    //   "LiquidationAccountant 0 not deployed"
-    // );
-
     PublicVault(publicVault).processEpoch(); // epoch 0 processing
-    // WithdrawProxy(withdrawProxy1).claim();
-    // LiquidationAccountant(liquidationAccountant1).claim();
 
     vm.warp(block.timestamp + 14 days);
 
@@ -334,21 +313,16 @@ contract WithdrawTest is TestHelpers {
 
     ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stacks[1]);
 
-    // address liquidationAccountant2 = PublicVault(publicVault)
-    //   .getLiquidationAccountant(1);
+    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
 
-    // assertEq(
-    //   LIEN_TOKEN.getPayee(lienId2),
-    //   liquidationAccountant2,
-    //   "Second lien not pointing to second LiquidationAccountant"
-    // );
+    assertEq(
+      LIEN_TOKEN.getPayee(lienId2),
+      withdrawProxy2,
+      "Second lien not pointing to second WithdrawProxy"
+    );
 
     _bid(address(3), collateralId2, 20 ether);
 
-    // assertTrue(
-    //   liquidationAccountant2 != address(0),
-    //   "LiquidationAccountant 1 not deployed"
-    // );
     PublicVault(publicVault).transferWithdrawReserve();
 
     WithdrawProxy(withdrawProxy1).claim();
@@ -362,7 +336,7 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
 
     PublicVault(publicVault).transferWithdrawReserve();
-    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
+    
     WithdrawProxy(withdrawProxy2).claim(); // TODO maybe 2
     WithdrawProxy(withdrawProxy2).redeem(
       IERC20(withdrawProxy2).balanceOf(address(2)),
@@ -384,16 +358,6 @@ contract WithdrawTest is TestHelpers {
       0,
       "WithdrawProxy 1 should have 0 assets"
     );
-    // assertEq(
-    //   WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(0)),
-    //   0,
-    //   "LiquidationAccountant 0 should have 0 assets"
-    // );
-    // assertEq(
-    //   WETH9.balanceOf(PublicVault(publicVault).getLiquidationAccountant(1)),
-    //   0,
-    //   "LiquidationAccountant 1 should have 0 assets"
-    // );
 
     assertEq(
       WETH9.balanceOf(address(1)),
@@ -449,7 +413,7 @@ contract WithdrawTest is TestHelpers {
     _signalWithdrawAtFutureEpoch(address(3), publicVault, 1);
 
     ILienToken.Details memory lien1 = standardLienDetails;
-    lien1.duration = 28 days; // will trigger LiquidationAccountant
+    lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
     lien1.maxAmount = 100 ether;
     (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
@@ -467,11 +431,6 @@ contract WithdrawTest is TestHelpers {
       4756468797500,
       "incorrect PublicVault slope calc"
     );
-
-    // assertTrue(
-    //   PublicVault(publicVault).getLiquidationAccountant(0) == address(0),
-    //   "LiquidationAccountant should not be deployed"
-    // );
 
     _warpToEpochEnd(publicVault);
 
@@ -495,10 +454,6 @@ contract WithdrawTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _bid(address(4), collateralId, 150 ether);
 
-    // assertTrue(
-    //   PublicVault(publicVault).getLiquidationAccountant(1) != address(0),
-    //   "LiquidationAccountant for epoch 1 not deployed"
-    // );
     assertEq(
       PublicVault(publicVault).getSlope(),
       0,
@@ -511,8 +466,6 @@ contract WithdrawTest is TestHelpers {
     );
 
     vm.warp(block.timestamp + 3 days);
-
-    // address accountant1 = PublicVault(publicVault).getLiquidationAccountant(1);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -589,17 +542,7 @@ contract WithdrawTest is TestHelpers {
     );
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PUBLICVAULT STILL HAS ASSETS");
-    // assertEq(
-    //   WETH9.balanceOf(accountant1),
-    //   0,
-    //   "LIQUIDATIONACCOUNTANT STILL HAS ASSETS"
-    // );
     assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault still has assets");
-    // assertEq(
-    //   WETH9.balanceOf(accountant1),
-    //   0,
-    //   "LiquidationAccountant still has assets"
-    // );
   }
 
   function testBlockingLiquidationsProcessEpoch() public {
@@ -652,7 +595,6 @@ contract WithdrawTest is TestHelpers {
 
     _bid(address(3), collateralId1, 20 ether);
 
-    // address accountant1 = PublicVault(publicVault).getLiquidationAccountant(0);
     address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     vm.expectRevert(
@@ -661,7 +603,6 @@ contract WithdrawTest is TestHelpers {
         WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
-    // LiquidationAccountant(accountant1).claim();
     WithdrawProxy(withdrawProxy).claim();
 
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
@@ -674,7 +615,6 @@ contract WithdrawTest is TestHelpers {
         WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
-    // LiquidationAccountant(accountant1).claim();
     WithdrawProxy(withdrawProxy).claim();
 
     PublicVault(publicVault).processEpoch();
@@ -694,22 +634,9 @@ contract WithdrawTest is TestHelpers {
       1e18,
       "Incorrect PublicVault withdrawRatio calculation after epoch 0"
     );
-    // assertEq(
-    //   WETH9.balanceOf(accountant1),
-    //   21150685882784959500,
-    //   "Incorrect LiquidationAccountant balance"
-    // );
 
-    // LiquidationAccountant(accountant1).claim();
     WithdrawProxy(withdrawProxy).claim();
     PublicVault(publicVault).transferWithdrawReserve();
-
-    // assertEq(
-    //   WETH9.balanceOf(accountant1),
-    //   0,
-    //   "LiquidationAccountant balance not 0"
-    // );
-
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault balance not 0");
 
@@ -785,11 +712,6 @@ contract WithdrawTest is TestHelpers {
       0,
       "PublicVault yIntercept after epoch 0 should be 0"
     );
-    // assertEq(
-    //   PublicVault(publicVault).getLiquidationAccountant(0),
-    //   address(0),
-    //   "PublicVault LiquidationAccountant should not have deployed"
-    // );
 
     PublicVault(publicVault).transferWithdrawReserve();
     address withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
@@ -808,7 +730,7 @@ contract WithdrawTest is TestHelpers {
     _signalWithdrawAtFutureEpoch(address(2), publicVault, 1);
 
     ILienToken.Details memory lien2 = standardLienDetails;
-    lien2.duration = 14 days; // will trigger LiquidationAccountant for next epoch
+    lien2.duration = 14 days; // payee will be set to WithdrawProxy at liquidation
 
     (liens[1], stacks[1]) = _commitToLien({
       vault: publicVault,
@@ -844,11 +766,6 @@ contract WithdrawTest is TestHelpers {
       0,
       "PublicVault slope should be 0 after second lien repayment"
     );
-    // assertEq(
-    //   PublicVault(publicVault).getLiquidationAccountant(1),
-    //   address(0),
-    //   "PublicVault LiquidationAccountant for epoch 1 should not be deployed"
-    // );
     assertEq(
       PublicVault(publicVault).getLiquidationWithdrawRatio(),
       1e18,
