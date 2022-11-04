@@ -34,7 +34,6 @@ import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
-import {LiquidationAccountant} from "core/LiquidationAccountant.sol";
 import {BeaconProxy} from "core/BeaconProxy.sol";
 
 interface IWETH9 is IERC20 {
@@ -63,7 +62,6 @@ contract Deploy is Script {
   Vault SOLO_IMPLEMENTATION;
   PublicVault VAULT_IMPLEMENTATION;
   WithdrawProxy WITHDRAW_PROXY;
-  LiquidationAccountant LIQUIDATION_IMPLEMENTATION;
   AstariaRouter ASTARIA_ROUTER;
   AuctionHouse AUCTION_HOUSE;
 
@@ -169,17 +167,6 @@ contract Deploy is Script {
         )
       )
     );
-    LIQUIDATION_IMPLEMENTATION = new LiquidationAccountant();
-    emit Deployed(address(LIQUIDATION_IMPLEMENTATION));
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked(
-          "LIQUIDATION_ACCOUNTANT_ADDR=",
-          vm.toString(address(LIQUIDATION_IMPLEMENTATION))
-        )
-      )
-    );
     BeaconProxy BEACON_PROXY = new BeaconProxy();
     ASTARIA_ROUTER = new AstariaRouter(
       MRA,
@@ -190,7 +177,6 @@ contract Deploy is Script {
       address(VAULT_IMPLEMENTATION),
       address(SOLO_IMPLEMENTATION),
       address(WITHDRAW_PROXY),
-      address(LIQUIDATION_IMPLEMENTATION),
       address(BEACON_PROXY)
     );
     emit Deployed(address(ASTARIA_ROUTER));
@@ -235,7 +221,7 @@ contract Deploy is Script {
         )
       )
     );
-    CollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
+    ICollateralToken.File[] memory ctfiles = new ICollateralToken.File[](2);
 
     ctfiles[0] = ICollateralToken.File({
       what: "setAstariaRouter",

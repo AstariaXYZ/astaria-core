@@ -59,7 +59,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   enum ImplementationType {
     PrivateVault,
     PublicVault,
-    LiquidationAccountant,
     WithdrawProxy
   }
 

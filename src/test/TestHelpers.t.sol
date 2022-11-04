@@ -50,7 +50,6 @@ import {CollateralToken} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
 import {LienToken} from "../LienToken.sol";
-import {LiquidationAccountant} from "../LiquidationAccountant.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {Vault, PublicVault} from "../PublicVault.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
@@ -100,13 +99,6 @@ contract TestHelpers is Test {
       maxPotentialDebt: 0 ether
     });
 
-  ILienToken.Details public refinanceLienDetails5 =
-    ILienToken.Details({
-      maxAmount: 50 ether,
-      rate: (uint256(1e16) * 150) / (365 days),
-      duration: 25 days,
-      maxPotentialDebt: 54 ether
-    });
   ILienToken.Details public refinanceLienDetails =
     ILienToken.Details({
       maxAmount: 50 ether,
@@ -168,7 +160,6 @@ contract TestHelpers is Test {
   AstariaRouter ASTARIA_ROUTER;
   PublicVault PUBLIC_VAULT;
   WithdrawProxy WITHDRAW_PROXY;
-  LiquidationAccountant LIQUIDATION_IMPLEMENTATION;
   Vault SOLO_VAULT;
   TransferProxy TRANSFER_PROXY;
   IWETH9 WETH9;
@@ -191,7 +182,6 @@ contract TestHelpers is Test {
     PUBLIC_VAULT = new PublicVault();
     SOLO_VAULT = new Vault();
     WITHDRAW_PROXY = new WithdrawProxy();
-    LIQUIDATION_IMPLEMENTATION = new LiquidationAccountant();
     BeaconProxy BEACON_PROXY = new BeaconProxy();
 
     ASTARIA_ROUTER = new AstariaRouter(
@@ -202,7 +192,6 @@ contract TestHelpers is Test {
       ITransferProxy(address(TRANSFER_PROXY)),
       address(PUBLIC_VAULT),
       address(SOLO_VAULT),
-      address(LIQUIDATION_IMPLEMENTATION),
       address(WITHDRAW_PROXY),
       address(BEACON_PROXY)
     );
@@ -621,24 +610,6 @@ contract TestHelpers is Test {
       });
   }
 
-  function startMeasuringGas(string memory label) internal virtual {
-    checkpointLabel = label;
-
-    checkpointGasLeft = gasleft();
-  }
-
-  function stopMeasuringGas() internal virtual {
-    uint256 checkpointGasLeft2 = gasleft();
-
-    // Subtract 100 to account for the warm SLOAD in startMeasuringGas.
-    uint256 gasDelta = checkpointGasLeft - checkpointGasLeft2 - 100;
-
-    emit log_named_uint(
-      string(abi.encodePacked(checkpointLabel, " Gas")),
-      gasDelta
-    );
-  }
-
   struct Lender {
     address addr;
     uint256 amountToLend;
@@ -756,12 +727,16 @@ contract TestHelpers is Test {
     uint256 tokenId, // original NFT id
     ILienToken.Details[] memory lienDetails, // loan information
     uint256 amount // requested amount
-  ) internal returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack){
+  )
+    internal
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
     require(vaults.length == lienDetails.length, "vaults not equal to liens");
 
-    IAstariaRouter.Commitment[] memory commitments = new IAstariaRouter.Commitment[](vaults.length);
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](vaults.length);
     ILienToken.Stack[] memory stack = new ILienToken.Stack[](0);
-    for(uint256 i; i < vaults.length; i++){
+    for (uint256 i; i < vaults.length; i++) {
       commitments[i] = _generateValidTerms({
         vault: vaults[i],
         strategist: strategist,
