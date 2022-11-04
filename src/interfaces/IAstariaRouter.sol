@@ -142,7 +142,7 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param commitments The commitment proofs and requested loan data for each loan.
    * @return lienIds the lienIds for each loan.
    */
-  function commitToLiens(Commitment[] calldata commitments)
+  function commitToLiens(Commitment[] memory commitments)
     external
     returns (uint256[] memory, ILienToken.Stack[] memory);
 

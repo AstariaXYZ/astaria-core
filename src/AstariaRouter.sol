@@ -375,7 +375,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   }
 
   //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
-  function commitToLiens(IAstariaRouter.Commitment[] calldata commitments)
+  function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
     external
     whenNotPaused
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory stack)
@@ -390,6 +390,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       commitments[0].tokenId
     );
     for (uint256 i = 0; i < commitments.length; ++i) {
+      if (i != 0) {
+        commitments[i].lienRequest.stack = stack;
+      }
       (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
       totalBorrowed += commitments[i].lienRequest.amount;
     }

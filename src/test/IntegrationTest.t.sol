@@ -122,6 +122,7 @@ contract IntegrationTest is TestHelpers {
       "Incorrect PublicVault slope calc"
     );
   }
+
   function testMultipleVaultsWithLiensOnTheSameCollateral() public {
     // mint 2 new NFTs
     TestNFT nft = new TestNFT(1);
@@ -129,10 +130,12 @@ contract IntegrationTest is TestHelpers {
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
 
-    uint256 lienSize = 1;
+    uint256 lienSize = 3;
     address[] memory publicVaults = new address[](lienSize);
-    ILienToken.Details[] memory lienDetails = new ILienToken.Details[](lienSize);
-    for(uint256 i; i<lienSize; i++){
+    ILienToken.Details[] memory lienDetails = new ILienToken.Details[](
+      lienSize
+    );
+    for (uint256 i; i < lienSize; i++) {
       uint256 dayCount = 14 - i;
 
       publicVaults[i] = _createPublicVault({
@@ -156,15 +159,18 @@ contract IntegrationTest is TestHelpers {
 
     // commit to a new lien of 10 ETH under LienDetails
     uint256 amount = 10 ether;
-    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLiensSameCollateral({
-      vaults: publicVaults,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: lienDetails,
-      amount: amount
-    });
+    (
+      uint256[] memory liens,
+      ILienToken.Stack[] memory stack
+    ) = _commitToLiensSameCollateral({
+        vaults: publicVaults,
+        strategist: strategistOne,
+        strategistPK: strategistOnePK,
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        lienDetails: lienDetails,
+        amount: amount
+      });
 
     vm.warp(block.timestamp + 11 days);
 
