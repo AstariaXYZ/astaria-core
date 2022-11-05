@@ -74,6 +74,11 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
     revert();
   }
 
+  function enableAllowList() external pure override(VaultImplementation) {
+    //invalid action allowlist must be enabled for private vaults
+    revert();
+  }
+
   function modifyAllowList(address depositor, bool enabled)
     external
     pure

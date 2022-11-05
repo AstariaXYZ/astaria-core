@@ -80,6 +80,13 @@ abstract contract VaultImplementation is
   }
 
   /**
+   * @notice enable the allowl ist for the vault
+   */
+  function enableAllowList() external virtual onlyOwner {
+    _loadVISlot().allowListEnabled = true;
+  }
+
+  /**
    * @notice receive hook for ERC721 tokens, nothing special done
    */
   function onERC721Received(
@@ -221,11 +228,11 @@ abstract contract VaultImplementation is
         require(CT.isApprovedForAll(holder, receiver));
       }
     }
-
+    VIData storage s = _loadVISlot();
     address recovered = ecrecover(
       keccak256(
         _encodeStrategyData(
-          _loadVISlot(),
+          s,
           params.lienRequest.strategy,
           params.lienRequest.merkle.root
         )
@@ -237,7 +244,7 @@ abstract contract VaultImplementation is
     if (recovered != params.lienRequest.strategy.strategist) {
       revert InvalidRequest(InvalidRequestReason.INVALID_SIGNATURE);
     }
-    if (recovered != owner() && recovered != _loadVISlot().delegate) {
+    if (recovered != owner() && recovered != s.delegate) {
       revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
     }
   }
