@@ -52,6 +52,7 @@ abstract contract VaultImplementation is
     bool allowListEnabled;
     uint256 depositCap;
     mapping(address => bool) allowList;
+    mapping(address => uint32) strategistNonce;
   }
 
   mapping(address => bool) public allowList;
@@ -147,10 +148,19 @@ abstract contract VaultImplementation is
     IAstariaRouter.StrategyDetails calldata strategy,
     bytes32 root
   ) public view returns (bytes memory) {
+    VIData storage s = _loadVISlot();
+    return _encodeStrategyData(s, strategy, root);
+  }
+
+  function _encodeStrategyData(
+    VIData storage s,
+    IAstariaRouter.StrategyDetails calldata strategy,
+    bytes32 root
+  ) internal view returns (bytes memory) {
     bytes32 hash = keccak256(
       abi.encode(
         STRATEGY_TYPEHASH,
-        IAstariaRouter(ROUTER()).strategistNonce(strategy.strategist),
+        s.strategistNonce[strategy.strategist],
         strategy.deadline,
         root
       )
@@ -219,16 +229,15 @@ abstract contract VaultImplementation is
     }
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
+    address holder = CT.ownerOf(collateralId);
     address operator = CT.getApproved(collateralId);
-
-    address holder = ERC721(address(COLLATERAL_TOKEN())).ownerOf(collateralId);
 
     if (
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
       receiver != recipient() &&
-      !IAstariaRouter(ROUTER()).isValidVault(receiver)
+      !ROUTER().isValidVault(receiver)
     ) {
       if (operator != address(0)) {
         require(operator == receiver);
@@ -239,7 +248,8 @@ abstract contract VaultImplementation is
 
     address recovered = ecrecover(
       keccak256(
-        encodeStrategyData(
+        _encodeStrategyData(
+          _loadVISlot(),
           params.lienRequest.strategy,
           params.lienRequest.merkle.root
         )
@@ -387,6 +397,7 @@ abstract contract VaultImplementation is
       uint256 slope
     )
   {
+    _validateCommitment(c, receiver);
     (newLienId, stack, slope) = IAstariaRouter(ROUTER()).requestLienPosition(
       c,
       recipient()

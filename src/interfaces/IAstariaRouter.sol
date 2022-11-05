@@ -52,7 +52,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     mapping(uint32 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
-    mapping(address => uint32) strategistNonce;
     mapping(address => address) vaults;
   }
 
@@ -97,8 +96,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint256 tokenId;
     NewLienRequest lienRequest;
   }
-
-  function strategistNonce(address strategist) external view returns (uint256);
 
   /**
    * @notice Validates the incoming commitment

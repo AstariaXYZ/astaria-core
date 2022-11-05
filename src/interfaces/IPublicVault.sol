@@ -102,6 +102,8 @@ interface IPublicVault is IERC165, IVault {
    */
   function processEpoch() external;
 
+  function incrementNonce() external;
+
   function decreaseYIntercept(uint256 amount) external;
 
   function updateVaultAfterLiquidation(

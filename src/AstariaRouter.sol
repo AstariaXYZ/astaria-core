@@ -108,11 +108,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
   }
 
-  function strategistNonce(address strategist) public view returns (uint256) {
-    RouterStorage storage s = _loadRouterSlot();
-    return s.strategistNonce[strategist];
-  }
-
   function feeTo() public view returns (address) {
     RouterStorage storage s = _loadRouterSlot();
     return s.feeTo;
@@ -165,10 +160,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    */
   function __emergencyUnpause() external requiresAuth whenPaused {
     _unpause();
-  }
-
-  function incrementNonce() external {
-    _loadRouterSlot().strategistNonce[msg.sender]++;
   }
 
   struct File {
