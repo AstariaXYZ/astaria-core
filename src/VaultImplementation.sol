@@ -44,6 +44,13 @@ abstract contract VaultImplementation is
   bytes32 constant VI_SLOT =
     keccak256("xyz.astaria.core.VaultImplementation.storage.location");
 
+  function incrementNonce() external {
+    VIData storage s = _loadVISlot();
+    require(msg.sender == owner() || msg.sender == s.delegate);
+    s.strategistNonce[owner()]++;
+    emit IncrementNonce(owner(), s.strategistNonce[owner()]);
+  }
+
   /**
    * @notice modify the deposit cap for the vault
    * @param newCap The deposit cap.
@@ -133,7 +140,7 @@ abstract contract VaultImplementation is
   function encodeStrategyData(
     IAstariaRouter.StrategyDetails calldata strategy,
     bytes32 root
-  ) public view returns (bytes memory) {
+  ) external view returns (bytes memory) {
     VIData storage s = _loadVISlot();
     return _encodeStrategyData(s, strategy, root);
   }
@@ -153,13 +160,6 @@ abstract contract VaultImplementation is
     );
     return
       abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), hash);
-  }
-
-  struct InitParams {
-    address delegate;
-    bool allowListEnabled;
-    address[] allowList;
-    uint256 depositCap; // max amount of tokens that can be deposited
   }
 
   function init(InitParams calldata params) external virtual {
@@ -183,7 +183,7 @@ abstract contract VaultImplementation is
     _;
   }
 
-  function setDelegate(address delegate_) public onlyOwner {
+  function setDelegate(address delegate_) external onlyOwner {
     VIData storage s = _loadVISlot();
     s.allowList[s.delegate] = false;
     s.allowList[delegate_] = true;

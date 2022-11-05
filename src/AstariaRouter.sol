@@ -24,9 +24,11 @@ import {
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
+import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 
@@ -37,8 +39,6 @@ import {VaultImplementation} from "core/VaultImplementation.sol";
 
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
 import {Pausable} from "core/utils/Pausable.sol";
-import "./interfaces/ILienToken.sol";
-import "./interfaces/IAstariaRouter.sol";
 
 /**
  * @title AstariaRouter
@@ -662,7 +662,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
     //mutable data
     VaultImplementation(vaultAddr).init(
-      VaultImplementation.InitParams({
+      IVaultImplementation.InitParams({
         delegate: delegate,
         allowListEnabled: allowListEnabled,
         allowList: allowList,

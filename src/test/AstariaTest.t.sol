@@ -39,6 +39,25 @@ contract AstariaTest is TestHelpers {
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
+  event IncrementNonce(address strategist, uint32 nonce);
+
+  function testIncrementNonceAsStrategistAndDelegate() public {
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    vm.expectEmit(true, true, true, true);
+    emit IncrementNonce(strategistOne, 1);
+    vm.prank(strategistOne);
+    VaultImplementation(privateVault).incrementNonce();
+
+    vm.expectEmit(true, true, true, true);
+    emit IncrementNonce(strategistOne, 2);
+    vm.prank(strategistTwo);
+    VaultImplementation(privateVault).incrementNonce();
+  }
+
   function testBasicPublicVaultLoan() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);

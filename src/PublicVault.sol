@@ -152,12 +152,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return s.yIntercept;
   }
 
-  function incrementNonce() external {
-    VIData storage s = _loadVISlot();
-    require(msg.sender == owner() || msg.sender == s.delegate);
-    s.strategistNonce[msg.sender]++;
-  }
-
   function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
     internal
   {
