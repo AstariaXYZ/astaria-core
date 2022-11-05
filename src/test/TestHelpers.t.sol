@@ -121,6 +121,7 @@ contract TestHelpers is Test {
       duration: 25 days,
       maxPotentialDebt: 51 ether
     });
+
   ILienToken.Details public refinanceLienDetails4 =
     ILienToken.Details({
       maxAmount: 50 ether,

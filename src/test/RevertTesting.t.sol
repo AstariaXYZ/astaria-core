@@ -34,6 +34,7 @@ import {IPublicVault} from "../interfaces/IPublicVault.sol";
 import {CollateralToken, IFlashAction} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {IVaultImplementation} from "../interfaces/IVaultImplementation.sol";
 import {LienToken} from "../LienToken.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
@@ -46,6 +47,61 @@ import "./TestHelpers.t.sol";
 contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
+
+  function testFailInvalidSignatureAndInvalidStrategist() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    _lendToVault(
+      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      privateVault
+    );
+
+    IAstariaRouter.Commitment memory terms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      stack: new ILienToken.Stack[](0)
+    });
+
+    IAstariaRouter.Commitment memory terms2 = terms;
+    terms.lienRequest.strategy.strategist = address(5);
+    terms2.lienRequest.r = bytes32(0);
+    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](1);
+    commitments[0] = terms;
+
+    IAstariaRouter.Commitment[]
+      memory commitments2 = new IAstariaRouter.Commitment[](1);
+    commitments[0] = terms2;
+
+    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IVaultImplementation.InvalidRequest.selector,
+        IVaultImplementation.InvalidRequestReason.INVALID_SIGNATURE
+      )
+    );
+    ASTARIA_ROUTER.commitToLiens(commitments);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IVaultImplementation.InvalidRequest.selector,
+        IVaultImplementation.InvalidRequestReason.INVALID_STRATEGIST
+      )
+    );
+    ASTARIA_ROUTER.commitToLiens(commitments2);
+  }
 
   // Only strategists for PrivateVaults can supply capital
   function testFailSoloLendNotAppraiser() public {
