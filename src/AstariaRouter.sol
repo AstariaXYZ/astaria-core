@@ -433,21 +433,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     )
   {
     RouterStorage storage s = _loadRouterSlot();
-    ILienToken.Lien memory newLien = _validateCommitment(s, params);
-    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
-    if (s.AUCTION_HOUSE.auctionExists(collateralId)) {
-      revert InvalidCommitmentState(CommitmentState.COLLATERAL_AUCTION);
-    }
 
-    (address tokenContract, ) = s.COLLATERAL_TOKEN.getUnderlying(collateralId);
-    if (tokenContract == address(0)) {
-      revert InvalidCommitmentState(CommitmentState.COLLATERAL_NO_DEPOSIT);
-    }
     return
       s.LIEN_TOKEN.createLien(
         ILienToken.LienActionEncumber({
-          collateralId: collateralId,
-          lien: newLien,
+          collateralId: params.tokenContract.computeId(params.tokenId),
+          lien: _validateCommitment(s, params),
           amount: params.lienRequest.amount,
           stack: params.lienRequest.stack,
           receiver: receiver
@@ -619,15 +610,12 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     uint256 minNewRate = uint256(stack[position].lien.details.rate) -
       s.minInterestBPS;
 
-    if (
-      (newLien.details.rate < minNewRate) ||
-      (block.timestamp + newLien.details.duration - stack[position].point.end <
-        s.minDurationIncrease)
-    ) {
-      return false;
-    }
-
-    return true;
+    return
+      !((newLien.details.rate < minNewRate) ||
+        (block.timestamp +
+          newLien.details.duration -
+          stack[position].point.end <
+          s.minDurationIncrease));
   }
 
   //INTERNAL FUNCS

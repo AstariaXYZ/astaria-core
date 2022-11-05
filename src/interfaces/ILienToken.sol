@@ -19,7 +19,7 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 interface ILienToken is IERC721 {
   struct LienStorage {
-    uint256 maxLiens;
+    uint8 maxLiens;
     address WETH;
     ITransferProxy TRANSFER_PROXY;
     IAuctionHouse AUCTION_HOUSE;
@@ -250,9 +250,23 @@ interface ILienToken is IERC721 {
    */
   function file(bytes32 what, bytes calldata data) external;
 
-  event AddLien(uint256 indexed collateralId, uint256 lienId, uint8 position);
-  event LienStackUpdated(uint256 indexed collateralId, Stack[] stack);
-  event RemovedLien(uint256 indexed collateralId, uint8 position);
+  event AddLien(
+    uint256 indexed collateralId,
+    uint8 position,
+    uint256 indexed lienId,
+    Stack stack
+  );
+  enum StackAction {
+    CLEAR,
+    ADD,
+    REMOVE,
+    REPLACE
+  }
+  event LienStackUpdated(
+    uint256 indexed collateralId,
+    StackAction action,
+    uint8 stackLength
+  );
   event RemovedLiens(uint256 indexed collateralId);
   event Payment(uint256 indexed lienId, uint256 amount);
   event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);

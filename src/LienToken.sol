@@ -60,7 +60,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
     s.WETH = _WETH;
-    s.maxLiens = uint256(5);
+    s.maxLiens = uint8(5);
   }
 
   function _loadLienStorageSlot()
@@ -138,9 +138,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
 
     if (
-      s
-        .lienMeta[params.encumber.stack[params.position].point.lienId]
-        .amountAtLiquidation > 0
+      s.collateralStateHash[params.encumber.lien.collateralId] ==
+      bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -196,7 +195,11 @@ contract LienToken is ERC721, ILienToken, Auth {
         newStack[i] = stack[i];
       }
     }
-    emit LienStackUpdated(stack[0].lien.collateralId, newStack);
+    emit LienStackUpdated(
+      stack[0].lien.collateralId,
+      StackAction.REPLACE,
+      uint8(newStack.length)
+    );
   }
 
   function getInterest(Stack calldata stack) public view returns (uint256) {
@@ -223,15 +226,6 @@ contract LienToken is ERC721, ILienToken, Auth {
   }
 
   modifier validateStack(uint256 collateralId, Stack[] memory stack) {
-    LienStorage storage s = _loadLienStorageSlot();
-    bytes32 stateHash = s.collateralStateHash[collateralId];
-    if (stateHash != bytes32(0)) {
-      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
-    }
-    _;
-  }
-
-  modifier validateAuctionStack(uint256 collateralId, uint256[] memory stack) {
     LienStorage storage s = _loadLienStorageSlot();
     bytes32 stateHash = s.collateralStateHash[collateralId];
     if (stateHash != bytes32(0)) {
@@ -296,7 +290,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         }
       }
     }
-    s.collateralStateHash[collateralId] = keccak256(abi.encode(lienIds));
+    s.collateralStateHash[collateralId] = bytes32("ACTIVE_AUCTION");
   }
 
   function tokenURI(uint256 tokenId)
@@ -336,7 +330,6 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
     //0 - 4 are valid
-
     Stack memory newStackSlot;
     (lienId, newStackSlot) = _createLien(s, params);
 
@@ -345,15 +338,32 @@ contract LienToken is ERC721, ILienToken, Auth {
       abi.encode(newStack)
     );
 
-    lienSlope = calculateSlope(newStackSlot);
-    emit AddLien(params.collateralId, lienId, newStackSlot.point.position);
-    emit LienStackUpdated(params.collateralId, newStack);
+    unchecked {
+      lienSlope = calculateSlope(newStackSlot);
+    }
+    emit AddLien(
+      params.collateralId,
+      newStackSlot.point.position,
+      lienId,
+      newStackSlot
+    );
+    emit LienStackUpdated(
+      params.collateralId,
+      StackAction.ADD,
+      uint8(newStack.length)
+    );
   }
 
   function _createLien(
     LienStorage storage s,
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
+    if (
+      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
+    ) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+
     if (params.stack.length >= s.maxLiens) {
       revert InvalidState(InvalidStates.MAX_LIENS);
     }
@@ -491,12 +501,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 collateralId,
     uint256 payment,
     address payer
-  )
-    external
-    validateAuctionStack(collateralId, stack)
-    requiresAuth
-    returns (uint256[] memory outStack, uint256 spent)
-  {
+  ) external requiresAuth returns (uint256[] memory outStack, uint256 spent) {
     spent = 0;
     outStack = stack;
     LienStorage storage s = _loadLienStorageSlot();
@@ -514,9 +519,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         spent += paymentMade;
       }
     }
-    if (outStack.length != 0) {
-      s.collateralStateHash[collateralId] = keccak256(abi.encode(outStack));
-    } else {
+    if (outStack.length == 0) {
       delete s.collateralStateHash[collateralId];
     }
   }
@@ -745,8 +748,11 @@ contract LienToken is ERC721, ILienToken, Auth {
       if (i == position) continue;
       newStack[i] = stack[i];
     }
-    emit RemovedLien(collateralId, position);
-    emit LienStackUpdated(collateralId, newStack);
+    emit LienStackUpdated(
+      collateralId,
+      StackAction.REMOVE,
+      uint8(newStack.length)
+    );
   }
 
   function _isPublicVault(address account) internal view returns (bool) {

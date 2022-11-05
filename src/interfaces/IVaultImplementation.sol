@@ -24,4 +24,21 @@ interface IVaultImplementation {
   }
 
   error InvalidRequest(InvalidRequestReason);
+
+  struct VIData {
+    uint88 depositCap;
+    address delegate;
+    bool allowListEnabled;
+    mapping(address => bool) allowList;
+    mapping(address => uint32) strategistNonce;
+  }
+
+  event NewLien(
+    bytes32 strategyRoot,
+    address tokenContract,
+    uint256 tokenId,
+    uint256 amount
+  );
+
+  event NewVault(address appraiser, address vault);
 }
