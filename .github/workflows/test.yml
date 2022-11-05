@@ -18,10 +18,11 @@ jobs:
           token: ${{ secrets.MY_REPO_PAT }}
 
       - uses: actions/setup-node@v2
-      - run: yarn
-
+      - run: yarn && npx tsc ./scripts/loanProofGenerator.ts
       - uses: onbjerg/foundry-toolchain@v1
         with:
           version: nightly
-
       - run: forge test --ffi --no-match-contract ForkedTest
+
+      - name: Run snapshot
+        run: NO_COLOR=1 forge snapshot --ffi >> $GITHUB_STEP_SUMMARY
