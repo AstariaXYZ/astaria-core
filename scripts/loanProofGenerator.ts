@@ -1,12 +1,10 @@
-const { MerkleTree } = require("merkletreejs");
-const keccak256 = require("keccak256");
-const { utils, BigNumber } = require("ethers");
-const { getAddress, solidityKeccak256, defaultAbiCoder } = utils;
+import { StrategyTree } from "../lib/astaria-sdk/dist/index";
+import { utils, BigNumber } from "ethers";
+const { defaultAbiCoder } = utils;
 const args = process.argv.slice(2);
-
 const detailsType = parseInt(BigNumber.from(args.shift()).toString());
 const leaves = [];
-let mapping;
+let mapping: any = [];
 if (detailsType === 0) {
   mapping = [
     "uint8",
@@ -18,7 +16,6 @@ if (detailsType === 0) {
     "uint256",
     "uint256",
   ];
-
 } else if (detailsType === 1) {
   mapping = [
     "uint8",
@@ -48,26 +45,27 @@ if (detailsType === 0) {
 // console.error(leaves);
 // Create tree
 
-const termData = defaultAbiCoder.decode(mapping, args.shift()).map((x) => {
-  if (x instanceof BigNumber) {
-    return x.toString();
-  }
-  return x;
-});
+const termData: string[] = defaultAbiCoder
+  // @ts-ignore
+  .decode(mapping, args.shift())
+  .map((x) => {
+    if (x instanceof BigNumber) {
+      return x.toString();
+    }
+    return x;
+  });
 
-leaves.push(defaultAbiCoder.encode(mapping, termData));
+// @ts-ignore
+leaves.push(termData);
+//
+const csvOuput: string = leaves.reduce((acc, cur) => {
+  return acc + cur.join(",") + "\n";
+}, "");
 
-const merkleTree = new MerkleTree(
-  leaves.map((x) => keccak256(x)).sort(Buffer.compare),
-  keccak256,
-  {
-    sort: true,
-  }
-);
+const merkleTree = new StrategyTree(csvOuput);
 
-const rootHash = merkleTree.getHexRoot();
-const proofLeaves = [leaves[0]].map(keccak256);
-const proof = merkleTree.getHexProof(MerkleTree.bufferToHex(proofLeaves[0]));
+const rootHash: string = merkleTree.getHexRoot();
+const proof = merkleTree.getHexProof(merkleTree.getLeaf(0));
 // console.error(
 //   merkleTree.verify(proof, MerkleTree.bufferToHex(proofLeaves[0]), rootHash)
 // );
