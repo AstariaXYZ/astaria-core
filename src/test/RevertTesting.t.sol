@@ -30,7 +30,7 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
-
+import {IPublicVault} from "../interfaces/IPublicVault.sol";
 import {CollateralToken, IFlashAction} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {IVault, VaultImplementation} from "../VaultImplementation.sol";
@@ -183,6 +183,31 @@ contract RevertTesting is TestHelpers {
     });
   }
 
+  function testFailMinMaxPublicVaultEpochLength() public {
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IPublicVault.InvalidState.selector,
+        IPublicVault.InvalidStates.EPOCH_TOO_LOW
+      )
+    );
+    _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 0
+    });
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IPublicVault.InvalidState.selector,
+        IPublicVault.InvalidStates.EPOCH_TOO_HIGH
+      )
+    );
+    _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 80 days
+    });
+  }
+
   function testFailLienDurationZero() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
@@ -282,7 +307,7 @@ contract RevertTesting is TestHelpers {
       amount: 10 ether,
       isFirstLien: true
     });
-   
+
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     vm.warp(block.timestamp + 14 days);
