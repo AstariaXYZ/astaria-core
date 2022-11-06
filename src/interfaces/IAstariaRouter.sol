@@ -69,7 +69,6 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   struct StrategyDetails {
     uint8 version;
-    address strategist;
     uint256 deadline;
     address vault;
   }

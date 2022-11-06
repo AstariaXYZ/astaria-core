@@ -44,11 +44,15 @@ abstract contract VaultImplementation is
   bytes32 constant VI_SLOT =
     keccak256("xyz.astaria.core.VaultImplementation.storage.location");
 
+  function getStrategistNonce() external view returns (uint32) {
+    return _loadVISlot().strategistNonce;
+  }
+
   function incrementNonce() external {
     VIData storage s = _loadVISlot();
     require(msg.sender == owner() || msg.sender == s.delegate);
-    s.strategistNonce[owner()]++;
-    emit IncrementNonce(owner(), s.strategistNonce[owner()]);
+    s.strategistNonce++;
+    emit IncrementNonce(s.strategistNonce);
   }
 
   /**
@@ -119,14 +123,14 @@ abstract contract VaultImplementation is
           keccak256(
             "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
           ),
-          keccak256("0"),
+          keccak256("0"), //version
           block.chainid,
           address(this)
         )
       );
   }
 
-  bytes32 private constant STRATEGY_TYPEHASH =
+  bytes32 public constant STRATEGY_TYPEHASH =
     0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
 
   // cast k "StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)"
@@ -151,12 +155,7 @@ abstract contract VaultImplementation is
     bytes32 root
   ) internal view returns (bytes memory) {
     bytes32 hash = keccak256(
-      abi.encode(
-        STRATEGY_TYPEHASH,
-        s.strategistNonce[strategy.strategist],
-        strategy.deadline,
-        root
-      )
+      abi.encode(STRATEGY_TYPEHASH, s.strategistNonce, strategy.deadline, root)
     );
     return
       abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), hash);
@@ -205,11 +204,13 @@ abstract contract VaultImplementation is
     IAstariaRouter.Commitment calldata params,
     address receiver
   ) internal view {
-    if (
-      params.lienRequest.amount > ERC20(underlying()).balanceOf(address(this))
-    ) {
-      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
-    }
+    //    if (
+    //      params.lienRequest.amount > ERC20(underlying()).balanceOf(address(this))
+    //    ) {
+    //      revert IVaultImplementation.InvalidRequest(
+    //        InvalidRequestReason.INSUFFICIENT_FUNDS
+    //      );
+    //    }
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
@@ -241,11 +242,10 @@ abstract contract VaultImplementation is
       params.lienRequest.r,
       params.lienRequest.s
     );
-    if (recovered != params.lienRequest.strategy.strategist) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_SIGNATURE);
-    }
     if (recovered != owner() && recovered != s.delegate) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
+      revert IVaultImplementation.InvalidRequest(
+        InvalidRequestReason.INVALID_SIGNATURE
+      );
     }
   }
 
@@ -318,7 +318,9 @@ abstract contract VaultImplementation is
       .getBuyout(stack[position]);
 
     if (buyout > ERC20(underlying()).balanceOf(address(this))) {
-      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
+      revert IVaultImplementation.InvalidRequest(
+        InvalidRequestReason.INSUFFICIENT_FUNDS
+      );
     }
 
     _validateCommitment(incomingTerms, recipient());

@@ -81,8 +81,10 @@ contract TestHelpers is Test {
 
   uint256 strategistOnePK = uint256(0x1339);
   uint256 strategistTwoPK = uint256(0x1344); // strategistTwo is delegate for PublicVault created by strategistOne
+  uint256 strategistRoguePK = uint256(0x1559); // strategist who doesn't have a vault
   address strategistOne = vm.addr(strategistOnePK);
   address strategistTwo = vm.addr(strategistTwoPK);
+  address strategistRogue = vm.addr(strategistRoguePK);
 
   address borrower = vm.addr(0x1341);
   address bidderOne = vm.addr(0x1342);
@@ -513,6 +515,28 @@ contract TestHelpers is Test {
     return ASTARIA_ROUTER.commitToLiens(commitments);
   }
 
+  function _generateEncodedStrategyData(
+    address vault,
+    uint256 deadline,
+    bytes32 root
+  ) internal view returns (bytes memory) {
+    bytes32 hash = keccak256(
+      abi.encode(
+        VaultImplementation(vault).STRATEGY_TYPEHASH(),
+        VaultImplementation(vault).getStrategistNonce(),
+        deadline,
+        root
+      )
+    );
+    return
+      abi.encodePacked(
+        bytes1(0x19),
+        bytes1(0x01),
+        VaultImplementation(vault).domainSeparator(),
+        hash
+      );
+  }
+
   function _generateValidTerms(
     address vault, // address of deployed Vault
     address strategist,
@@ -546,13 +570,12 @@ contract TestHelpers is Test {
     IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter
       .StrategyDetails({
         version: uint8(0),
-        strategist: strategist,
         deadline: block.timestamp + 10 days,
         vault: vault
       });
 
     bytes32 termHash = keccak256(
-      VaultImplementation(vault).encodeStrategyData(strategyDetails, rootHash)
+      _generateEncodedStrategyData(vault, strategyDetails.deadline, rootHash)
     );
     return
       _generateTerms(

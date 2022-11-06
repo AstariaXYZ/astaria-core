@@ -39,7 +39,7 @@ contract AstariaTest is TestHelpers {
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
-  event IncrementNonce(address strategist, uint32 nonce);
+  event IncrementNonce(uint32 nonce);
 
   function testIncrementNonceAsStrategistAndDelegate() public {
     address privateVault = _createPrivateVault({
@@ -48,12 +48,12 @@ contract AstariaTest is TestHelpers {
     });
 
     vm.expectEmit(true, true, true, true);
-    emit IncrementNonce(strategistOne, 1);
+    emit IncrementNonce(1);
     vm.prank(strategistOne);
     VaultImplementation(privateVault).incrementNonce();
 
     vm.expectEmit(true, true, true, true);
-    emit IncrementNonce(strategistOne, 2);
+    emit IncrementNonce(2);
     vm.prank(strategistTwo);
     VaultImplementation(privateVault).incrementNonce();
   }

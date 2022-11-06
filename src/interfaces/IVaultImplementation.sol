@@ -16,7 +16,6 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 interface IVaultImplementation {
   enum InvalidRequestReason {
     INVALID_SIGNATURE,
-    INVALID_STRATEGIST,
     INVALID_COMMITMENT,
     INVALID_AMOUNT,
     INSUFFICIENT_FUNDS,
@@ -38,7 +37,7 @@ interface IVaultImplementation {
     address delegate;
     bool allowListEnabled;
     mapping(address => bool) allowList;
-    mapping(address => uint32) strategistNonce;
+    uint32 strategistNonce;
   }
 
   event NewLien(
@@ -49,7 +48,7 @@ interface IVaultImplementation {
   );
 
   event NewVault(address appraiser, address vault);
-  event IncrementNonce(address strategist, uint32 nonce);
+  event IncrementNonce(uint32 nonce);
 
   function incrementNonce() external;
 
@@ -79,4 +78,8 @@ interface IVaultImplementation {
   function domainSeparator() external view returns (bytes32);
 
   function modifyDepositCap(uint256 newCap) external;
+
+  function getStrategistNonce() external view returns (uint32);
+
+  function STRATEGY_TYPEHASH() external view returns (bytes32);
 }
