@@ -33,11 +33,11 @@ interface IVaultImplementation {
   }
 
   struct VIData {
+    uint32 strategistNonce;
     uint88 depositCap;
     address delegate;
     bool allowListEnabled;
     mapping(address => bool) allowList;
-    uint32 strategistNonce;
   }
 
   event NewLien(
