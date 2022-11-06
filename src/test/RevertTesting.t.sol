@@ -55,8 +55,13 @@ contract RevertTesting is TestHelpers {
       epochLength: 10 days
     });
 
-    vm.expectRevert("EvmError: Revert");
+    vm.expectRevert(abi.encodePacked("InvalidRequest(0)"));
     VaultImplementation(privateVault).incrementNonce();
+    assertEq(
+      VaultImplementation(privateVault).getStrategistNonce(),
+      uint32(0),
+      "vault was incremented, when it shouldn't be"
+    );
   }
 
   function testFailInvalidSignature() public {
@@ -92,15 +97,15 @@ contract RevertTesting is TestHelpers {
     );
 
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
-    //    vm.expectRevert(
-    //      abi.encodeWithSelector(
-    //        IVaultImplementation.InvalidRequest.selector,
-    //        IVaultImplementation.InvalidRequestReason.INVALID_SIGNATURE
-    //      )
-    //    );
 
-    vm.expectRevert("InvalidRequest(0)");
+    uint256 balanceOfBefore = ERC20(privateVault).balanceOf(address(this));
+    vm.expectRevert(abi.encodePacked("InvalidRequest(1)"));
     VaultImplementation(privateVault).commitToLien(terms, address(this));
+    assertEq(
+      balanceOfBefore,
+      ERC20(privateVault).balanceOf(address(this)),
+      "balance changed"
+    );
   }
 
   // Only strategists for PrivateVaults can supply capital

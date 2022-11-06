@@ -40,6 +40,22 @@ contract AstariaTest is TestHelpers {
   using SafeCastLib for uint256;
 
   event IncrementNonce(uint32 nonce);
+  event VaultShutdown();
+
+  function testVaultShutdown() public {
+    address publicVault = _createPublicVault({
+      epochLength: 10 days, // 10 days
+      strategist: strategistTwo,
+      delegate: strategistOne
+    });
+
+    vm.expectEmit(true, true, true, true);
+    emit VaultShutdown();
+    vm.startPrank(strategistTwo);
+    VaultImplementation(publicVault).shutdown();
+    vm.stopPrank();
+    assert(VaultImplementation(publicVault).getShutdown());
+  }
 
   function testIncrementNonceAsStrategistAndDelegate() public {
     address privateVault = _createPrivateVault({

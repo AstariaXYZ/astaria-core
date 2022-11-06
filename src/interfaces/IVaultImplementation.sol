@@ -15,15 +15,18 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 
 interface IVaultImplementation {
   enum InvalidRequestReason {
+    NO_AUTHORITY,
     INVALID_SIGNATURE,
     INVALID_COMMITMENT,
     INVALID_AMOUNT,
     INSUFFICIENT_FUNDS,
     INVALID_RATE,
-    INVALID_POTENTIAL_DEBT
+    INVALID_POTENTIAL_DEBT,
+    SHUTDOWN,
+    PAUSED
   }
 
-  error InvalidRequest(InvalidRequestReason);
+  error InvalidRequest(InvalidRequestReason reason);
 
   struct InitParams {
     address delegate;
@@ -37,6 +40,7 @@ interface IVaultImplementation {
     uint88 depositCap;
     address delegate;
     bool allowListEnabled;
+    bool isShutdown;
     mapping(address => bool) allowList;
   }
 
@@ -49,6 +53,12 @@ interface IVaultImplementation {
 
   event NewVault(address appraiser, address vault);
   event IncrementNonce(uint32 nonce);
+
+  event VaultShutdown();
+
+  function getShutdown() external view returns (bool);
+
+  function shutdown() external;
 
   function incrementNonce() external;
 

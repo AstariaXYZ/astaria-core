@@ -50,7 +50,9 @@ abstract contract VaultImplementation is
 
   function incrementNonce() external {
     VIData storage s = _loadVISlot();
-    require(msg.sender == owner() || msg.sender == s.delegate);
+    if (msg.sender != owner() && msg.sender != s.delegate) {
+      revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
+    }
     s.strategistNonce++;
     emit IncrementNonce(s.strategistNonce);
   }
@@ -75,11 +77,10 @@ abstract contract VaultImplementation is
    * @param depositor the depositor to modify
    * @param enabled the status of the depositor
    */
-  function modifyAllowList(address depositor, bool enabled)
-    external
-    virtual
-    onlyOwner
-  {
+  function modifyAllowList(
+    address depositor,
+    bool enabled
+  ) external virtual onlyOwner {
     _loadVISlot().allowList[depositor] = enabled;
   }
 
@@ -111,9 +112,22 @@ abstract contract VaultImplementation is
 
   modifier whenNotPaused() {
     if (ROUTER().paused()) {
-      revert("protocol is paused");
+      revert InvalidRequest(InvalidRequestReason.PAUSED);
+    }
+
+    if (_loadVISlot().isShutdown) {
+      revert InvalidRequest(InvalidRequestReason.SHUTDOWN);
     }
     _;
+  }
+
+  function getShutdown() external view returns (bool) {
+    return _loadVISlot().isShutdown;
+  }
+
+  function shutdown() external onlyOwner {
+    _loadVISlot().isShutdown = true;
+    emit VaultShutdown();
   }
 
   function domainSeparator() public view virtual returns (bytes32) {
@@ -374,11 +388,7 @@ abstract contract VaultImplementation is
     address receiver
   )
     internal
-    returns (
-      uint256 newLienId,
-      ILienToken.Stack[] memory stack,
-      uint256 slope
-    )
+    returns (uint256 newLienId, ILienToken.Stack[] memory stack, uint256 slope)
   {
     _validateCommitment(c, receiver);
     (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
