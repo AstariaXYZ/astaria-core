@@ -93,6 +93,13 @@ contract TestHelpers is Test {
   string private checkpointLabel;
   uint256 private checkpointGasLeft = 1; // Start the slot warm.
 
+  ILienToken.Details public blueChipDetails =
+    ILienToken.Details({
+      maxAmount: 150 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 10 days,
+      maxPotentialDebt: 0 ether
+    });
   ILienToken.Details public standardLienDetails =
     ILienToken.Details({
       maxAmount: 50 ether,
@@ -365,9 +372,10 @@ contract TestHelpers is Test {
     );
   }
 
-  function _mintNoDepositApproveRouter(address tokenContract, uint256 tokenId)
-    internal
-  {
+  function _mintNoDepositApproveRouter(
+    address tokenContract,
+    uint256 tokenId
+  ) internal {
     TestNFT(tokenContract).mint(address(this), tokenId);
     TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);
   }
@@ -390,10 +398,10 @@ contract TestHelpers is Test {
     );
   }
 
-  function _createPrivateVault(address strategist, address delegate)
-    internal
-    returns (address privateVault)
-  {
+  function _createPrivateVault(
+    address strategist,
+    address delegate
+  ) internal returns (address privateVault) {
     vm.startPrank(strategist);
     privateVault = ASTARIA_ROUTER.newVault(delegate);
     vm.stopPrank();
@@ -607,10 +615,9 @@ contract TestHelpers is Test {
     uint256 amount;
   }
 
-  function _generateTerms(GenTerms memory params)
-    internal
-    returns (IAstariaRouter.Commitment memory terms)
-  {
+  function _generateTerms(
+    GenTerms memory params
+  ) internal returns (IAstariaRouter.Commitment memory terms) {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(params.pk, params.termHash);
 
     return
@@ -692,11 +699,7 @@ contract TestHelpers is Test {
     vm.stopPrank();
   }
 
-  function _bid(
-    address bidder,
-    uint256 tokenId,
-    uint256 amount
-  ) internal {
+  function _bid(address bidder, uint256 tokenId, uint256 amount) internal {
     vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
     vm.startPrank(bidder);
     WETH9.deposit{value: amount}();

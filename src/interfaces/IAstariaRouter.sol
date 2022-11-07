@@ -101,9 +101,9 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param commitment The commitment proofs and requested loan data for each loan.
    * @return lien the new Lien data
    */
-  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
-    external
-    returns (ILienToken.Lien memory lien);
+  function validateCommitment(
+    IAstariaRouter.Commitment calldata commitment
+  ) external returns (ILienToken.Lien memory lien);
 
   /**
    * @notice Deploys a new PublicVault.
@@ -137,9 +137,9 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param commitments The commitment proofs and requested loan data for each loan.
    * @return lienIds the lienIds for each loan.
    */
-  function commitToLiens(Commitment[] memory commitments)
-    external
-    returns (uint256[] memory, ILienToken.Stack[] memory);
+  function commitToLiens(
+    Commitment[] memory commitments
+  ) external returns (uint256[] memory, ILienToken.Stack[] memory);
 
   /**
    * @notice Create a new lien against a CollateralToken.
@@ -149,13 +149,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   function requestLienPosition(
     IAstariaRouter.Commitment calldata params,
     address recipient
-  )
-    external
-    returns (
-      uint256,
-      ILienToken.Stack[] memory,
-      uint256
-    );
+  ) external returns (uint256, ILienToken.Stack[] memory, uint256);
 
   function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -222,7 +216,12 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function endAuction(uint256 tokenId) external;
 
-  event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
+  event Liquidation(
+    uint256 collateralId,
+    uint256 position,
+    uint256 reserve,
+    uint256[] fee
+  );
   event NewVault(address appraiser, address vault);
 
   error InvalidEpochLength(uint256);

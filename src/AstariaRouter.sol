@@ -303,10 +303,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _loadRouterSlot().auctionWindow;
   }
 
-  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
-    external
-    returns (ILienToken.Lien memory lien)
-  {
+  function validateCommitment(
+    IAstariaRouter.Commitment calldata commitment
+  ) external returns (ILienToken.Lien memory lien) {
     return _validateCommitment(_loadRouterSlot(), commitment);
   }
 
@@ -361,7 +360,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
   }
 
   //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
-  function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
+  function commitToLiens(
+    IAstariaRouter.Commitment[] memory commitments
+  )
     external
     whenNotPaused
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory stack)
@@ -426,11 +427,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     external
     whenNotPaused
     onlyVaults
-    returns (
-      uint256,
-      ILienToken.Stack[] memory,
-      uint256
-    )
+    returns (uint256, ILienToken.Stack[] memory, uint256)
   {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -467,11 +464,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @notice Returns whether a specific lien can be liquidated.
    * @return A boolean value indicating whether the specified lien can be liquidated.
    */
-  function canLiquidate(ILienToken.Stack memory stack)
-    public
-    view
-    returns (bool)
-  {
+  function canLiquidate(
+    ILienToken.Stack memory stack
+  ) public view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
     return (stack.point.end <= block.timestamp ||
       msg.sender == s.COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId));
@@ -494,15 +489,26 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       stack
     );
 
+    reserve += reserve.mulDivDown(
+      s.liquidationFeeNumerator,
+      s.liquidationFeeDenominator
+    );
+
     s.AUCTION_HOUSE.createAuction(
       collateralId,
       s.auctionWindow,
       msg.sender,
+      s.liquidationFeeNumerator,
+      s.liquidationFeeDenominator,
       reserve,
       stackAtLiquidation
     );
 
-    emit Liquidation(collateralId, position, reserve);
+    uint256[] memory fees = new uint256[](2);
+    fees[0] = s.liquidationFeeNumerator;
+    fees[1] = s.liquidationFeeDenominator;
+
+    emit Liquidation(collateralId, position, reserve, fees);
   }
 
   function cancelAuction(uint256 collateralId) external {
@@ -565,11 +571,9 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    * @return The numerator and denominator used to compute the percentage fee taken by the protocol
    */
 
-  function getBuyoutFee(uint256 remainingInterestIn)
-    external
-    view
-    returns (uint256)
-  {
+  function getBuyoutFee(
+    uint256 remainingInterestIn
+  ) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
     return
       remainingInterestIn.mulDivDown(

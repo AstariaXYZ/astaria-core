@@ -576,21 +576,22 @@ contract AstariaTest is TestHelpers {
       epochLength: 14 days
     });
 
-    _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
+    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
     (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLienDetails,
-      amount: 10 ether,
+      lienDetails: blueChipDetails,
+      amount: 100 ether,
       isFirstLien: true
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    _bid(address(2), collateralId, 10 ether);
     _cancelAuction(collateralId, address(this));
   }
 
@@ -599,7 +600,7 @@ contract AstariaTest is TestHelpers {
     vm.deal(sender, reserve);
     vm.startPrank(sender);
     WETH9.deposit{value: reserve}();
-    WETH9.approve(address(TRANSFER_PROXY), reserve * 2);
+    WETH9.approve(address(TRANSFER_PROXY), reserve);
     ASTARIA_ROUTER.cancelAuction(auctionId);
     vm.stopPrank();
   }
