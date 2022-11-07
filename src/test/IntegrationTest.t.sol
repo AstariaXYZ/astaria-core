@@ -134,7 +134,7 @@ contract IntegrationTest is TestHelpers {
     ILienToken.Details[] memory lienDetails = new ILienToken.Details[](
       lienSize
     );
-    for (uint160 i; i < lienSize; i++) {
+    for (uint160 i = 0; i < lienSize; i++) {
       uint256 dayCount = 14 - i;
 
       publicVaults[i] = _createPublicVault({
@@ -176,16 +176,37 @@ contract IntegrationTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
 
     _bid(address(2), collateralId, 200 ether);
-    // assertEq(WETH9.balanceOf(publicVaults[0]), 50045205479452054794);
-    // assertEq(WETH9.balanceOf(publicVaults[1]), 50090410958904109588);
-    // assertEq(WETH9.balanceOf(publicVaults[2]), 50135616438356164382);
-    // assertEq(WETH9.balanceOf(publicVaults[3]), 50180821917808219176);
-    // assertEq(WETH9.balanceOf(publicVaults[4]), 5022602739726027397);
+    
+    address[5] memory withdrawProxies;
+    for(uint256 i = 0; i < lienSize; i++){
+      withdrawProxies[i] = PublicVault(publicVaults[i]).getWithdrawProxy(0); 
+    }
+    assertTrue(withdrawProxies[0] == address(0)); // 3 days from epoch end 
+    assertTrue(withdrawProxies[1] != address(0)); // 2 days from epoch end
+    assertTrue(withdrawProxies[2] != address(0)); // 1 days from epoch end
+    assertTrue(withdrawProxies[3] != address(0)); // 0 days from epoch end
+    assertTrue(withdrawProxies[4] != address(0)); // -1 days from epoch end
 
-    assertTrue(PublicVault(publicVaults[0]).getWithdrawProxy(0) != address(0)); // 3 days from epoch end
-    assertTrue(PublicVault(publicVaults[1]).getWithdrawProxy(0) != address(0)); // 2 days from epoch end
-    assertTrue(PublicVault(publicVaults[2]).getWithdrawProxy(0) != address(0)); // 1 days from epoch end
-    assertTrue(PublicVault(publicVaults[3]).getWithdrawProxy(0) != address(0)); // 0 days from epoch end
-    assertTrue(PublicVault(publicVaults[3]).getWithdrawProxy(0) == address(0)); // -1 days from epoch end
+    assertEq(WETH9.balanceOf(publicVaults[0]), PublicVault(publicVaults[0]).totalAssets());
+
+    vm.warp(block.timestamp + 2 days);
+
+    for(uint256 i = 1; i < lienSize; i++){
+      PublicVault(publicVaults[i]).processEpoch();
+    }
+
+    for(uint256 i = 1; i < lienSize; i++){
+      WithdrawProxy(withdrawProxies[i]).claim();
+    }
+
+    assertEq(WETH9.balanceOf(withdrawProxies[1]), 0);
+    assertEq(WETH9.balanceOf(withdrawProxies[2]), 0);
+    assertEq(WETH9.balanceOf(withdrawProxies[3]), 0);
+    assertEq(WETH9.balanceOf(withdrawProxies[4]), 0);
+
+    assertEq(WETH9.balanceOf(publicVaults[1]), PublicVault(publicVaults[1]).totalAssets());
+    assertEq(WETH9.balanceOf(publicVaults[2]), PublicVault(publicVaults[2]).totalAssets());
+    assertEq(WETH9.balanceOf(publicVaults[3]), PublicVault(publicVaults[3]).totalAssets());
+    assertEq(WETH9.balanceOf(publicVaults[4]), PublicVault(publicVaults[4]).totalAssets());
   }
 }
