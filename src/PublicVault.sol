@@ -416,7 +416,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     return s.yIntercept;
   }
-  
+
   /**
    * @notice Computes the implied value of this PublicVault. This includes interest payments that have not yet been made.
    * @return The implied value for this PublicVault.

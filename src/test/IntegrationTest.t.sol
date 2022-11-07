@@ -142,7 +142,7 @@ contract IntegrationTest is TestHelpers {
         delegate: strategistTwo,
         epochLength: (dayCount * 1 days)
       });
-      
+
       _lendToVault(
         Lender({addr: address(i), amountToLend: 50 ether}),
         publicVaults[i]
@@ -176,26 +176,29 @@ contract IntegrationTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
 
     _bid(address(2), collateralId, 200 ether);
-    
+
     address[5] memory withdrawProxies;
-    for(uint256 i = 0; i < lienSize; i++){
-      withdrawProxies[i] = PublicVault(publicVaults[i]).getWithdrawProxy(0); 
+    for (uint256 i = 0; i < lienSize; i++) {
+      withdrawProxies[i] = PublicVault(publicVaults[i]).getWithdrawProxy(0);
     }
-    assertTrue(withdrawProxies[0] == address(0)); // 3 days from epoch end 
+    assertTrue(withdrawProxies[0] == address(0)); // 3 days from epoch end
     assertTrue(withdrawProxies[1] != address(0)); // 2 days from epoch end
     assertTrue(withdrawProxies[2] != address(0)); // 1 days from epoch end
     assertTrue(withdrawProxies[3] != address(0)); // 0 days from epoch end
     assertTrue(withdrawProxies[4] != address(0)); // -1 days from epoch end
 
-    assertEq(WETH9.balanceOf(publicVaults[0]), PublicVault(publicVaults[0]).totalAssets());
+    assertEq(
+      WETH9.balanceOf(publicVaults[0]),
+      PublicVault(publicVaults[0]).totalAssets()
+    );
 
     vm.warp(block.timestamp + 2 days);
 
-    for(uint256 i = 1; i < lienSize; i++){
+    for (uint256 i = 1; i < lienSize; i++) {
       PublicVault(publicVaults[i]).processEpoch();
     }
 
-    for(uint256 i = 1; i < lienSize; i++){
+    for (uint256 i = 1; i < lienSize; i++) {
       WithdrawProxy(withdrawProxies[i]).claim();
     }
 
@@ -204,9 +207,21 @@ contract IntegrationTest is TestHelpers {
     assertEq(WETH9.balanceOf(withdrawProxies[3]), 0);
     assertEq(WETH9.balanceOf(withdrawProxies[4]), 0);
 
-    assertEq(WETH9.balanceOf(publicVaults[1]), PublicVault(publicVaults[1]).totalAssets());
-    assertEq(WETH9.balanceOf(publicVaults[2]), PublicVault(publicVaults[2]).totalAssets());
-    assertEq(WETH9.balanceOf(publicVaults[3]), PublicVault(publicVaults[3]).totalAssets());
-    assertEq(WETH9.balanceOf(publicVaults[4]), PublicVault(publicVaults[4]).totalAssets());
+    assertEq(
+      WETH9.balanceOf(publicVaults[1]),
+      PublicVault(publicVaults[1]).totalAssets()
+    );
+    assertEq(
+      WETH9.balanceOf(publicVaults[2]),
+      PublicVault(publicVaults[2]).totalAssets()
+    );
+    assertEq(
+      WETH9.balanceOf(publicVaults[3]),
+      PublicVault(publicVaults[3]).totalAssets()
+    );
+    assertEq(
+      WETH9.balanceOf(publicVaults[4]),
+      PublicVault(publicVaults[4]).totalAssets()
+    );
   }
 }
