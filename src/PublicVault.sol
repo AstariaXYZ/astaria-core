@@ -557,14 +557,16 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint64 lienEpoch = getLienEpoch(params.lienEnd);
     _decreaseEpochLienCount(s, lienEpoch);
 
-    if (timeToEpochEnd() <= auctionWindow) {
+    uint256 timeToEnd = timeToEpochEnd(lienEpoch);
+    if (timeToEnd <= auctionWindow) {
+      _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
       withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
-      if (withdrawProxyIfNearBoundary != address(0)) {
-        WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
-          params.newAmount,
-          auctionWindow + 1 days
-        );
-      }
+    }
+    if (withdrawProxyIfNearBoundary != address(0)) {
+      WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
+        params.newAmount,
+        auctionWindow
+      );
     }
   }
 
@@ -588,8 +590,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
   function timeToEpochEnd() public view returns (uint256) {
     VaultData storage s = _loadStorageSlot();
+    return timeToEpochEnd(s.currentEpoch);
+  }
 
-    uint256 epochEnd = START() + ((s.currentEpoch + 1) * EPOCH_LENGTH());
+  function timeToEpochEnd(uint256 epoch) public view returns (uint256) {
+    uint256 epochEnd = START() + ((epoch + 1) * EPOCH_LENGTH());
 
     if (block.timestamp >= epochEnd) {
       return uint256(0);
