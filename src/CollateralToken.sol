@@ -199,7 +199,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
     delete s.idToUnderlying[collateralId];
     _burn(collateralId);
-    IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
+    IERC721(underlyingAsset).safeTransferFrom(
+      address(this),
+      releaseTo,
+      assetId,
+      ""
+    );
     emit ReleaseTo(underlyingAsset, assetId, releaseTo);
   }
 

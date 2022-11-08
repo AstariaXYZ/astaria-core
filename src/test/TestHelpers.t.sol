@@ -56,6 +56,7 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import {Strings2} from "./utils/Strings2.sol";
 import {BeaconProxy} from "../BeaconProxy.sol";
+import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 
 string constant weth9Artifact = "src/test/WETH9.json";
 
@@ -73,7 +74,7 @@ contract TestNFT is MockERC721 {
   }
 }
 
-contract TestHelpers is Test {
+contract TestHelpers is Test, IERC721Receiver {
   using CollateralLookup for address;
   using Strings2 for bytes;
   using SafeCastLib for uint256;
@@ -349,6 +350,15 @@ contract TestHelpers is Test {
       true
     );
     MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
+  }
+
+  function onERC721Received(
+    address operator_,
+    address from_,
+    uint256 tokenId_,
+    bytes calldata data_
+  ) external pure override returns (bytes4) {
+    return IERC721Receiver.onERC721Received.selector;
   }
 
   // wrap NFT in a CollateralToken

@@ -391,7 +391,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   ) internal view returns (Stack[] memory newStack) {
     newStack = new Stack[](stack.length + 1);
     for (uint256 i = 0; i < stack.length; ++i) {
-      if (stack[i].point.end > block.timestamp) {
+      if (block.timestamp > stack[i].point.end) {
         revert InvalidState(InvalidStates.EXPIRED_LIEN);
       }
       newStack[i] = stack[i];
