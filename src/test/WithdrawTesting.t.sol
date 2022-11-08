@@ -797,4 +797,52 @@ contract WithdrawTest is TestHelpers {
       "PublicVault balance should be 0"
     );
   }
+
+  function testLiquidationNearBoundaryNoWithdraws() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+    strategist: strategistOne,
+    delegate: strategistTwo,
+    epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory details = standardLienDetails;
+    details.duration = 13 days;
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    vault: publicVault,
+    strategist: strategistOne,
+    strategistPK: strategistOnePK,
+    tokenContract: tokenContract,
+    tokenId: tokenId,
+    lienDetails: details,
+    amount: 10 ether,
+    isFirstLien: true
+    });
+
+    vm.warp(block.timestamp + 13 days);
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+
+    vm.warp(block.timestamp + 4 days);
+    AUCTION_HOUSE.endAuction(collateralId);
+
+    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    WithdrawProxy(withdrawProxy).claim();
+
+    assertEq(WETH9.balanceOf(publicVault), 40 ether, "Incorrect PublicVault balance");
+  }
 }
