@@ -1,13 +1,13 @@
 pragma solidity ^0.8.17;
 import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
-import {ERC4626Base} from "core/ERC4626Base.sol";
-import {IERC4626Base} from "core/interfaces/IERC4626Base.sol";
+import {Clone} from "clones-with-immutable-args/Clone.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 
-abstract contract AstariaVaultBase is ERC4626Base, IAstariaVaultBase {
+abstract contract AstariaVaultBase is Clone, IAstariaVaultBase {
   function name() public view virtual returns (string memory);
 
   function symbol() public view virtual returns (string memory);
@@ -24,13 +24,7 @@ abstract contract AstariaVaultBase is ERC4626Base, IAstariaVaultBase {
     return _getArgAddress(21); //ends at 44
   }
 
-  function underlying()
-    public
-    pure
-    virtual
-    override(IERC4626Base, ERC4626Base)
-    returns (address)
-  {
+  function asset() public pure virtual returns (address) {
     return _getArgAddress(41); //ends at 64
   }
 

@@ -486,6 +486,61 @@ contract TestHelpers is Test {
       });
   }
 
+  function _executeCommitments(
+    IAstariaRouter.Commitment[] memory commitments
+  )
+    internal
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
+    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    return ASTARIA_ROUTER.commitToLiens(commitments);
+  }
+
+  struct V3LienParams {
+    address strategist;
+    uint256 strategistPK;
+    address tokenContract;
+    uint256 tokenId;
+    address[] assets;
+    uint24 fee;
+    int24 tickLower;
+    int24 tickUpper;
+    uint128 liquidity;
+    uint256 amount0Min;
+    uint256 amount1Min;
+    address borrower;
+    ILienToken.Details details;
+  }
+
+  function _commitToV3Lien(
+    V3LienParams memory params,
+    address vault,
+    uint256 amount,
+    ILienToken.Stack[] memory stack,
+    bool isFirstLien
+  )
+    internal
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
+    IAstariaRouter.Commitment memory terms = _generateValidV3Terms({
+      params: params,
+      amount: amount,
+      vault: vault,
+      stack: stack
+    });
+
+    if (isFirstLien) {
+      ERC721(params.tokenContract).setApprovalForAll(
+        address(ASTARIA_ROUTER),
+        true
+      );
+    }
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](1);
+    commitments[0] = terms;
+    return _executeCommitments({commitments: commitments});
+  }
+
   function _commitToLien(
     address vault, // address of deployed Vault
     address strategist,
@@ -514,13 +569,10 @@ contract TestHelpers is Test {
     if (isFirstLien) {
       ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
     }
-
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
-
-    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
-    return ASTARIA_ROUTER.commitToLiens(commitments);
+    return _executeCommitments({commitments: commitments});
   }
 
   function _generateEncodedStrategyData(
@@ -542,6 +594,77 @@ contract TestHelpers is Test {
         bytes1(0x01),
         VaultImplementation(vault).domainSeparator(),
         hash
+      );
+  }
+
+  function _generateValidV3Terms(
+    V3LienParams memory params,
+    uint256 amount, // requested amount
+    address vault,
+    ILienToken.Stack[] memory stack
+  ) internal returns (IAstariaRouter.Commitment memory) {
+    ////  struct Details {
+    //  //    uint8 version;
+    //  //    address token;
+    //  //    address[] assets;
+    //  //    uint24 fee;
+    //  //    int24 tickLower;
+    //  //    int24 tickUpper;
+    //  //    uint128 minLiquidity;
+    //  //    address borrower;
+    //  //    ILienToken.Details lien;
+    //  //  }
+    bytes memory validatorDetails = abi.encode(
+      IUNI_V3Validator.Details({
+        version: uint8(0),
+        token: params.tokenContract,
+        assets: params.assets,
+        fee: params.fee,
+        tickLower: params.tickLower,
+        tickUpper: params.tickUpper,
+        amount0Min: params.amount0Min,
+        amount1Min: params.amount1Min,
+        minLiquidity: params.liquidity,
+        borrower: params.borrower,
+        lien: params.details
+      })
+    );
+
+    (
+      bytes32 rootHash,
+      bytes32[] memory merkleProof
+    ) = _generateLoanMerkleProof2({
+        requestType: IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY,
+        data: validatorDetails
+      });
+
+    // setup 712 signature
+
+    IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter
+      .StrategyDetails({
+        version: uint8(0),
+        deadline: block.timestamp + 10 days,
+        vault: vault
+      });
+
+    bytes32 termHash = keccak256(
+      _generateEncodedStrategyData(vault, strategyDetails.deadline, rootHash)
+    );
+    return
+      _generateTerms(
+        GenTerms({
+          nlrType: uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY),
+          tokenContract: params.tokenContract,
+          tokenId: params.tokenId,
+          termHash: termHash,
+          rootHash: rootHash,
+          pk: params.strategistPK,
+          strategyDetails: strategyDetails,
+          validatorDetails: validatorDetails,
+          amount: amount,
+          merkleProof: merkleProof,
+          stack: stack
+        })
       );
   }
 
@@ -595,6 +718,7 @@ contract TestHelpers is Test {
           pk: strategistPK,
           strategyDetails: strategyDetails,
           validatorDetails: validatorDetails,
+          nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE),
           amount: amount,
           merkleProof: merkleProof,
           stack: stack
@@ -611,6 +735,7 @@ contract TestHelpers is Test {
     IAstariaRouter.StrategyDetails strategyDetails;
     ILienToken.Stack[] stack;
     bytes validatorDetails;
+    uint8 nlrType;
     bytes32[] merkleProof;
     uint256 amount;
   }
@@ -626,7 +751,7 @@ contract TestHelpers is Test {
         tokenId: params.tokenId,
         lienRequest: IAstariaRouter.NewLienRequest({
           strategy: params.strategyDetails,
-          nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE), // TODO support others?
+          nlrType: params.nlrType,
           nlrDetails: params.validatorDetails,
           merkle: IAstariaRouter.MerkleData({
             root: params.rootHash,

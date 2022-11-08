@@ -11,9 +11,9 @@
 pragma solidity ^0.8.17;
 
 import {IERC165} from "./IERC165.sol";
-import {IVault} from "core/interfaces/IVault.sol";
+import {IVaultImplementation} from "./IVaultImplementation.sol";
 
-interface IPublicVault is IERC165, IVault {
+interface IPublicVault is IVaultImplementation {
   struct EpochData {
     uint64 liensOpenForEpoch;
     address withdrawProxy;

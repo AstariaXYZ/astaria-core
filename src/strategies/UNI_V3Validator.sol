@@ -27,6 +27,8 @@ interface IUNI_V3Validator is IStrategyValidator {
     int24 tickLower;
     int24 tickUpper;
     uint128 minLiquidity;
+    uint256 amount0Min;
+    uint256 amount1Min;
     address borrower;
     ILienToken.Details lien;
   }
@@ -38,19 +40,15 @@ contract UNI_V3Validator is IUNI_V3Validator {
   IV3PositionManager V3_NFT_POSITION_MGR =
     IV3PositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
-  function assembleLeaf(IUNI_V3Validator.Details memory details)
-    public
-    pure
-    returns (bytes memory)
-  {
+  function assembleLeaf(
+    IUNI_V3Validator.Details memory details
+  ) public pure returns (bytes memory) {
     return abi.encode(details);
   }
 
-  function getLeafDetails(bytes memory nlrDetails)
-    public
-    pure
-    returns (IUNI_V3Validator.Details memory)
-  {
+  function getLeafDetails(
+    bytes memory nlrDetails
+  ) public pure returns (IUNI_V3Validator.Details memory) {
     return abi.decode(nlrDetails, (IUNI_V3Validator.Details));
   }
 

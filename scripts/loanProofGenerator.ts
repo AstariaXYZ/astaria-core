@@ -27,6 +27,16 @@ if (detailsType === 0) {
     "uint256",
   ];
 } else if (detailsType === 2) {
+  // uint8 version;
+  //     address token;
+  //     address[] assets;
+  //     uint24 fee;
+  //     int24 tickLower;
+  //     int24 tickUpper;
+  //     uint128 minLiquidity;
+  //     uint256 amount0Min;
+  //     uint256 amount1Min;
+  //     address borrower;
   mapping = [
     "uint8",
     "address",
@@ -35,6 +45,8 @@ if (detailsType === 0) {
     "int24",
     "int24",
     "uint128",
+    "uint256",
+    "uint256",
     "address",
     "uint256",
     "uint256",
@@ -49,6 +61,7 @@ const termData: string[] = defaultAbiCoder
   // @ts-ignore
   .decode(mapping, args.shift())
   .map((x) => {
+    // console.error(x);
     if (x instanceof BigNumber) {
       return x.toString();
     }
@@ -57,12 +70,13 @@ const termData: string[] = defaultAbiCoder
 
 // @ts-ignore
 leaves.push(termData);
+// console.error(leaves);
 //
-const csvOuput: string = leaves.reduce((acc, cur) => {
+const output: string = leaves.reduce((acc, cur) => {
   return acc + cur.join(",") + "\n";
 }, "");
 
-const merkleTree = new StrategyTree(csvOuput);
+const merkleTree = new StrategyTree(output);
 
 const rootHash: string = merkleTree.getHexRoot();
 const proof = merkleTree.getHexProof(merkleTree.getLeaf(0));

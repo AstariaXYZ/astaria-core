@@ -8,7 +8,6 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
@@ -169,9 +168,9 @@ contract WithdrawTest is TestHelpers {
 
     _bid(address(3), collateralId, 5 ether);
     _bid(address(3), collateralId2, 20 ether);
-
     _warpToEpochEnd(publicVault); // epoch boundary
-
+    vm.warp(WithdrawProxy(withdrawProxy).getFinalAuctionEnd());
+    emit log_named_uint("finalAuctioNend", block.timestamp);
     PublicVault(publicVault).processEpoch();
 
     vm.warp(block.timestamp + 13 days);
@@ -294,7 +293,6 @@ contract WithdrawTest is TestHelpers {
 
     ASTARIA_ROUTER.liquidate(collateralId1, uint8(0), stacks[0]);
 
-
     address withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
@@ -305,6 +303,7 @@ contract WithdrawTest is TestHelpers {
 
     _bid(address(3), collateralId1, 20 ether);
 
+    vm.warp(WithdrawProxy(withdrawProxy1).getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch(); // epoch 0 processing
 
     vm.warp(block.timestamp + 14 days);
@@ -332,11 +331,11 @@ contract WithdrawTest is TestHelpers {
       address(1),
       address(1)
     );
-
+    vm.warp(WithdrawProxy(withdrawProxy2).getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch();
 
     PublicVault(publicVault).transferWithdrawReserve();
-    
+
     WithdrawProxy(withdrawProxy2).claim(); // TODO maybe 2
     WithdrawProxy(withdrawProxy2).redeem(
       IERC20(withdrawProxy2).balanceOf(address(2)),
@@ -617,6 +616,7 @@ contract WithdrawTest is TestHelpers {
     );
     WithdrawProxy(withdrawProxy).claim();
 
+    skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch();
 
     assertEq(

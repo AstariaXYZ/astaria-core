@@ -30,15 +30,12 @@ import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
-import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 
-import {IVault} from "core/interfaces/IVault.sol";
-
-import {PublicVault} from "core/PublicVault.sol";
-import {VaultImplementation} from "core/VaultImplementation.sol";
+import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
 import {Pausable} from "core/utils/Pausable.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
 
 /**
  * @title AstariaRouter
@@ -443,7 +440,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       );
   }
 
-  function lendToVault(IVault vault, uint256 amount) external whenNotPaused {
+  function lendToVault(IERC4626 vault, uint256 amount) external whenNotPaused {
     RouterStorage storage s = _loadRouterSlot();
     s.TRANSFER_PROXY.tokenTransferFrom(
       address(s.WETH),
@@ -482,7 +479,8 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
 
     RouterStorage storage s = _loadRouterSlot();
-    uint256[] memory stackAtLiquidation = new uint256[](stack.length);
+    ILienToken.AuctionStack[]
+      memory stackAtLiquidation = new ILienToken.AuctionStack[](stack.length);
     (reserve, stackAtLiquidation) = s.LIEN_TOKEN.stopLiens(
       collateralId,
       s.auctionWindow,
@@ -665,7 +663,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     );
 
     //mutable data
-    VaultImplementation(vaultAddr).init(
+    IVaultImplementation(vaultAddr).init(
       IVaultImplementation.InitParams({
         delegate: delegate,
         allowListEnabled: allowListEnabled,
@@ -697,7 +695,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     }
     //router must be approved for the collateral to take a loan,
     return
-      VaultImplementation(c.lienRequest.strategy.vault).commitToLien(
+      IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
         c,
         address(this)
       );

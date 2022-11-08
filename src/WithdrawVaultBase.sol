@@ -9,11 +9,18 @@
  */
 
 pragma solidity ^0.8.17;
-import {ERC4626Base} from "core/ERC4626Base.sol";
 import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
+import {IERC4626} from "./interfaces/IERC4626.sol";
+import {Clone} from "clones-with-immutable-args/Clone.sol";
 
-abstract contract WithdrawVaultBase is ERC4626Base, IRouterBase {
+abstract contract WithdrawVaultBase is
+  Clone,
+  IERC4626,
+  IRouterBase,
+  IWithdrawProxy
+{
   function name() public view virtual returns (string memory);
 
   function symbol() public view virtual returns (string memory);
@@ -30,13 +37,7 @@ abstract contract WithdrawVaultBase is ERC4626Base, IRouterBase {
     return _getArgAddress(21);
   }
 
-  function underlying()
-    public
-    pure
-    virtual
-    override(ERC4626Base)
-    returns (address)
-  {
+  function asset() public pure virtual override(IERC4626) returns (address) {
     return _getArgAddress(41);
   }
 

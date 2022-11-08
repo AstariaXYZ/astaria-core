@@ -12,8 +12,10 @@ pragma solidity ^0.8.17;
 
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {IAstariaVaultBase} from "./IAstariaVaultBase.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
 
-interface IVaultImplementation {
+interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   enum InvalidRequestReason {
     NO_AUTHORITY,
     INVALID_SIGNATURE,

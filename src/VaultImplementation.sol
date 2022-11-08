@@ -41,6 +41,10 @@ abstract contract VaultImplementation is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
+  function name() public view virtual override returns (string memory);
+
+  function symbol() public view virtual override returns (string memory);
+
   bytes32 constant VI_SLOT =
     keccak256("xyz.astaria.core.VaultImplementation.storage.location");
 
@@ -219,7 +223,7 @@ abstract contract VaultImplementation is
     address receiver
   ) internal view {
     //    if (
-    //      params.lienRequest.amount > ERC20(underlying()).balanceOf(address(this))
+    //      params.lienRequest.amount > ERC20(asset()).balanceOf(address(this))
     //    ) {
     //      revert IVaultImplementation.InvalidRequest(
     //        InvalidRequestReason.INSUFFICIENT_FUNDS
@@ -256,7 +260,9 @@ abstract contract VaultImplementation is
       params.lienRequest.r,
       params.lienRequest.s
     );
-    if (recovered != owner() && recovered != s.delegate) {
+    if (
+      recovered != owner() && recovered != s.delegate && recovered != address(0)
+    ) {
       revert IVaultImplementation.InvalidRequest(
         InvalidRequestReason.INVALID_SIGNATURE
       );
@@ -331,7 +337,7 @@ abstract contract VaultImplementation is
       .LIEN_TOKEN()
       .getBuyout(stack[position]);
 
-    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
+    if (buyout > ERC20(asset()).balanceOf(address(this))) {
       revert IVaultImplementation.InvalidRequest(
         InvalidRequestReason.INSUFFICIENT_FUNDS
       );
@@ -339,7 +345,7 @@ abstract contract VaultImplementation is
 
     _validateCommitment(incomingTerms, recipient());
 
-    ERC20(underlying()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
+    ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
     LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
@@ -393,7 +399,7 @@ abstract contract VaultImplementation is
     _validateCommitment(c, receiver);
     (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
     uint256 payout = _handleProtocolFee(c.lienRequest.amount);
-    ERC20(underlying()).safeTransfer(receiver, payout);
+    ERC20(asset()).safeTransfer(receiver, payout);
   }
 
   function _handleProtocolFee(uint256 amount) internal returns (uint256) {
@@ -405,7 +411,7 @@ abstract contract VaultImplementation is
       unchecked {
         amount -= fee;
       }
-      ERC20(underlying()).safeTransfer(feeTo, fee);
+      ERC20(asset()).safeTransfer(feeTo, fee);
     }
     return amount;
   }

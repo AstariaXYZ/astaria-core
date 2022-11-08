@@ -27,46 +27,53 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {LienToken} from "core/LienToken.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
+import {IERC4626} from "./interfaces/IERC4626.sol";
 
 /**
  * @title Vault
  */
-contract Vault is AstariaVaultBase, VaultImplementation, IVault {
+contract Vault is AstariaVaultBase, VaultImplementation {
   using SafeTransferLib for ERC20;
 
-  function name() public view override returns (string memory) {
-    return string(abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol()));
-  }
-
-  function symbol() public view override returns (string memory) {
-    return
-      string(
-        abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol())
-      );
-  }
-
-  function deposit(uint256 amount, address receiver)
+  function name()
     public
+    view
     virtual
-    override
-    returns (uint256)
+    override(AstariaVaultBase, VaultImplementation)
+    returns (string memory)
   {
+    return string(abi.encodePacked("AST-Vault-", ERC20(asset()).symbol()));
+  }
+
+  function symbol()
+    public
+    view
+    virtual
+    override(AstariaVaultBase, VaultImplementation)
+    returns (string memory)
+  {
+    return
+      string(abi.encodePacked("AST-V", owner(), "-", ERC20(asset()).symbol()));
+  }
+
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure virtual returns (bool) {
+    return false;
+  }
+
+  function deposit(
+    uint256 amount,
+    address receiver
+  ) public virtual returns (uint256) {
     VIData storage s = _loadVISlot();
     require(s.allowList[msg.sender]);
-    ERC20(underlying()).safeTransferFrom(
-      address(msg.sender),
-      address(this),
-      amount
-    );
+    ERC20(asset()).safeTransferFrom(address(msg.sender), address(this), amount);
     return amount;
   }
 
   function withdraw(uint256 amount) external {
-    ERC20(underlying()).safeTransferFrom(
-      address(this),
-      address(msg.sender),
-      amount
-    );
+    ERC20(asset()).safeTransferFrom(address(this), address(msg.sender), amount);
   }
 
   function disableAllowList() external pure override(VaultImplementation) {
@@ -79,11 +86,10 @@ contract Vault is AstariaVaultBase, VaultImplementation, IVault {
     revert();
   }
 
-  function modifyAllowList(address depositor, bool enabled)
-    external
-    pure
-    override(VaultImplementation)
-  {
+  function modifyAllowList(
+    address depositor,
+    bool enabled
+  ) external pure override(VaultImplementation) {
     //invalid action private vautls can only be the owner or strategist
     revert();
   }

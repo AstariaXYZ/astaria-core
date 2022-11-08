@@ -25,7 +25,7 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {VaultImplementation} from "../VaultImplementation.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
@@ -192,7 +192,7 @@ contract AstariaTest is TestHelpers {
     );
     vm.stopPrank();
     assertEq(
-      ERC20(PublicVault(publicVault).underlying()).balanceOf(address(1)),
+      ERC20(PublicVault(publicVault).asset()).balanceOf(address(1)),
       50 ether
     );
   }
@@ -331,7 +331,7 @@ contract AstariaTest is TestHelpers {
 
     _bid(address(2), collateralId, 33 ether);
 
-    skip(1 days); // epoch boundary
+    skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd()); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
 
@@ -541,7 +541,7 @@ contract AstariaTest is TestHelpers {
     _repay(stack1, 0, 100 ether, address(this));
     _warpToEpochEnd(publicVault);
     //after epoch end
-    uint256 balance = ERC20(PublicVault(publicVault).underlying()).balanceOf(
+    uint256 balance = ERC20(PublicVault(publicVault).asset()).balanceOf(
       publicVault
     );
     PublicVault(publicVault).processEpoch();
@@ -593,6 +593,78 @@ contract AstariaTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _bid(address(2), collateralId, 10 ether);
     _cancelAuction(collateralId, address(this));
+  }
+
+  function testAuctionEnd() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    //    mintAndDeposit(address(nft), uint256(5));
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 100 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    vm.warp(block.timestamp + 11 days);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    _bid(address(2), collateralId, 10 ether);
+    skip(4 days);
+    ASTARIA_ROUTER.endAuction(collateralId);
+    assertEq(nft.ownerOf(tokenId), address(2), "the owner is not the bidder");
+  }
+
+  function testAuctionEndNoBids() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    //    mintAndDeposit(address(nft), uint256(5));
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 100 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    vm.warp(block.timestamp + 11 days);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    skip(4 days);
+    ASTARIA_ROUTER.endAuction(collateralId);
+    PublicVault(publicVault).processEpoch();
+    assertEq(
+      nft.ownerOf(tokenId),
+      address(this),
+      "the owner is not the bidder"
+    );
   }
 
   function _cancelAuction(uint256 auctionId, address sender) internal {

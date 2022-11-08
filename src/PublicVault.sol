@@ -20,7 +20,9 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {ITokenBase} from "core/interfaces/ITokenBase.sol";
-import {ERC4626Base} from "core/ERC4626Base.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
+import {IERC20} from "core/interfaces/IERC20.sol";
+import {ERC20Cloned} from "gpl/ERC20-Cloned.sol";
 
 import {
   ClonesWithImmutableArgs
@@ -38,6 +40,7 @@ import {Math} from "./utils/Math.sol";
 import {IPublicVault} from "./interfaces/IPublicVault.sol";
 import {Vault} from "./Vault.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
+import "./interfaces/IERC4626.sol";
 
 /*
  * @title PublicVault
@@ -52,14 +55,44 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   bytes32 constant PUBLIC_VAULT_SLOT =
     keccak256("xyz.astaria.core.PublicVault.storage.location");
 
-  function underlying()
+  function asset()
     public
     pure
     virtual
-    override(ERC4626Base, AstariaVaultBase)
+    override(AstariaVaultBase, ERC4626Cloned)
     returns (address)
   {
-    return super.underlying();
+    return super.asset();
+  }
+
+  function decimals()
+    public
+    pure
+    virtual
+    override(IERC20Metadata)
+    returns (uint8)
+  {
+    return 18;
+  }
+
+  function name()
+    public
+    view
+    virtual
+    override(IERC20Metadata, Vault)
+    returns (string memory)
+  {
+    return super.name();
+  }
+
+  function symbol()
+    public
+    view
+    virtual
+    override(IERC20Metadata, Vault)
+    returns (string memory)
+  {
+    return super.symbol();
   }
 
   /**
@@ -73,7 +106,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 shares,
     address receiver,
     address owner
-  ) public virtual override returns (uint256 assets) {
+  ) public virtual override(ERC4626Cloned) returns (uint256 assets) {
     VaultData storage s = _loadStorageSlot();
     assets = redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
   }
@@ -82,7 +115,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 assets,
     address receiver,
     address owner
-  ) public virtual override returns (uint256 shares) {
+  ) public virtual override(ERC4626Cloned) returns (uint256 shares) {
     shares = previewWithdraw(assets);
     VaultData storage s = _loadStorageSlot();
 
@@ -95,7 +128,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     address owner,
     uint64 epoch
   ) public virtual returns (uint256 assets) {
-    // check to ensure that the requested epoch is not the current epoch or in the past
+    // check to ensure that the requested epoch is not in the past
     require(msg.sender == owner);
     VaultData storage s = _loadStorageSlot();
 
@@ -152,9 +185,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return s.yIntercept;
   }
 
-  function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
-    internal
-  {
+  function _deployWithdrawProxyIfNotDeployed(
+    VaultData storage s,
+    uint64 epoch
+  ) internal {
     if (s.epochData[epoch].withdrawProxy == address(0)) {
       s.epochData[epoch].withdrawProxy = ClonesWithImmutableArgs.clone(
         IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
@@ -162,7 +196,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           address(ROUTER()), // router is the beacon
           uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
           address(this), // owner
-          underlying(), // token
+          asset(), // token
           address(this), // vault
           epoch + 1 // claimable epoch
         )
@@ -170,17 +204,32 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
+  function mint(
+    uint256 shares,
+    address receiver
+  ) public override(ERC4626Cloned) whenNotPaused returns (uint256) {
+    VIData storage s = _loadVISlot();
+    if (s.allowListEnabled) {
+      require(s.allowList[receiver]);
+    }
+
+    uint256 assets = totalAssets();
+    if (s.depositCap != 0 && assets >= s.depositCap) {
+      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+    }
+
+    return super.mint(shares, receiver);
+  }
+
   /**
    * @notice Deposit funds into the PublicVault.
    * @param amount The amount of funds to deposit.
    * @param receiver The receiver of the resulting VaultToken shares.
    */
-  function deposit(uint256 amount, address receiver)
-    public
-    override(IVault, Vault, ERC4626Cloned)
-    whenNotPaused
-    returns (uint256)
-  {
+  function deposit(
+    uint256 amount,
+    address receiver
+  ) public override(Vault, ERC4626Cloned) whenNotPaused returns (uint256) {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
@@ -291,15 +340,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function supportsInterface(bytes4 interfaceId)
-    public
-    pure
-    override(IERC165)
-    returns (bool)
-  {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure override(IERC165, Vault) returns (bool) {
     return
       interfaceId == type(IPublicVault).interfaceId ||
-      interfaceId == type(IVault).interfaceId ||
       interfaceId == type(ERC4626Cloned).interfaceId ||
       interfaceId == type(ERC4626).interfaceId ||
       interfaceId == type(ERC20).interfaceId ||
@@ -311,24 +356,26 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     if (s.currentEpoch > uint64(0)) {
       // check the available balance to be withdrawn
-      uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
 
-      // prevent transfer of more assets then are available
-      if (s.withdrawReserve <= withdrawBalance) {
-        withdrawBalance = s.withdrawReserve;
-        s.withdrawReserve = 0;
-      } else {
-        unchecked {
-          s.withdrawReserve -= uint88(withdrawBalance);
-        }
-      }
       address currentWithdrawProxy = s
         .epochData[s.currentEpoch - 1]
         .withdrawProxy;
       // prevents transfer to a non-existent WithdrawProxy
       // withdrawProxies are indexed by the epoch where they're deployed
       if (currentWithdrawProxy != address(0)) {
-        ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+        uint256 withdrawBalance = ERC20(asset()).balanceOf(address(this));
+
+        // prevent transfer of more assets then are available
+        if (s.withdrawReserve <= withdrawBalance) {
+          withdrawBalance = s.withdrawReserve;
+          s.withdrawReserve = 0;
+        } else {
+          unchecked {
+            s.withdrawReserve -= uint88(withdrawBalance);
+          }
+        }
+
+        ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
         WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
           withdrawBalance
         );
@@ -421,13 +468,25 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @notice Computes the implied value of this PublicVault. This includes interest payments that have not yet been made.
    * @return The implied value for this PublicVault.
    */
-  function totalAssets() public view virtual override returns (uint256) {
+  function totalAssets()
+    public
+    view
+    virtual
+    override(ERC4626Cloned)
+    returns (uint256)
+  {
     VaultData storage s = _loadStorageSlot();
     uint256 delta_t = block.timestamp - s.last;
     return uint256(s.slope).mulDivDown(delta_t, 1) + uint256(s.yIntercept);
   }
 
-  function totalSupply() public view virtual override returns (uint256) {
+  function totalSupply()
+    public
+    view
+    virtual
+    override(IERC20, ERC20Cloned)
+    returns (uint256)
+  {
     return
       _loadERC20Slot()._totalSupply +
       _loadStorageSlot().strategistUnclaimedShares;
@@ -493,11 +552,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param assets The amount of assets deposited to the PublicVault.
    * @param shares The resulting amount of VaultToken shares that were issued.
    */
-  function afterDeposit(uint256 assets, uint256 shares)
-    internal
-    virtual
-    override
-  {
+  function afterDeposit(
+    uint256 assets,
+    uint256 shares
+  ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {

@@ -12,7 +12,7 @@ pragma solidity ^0.8.17;
 
 import {IERC721} from "core/interfaces/IERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-import {IVault} from "gpl/ERC4626-Cloned.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
@@ -20,6 +20,7 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {IPausable} from "core/utils/Pausable.sol";
 import {IBeacon} from "./IBeacon.sol";
+import "./IERC4626.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
   struct RouterStorage {
@@ -180,7 +181,7 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param vault The address of the PublicVault.
    * @param amount The amount to lend.
    */
-  function lendToVault(IVault vault, uint256 amount) external;
+  function lendToVault(IERC4626 vault, uint256 amount) external;
 
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.

@@ -81,10 +81,9 @@ interface ILienToken is IERC721 {
    * @param lien The Lien
    * @return lienId the lienId if valid otherwise reverts
    */
-  function validateLien(Lien calldata lien)
-    external
-    view
-    returns (uint256 lienId);
+  function validateLien(
+    Lien calldata lien
+  ) external view returns (uint256 lienId);
 
   function AUCTION_HOUSE() external view returns (IAuctionHouse);
 
@@ -97,9 +96,9 @@ interface ILienToken is IERC721 {
    * @param stack The Lien to compute the slope for.
    * @return slope The rate for the specified lien, in WETH per second.
    */
-  function calculateSlope(Stack calldata stack)
-    external
-    returns (uint256 slope);
+  function calculateSlope(
+    Stack calldata stack
+  ) external returns (uint256 slope);
 
   /**
    * @notice Stops accruing interest for all liens against a single CollateralToken.
@@ -109,25 +108,26 @@ interface ILienToken is IERC721 {
     uint256 collateralId,
     uint256 auctionWindow,
     ILienToken.Stack[] memory stack
-  ) external returns (uint256 reserve, uint256[] memory);
+  ) external returns (uint256 reserve, AuctionStack[] memory);
 
   /**
    * @notice Computes and returns the buyout amount for a Lien.
    * @param stack the lien
    * @return The outstanding debt for the lien and the buyout amount for the Lien.
    */
-  function getBuyout(Stack calldata stack)
-    external
-    view
-    returns (uint256, uint256);
+  function getBuyout(
+    Stack calldata stack
+  ) external view returns (uint256, uint256);
 
   /**
    * @notice Removes all liens for a given CollateralToken.
    * @param collateralId The ID for the underlying CollateralToken.
    * @param remainingLiens The IDs for the unpaid liens
    */
-  function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
-    external;
+  function removeLiens(
+    uint256 collateralId,
+    AuctionStack[] memory remainingLiens
+  ) external;
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -142,10 +142,10 @@ interface ILienToken is IERC721 {
    * @param timestamp the timestamp you want to inquire about
    * @return the amount owed in uint192
    */
-  function getOwed(Stack calldata stack, uint256 timestamp)
-    external
-    view
-    returns (uint192);
+  function getOwed(
+    Stack calldata stack,
+    uint256 timestamp
+  ) external view returns (uint192);
 
   /**
    * @notice Public view function that computes the interest for a LienToken since its last payment.
@@ -157,57 +157,56 @@ interface ILienToken is IERC721 {
    * @notice Retrieves a lienCount for specific collateral
    * @param collateralId the Lien to compute a point for
    */
-  function getCollateralState(uint256 collateralId)
-    external
-    view
-    returns (bytes32);
+  function getCollateralState(
+    uint256 collateralId
+  ) external view returns (bytes32);
 
   /**
    * @notice Retrieves a specific point by its lienId.
    * @param stack the Lien to compute a point for
    */
-  function getAmountOwingAtLiquidation(ILienToken.Stack calldata stack)
-    external
-    view
-    returns (uint256);
+  function getAmountOwingAtLiquidation(
+    ILienToken.Stack calldata stack
+  ) external view returns (uint256);
 
   /**
    * @notice Retrieves a specific point by its lienId.
    * @param lienId the ID to get the point for
    */
-  function getAmountOwingAtLiquidation(uint256 lienId)
-    external
-    view
-    returns (uint256);
+  function getAmountOwingAtLiquidation(
+    uint256 lienId
+  ) external view returns (uint256);
 
   /**
    * @notice Creates a new lien against a CollateralToken.
    * @param params LienActionEncumber data containing CollateralToken information and lien parameters (rate, duration, and amount, rate, and debt caps).
    */
-  function createLien(LienActionEncumber memory params)
-    external
-    returns (
-      uint256 lienId,
-      Stack[] memory stack,
-      uint256 slope
-    );
+  function createLien(
+    LienActionEncumber memory params
+  ) external returns (uint256 lienId, Stack[] memory stack, uint256 slope);
 
   /**
    * @notice Purchase a LienToken for its buyout price.
    * @param params The LienActionBuyout data specifying the lien position, receiver address, and underlying CollateralToken information of the lien.
    */
-  function buyoutLien(LienActionBuyout memory params)
-    external
-    returns (Stack[] memory, Stack memory);
+  function buyoutLien(
+    LienActionBuyout memory params
+  ) external returns (Stack[] memory, Stack memory);
 
   /**
    * @notice Make a payment for the debt against a CollateralToken.
    * @param stack the stack to pay against
    * @param amount The amount to pay against the debt.
    */
-  function makePayment(Stack[] memory stack, uint256 amount)
-    external
-    returns (Stack[] memory newStack);
+  function makePayment(
+    Stack[] memory stack,
+    uint256 amount
+  ) external returns (Stack[] memory newStack);
+
+  struct AuctionStack {
+    uint256 lienId;
+    uint40 end;
+  }
 
   /**
    * @notice Make a payment for the debt against a CollateralToken for a specific lien.
@@ -218,16 +217,15 @@ interface ILienToken is IERC721 {
    * @return the amount of the payment that was applied to the lien
    */
   function makePaymentAuctionHouse(
-    uint256[] memory stack,
+    AuctionStack[] memory stack,
     uint256 collateralId,
     uint256 paymentAmount,
     address payer
-  ) external returns (uint256[] memory, uint256);
+  ) external returns (ILienToken.AuctionStack[] memory, uint256);
 
-  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory)
-    external
-    view
-    returns (uint256);
+  function getMaxPotentialDebtForCollateral(
+    ILienToken.Stack[] memory
+  ) external view returns (uint256);
 
   /**
    * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.
@@ -283,6 +281,7 @@ interface ILienToken is IERC721 {
     COLLATERAL_AUCTION,
     COLLATERAL_NOT_DEPOSITED,
     LIEN_NO_DEBT,
+    EXPIRED_LIEN,
     DEBT_LIMIT,
     MAX_LIENS
   }

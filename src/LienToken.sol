@@ -190,10 +190,15 @@ contract LienToken is ERC721, ILienToken, Auth {
       if (i == position) {
         newStack[i] = newLien;
         _burn(oldLienId);
+        delete s.lienMeta[oldLienId];
+        IPublicVault(stack[i].lien.vault).decreaseEpochLienCount(
+          stack[i].point.end
+        );
       } else {
         newStack[i] = stack[i];
       }
     }
+
     emit LienStackUpdated(
       stack[0].lien.collateralId,
       StackAction.REPLACE,
@@ -240,7 +245,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     external
     validateStack(collateralId, stack)
     requiresAuth
-    returns (uint256 reserve, uint256[] memory lienIds)
+    returns (uint256 reserve, AuctionStack[] memory lienIds)
   {
     (reserve, lienIds) = _stopLiens(
       _loadLienStorageSlot(),
@@ -255,27 +260,25 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 collateralId,
     uint256 auctionWindow,
     Stack[] calldata stack
-  ) internal returns (uint256 reserve, uint256[] memory lienIds) {
+  ) internal returns (uint256 reserve, AuctionStack[] memory lienIds) {
     reserve = 0;
-    lienIds = new uint256[](stack.length);
+    lienIds = new AuctionStack[](stack.length);
 
     for (uint256 i = 0; i < stack.length; ++i) {
-      lienIds[i] = stack[i].point.lienId;
+      lienIds[i].lienId = stack[i].point.lienId;
+      lienIds[i].end = stack[i].point.end;
+
       uint88 owed;
       unchecked {
         owed = _getOwed(stack[i], block.timestamp);
         reserve += owed;
         s.lienMeta[stack[i].point.lienId].amountAtLiquidation = owed;
       }
-      if (
-        IPublicVault(_getPayee(s, lienIds[i])).supportsInterface(
-          type(IPublicVault).interfaceId
-        )
-      ) {
+      address payee = _getPayee(s, lienIds[i].lienId);
+      if (_isPublicVault(s, payee)) {
         // update the public vault state and get the liquidation accountant back if any
-        address withdrawProxyIfNearBoundary = IPublicVault(
-          _getPayee(s, lienIds[i])
-        ).updateVaultAfterLiquidation(
+        address withdrawProxyIfNearBoundary = IPublicVault(payee)
+          .updateVaultAfterLiquidation(
             auctionWindow,
             IPublicVault.AfterLiquidationParams({
               lienSlope: calculateSlope(stack[i]),
@@ -285,7 +288,7 @@ contract LienToken is ERC721, ILienToken, Auth {
           );
 
         if (withdrawProxyIfNearBoundary != address(0)) {
-          _setPayee(s, lienIds[i], withdrawProxyIfNearBoundary);
+          _setPayee(s, lienIds[i].lienId, withdrawProxyIfNearBoundary);
         }
       }
     }
@@ -385,9 +388,12 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     Stack[] memory stack,
     Stack memory newSlot
-  ) internal pure returns (Stack[] memory newStack) {
+  ) internal view returns (Stack[] memory newStack) {
     newStack = new Stack[](stack.length + 1);
     for (uint256 i = 0; i < stack.length; ++i) {
+      if (stack[i].point.end > block.timestamp) {
+        revert InvalidState(InvalidStates.EXPIRED_LIEN);
+      }
       newStack[i] = stack[i];
     }
     newStack[stack.length] = newSlot;
@@ -395,21 +401,20 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function removeLiens(
     uint256 collateralId,
-    uint256[] memory remainingLiens
+    AuctionStack[] memory remainingLiens
   ) external requiresAuth {
     LienStorage storage s = _loadLienStorageSlot();
     for (uint256 i = 0; i < remainingLiens.length; i++) {
-      address owner = ownerOf(remainingLiens[i]);
-      if (
-        IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
-      ) {
+      address owner = ownerOf(remainingLiens[i].lienId);
+      address payee = _getPayee(s, remainingLiens[i].lienId);
+      if (_isPublicVault(s, owner) && payee == owner) {
         IPublicVault(owner).decreaseYIntercept(
-          s.lienMeta[remainingLiens[i]].amountAtLiquidation
+          s.lienMeta[remainingLiens[i].lienId].amountAtLiquidation
         );
       }
 
-      delete s.lienMeta[remainingLiens[i]];
-      _burn(remainingLiens[i]); //burn the underlying lien associated
+      delete s.lienMeta[remainingLiens[i].lienId];
+      _burn(remainingLiens[i].lienId); //burn the underlying lien associated
     }
     delete s.collateralStateHash[collateralId];
     emit RemovedLiens(collateralId);
@@ -486,11 +491,15 @@ contract LienToken is ERC721, ILienToken, Auth {
   }
 
   function makePaymentAuctionHouse(
-    uint256[] memory stack,
+    AuctionStack[] memory stack,
     uint256 collateralId,
     uint256 payment,
     address payer
-  ) external requiresAuth returns (uint256[] memory outStack, uint256 spent) {
+  )
+    external
+    requiresAuth
+    returns (AuctionStack[] memory outStack, uint256 spent)
+  {
     spent = 0;
     outStack = stack;
     LienStorage storage s = _loadLienStorageSlot();
@@ -515,12 +524,13 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function _paymentAH(
     LienStorage storage s,
-    uint256[] memory stack,
+    AuctionStack[] memory stack,
     uint256 collateralId,
     uint256 payment,
     address payer
-  ) internal returns (uint256[] memory, uint256) {
-    uint256 lienId = stack[0];
+  ) internal returns (AuctionStack[] memory, uint256) {
+    uint256 lienId = stack[0].lienId;
+    uint end = stack[0].end;
     //checks the lien exists
     address payee = _getPayee(s, lienId);
 
@@ -531,7 +541,13 @@ contract LienToken is ERC721, ILienToken, Auth {
       payment = s.lienMeta[lienId].amountAtLiquidation;
       delete s.lienMeta[lienId]; //full delete
       _burn(lienId);
-      uint256[] memory newStack = new uint256[](stack.length - 1);
+      AuctionStack[] memory newStack = new AuctionStack[](stack.length - 1);
+
+      if (_isPublicVault(s, payee)) {
+        IPublicVault(payee).decreaseEpochLienCount(
+          IPublicVault(payee).getLienEpoch(uint64(end))
+        );
+      }
 
       for (uint256 i = 1; i < stack.length; i++) {
         newStack[i - 1] = stack[i];
@@ -669,7 +685,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 owed = _getOwed(activeStack[position], block.timestamp);
 
     address lienOwner = ownerOf(lienId);
-    bool isPublicVault = _isPublicVault(lienOwner);
+    bool isPublicVault = _isPublicVault(s, lienOwner);
 
     address payee = _getPayee(s, lienId);
 
@@ -740,8 +756,12 @@ contract LienToken is ERC721, ILienToken, Auth {
     );
   }
 
-  function _isPublicVault(address account) internal view returns (bool) {
+  function _isPublicVault(
+    LienStorage storage s,
+    address account
+  ) internal view returns (bool) {
     return
+      s.ASTARIA_ROUTER.isValidVault(account) &&
       IPublicVault(account).supportsInterface(type(IPublicVault).interfaceId);
   }
 
