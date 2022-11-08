@@ -871,13 +871,15 @@ contract TestHelpers is Test, IERC721Receiver {
       epoch: epoch
     });
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(epoch);
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      epoch
+    );
     assertEq(
-      IERC20(withdrawProxy).balanceOf(lender),
+      withdrawProxy.balanceOf(lender),
       vaultTokenBalance,
       "Incorrect number of WithdrawTokens minted"
     );
-    ERC20(withdrawProxy).safeApprove(address(this), type(uint256).max);
+    ERC20(address(withdrawProxy)).safeApprove(address(this), type(uint256).max);
     vm.stopPrank();
   }
 

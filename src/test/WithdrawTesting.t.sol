@@ -93,12 +93,10 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
     PublicVault(publicVault).transferWithdrawReserve();
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
-      WithdrawProxy(withdrawProxy).previewRedeem(
-        ERC20(withdrawProxy).balanceOf(address(1))
-      ),
+      withdrawProxy.previewRedeem(withdrawProxy.balanceOf(address(1))),
       0
     );
   }
@@ -157,31 +155,31 @@ contract WithdrawTest is TestHelpers {
 
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       PublicVault(publicVault).getCurrentEpoch()
     );
 
-    vm.warp(block.timestamp + 14 days);
+    skip(14 days);
 
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack1);
     ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stack2); // TODO test this
 
     _bid(address(3), collateralId, 5 ether);
     _bid(address(3), collateralId2, 20 ether);
-    _warpToEpochEnd(publicVault); // epoch boundary
-    vm.warp(WithdrawProxy(withdrawProxy).getFinalAuctionEnd());
-    emit log_named_uint("finalAuctioNend", block.timestamp);
+    //    _warpToEpochEnd(publicVault); // epoch boundary
+    vm.warp(withdrawProxy.getFinalAuctionEnd());
+    emit log_named_uint("finalAuctionEnd", block.timestamp);
     PublicVault(publicVault).processEpoch();
 
-    vm.warp(block.timestamp + 13 days);
+    skip(13 days);
 
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
 
     PublicVault(publicVault).transferWithdrawReserve();
 
     vm.startPrank(address(1));
-    WithdrawProxy(withdrawProxy).redeem(
-      IERC20(withdrawProxy).balanceOf(address(1)),
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
       address(1),
       address(1)
     );
@@ -192,13 +190,14 @@ contract WithdrawTest is TestHelpers {
       PublicVault(publicVault).getCurrentEpoch()
     );
 
-    _warpToEpochEnd(publicVault);
+    //    _warpToEpochEnd(publicVault);
+    uint256 finalAuctionEnd = withdrawProxy.getFinalAuctionEnd();
 
     PublicVault(publicVault).processEpoch();
     PublicVault(publicVault).transferWithdrawReserve();
     vm.startPrank(address(2));
-    WithdrawProxy(withdrawProxy).redeem(
-      IERC20(withdrawProxy).balanceOf(address(2)),
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(2)),
       address(2),
       address(2)
     );
@@ -293,17 +292,17 @@ contract WithdrawTest is TestHelpers {
 
     ASTARIA_ROUTER.liquidate(collateralId1, uint8(0), stacks[0]);
 
-    address withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
+    WithdrawProxy withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
       LIEN_TOKEN.getPayee(lienId1),
-      withdrawProxy1,
+      address(withdrawProxy1),
       "First lien not pointing to first WithdrawProxy"
     );
 
     _bid(address(3), collateralId1, 20 ether);
 
-    vm.warp(WithdrawProxy(withdrawProxy1).getFinalAuctionEnd());
+    vm.warp(withdrawProxy1.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch(); // epoch 0 processing
 
     vm.warp(block.timestamp + 14 days);
@@ -312,11 +311,11 @@ contract WithdrawTest is TestHelpers {
 
     ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stacks[1]);
 
-    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
+    WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
 
     assertEq(
       LIEN_TOKEN.getPayee(lienId2),
-      withdrawProxy2,
+      address(withdrawProxy2),
       "Second lien not pointing to second WithdrawProxy"
     );
 
@@ -324,21 +323,21 @@ contract WithdrawTest is TestHelpers {
 
     PublicVault(publicVault).transferWithdrawReserve();
 
-    WithdrawProxy(withdrawProxy1).claim();
+    withdrawProxy1.claim();
 
-    WithdrawProxy(withdrawProxy1).redeem(
-      IERC20(withdrawProxy1).balanceOf(address(1)),
+    withdrawProxy1.redeem(
+      withdrawProxy1.balanceOf(address(1)),
       address(1),
       address(1)
     );
-    vm.warp(WithdrawProxy(withdrawProxy2).getFinalAuctionEnd());
+    vm.warp(withdrawProxy2.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch();
 
     PublicVault(publicVault).transferWithdrawReserve();
 
-    WithdrawProxy(withdrawProxy2).claim(); // TODO maybe 2
-    WithdrawProxy(withdrawProxy2).redeem(
-      IERC20(withdrawProxy2).balanceOf(address(2)),
+    withdrawProxy2.claim(); // TODO maybe 2
+    withdrawProxy2.redeem(
+      withdrawProxy2.balanceOf(address(2)),
       address(2),
       address(2)
     );
@@ -348,12 +347,12 @@ contract WithdrawTest is TestHelpers {
       "PublicVault should have 0 assets"
     );
     assertEq(
-      WETH9.balanceOf(PublicVault(publicVault).getWithdrawProxy(0)),
+      WETH9.balanceOf(address(PublicVault(publicVault).getWithdrawProxy(0))),
       0,
       "WithdrawProxy 0 should have 0 assets"
     );
     assertEq(
-      WETH9.balanceOf(PublicVault(publicVault).getWithdrawProxy(1)),
+      WETH9.balanceOf(address(PublicVault(publicVault).getWithdrawProxy(1))),
       0,
       "WithdrawProxy 1 should have 0 assets"
     );
@@ -491,12 +490,15 @@ contract WithdrawTest is TestHelpers {
       "PublicVault yIntercept calculation incorrect"
     );
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
-    assertTrue(WETH9.balanceOf(withdrawProxy) != 0, "WITHDRAWPROXY IS 0");
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    assertTrue(
+      WETH9.balanceOf(address(withdrawProxy)) != 0,
+      "WITHDRAWPROXY IS 0"
+    );
 
     vm.startPrank(address(1));
-    WithdrawProxy(withdrawProxy).redeem(
-      IERC20(withdrawProxy).balanceOf(address(1)),
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
       address(1),
       address(1)
     );
@@ -522,13 +524,16 @@ contract WithdrawTest is TestHelpers {
     );
 
     // WithdrawProxy(withdrawProxy).claim();
-    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
-    WithdrawProxy(withdrawProxy2).claim();
-    assertTrue(WETH9.balanceOf(withdrawProxy2) != 0, "WITHDRAWPROXY 2 IS 0");
+    WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
+    withdrawProxy2.claim();
+    assertTrue(
+      WETH9.balanceOf(address(withdrawProxy2)) != 0,
+      "WITHDRAWPROXY 2 IS 0"
+    );
 
     vm.startPrank(address(3));
-    WithdrawProxy(withdrawProxy2).redeem(
-      IERC20(withdrawProxy2).balanceOf(address(3)),
+    withdrawProxy2.redeem(
+      withdrawProxy2.balanceOf(address(3)),
       address(3),
       address(3)
     );
@@ -594,7 +599,7 @@ contract WithdrawTest is TestHelpers {
 
     _bid(address(3), collateralId1, 20 ether);
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -602,7 +607,7 @@ contract WithdrawTest is TestHelpers {
         WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
 
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
     ASTARIA_ROUTER.liquidate(collateralId2, 0, stacks[1]);
@@ -614,9 +619,9 @@ contract WithdrawTest is TestHelpers {
         WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
 
-    skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd());
+    skip(withdrawProxy.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch();
 
     assertEq(
@@ -635,14 +640,14 @@ contract WithdrawTest is TestHelpers {
       "Incorrect PublicVault withdrawRatio calculation after epoch 0"
     );
 
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
     PublicVault(publicVault).transferWithdrawReserve();
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault balance not 0");
 
     vm.startPrank(address(1));
-    WithdrawProxy(withdrawProxy).redeem(
-      IERC20(withdrawProxy).balanceOf(address(1)),
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
       address(1),
       address(1)
     );
@@ -714,9 +719,9 @@ contract WithdrawTest is TestHelpers {
     );
 
     PublicVault(publicVault).transferWithdrawReserve();
-    address withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
-    WithdrawProxy(withdrawProxy1).redeem(
-      IERC20(withdrawProxy1).balanceOf(address(1)),
+    WithdrawProxy withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
+    withdrawProxy1.redeem(
+      withdrawProxy1.balanceOf(address(1)),
       address(1),
       address(1)
     );
@@ -780,9 +785,9 @@ contract WithdrawTest is TestHelpers {
       "Incorrect PublicVault withdrawReserve calculation after epoch 1"
     );
     PublicVault(publicVault).transferWithdrawReserve();
-    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
-    WithdrawProxy(withdrawProxy2).redeem(
-      IERC20(withdrawProxy2).balanceOf(address(2)),
+    WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
+    withdrawProxy2.redeem(
+      withdrawProxy2.balanceOf(address(2)),
       address(2),
       address(2)
     );

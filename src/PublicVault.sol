@@ -149,10 +149,10 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
   }
 
-  function getWithdrawProxy(uint64 epoch) public view returns (address) {
+  function getWithdrawProxy(uint64 epoch) public view returns (WithdrawProxy) {
     VaultData storage s = _loadStorageSlot();
 
-    return s.epochData[epoch].withdrawProxy;
+    return WithdrawProxy(s.epochData[epoch].withdrawProxy);
   }
 
   function getCurrentEpoch() public view returns (uint64) {
@@ -262,13 +262,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       revert InvalidState(InvalidStates.WITHDRAW_RESERVE_NOT_ZERO);
     }
 
-    address currentWithdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
+    WithdrawProxy currentWithdrawProxy = WithdrawProxy(
+      s.epochData[s.currentEpoch].withdrawProxy
+    );
 
-    if (currentWithdrawProxy != address(0)) {
-      if (
-        WithdrawProxy(currentWithdrawProxy).getFinalAuctionEnd() >
-        block.timestamp
-      ) {
+    if (address(currentWithdrawProxy) != address(0)) {
+      if (currentWithdrawProxy.getFinalAuctionEnd() > block.timestamp) {
         revert InvalidState(
           InvalidStates.LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN
         );
@@ -277,14 +276,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     // split funds from previous WithdrawProxy with PublicVault if hasn't been already
     if (s.currentEpoch != 0) {
-      address previousWithdrawProxy = s
-        .epochData[s.currentEpoch - 1]
-        .withdrawProxy;
+      WithdrawProxy previousWithdrawProxy = WithdrawProxy(
+        s.epochData[s.currentEpoch - 1].withdrawProxy
+      );
       if (
-        previousWithdrawProxy != address(0) &&
-        WithdrawProxy(previousWithdrawProxy).getFinalAuctionEnd() != 0
+        address(previousWithdrawProxy) != address(0) &&
+        previousWithdrawProxy.getFinalAuctionEnd() != 0
       ) {
-        WithdrawProxy(previousWithdrawProxy).claim();
+        previousWithdrawProxy.claim();
       }
     }
 
@@ -296,9 +295,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     s.liquidationWithdrawRatio = 0;
 
     // check if there are LPs withdrawing this epoch
-    address withdrawProxy = getWithdrawProxy(s.currentEpoch);
-    if ((withdrawProxy != address(0))) {
-      uint256 proxySupply = WithdrawProxy(withdrawProxy).totalSupply();
+    if ((address(currentWithdrawProxy) != address(0))) {
+      uint256 proxySupply = currentWithdrawProxy.totalSupply();
 
       unchecked {
         s.liquidationWithdrawRatio = proxySupply
@@ -306,15 +304,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           .safeCastTo88();
       }
 
-      if (currentWithdrawProxy != address(0)) {
-        WithdrawProxy(currentWithdrawProxy).setWithdrawRatio(
-          s.liquidationWithdrawRatio
-        );
+      if (address(currentWithdrawProxy) != address(0)) {
+        currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
       }
 
       uint256 expected = 0;
-      if (currentWithdrawProxy != address(0)) {
-        expected = WithdrawProxy(currentWithdrawProxy).getExpected();
+      if (address(currentWithdrawProxy) != address(0)) {
+        expected = currentWithdrawProxy.getExpected();
       }
 
       unchecked {

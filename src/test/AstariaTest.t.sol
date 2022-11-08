@@ -170,7 +170,7 @@ contract AstariaTest is TestHelpers {
     // _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       PublicVault(publicVault).getCurrentEpoch()
     );
 
@@ -320,7 +320,7 @@ contract AstariaTest is TestHelpers {
     _signalWithdraw(address(1), publicVault4);
     _signalWithdraw(address(1), publicVault5);
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       PublicVault(publicVault).getCurrentEpoch()
     );
 
