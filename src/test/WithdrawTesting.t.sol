@@ -359,13 +359,13 @@ contract WithdrawTest is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(address(1)),
-      50575342941392479750,
+      50636986777008079750,
       "LPs have different amounts"
     );
 
     assertEq(
       WETH9.balanceOf(address(2)),
-      51150685407138079750,
+      51212329242753679750,
       "LPs have different amounts"
     );
   }

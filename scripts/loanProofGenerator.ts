@@ -40,7 +40,8 @@ if (detailsType === 0) {
   mapping = [
     "uint8",
     "address",
-    "address[]",
+    "address",
+    "address",
     "uint24",
     "int24",
     "int24",

@@ -627,8 +627,9 @@ contract TestHelpers is Test, IERC721Receiver {
     bytes memory validatorDetails = abi.encode(
       IUNI_V3Validator.Details({
         version: uint8(0),
-        token: params.tokenContract,
-        assets: params.assets,
+        lp: params.tokenContract,
+        token0: params.assets[0],
+        token1: params.assets[1],
         fee: params.fee,
         tickLower: params.tickLower,
         tickUpper: params.tickUpper,

@@ -616,7 +616,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       if (withdrawProxyIfNearBoundary != address(0)) {
         WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
           params.newAmount,
-          auctionWindow + 1 days
+          auctionWindow + 1 days //TODO: this has to be a variable or constant
         );
       }
     }
