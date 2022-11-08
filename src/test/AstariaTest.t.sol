@@ -557,6 +557,7 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 11 days);
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _cancelAuction(collateralId, address(this));
+    assertEq(address(this), ERC721(tokenContract).ownerOf(tokenId), "liquidator did not receive NFT");
   }
 
   function _cancelAuction(uint256 auctionId, address sender) internal {
