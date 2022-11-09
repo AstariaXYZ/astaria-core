@@ -224,4 +224,44 @@ contract IntegrationTest is TestHelpers {
       PublicVault(publicVaults[4]).totalAssets()
     );
   }
+
+   function testBorrowerReservePriceCancellationTest() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    vm.warp(block.timestamp + 14 days);
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+
+    _bid(address(3), collateralId, 5 ether);
+
+    vm.warp(block.timestamp + 4 days);
+    ASTARIA_ROUTER.endAuction(collateralId);
+    assertEq(ERC721(tokenContract).ownerOf(tokenId), address(3), "Bidder address does not own NFT");
+  }
 }
