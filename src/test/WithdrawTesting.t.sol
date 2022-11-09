@@ -833,6 +833,7 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + 13 days);
     uint256 collateralId = tokenContract.computeId(tokenId);
+    assertEq(LIEN_TOKEN.getOwed(stack[0]), uint192(10534246575335200000), "Incorrect lien interest");
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _bid(address(3), collateralId, 5 ether);
 
@@ -841,14 +842,14 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + 4 days);
     AUCTION_HOUSE.endAuction(collateralId);
-    assertEq(address(this), ERC721(tokenContract).ownerOf(tokenId), "liquidator did not receive NFT");
+    assertEq(address(this), COLLATERAL_TOKEN.ownerOf(collateralId), "liquidator did not receive NFT");
 
     address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
     WithdrawProxy(withdrawProxy).claim();
 
-    assertEq(WETH9.balanceOf(publicVault), 45 ether, "Incorrect PublicVault balance");
-    assertEq(PublicVault(publicVault).getYIntercept(), 45 ether, "Incorrect PublicVault YIntercept");
+    assertEq(WETH9.balanceOf(publicVault), 44350000000000000000, "Incorrect PublicVault balance");
+    assertEq(PublicVault(publicVault).getYIntercept(), 44350000000000000000, "Incorrect PublicVault YIntercept");
+    assertEq(PublicVault(publicVault).totalAssets(), 44350000000000000000, "Incorrect PublicVault totalAssets()");
     assertEq(PublicVault(publicVault).getSlope(), 0, "Incorrect PublicVault slope");
-    assertEq(PublicVault(publicVault).totalAssets(), 45 ether, "Incorrect PublicVault totalAssets()");
   }
 }
