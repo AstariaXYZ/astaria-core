@@ -834,15 +834,21 @@ contract WithdrawTest is TestHelpers {
     vm.warp(block.timestamp + 13 days);
     uint256 collateralId = tokenContract.computeId(tokenId);
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    _bid(address(3), collateralId, 5 ether);
+
     _warpToEpochEnd(publicVault);
     PublicVault(publicVault).processEpoch();
 
     vm.warp(block.timestamp + 4 days);
     AUCTION_HOUSE.endAuction(collateralId);
+    assertEq(address(this), ERC721(tokenContract).ownerOf(tokenId), "liquidator did not receive NFT");
 
     address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
     WithdrawProxy(withdrawProxy).claim();
 
-    assertEq(WETH9.balanceOf(publicVault), 40 ether, "Incorrect PublicVault balance");
+    assertEq(WETH9.balanceOf(publicVault), 45 ether, "Incorrect PublicVault balance");
+    assertEq(PublicVault(publicVault).getYIntercept(), 45 ether, "Incorrect PublicVault YIntercept");
+    assertEq(PublicVault(publicVault).getSlope(), 0, "Incorrect PublicVault slope");
+    assertEq(PublicVault(publicVault).totalAssets(), 45 ether, "Incorrect PublicVault totalAssets()");
   }
 }
