@@ -276,9 +276,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         s.lienMeta[stack[i].point.lienId].amountAtLiquidation = owed;
       }
       if (
-        IPublicVault(_getPayee(s, lienIds[i])).supportsInterface(
-          type(IPublicVault).interfaceId
-        )
+          s.ASTARIA_ROUTER.isValidVault(_getPayee(s, lienIds[i]))
       ) {
         // update the public vault state and get the liquidation accountant back if any
         address withdrawProxyIfNearBoundary = IPublicVault(_getPayee(s, lienIds[i]))
@@ -395,11 +393,11 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
     for (uint256 i = 0; i < remainingLiens.length; i++) {
-      address owner = ownerOf(remainingLiens[i]);
+      address payee = _getPayee(s, remainingLiens[i]);
       if (
-        IPublicVault(owner).supportsInterface(type(IPublicVault).interfaceId)
+        s.ASTARIA_ROUTER.isValidVault(payee)
       ) {
-        IPublicVault(owner).decreaseYIntercept(
+        IPublicVault(payee).decreaseYIntercept(
           s.lienMeta[remainingLiens[i]].amountAtLiquidation
         );
       }
