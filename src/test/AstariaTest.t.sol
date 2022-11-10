@@ -595,6 +595,7 @@ contract AstariaTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _bid(address(2), collateralId, 10 ether);
     _cancelAuction(collateralId, address(this));
+    assertEq(address(this), ERC721(tokenContract).ownerOf(tokenId), "liquidator did not receive NFT");
   }
 
   function testAuctionEnd() public {
