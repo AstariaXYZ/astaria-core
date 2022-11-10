@@ -419,6 +419,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       totalBorrowed += commitments[i].lienRequest.amount;
     }
     s.WETH.safeApprove(address(s.TRANSFER_PROXY), totalBorrowed);
+
     s.TRANSFER_PROXY.tokenTransferFrom(
       address(s.WETH),
       address(this),
