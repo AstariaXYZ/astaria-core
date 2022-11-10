@@ -6,8 +6,6 @@
   "private": true,
   "main": "index.js",
   "dependencies": {
-    "@openzeppelin/contracts": "^4.6.0",
-    "@rari-capital/solmate": "^6.2.0",
     "global": "^4.4.0",
     "hardhat": "^2.9.3",
     "hardhat-preprocessor": "^0.1.4",
@@ -15,7 +13,8 @@
     "keccak256": "^1.0.6",
     "merkletreejs": "^0.2.31",
     "solidity-metrics": "^0.0.5",
-    "ts-generator": "^0.1.1"
+    "ts-generator": "^0.1.1",
+    "ts-node": "^10.9.1"
   },
   "engines": {
     "node": "^16.0.0"
@@ -24,6 +23,7 @@
     "lint": "eslint src/**/*.sol",
     "lint:fix": "prettier --write src/**/*.sol",
     "write-headers": "node scripts/writeHeaders.js",
+    "build-sdk": "cd lib/astaria-sdk && yarn build ",
     "postinstall": "cd lib/astaria-sdk && yarn && yarn build"
   },
   "devDependencies": {

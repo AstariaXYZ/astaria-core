@@ -159,13 +159,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     _unpause();
   }
 
-  struct File {
-    bytes32 what;
-    bytes data;
-  }
-
-  event FileUpdated(bytes32 indexed what, bytes data);
-
   /**
    * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
    * @param files structs to file
@@ -182,62 +175,64 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
    */
   function file(File calldata incoming) public requiresAuth {
     RouterStorage storage s = _loadRouterSlot();
-    bytes32 what = incoming.what;
+    FileType what = incoming.what;
     bytes memory data = incoming.data;
-    if (what == "setAuctionWindow") {
+    if (what == FileType.AuctionWindow) {
       uint256 value = abi.decode(data, (uint256));
       s.auctionWindow = value.safeCastTo32();
-    } else if (what == "setLiquidationFee") {
+    } else if (what == FileType.LiquidationFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
         (uint256, uint256)
       );
       s.liquidationFeeNumerator = numerator.safeCastTo32();
       s.liquidationFeeDenominator = denominator.safeCastTo32();
-    } else if (what == "setStrategistFee") {
+    } else if (what == FileType.StrategistFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
         (uint256, uint256)
       );
       s.strategistFeeNumerator = numerator.safeCastTo32();
       s.strategistFeeDenominator = denominator.safeCastTo32();
-    } else if (what == "setProtocolFee") {
+    } else if (what == FileType.ProtocolFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
         (uint256, uint256)
       );
       s.protocolFeeNumerator = numerator.safeCastTo32();
       s.protocolFeeDenominator = denominator.safeCastTo32();
-    } else if (what == "setBuyoutFee") {
+    } else if (what == FileType.BuyoutFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
         (uint256, uint256)
       );
       s.buyoutFeeNumerator = numerator.safeCastTo32();
       s.buyoutFeeDenominator = denominator.safeCastTo32();
-    } else if (what == "MIN_INTEREST_BPS") {
+    } else if (what == FileType.MinInterestBPS) {
       uint256 value = abi.decode(data, (uint256));
       s.minInterestBPS = value.safeCastTo32();
-    } else if (what == "MIN_DURATION_INCREASE") {
+    } else if (what == FileType.MinDurationIncrease) {
       uint256 value = abi.decode(data, (uint256));
       s.minDurationIncrease = value.safeCastTo32();
-    } else if (what == "MIN_EPOCH_LENGTH") {
+    } else if (what == FileType.MinEpochLength) {
       s.minEpochLength = abi.decode(data, (uint256)).safeCastTo32();
-    } else if (what == "MAX_EPOCH_LENGTH") {
+    } else if (what == FileType.MaxEpochLength) {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
-    } else if (what == "MAX_INTEREST_RATE") {
+    } else if (what == FileType.MaxInterestRate) {
       s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
-    } else if (what == "feeTo") {
+    } else if (what == FileType.MinInterestRate) {
+      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
+    } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
       s.feeTo = addr;
-    } else if (what == "setBuyoutInterestWindow") {
+    } else if (what == FileType.BuyoutInterestWindow) {
       uint256 value = abi.decode(data, (uint256));
       s.buyoutInterestWindow = value.safeCastTo32();
-    } else if (what == "setStrategyValidator") {
+    } else if (what == FileType.StrategyValidator) {
       (uint8 TYPE, address addr) = abi.decode(data, (uint8, address));
       s.strategyValidators[TYPE] = addr;
     } else {
-      revert("unsupported/file");
+      revert FileTypeNotSupported();
     }
 
     emit FileUpdated(what, data);
@@ -256,25 +251,25 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     RouterStorage storage s = _loadRouterSlot();
     require(address(msg.sender) == address(s.guardian)); //only the guardian can call this
     for (uint256 i = 0; i < file.length; i++) {
-      bytes32 what = file[i].what;
+      FileType what = file[i].what;
       bytes memory data = file[i].data;
-      if (what == "setImplementation") {
+      if (what == FileType.Implementation) {
         (uint8 implType, address addr) = abi.decode(data, (uint8, address));
         s.implementations[implType] = addr;
-      } else if (what == "setAuctionHouse") {
+      } else if (what == FileType.AuctionHouse) {
         address addr = abi.decode(data, (address));
         s.AUCTION_HOUSE = IAuctionHouse(addr);
-      } else if (what == "setCollateralToken") {
+      } else if (what == FileType.CollateralToken) {
         address addr = abi.decode(data, (address));
         s.COLLATERAL_TOKEN = ICollateralToken(addr);
-      } else if (what == "setLienToken") {
+      } else if (what == FileType.LienToken) {
         address addr = abi.decode(data, (address));
         s.LIEN_TOKEN = ILienToken(addr);
-      } else if (what == "setTransferProxy") {
+      } else if (what == FileType.TransferProxy) {
         address addr = abi.decode(data, (address));
         s.TRANSFER_PROXY = ITransferProxy(addr);
       } else {
-        revert("unsupported/guardian-file");
+        revert FileTypeNotSupported();
       }
     }
   }
@@ -300,6 +295,18 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     return _loadRouterSlot().auctionWindow;
   }
 
+  function _sliceUint(
+    bytes memory bs,
+    uint start
+  ) internal pure returns (uint) {
+    require(bs.length >= start + 32, "slicing out of range");
+    uint x;
+    assembly {
+      x := mload(add(bs, add(0x20, start)))
+    }
+    return x;
+  }
+
   function validateCommitment(
     IAstariaRouter.Commitment calldata commitment
   ) external returns (ILienToken.Lien memory lien) {
@@ -314,12 +321,14 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
     }
 
-    if (s.strategyValidators[commitment.lienRequest.nlrType] == address(0)) {
-      revert InvalidStrategy(commitment.lienRequest.nlrType);
+    uint256 strategyLength = 5;
+    //
+    uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
+    if (s.strategyValidators[nlrType] == address(0)) {
+      revert InvalidStrategy(nlrType);
     }
-
     (bytes32 leaf, ILienToken.Details memory details) = IStrategyValidator(
-      s.strategyValidators[commitment.lienRequest.nlrType]
+      s.strategyValidators[nlrType]
     ).validateAndParse(
         commitment.lienRequest,
         s.COLLATERAL_TOKEN.ownerOf(

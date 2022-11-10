@@ -133,7 +133,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     CollateralStorage storage s = _loadCollateralSlot();
     (addr, tokenId) = getUnderlying(collateralId);
 
-    require(s.flashEnabled[addr]);
+    require(
+      s.flashEnabled[addr] &&
+        !s.ASTARIA_ROUTER.AUCTION_HOUSE().auctionExists(collateralId)
+    );
     IERC721 nft = IERC721(addr);
 
     bytes memory preTransferState;
@@ -257,6 +260,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     Asset memory underlying = s.idToUnderlying[collateralId];
     (address underlyingAsset, ) = getUnderlying(collateralId);
     if (underlyingAsset == address(0)) {
+      require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
+
       if (msg.sender == address(this) || msg.sender == address(s.LIEN_TOKEN)) {
         revert InvalidCollateral();
       }
@@ -267,7 +272,6 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
         depositFor = from_;
       }
 
-      require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
       _mint(depositFor, collateralId);
 
       s.idToUnderlying[collateralId] = Asset({
@@ -276,8 +280,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
       });
 
       emit Deposit721(msg.sender, tokenId_, collateralId, depositFor);
+      return IERC721Receiver.onERC721Received.selector;
+    } else {
+      revert();
     }
-    return IERC721Receiver.onERC721Received.selector;
   }
 
   modifier whenNotPaused() {

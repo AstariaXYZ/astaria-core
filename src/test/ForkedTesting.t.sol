@@ -44,6 +44,7 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
+import {ClaimFees} from "../actions/UNIV3/ClaimFees.sol";
 
 contract ForkedTesting is TestHelpers {
   using FixedPointMathLib for uint256;
@@ -63,8 +64,11 @@ contract ForkedTesting is TestHelpers {
   //matic weth pair
   function testClaimFeesAgainstV3Liquidity() public {
     address tokenContract = V3_NFT_ADDRESS;
-    uint256 tokenId = uint256(355537);
+    // fork mainnet on this block 15934974
+    uint256 tokenId = uint256(349999);
     _hijackNFT(tokenContract, tokenId);
+
+    ClaimFees claimFees = new ClaimFees(V3_NFT_ADDRESS);
 
     address privateVault = _createPrivateVault({
       strategist: strategistOne,
@@ -75,72 +79,61 @@ contract ForkedTesting is TestHelpers {
       Lender({addr: strategistOne, amountToLend: 50 ether}),
       privateVault
     );
-    //    address strategist;
-    //    uint256 strategistPK;
-    //    address tokenContract;
-    //    address vault;
-    //    uint256 tokenId;
-    //    address[] assets;
-    //    uint24 fee;
-    //    int24 tickLower;
-    //    int24 tickUpper;
-    //    uint128 liquidity;
-    //    uint256 amount0Min;
-    //    address borrower;
+    address[] memory assets;
+    {
+      (
+        ,
+        ,
+        address token0,
+        address token1,
+        uint24 fee,
+        int24 tickLower,
+        int24 tickUpper,
+        uint128 liquidity,
+        ,
+        ,
+        uint128 tokensOwed0,
+        uint128 tokensOwed1
+      ) = IV3PositionManager(tokenContract).positions(tokenId);
 
-    (
-      ,
-      address operator,
-      address token0,
-      address token1,
-      uint24 fee,
-      int24 tickLower,
-      int24 tickUpper,
-      uint128 liquidity,
-      ,
-      ,
-      uint128 tokensOwed0,
-      uint128 tokensOwed1
-    ) = IV3PositionManager(tokenContract).positions(tokenId);
+      assets = new address[](2);
+      assets[0] = token0;
+      assets[1] = token1;
+      _commitToV3Lien({
+        params: V3LienParams({
+          assets: assets,
+          fee: fee,
+          borrower: address(0),
+          tickLower: tickLower,
+          tickUpper: tickUpper,
+          liquidity: liquidity,
+          strategist: strategistOne,
+          strategistPK: strategistOnePK,
+          tokenContract: tokenContract,
+          amount0Min: tokensOwed0,
+          amount1Min: tokensOwed1,
+          tokenId: tokenId,
+          details: standardLienDetails
+        }),
+        vault: privateVault,
+        amount: 10 ether,
+        stack: new ILienToken.Stack[](0),
+        isFirstLien: true
+      });
+    }
 
-    //    address strategist;
-    //    uint256 strategistPK;
-    //    address tokenContract;
-    //    address vault;
-    //    uint256 tokenId;
-    //    address[] assets;
-    //    uint24 fee;
-    //    int24 tickLower;
-    //    int24 tickUpper;
-    //    uint128 liquidity;
-    //    uint256 amount0Min;
-    //    uint256 amount1Min;
-    //    address borrower;
-    //    ILienToken.Details details;
+    COLLATERAL_TOKEN.file(
+      ICollateralToken.File("setFlashEnabled", abi.encode(V3_NFT_ADDRESS, true))
+    );
 
-    address[] memory assets = new address[](2);
-    assets[0] = token0;
-    assets[1] = token1;
-    _commitToV3Lien({
-      params: V3LienParams({
-        assets: assets,
-        fee: fee,
-        tickLower: tickLower,
-        tickUpper: tickUpper,
-        liquidity: liquidity,
-        strategist: strategistOne,
-        strategistPK: strategistOnePK,
-        tokenContract: tokenContract,
-        amount0Min: tokensOwed0,
-        amount1Min: tokensOwed1,
-        tokenId: tokenId,
-        borrower: address(0),
-        details: standardLienDetails
-      }),
-      vault: privateVault,
-      amount: 10 ether,
-      stack: new ILienToken.Stack[](0),
-      isFirstLien: true
-    });
+    uint256 balance0Before = IERC20(assets[0]).balanceOf(address(this));
+    uint256 balance1Before = IERC20(assets[1]).balanceOf(address(this));
+    COLLATERAL_TOKEN.flashAction(
+      IFlashAction(claimFees),
+      tokenContract.computeId(tokenId),
+      abi.encode(address(this))
+    );
+    assert(IERC20(assets[0]).balanceOf(address(this)) > balance0Before);
+    assert(IERC20(assets[1]).balanceOf(address(this)) > balance1Before);
   }
 }

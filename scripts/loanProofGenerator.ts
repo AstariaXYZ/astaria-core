@@ -42,13 +42,13 @@ if (detailsType === 0) {
     "address",
     "address",
     "address",
+    "address",
     "uint24",
     "int24",
     "int24",
     "uint128",
     "uint256",
     "uint256",
-    "address",
     "uint256",
     "uint256",
     "uint256",
@@ -62,7 +62,6 @@ const termData: string[] = defaultAbiCoder
   // @ts-ignore
   .decode(mapping, args.shift())
   .map((x) => {
-    // console.error(x);
     if (x instanceof BigNumber) {
       return x.toString();
     }

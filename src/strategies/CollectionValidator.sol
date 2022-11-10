@@ -26,19 +26,17 @@ interface ICollectionValidator is IStrategyValidator {
 }
 
 contract CollectionValidator is ICollectionValidator {
-  function getLeafDetails(bytes memory nlrDetails)
-    public
-    pure
-    returns (ICollectionValidator.Details memory)
-  {
+  uint8 public constant VERSION_TYPE = uint8(2);
+
+  function getLeafDetails(
+    bytes memory nlrDetails
+  ) public pure returns (ICollectionValidator.Details memory) {
     return abi.decode(nlrDetails, (ICollectionValidator.Details));
   }
 
-  function assembleLeaf(ICollectionValidator.Details memory details)
-    public
-    pure
-    returns (bytes memory)
-  {
+  function assembleLeaf(
+    ICollectionValidator.Details memory details
+  ) public pure returns (bytes memory) {
     return abi.encode(details);
   }
 
@@ -55,6 +53,9 @@ contract CollectionValidator is ICollectionValidator {
   {
     ICollectionValidator.Details memory cd = getLeafDetails(params.nlrDetails);
 
+    if (cd.version != VERSION_TYPE) {
+      revert("invalid type");
+    }
     if (cd.borrower != address(0)) {
       require(
         borrower == cd.borrower,

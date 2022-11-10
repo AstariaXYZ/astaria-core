@@ -64,7 +64,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
   error InvalidState(InvalidStates);
 
-  function decimals() public view override returns (uint8) {
+  function decimals() public pure override returns (uint8) {
     return 18;
   }
 
@@ -119,9 +119,20 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
    * @param receiver The receiver of the Withdraw Tokens.
    * @param shares The number of shares to mint.
    */
-  function mint(address receiver, uint256 shares) public virtual {
+  function mint(
+    uint256 shares,
+    address receiver
+  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 assets) {
     require(msg.sender == owner(), "only owner can mint");
     _mint(receiver, shares);
+    return shares;
+  }
+
+  function deposit(
+    uint256 assets,
+    address receiver
+  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 shares) {
+    _mint(receiver, assets);
   }
 
   /**

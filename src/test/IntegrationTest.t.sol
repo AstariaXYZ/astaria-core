@@ -179,7 +179,9 @@ contract IntegrationTest is TestHelpers {
 
     address[5] memory withdrawProxies;
     for (uint256 i = 0; i < lienSize; i++) {
-      withdrawProxies[i] = PublicVault(publicVaults[i]).getWithdrawProxy(0);
+      withdrawProxies[i] = address(
+        PublicVault(publicVaults[i]).getWithdrawProxy(0)
+      );
     }
     assertTrue(withdrawProxies[0] == address(0)); // 3 days from epoch end
     assertTrue(withdrawProxies[1] != address(0)); // 2 days from epoch end
@@ -195,6 +197,7 @@ contract IntegrationTest is TestHelpers {
     vm.warp(block.timestamp + 2 days);
 
     for (uint256 i = 1; i < lienSize; i++) {
+      vm.warp(WithdrawProxy(withdrawProxies[i]).getFinalAuctionEnd());
       PublicVault(publicVaults[i]).processEpoch();
     }
 

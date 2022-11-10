@@ -23,6 +23,35 @@ import {IBeacon} from "./IBeacon.sol";
 import "./IERC4626.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
+  struct File {
+    FileType what;
+    bytes data;
+  }
+
+  event FileUpdated(FileType what, bytes data);
+  error FileTypeNotSupported();
+  enum FileType {
+    FeeTo,
+    LiquidationFee,
+    ProtocolFee,
+    StrategistFee,
+    MinInterestBPS,
+    MinEpochLength,
+    MaxEpochLength,
+    MinInterestRate,
+    MaxInterestRate,
+    BuyoutFee,
+    MinDurationIncrease,
+    BuyoutInterestWindow,
+    AuctionWindow,
+    StrategyValidator,
+    AuctionHouse,
+    Implementation,
+    CollateralToken,
+    LienToken,
+    TransferProxy
+  }
+
   struct RouterStorage {
     //slot 1
     uint32 minInterestBPS; // was uint64
@@ -42,7 +71,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     address feeTo; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
     uint88 maxInterestRate; //6
-    mapping(uint32 => address) strategyValidators;
+    mapping(uint8 => address) strategyValidators;
     //slot 3 +
     address guardian; //20
     uint32 buyoutFeeNumerator;
@@ -63,6 +92,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   enum LienRequestType {
+    DEACTIVATED,
     UNIQUE,
     COLLECTION,
     UNIV3_LIQUIDITY
@@ -82,7 +112,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   struct NewLienRequest {
     StrategyDetails strategy;
     ILienToken.Stack[] stack;
-    uint8 nlrType;
     bytes nlrDetails;
     MerkleData merkle;
     uint256 amount;
@@ -198,6 +227,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 
   function isValidVault(address) external view returns (bool);
+
+  function file(File calldata incoming) external;
 
   function isValidRefinance(
     ILienToken.Lien calldata newLien,

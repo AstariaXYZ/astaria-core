@@ -17,6 +17,8 @@ interface IPausable {
  * simply including this module, only once the modifiers are put in place.
  */
 abstract contract Pausable is IPausable {
+  bytes32 constant PAUSE_SLOT =
+    keccak256("xyz.astaria.router.pause.storage.location");
   /**
    * @dev Emitted when the pause is triggered by `account`.
    */
@@ -27,20 +29,22 @@ abstract contract Pausable is IPausable {
    */
   event Unpaused(address account);
 
-  bool private _paused;
+  struct PauseStorage {
+    bool _paused;
+  }
 
-  /**
-   * @dev Initializes the contract in unpaused state.
-   */
-  constructor() {
-    _paused = false;
+  function _loadPauseSlot() internal pure returns (PauseStorage storage ps) {
+    bytes32 loc = PAUSE_SLOT;
+    assembly {
+      ps.slot := loc
+    }
   }
 
   /**
    * @dev Returns true if the contract is paused, and false otherwise.
    */
   function paused() public view virtual returns (bool) {
-    return _paused;
+    return _loadPauseSlot()._paused;
   }
 
   /**
@@ -75,7 +79,7 @@ abstract contract Pausable is IPausable {
    * - The contract must not be paused.
    */
   function _pause() internal virtual whenNotPaused {
-    _paused = true;
+    _loadPauseSlot()._paused = true;
     emit Paused(msg.sender);
   }
 
@@ -87,7 +91,7 @@ abstract contract Pausable is IPausable {
    * - The contract must be paused.
    */
   function _unpause() internal virtual whenPaused {
-    _paused = false;
+    _loadPauseSlot()._paused = false;
     emit Unpaused(msg.sender);
   }
 }

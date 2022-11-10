@@ -146,7 +146,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
     // WithdrawProxy shares are minted 1:1 with PublicVault shares
-    WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
+    WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(shares, receiver); // was withdrawProxies[withdrawEpoch]
   }
 
   function getWithdrawProxy(uint64 epoch) public view returns (WithdrawProxy) {

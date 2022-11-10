@@ -22,6 +22,7 @@ interface IUNI_V3Validator is IStrategyValidator {
   struct Details {
     uint8 version;
     address lp;
+    address borrower;
     address token0;
     address token1;
     uint24 fee;
@@ -30,13 +31,14 @@ interface IUNI_V3Validator is IStrategyValidator {
     uint128 minLiquidity;
     uint256 amount0Min;
     uint256 amount1Min;
-    address borrower;
     ILienToken.Details lien;
   }
 }
 
 contract UNI_V3Validator is IUNI_V3Validator {
   using CollateralLookup for address;
+
+  uint8 public constant VERSION_TYPE = uint8(3);
 
   IV3PositionManager V3_NFT_POSITION_MGR =
     IV3PositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
@@ -58,14 +60,12 @@ contract UNI_V3Validator is IUNI_V3Validator {
     address borrower,
     address collateralTokenContract,
     uint256 collateralTokenId
-  )
-    external
-    view
-    override
-    returns (bytes32 leaf, ILienToken.Details memory ld)
-  {
+  ) external override returns (bytes32 leaf, ILienToken.Details memory ld) {
     IUNI_V3Validator.Details memory details = getLeafDetails(params.nlrDetails);
 
+    if (details.version != VERSION_TYPE) {
+      revert("invalid type");
+    }
     if (details.borrower != address(0)) {
       require(
         borrower == details.borrower,
@@ -100,8 +100,8 @@ contract UNI_V3Validator is IUNI_V3Validator {
       "invalid pair"
     );
     require(
-      details.amount0Min < tokensOwed0 && details.amount1Min < tokensOwed1,
-      "invalid pair"
+      details.amount0Min <= tokensOwed0 && details.amount1Min <= tokensOwed1,
+      "invalid fees available"
     );
     require(
       details.tickUpper == tickUpper && details.tickLower == tickLower,

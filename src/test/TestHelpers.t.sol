@@ -241,26 +241,26 @@ contract TestHelpers is Test, IERC721Receiver {
     //strategy univ3
     UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
 
-    AstariaRouter.File[] memory files = new AstariaRouter.File[](3);
+    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](3);
 
-    files[0] = AstariaRouter.File(
-      bytes32("setStrategyValidator"),
-      abi.encode(uint8(0), address(UNIQUE_STRATEGY_VALIDATOR))
+    files[0] = IAstariaRouter.File(
+      IAstariaRouter.FileType.StrategyValidator,
+      abi.encode(uint8(1), address(UNIQUE_STRATEGY_VALIDATOR))
     );
-    files[1] = AstariaRouter.File(
-      bytes32("setStrategyValidator"),
-      abi.encode(uint8(1), address(COLLECTION_STRATEGY_VALIDATOR))
+    files[1] = IAstariaRouter.File(
+      IAstariaRouter.FileType.StrategyValidator,
+      abi.encode(uint8(2), address(COLLECTION_STRATEGY_VALIDATOR))
     );
-    files[2] = AstariaRouter.File(
-      bytes32("setStrategyValidator"),
-      abi.encode(uint8(2), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
+    files[2] = IAstariaRouter.File(
+      IAstariaRouter.FileType.StrategyValidator,
+      abi.encode(uint8(3), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     );
 
     ASTARIA_ROUTER.fileBatch(files);
-    files = new AstariaRouter.File[](1);
+    files = new IAstariaRouter.File[](1);
 
-    files[0] = AstariaRouter.File(
-      bytes32("setAuctionHouse"),
+    files[0] = IAstariaRouter.File(
+      IAstariaRouter.FileType.AuctionHouse,
       abi.encode(address(AUCTION_HOUSE))
     );
     ASTARIA_ROUTER.fileGuardian(files);
@@ -511,6 +511,7 @@ contract TestHelpers is Test, IERC721Receiver {
     uint256 strategistPK;
     address tokenContract;
     uint256 tokenId;
+    address borrower;
     address[] assets;
     uint24 fee;
     int24 tickLower;
@@ -518,7 +519,6 @@ contract TestHelpers is Test, IERC721Receiver {
     uint128 liquidity;
     uint256 amount0Min;
     uint256 amount1Min;
-    address borrower;
     ILienToken.Details details;
   }
 
@@ -626,7 +626,7 @@ contract TestHelpers is Test, IERC721Receiver {
     //  //  }
     bytes memory validatorDetails = abi.encode(
       IUNI_V3Validator.Details({
-        version: uint8(0),
+        version: uint8(3),
         lp: params.tokenContract,
         token0: params.assets[0],
         token1: params.assets[1],
@@ -762,7 +762,6 @@ contract TestHelpers is Test, IERC721Receiver {
         tokenId: params.tokenId,
         lienRequest: IAstariaRouter.NewLienRequest({
           strategy: params.strategyDetails,
-          nlrType: params.nlrType,
           nlrDetails: params.validatorDetails,
           merkle: IAstariaRouter.MerkleData({
             root: params.rootHash,
