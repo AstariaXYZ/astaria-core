@@ -36,12 +36,14 @@ import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
 import {Pausable} from "core/utils/Pausable.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
+import {ERC4626Router} from "gpl/ERC4626Router.sol";
+import {ERC4626RouterBase} from "gpl/ERC4626RouterBase.sol";
 
 /**
  * @title AstariaRouter
  * @notice This contract manages the deployment of Vaults and universal Astaria actions.
  */
-contract AstariaRouter is Auth, Pausable, IAstariaRouter {
+contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
   using CollateralLookup for address;
@@ -96,6 +98,20 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     s.minDurationIncrease = uint32(5 days);
     s.buyoutInterestWindow = uint32(60 days);
     s.guardian = address(msg.sender);
+  }
+
+  function pullToken(
+    ERC20 token,
+    uint256 amount,
+    address recipient
+  ) public payable override {
+    RouterStorage storage s = _loadRouterSlot();
+    s.TRANSFER_PROXY.tokenTransferFrom(
+      address(token),
+      msg.sender,
+      recipient,
+      amount
+    );
   }
 
   function _loadRouterSlot() internal pure returns (RouterStorage storage rs) {
@@ -299,7 +315,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     bytes memory bs,
     uint start
   ) internal pure returns (uint) {
-    require(bs.length >= start + 32, "slicing out of range");
+    require(bs.length >= start + 32);
     uint x;
     assembly {
       x := mload(add(bs, add(0x20, start)))
@@ -309,20 +325,19 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
 
   function validateCommitment(
     IAstariaRouter.Commitment calldata commitment
-  ) external returns (ILienToken.Lien memory lien) {
+  ) external view returns (ILienToken.Lien memory lien) {
     return _validateCommitment(_loadRouterSlot(), commitment);
   }
 
   function _validateCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment calldata commitment
-  ) internal returns (ILienToken.Lien memory lien) {
+  ) internal view returns (ILienToken.Lien memory lien) {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
     }
 
     uint256 strategyLength = 5;
-    //
     uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
     if (s.strategyValidators[nlrType] == address(0)) {
       revert InvalidStrategy(nlrType);
@@ -447,23 +462,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
           receiver: receiver
         })
       );
-  }
-
-  function lendToVault(IERC4626 vault, uint256 amount) external whenNotPaused {
-    RouterStorage storage s = _loadRouterSlot();
-    s.TRANSFER_PROXY.tokenTransferFrom(
-      address(s.WETH),
-      address(msg.sender),
-      address(this),
-      amount
-    );
-
-    if (s.vaults[address(vault)] == address(0)) {
-      revert InvalidVaultState(VaultState.UNINITIALIZED);
-    }
-
-    s.WETH.safeApprove(address(vault), amount);
-    vault.deposit(amount, address(msg.sender));
   }
 
   /**
@@ -651,7 +649,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       if (s.minEpochLength > epochLength || epochLength > s.maxEpochLength) {
         revert InvalidEpochLength(epochLength);
       }
-
       vaultType = uint8(ImplementationType.PublicVault);
     } else {
       vaultType = uint8(ImplementationType.PrivateVault);

@@ -57,7 +57,7 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {BeaconProxy} from "../BeaconProxy.sol";
 import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
-
+import {IERC4626} from "core/interfaces/IERC4626.sol";
 string constant weth9Artifact = "src/test/WETH9.json";
 
 interface IWETH9 is IERC20 {
@@ -791,8 +791,15 @@ contract TestHelpers is Test, IERC721Receiver {
     vm.deal(lender.addr, lender.amountToLend);
     vm.startPrank(lender.addr);
     WETH9.deposit{value: lender.amountToLend}();
-    WETH9.approve(vault, lender.amountToLend);
-    IVault(vault).deposit(lender.amountToLend, lender.addr);
+    WETH9.approve(address(TRANSFER_PROXY), lender.amountToLend);
+    //    IVault(vault).deposit(lender.amountToLend, lender.addr);
+    //min slippage on the deposit
+    ASTARIA_ROUTER.depositToVault(
+      IERC4626(vault),
+      lender.addr,
+      lender.amountToLend,
+      uint(0)
+    );
     vm.stopPrank();
   }
 

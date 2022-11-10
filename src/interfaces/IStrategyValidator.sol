@@ -20,5 +20,5 @@ interface IStrategyValidator {
     address borrower,
     address collateralTokenContract,
     uint256 collateralTokenId
-  ) external returns (bytes32, ILienToken.Details memory);
+  ) external view returns (bytes32, ILienToken.Details memory);
 }

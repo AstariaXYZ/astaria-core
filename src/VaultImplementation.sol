@@ -238,7 +238,6 @@ abstract contract VaultImplementation is
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      receiver != recipient() &&
       !ROUTER().isValidVault(receiver)
     ) {
       if (operator != address(0)) {

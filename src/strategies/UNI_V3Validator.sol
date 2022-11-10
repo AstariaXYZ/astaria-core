@@ -60,7 +60,12 @@ contract UNI_V3Validator is IUNI_V3Validator {
     address borrower,
     address collateralTokenContract,
     uint256 collateralTokenId
-  ) external override returns (bytes32 leaf, ILienToken.Details memory ld) {
+  )
+    external
+    view
+    override
+    returns (bytes32 leaf, ILienToken.Details memory ld)
+  {
     IUNI_V3Validator.Details memory details = getLeafDetails(params.nlrDetails);
 
     if (details.version != VERSION_TYPE) {

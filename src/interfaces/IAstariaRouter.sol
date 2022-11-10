@@ -20,7 +20,7 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {IPausable} from "core/utils/Pausable.sol";
 import {IBeacon} from "./IBeacon.sol";
-import "./IERC4626.sol";
+import {IERC4626RouterBase} from "gpl/interfaces/IERC4626RouterBase.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
   enum FileType {
@@ -205,13 +205,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   function getLiquidatorFee(uint256) external view returns (uint256);
 
   function getBuyoutInterestWindow() external view returns (uint32);
-
-  /**
-   * @notice Lend to a PublicVault.
-   * @param vault The address of the PublicVault.
-   * @param amount The amount to lend.
-   */
-  function lendToVault(IERC4626 vault, uint256 amount) external;
 
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.

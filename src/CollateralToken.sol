@@ -257,9 +257,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     uint256 collateralId = msg.sender.computeId(tokenId_);
 
     CollateralStorage storage s = _loadCollateralSlot();
-    Asset memory underlying = s.idToUnderlying[collateralId];
-    (address underlyingAsset, ) = getUnderlying(collateralId);
-    if (underlyingAsset == address(0)) {
+    Asset memory incomingAsset = s.idToUnderlying[collateralId];
+    if (incomingAsset.tokenContract == address(0)) {
       require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
 
       if (msg.sender == address(this) || msg.sender == address(s.LIEN_TOKEN)) {
