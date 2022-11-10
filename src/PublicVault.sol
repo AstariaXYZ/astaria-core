@@ -588,6 +588,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _decreaseYIntercept(s, amount);
   }
 
+  function increaseYIntercept(uint256 amount) public {
+    require(msg.sender == address(LIEN_TOKEN()));
+    VaultData storage s = _loadStorageSlot();
+    unchecked {
+      s.yIntercept += amount.safeCastTo88();
+    }
+  }
+
+  function decreaseSlope(uint256 amount) public {
+    require(msg.sender == address(LIEN_TOKEN()));
+    VaultData storage s = _loadStorageSlot();
+    s.slope -= amount.safeCastTo48();
+  }
+
   function timeToEpochEnd() public view returns (uint256) {
     VaultData storage s = _loadStorageSlot();
     return timeToEpochEnd(s.currentEpoch);

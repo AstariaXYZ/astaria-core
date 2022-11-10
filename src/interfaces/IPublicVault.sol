@@ -104,6 +104,10 @@ interface IPublicVault is IERC165, IVault {
 
   function decreaseYIntercept(uint256 amount) external;
 
+  function increaseYIntercept(uint256 amount) external;
+
+  function decreaseSlope(uint256 amount) external;
+
   function updateVaultAfterLiquidation(
     uint256 auctionWindow,
     AfterLiquidationParams calldata params
