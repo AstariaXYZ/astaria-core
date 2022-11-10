@@ -16,7 +16,6 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IVault} from "core/interfaces/IVault.sol";
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 

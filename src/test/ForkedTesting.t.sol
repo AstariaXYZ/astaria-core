@@ -34,7 +34,7 @@ import {ILienToken} from "../interfaces/ILienToken.sol";
 import {IPublicVault} from "../interfaces/IPublicVault.sol";
 import {CollateralToken, IFlashAction} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {VaultImplementation} from "../VaultImplementation.sol";
 import {IVaultImplementation} from "../interfaces/IVaultImplementation.sol";
 import {LienToken} from "../LienToken.sol";
 import {PublicVault} from "../PublicVault.sol";

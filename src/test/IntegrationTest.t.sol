@@ -25,7 +25,7 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {VaultImplementation} from "../VaultImplementation.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
@@ -228,7 +228,7 @@ contract IntegrationTest is TestHelpers {
     );
   }
 
-   function testBorrowerReservePriceCancellationTest() public {
+  function testBorrowerReservePriceCancellationTest() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -265,6 +265,10 @@ contract IntegrationTest is TestHelpers {
 
     vm.warp(block.timestamp + 4 days);
     ASTARIA_ROUTER.endAuction(collateralId);
-    assertEq(ERC721(tokenContract).ownerOf(tokenId), address(3), "Bidder address does not own NFT");
+    assertEq(
+      ERC721(tokenContract).ownerOf(tokenId),
+      address(3),
+      "Bidder address does not own NFT"
+    );
   }
 }

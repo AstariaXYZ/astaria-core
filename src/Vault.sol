@@ -18,7 +18,6 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
-import {IVault} from "core/interfaces/IVault.sol";
 import {ITokenBase} from "core/interfaces/ITokenBase.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 

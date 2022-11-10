@@ -48,10 +48,12 @@ import {
 import {V3SecurityHook} from "../security/V3SecurityHook.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {VaultImplementation} from "../VaultImplementation.sol";
 import {LienToken} from "../LienToken.sol";
 import {TransferProxy} from "../TransferProxy.sol";
-import {Vault, PublicVault} from "../PublicVault.sol";
+import {PublicVault} from "../PublicVault.sol";
+import {Vault} from "../Vault.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import {Strings2} from "./utils/Strings2.sol";
@@ -876,11 +878,11 @@ contract TestHelpers is Test, IERC721Receiver {
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
 
     vm.startPrank(lender);
-    ERC20(publicVault).safeApprove(publicVault, type(uint256).max);
-    PublicVault(publicVault).redeemFutureEpoch({
+    ERC20(publicVault).safeApprove(address(TRANSFER_PROXY), vaultTokenBalance);
+    ASTARIA_ROUTER.redeemFutureEpoch({
+      vault: IPublicVault(publicVault),
       shares: vaultTokenBalance,
       receiver: lender,
-      owner: lender,
       epoch: epoch
     });
 

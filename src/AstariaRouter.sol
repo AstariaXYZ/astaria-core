@@ -38,6 +38,8 @@ import {Pausable} from "core/utils/Pausable.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC4626Router} from "gpl/ERC4626Router.sol";
 import {ERC4626RouterBase} from "gpl/ERC4626RouterBase.sol";
+import "./interfaces/IERC4626.sol";
+import "./interfaces/IPublicVault.sol";
 
 /**
  * @title AstariaRouter
@@ -100,8 +102,19 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.guardian = address(msg.sender);
   }
 
+  function redeemFutureEpoch(
+    IPublicVault vault,
+    uint256 shares,
+    address receiver,
+    uint64 epoch
+  ) public virtual returns (uint256 assets) {
+    pullToken(address(vault), shares, address(this));
+    ERC20(address(vault)).safeApprove(address(vault), shares);
+    vault.redeemFutureEpoch(shares, receiver, msg.sender, epoch);
+  }
+
   function pullToken(
-    ERC20 token,
+    address token,
     uint256 amount,
     address recipient
   ) public payable override {
@@ -311,21 +324,24 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return _loadRouterSlot().auctionWindow;
   }
 
-  function _sliceUint(
-    bytes memory bs,
-    uint start
-  ) internal pure returns (uint) {
+  function _sliceUint(bytes memory bs, uint256 start)
+    internal
+    pure
+    returns (uint256)
+  {
     require(bs.length >= start + 32);
-    uint x;
+    uint256 x;
     assembly {
       x := mload(add(bs, add(0x20, start)))
     }
     return x;
   }
 
-  function validateCommitment(
-    IAstariaRouter.Commitment calldata commitment
-  ) external view returns (ILienToken.Lien memory lien) {
+  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
+    external
+    view
+    returns (ILienToken.Lien memory lien)
+  {
     return _validateCommitment(_loadRouterSlot(), commitment);
   }
 
@@ -381,9 +397,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   }
 
   //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
-  function commitToLiens(
-    IAstariaRouter.Commitment[] memory commitments
-  )
+  function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
     external
     whenNotPaused
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory stack)
@@ -448,7 +462,11 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     external
     whenNotPaused
     onlyVaults
-    returns (uint256, ILienToken.Stack[] memory, uint256)
+    returns (
+      uint256,
+      ILienToken.Stack[] memory,
+      uint256
+    )
   {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -468,9 +486,11 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    * @notice Returns whether a specific lien can be liquidated.
    * @return A boolean value indicating whether the specified lien can be liquidated.
    */
-  function canLiquidate(
-    ILienToken.Stack memory stack
-  ) public view returns (bool) {
+  function canLiquidate(ILienToken.Stack memory stack)
+    public
+    view
+    returns (bool)
+  {
     RouterStorage storage s = _loadRouterSlot();
     return (stack.point.end <= block.timestamp ||
       msg.sender == s.COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId));
@@ -576,9 +596,11 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    * @return The numerator and denominator used to compute the percentage fee taken by the protocol
    */
 
-  function getBuyoutFee(
-    uint256 remainingInterestIn
-  ) external view returns (uint256) {
+  function getBuyoutFee(uint256 remainingInterestIn)
+    external
+    view
+    returns (uint256)
+  {
     RouterStorage storage s = _loadRouterSlot();
     return
       remainingInterestIn.mulDivDown(

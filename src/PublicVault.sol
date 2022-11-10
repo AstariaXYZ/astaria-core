@@ -30,7 +30,6 @@ import {
 
 import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
 import {ILienToken} from "./interfaces/ILienToken.sol";
-import {IVault} from "core/interfaces/IVault.sol";
 
 import {LienToken} from "./LienToken.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
@@ -129,7 +128,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint64 epoch
   ) public virtual returns (uint256 assets) {
     // check to ensure that the requested epoch is not in the past
-    require(msg.sender == owner);
     VaultData storage s = _loadStorageSlot();
 
     if (epoch < s.currentEpoch) {
@@ -138,7 +136,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     // check for rounding error since we round down in previewRedeem.
 
-    ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
+    ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
 
     // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
     _deployWithdrawProxyIfNotDeployed(s, epoch);
