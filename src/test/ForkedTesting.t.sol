@@ -123,7 +123,10 @@ contract ForkedTesting is TestHelpers {
     }
 
     COLLATERAL_TOKEN.file(
-      ICollateralToken.File("setFlashEnabled", abi.encode(V3_NFT_ADDRESS, true))
+      ICollateralToken.File(
+        ICollateralToken.FileType.FlashEnabled,
+        abi.encode(V3_NFT_ADDRESS, true)
+      )
     );
 
     uint256 balance0Before = IERC20(assets[0]).balanceOf(address(this));

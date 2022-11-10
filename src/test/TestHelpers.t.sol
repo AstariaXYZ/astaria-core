@@ -222,13 +222,13 @@ contract TestHelpers is Test, IERC721Receiver {
     CollateralToken.File[] memory ctfiles = new CollateralToken.File[](2);
 
     ctfiles[0] = ICollateralToken.File({
-      what: "setAstariaRouter",
+      what: ICollateralToken.FileType.AstariaRouter,
       data: abi.encode(address(ASTARIA_ROUTER))
     });
 
     address UNI_V3_NFT = address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
     ctfiles[1] = ICollateralToken.File({
-      what: bytes32("setSecurityHook"),
+      what: ICollateralToken.FileType.SecurityHook,
       data: abi.encode(UNI_V3_NFT, address(V3_SECURITY_HOOK))
     });
 
@@ -266,16 +266,22 @@ contract TestHelpers is Test, IERC721Receiver {
     ASTARIA_ROUTER.fileGuardian(files);
 
     LIEN_TOKEN.file(
-      bytes32("setAuctionHouse"),
-      abi.encode(address(AUCTION_HOUSE))
+      ILienToken.File(
+        ILienToken.FileType.AuctionHouse,
+        abi.encode(address(AUCTION_HOUSE))
+      )
     );
     LIEN_TOKEN.file(
-      bytes32("setCollateralToken"),
-      abi.encode(address(COLLATERAL_TOKEN))
+      ILienToken.File(
+        ILienToken.FileType.CollateralToken,
+        abi.encode(address(COLLATERAL_TOKEN))
+      )
     );
     LIEN_TOKEN.file(
-      bytes32("setAstariaRouter"),
-      abi.encode(address(ASTARIA_ROUTER))
+      ILienToken.File(
+        ILienToken.FileType.AstariaRouter,
+        abi.encode(address(ASTARIA_ROUTER))
+      )
     );
 
     _setupRolesAndCapabilities();

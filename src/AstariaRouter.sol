@@ -232,7 +232,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
       (uint8 TYPE, address addr) = abi.decode(data, (uint8, address));
       s.strategyValidators[TYPE] = addr;
     } else {
-      revert FileTypeNotSupported();
+      revert UnsupportedFile();
     }
 
     emit FileUpdated(what, data);
@@ -269,7 +269,7 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         address addr = abi.decode(data, (address));
         s.TRANSFER_PROXY = ITransferProxy(addr);
       } else {
-        revert FileTypeNotSupported();
+        revert UnsupportedFile();
       }
     }
   }

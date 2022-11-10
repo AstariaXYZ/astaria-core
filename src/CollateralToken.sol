@@ -87,19 +87,19 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   function file(File calldata incoming) public requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
 
-    bytes32 what = incoming.what;
+    FileType what = incoming.what;
     bytes memory data = incoming.data;
-    if (what == "setAstariaRouter") {
+    if (what == FileType.AstariaRouter) {
       address addr = abi.decode(data, (address));
       s.ASTARIA_ROUTER = IAstariaRouter(addr);
-    } else if (what == "setSecurityHook") {
+    } else if (what == FileType.SecurityHook) {
       (address target, address hook) = abi.decode(data, (address, address));
       s.securityHooks[target] = hook;
-    } else if (what == "setFlashEnabled") {
+    } else if (what == FileType.FlashEnabled) {
       (address target, bool enabled) = abi.decode(data, (address, bool));
       s.flashEnabled[target] = enabled;
     } else {
-      revert("unsupported/file");
+      revert UnsupportedFile();
     }
     emit FileUpdated(what, data);
   }

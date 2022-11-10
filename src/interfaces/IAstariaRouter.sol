@@ -23,13 +23,6 @@ import {IBeacon} from "./IBeacon.sol";
 import "./IERC4626.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
-  struct File {
-    FileType what;
-    bytes data;
-  }
-
-  event FileUpdated(FileType what, bytes data);
-  error FileTypeNotSupported();
   enum FileType {
     FeeTo,
     LiquidationFee,
@@ -51,6 +44,14 @@ interface IAstariaRouter is IPausable, IBeacon {
     LienToken,
     TransferProxy
   }
+
+  struct File {
+    FileType what;
+    bytes data;
+  }
+
+  event FileUpdated(FileType what, bytes data);
+  error UnsupportedFile();
 
   struct RouterStorage {
     //slot 1

@@ -476,32 +476,34 @@ contract AstariaTest is TestHelpers {
 
   function testCollateralTokenFileSetup() public {
     bytes memory astariaRouterAddr = abi.encode(address(0));
-    //    COLLATERAL_TOKEN.file(
-    //      ICollateralToken.File(bytes32("setAstariaRouter"), astariaRouterAddr)
-    //    );
-    //    assert(COLLATERAL_TOKEN.ASTARIA_ROUTER() == IAstariaRouter(address(0)));
 
     bytes memory securityHook = abi.encode(address(0), address(0));
     COLLATERAL_TOKEN.file(
-      ICollateralToken.File(bytes32("setSecurityHook"), securityHook)
+      ICollateralToken.File(
+        ICollateralToken.FileType.SecurityHook,
+        securityHook
+      )
     );
     assert(COLLATERAL_TOKEN.securityHooks(address(0)) == address(0));
-
-    vm.expectRevert("unsupported/file");
-    COLLATERAL_TOKEN.file(ICollateralToken.File(bytes32("Andrew Redden"), ""));
   }
 
   function testLienTokenFileSetup() public {
     bytes memory auctionHouseAddr = abi.encode(address(0));
-    LIEN_TOKEN.file(bytes32("setAuctionHouse"), auctionHouseAddr);
+    LIEN_TOKEN.file(
+      ILienToken.File(ILienToken.FileType.AuctionHouse, auctionHouseAddr)
+    );
     assert(LIEN_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
 
     bytes memory collateralIdAddr = abi.encode(address(0));
-    LIEN_TOKEN.file(bytes32("setCollateralToken"), collateralIdAddr);
+    LIEN_TOKEN.file(
+      ILienToken.File(ILienToken.FileType.CollateralToken, collateralIdAddr)
+    );
     assert(LIEN_TOKEN.COLLATERAL_TOKEN() == ICollateralToken(address(0)));
 
-    vm.expectRevert("unsupported/file");
-    COLLATERAL_TOKEN.file(ICollateralToken.File(bytes32("Justin Bram"), ""));
+    //    vm.expectRevert(
+    //      abi.encodeWithSelector(ICollateralToken.UnsupportedFile.selector)
+    //    );
+    //    COLLATERAL_TOKEN.file(ICollateralToken.File(uint8(11), ""));
   }
 
   function testEpochProcessionMultipleActors() public {

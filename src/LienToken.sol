@@ -74,21 +74,23 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
   }
 
-  function file(bytes32 what, bytes calldata data) external requiresAuth {
+  function file(File calldata incoming) external requiresAuth {
+    FileType what = incoming.what;
+    bytes memory data = incoming.data;
     LienStorage storage s = _loadLienStorageSlot();
-    if (what == "setAuctionHouse") {
+    if (what == FileType.AuctionHouse) {
       address addr = abi.decode(data, (address));
       s.AUCTION_HOUSE = IAuctionHouse(addr);
-    } else if (what == "setCollateralToken") {
+    } else if (what == FileType.CollateralToken) {
       address addr = abi.decode(data, (address));
       s.COLLATERAL_TOKEN = ICollateralToken(addr);
-    } else if (what == "setAstariaRouter") {
+    } else if (what == FileType.AstariaRouter) {
       address addr = abi.decode(data, (address));
       s.ASTARIA_ROUTER = IAstariaRouter(addr);
     } else {
       revert UnsupportedFile();
     }
-    emit File(what, data);
+    emit FileUpdated(what, data);
   }
 
   function supportsInterface(

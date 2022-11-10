@@ -30,7 +30,7 @@ contract V3Strategy is AstariaStack {
 
     ct.file(
       ICollateralToken.File(
-        bytes32("setSecurityHook"),
+        ICollateralToken.FileType.SecurityHook,
         abi.encode(
           address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88), //v3 nft address
           address(V3_SECURITY_HOOK)

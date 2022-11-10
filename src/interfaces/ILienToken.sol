@@ -18,6 +18,20 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 interface ILienToken is IERC721 {
+  enum FileType {
+    NotSupported,
+    AuctionHouse,
+    CollateralToken,
+    AstariaRouter
+  }
+
+  struct File {
+    FileType what;
+    bytes data;
+  }
+
+  event FileUpdated(FileType what, bytes data);
+
   struct LienStorage {
     uint8 maxLiens;
     address WETH;
@@ -243,10 +257,9 @@ interface ILienToken is IERC721 {
 
   /**
    * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
-   * @param what The identifier for what is being filed.
-   * @param data The encoded address data to be decoded and filed.
+   * @param file The incoming file to handle
    */
-  function file(bytes32 what, bytes calldata data) external;
+  function file(File calldata file) external;
 
   event AddLien(
     uint256 indexed collateralId,
@@ -269,7 +282,6 @@ interface ILienToken is IERC721 {
   event Payment(uint256 indexed lienId, uint256 amount);
   event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
   event PayeeChanged(uint256 indexed lienId, address indexed payee);
-  event File(bytes32 indexed what, bytes data);
 
   error UnsupportedFile();
   error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
