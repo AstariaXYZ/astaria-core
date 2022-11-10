@@ -450,7 +450,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
 
-    uint256 remainingInterest = _getRemainingInterest(s, stack, true);
+    uint256 remainingInterest = _getRemainingInterest(s, stack);
     uint256 buyoutTotal = stack.point.amount +
       s.ASTARIA_ROUTER.getBuyoutFee(remainingInterest);
 
@@ -629,21 +629,13 @@ contract LienToken is ERC721, ILienToken, Auth {
    * @dev Computes the interest still owed to a Lien.
    * @param s active storage slot
    * @param stack the lien
-   * @param buyout compute with a ceiling based on the buyout interest window
    * @return The WETH still owed in interest to the Lien.
    */
   function _getRemainingInterest(
     LienStorage storage s,
-    Stack memory stack,
-    bool buyout
+    Stack memory stack
   ) internal view returns (uint256) {
     uint256 end = stack.point.end;
-    if (buyout) {
-      uint32 buyoutInterestWindow = s.ASTARIA_ROUTER.getBuyoutInterestWindow();
-      if (end >= block.timestamp + buyoutInterestWindow) {
-        end = block.timestamp + buyoutInterestWindow;
-      }
-    }
 
     uint256 delta_t = end - block.timestamp;
 

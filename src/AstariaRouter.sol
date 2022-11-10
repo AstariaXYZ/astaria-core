@@ -94,10 +94,10 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88(); //63419583966; // 200% apy / second
     s.strategistFeeNumerator = uint32(200);
     s.strategistFeeDenominator = uint32(1000);
-    s.buyoutFeeNumerator = uint32(200);
+//    s.buyoutFeeNumerator = uint32(200);
+    s.buyoutFeeNumerator = uint32(100);
     s.buyoutFeeDenominator = uint32(1000);
     s.minDurationIncrease = uint32(5 days);
-    s.buyoutInterestWindow = uint32(60 days);
     s.guardian = address(msg.sender);
   }
 
@@ -242,9 +242,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
     } else if (what == "feeTo") {
       address addr = abi.decode(data, (address));
       s.feeTo = addr;
-    } else if (what == "setBuyoutInterestWindow") {
-      uint256 value = abi.decode(data, (uint256));
-      s.buyoutInterestWindow = value.safeCastTo32();
     } else if (what == "setStrategyValidator") {
       (uint8 TYPE, address addr) = abi.decode(data, (uint8, address));
       s.strategyValidators[TYPE] = addr;
@@ -594,14 +591,6 @@ contract AstariaRouter is Auth, Pausable, IAstariaRouter {
         s.buyoutFeeNumerator,
         s.buyoutFeeDenominator
       );
-  }
-
-  /**
-   * @notice Retrieves the time window for computing maxbuyout costs
-   * @return The numerator and denominator used to compute the percentage fee taken by the protocol
-   */
-  function getBuyoutInterestWindow() external view returns (uint32) {
-    return _loadRouterSlot().buyoutInterestWindow;
   }
 
   /**

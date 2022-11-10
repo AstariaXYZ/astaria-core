@@ -348,6 +348,10 @@ contract AstariaTest is TestHelpers {
       isFirstLien: true
     });
 
+    vm.warp(block.timestamp + 5 days);
+
+    uint256 buyout = uint256(LIEN_TOKEN.getOwed(stack[0]) - 10 ether).mulDivDown(1, 10);
+
     // buyout liens
 
     address privateVault = _createPrivateVault({
@@ -370,12 +374,18 @@ contract AstariaTest is TestHelpers {
       Lender({addr: strategistOne, amountToLend: 50 ether}),
       privateVault
     );
+
     VaultImplementation(privateVault).buyoutLien(
       tokenContract.computeId(tokenId),
       uint8(0),
       refinanceTerms,
       stack
     );
+
+    assertEq(WETH9.balanceOf(privateVault), 40 ether - buyout, "Incorrect PrivateVault balance");
+//    assertEq(WETH9.balanceOf(privateVault), 39.7575342466, "Incorrect PrivateVault balance");
+
+    /////
 
     //     LIEN_TOKEN.buyoutLien(liens[0], 10 ether, address(1), address(1));
 

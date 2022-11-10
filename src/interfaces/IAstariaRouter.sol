@@ -48,7 +48,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 buyoutFeeNumerator;
     uint32 buyoutFeeDenominator;
     uint32 minDurationIncrease;
-    uint32 buyoutInterestWindow;
     mapping(uint32 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
@@ -182,8 +181,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   function getBuyoutFee(uint256) external view returns (uint256);
 
   function getLiquidatorFee(uint256) external view returns (uint256);
-
-  function getBuyoutInterestWindow() external view returns (uint32);
 
   /**
    * @notice Lend to a PublicVault.
