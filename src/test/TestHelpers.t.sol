@@ -390,10 +390,9 @@ contract TestHelpers is Test, IERC721Receiver {
     );
   }
 
-  function _mintNoDepositApproveRouter(
-    address tokenContract,
-    uint256 tokenId
-  ) internal {
+  function _mintNoDepositApproveRouter(address tokenContract, uint256 tokenId)
+    internal
+  {
     TestNFT(tokenContract).mint(address(this), tokenId);
     TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);
   }
@@ -416,10 +415,10 @@ contract TestHelpers is Test, IERC721Receiver {
     );
   }
 
-  function _createPrivateVault(
-    address strategist,
-    address delegate
-  ) internal returns (address privateVault) {
+  function _createPrivateVault(address strategist, address delegate)
+    internal
+    returns (address privateVault)
+  {
     vm.startPrank(strategist);
     privateVault = ASTARIA_ROUTER.newVault(delegate);
     vm.stopPrank();
@@ -449,7 +448,7 @@ contract TestHelpers is Test, IERC721Receiver {
   ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
     string[] memory inputs = new string[](4);
     inputs[0] = "node";
-    inputs[1] = "./scripts/loanProofGenerator.js";
+    inputs[1] = "./dist/loanProofGenerator.js";
 
     if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
       IUniqueValidator.Details memory terms = abi.decode(
@@ -504,9 +503,7 @@ contract TestHelpers is Test, IERC721Receiver {
       });
   }
 
-  function _executeCommitments(
-    IAstariaRouter.Commitment[] memory commitments
-  )
+  function _executeCommitments(IAstariaRouter.Commitment[] memory commitments)
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
@@ -759,9 +756,10 @@ contract TestHelpers is Test, IERC721Receiver {
     uint256 amount;
   }
 
-  function _generateTerms(
-    GenTerms memory params
-  ) internal returns (IAstariaRouter.Commitment memory terms) {
+  function _generateTerms(GenTerms memory params)
+    internal
+    returns (IAstariaRouter.Commitment memory terms)
+  {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(params.pk, params.termHash);
 
     return
@@ -800,7 +798,7 @@ contract TestHelpers is Test, IERC721Receiver {
       IERC4626(vault),
       lender.addr,
       lender.amountToLend,
-      uint(0)
+      uint256(0)
     );
     vm.stopPrank();
   }
@@ -849,7 +847,11 @@ contract TestHelpers is Test, IERC721Receiver {
     vm.stopPrank();
   }
 
-  function _bid(address bidder, uint256 tokenId, uint256 amount) internal {
+  function _bid(
+    address bidder,
+    uint256 tokenId,
+    uint256 amount
+  ) internal {
     vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
     vm.startPrank(bidder);
     WETH9.deposit{value: amount}();

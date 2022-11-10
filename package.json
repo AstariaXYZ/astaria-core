@@ -23,8 +23,7 @@
     "lint": "eslint src/**/*.sol",
     "lint:fix": "prettier --write src/**/*.sol",
     "write-headers": "node scripts/writeHeaders.js",
-    "build-sdk": "cd lib/astaria-sdk && yarn build ",
-    "postinstall": "cd lib/astaria-sdk && yarn && yarn build"
+    "postinstall": "sh scripts/postinstall.sh"
   },
   "devDependencies": {
     "@dethcrypto/eth-sdk": "^0.3.3",
@@ -34,12 +33,9 @@
     "@nomiclabs/hardhat-waffle": "^2.0.0",
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^2.3.0",
-    "@types/chai": "^4.2.21",
-    "@types/mocha": "^9.0.0",
     "@types/node": "^12.0.0",
     "@typescript-eslint/eslint-plugin": "^4.29.1",
     "@typescript-eslint/parser": "^4.29.1",
-    "chai": "^4.2.0",
     "dotenv": "^10.0.0",
     "eslint": "^7.29.0",
     "eslint-config-prettier": "^8.3.0",

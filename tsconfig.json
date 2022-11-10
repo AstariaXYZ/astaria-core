@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
-    "target": "es2018",
+    "target": "es2021",
     "module": "commonjs",
     "strict": true,
     "esModuleInterop": true,
     "outDir": "dist",
     "declaration": true
   },
-  "include": ["./scripts/loanProofGenerator.ts"]
+  "include": ["./scripts/loanProofGenerator.ts"],
+  "exclude": ["node_modules/*", "lib/*", "dist","typechain", "typechainabi"]
 }
