@@ -348,9 +348,12 @@ contract AstariaTest is TestHelpers {
       isFirstLien: true
     });
 
-    vm.warp(block.timestamp + 5 days);
+    vm.warp(block.timestamp + 3 days);
 
-    uint256 buyout = uint256(LIEN_TOKEN.getOwed(stack[0]) - 10 ether).mulDivDown(1, 10);
+//    uint256 buyout = uint256(LIEN_TOKEN.getOwed(stack[0]) - 10 ether).mulDivDown(1, 10);
+    uint256 accruedInterest = uint256(LIEN_TOKEN.getOwed(stack[0]));
+    uint256 tenthOfRemaining = (uint256(LIEN_TOKEN.getOwed(stack[0], block.timestamp + 7 days)) - accruedInterest).mulDivDown(1, 10);
+//    uint256 buyout = accruedInterest + tenthOfRemaining;
 
     // buyout liens
 
@@ -382,7 +385,11 @@ contract AstariaTest is TestHelpers {
       stack
     );
 
-    assertEq(WETH9.balanceOf(privateVault), 40 ether - buyout, "Incorrect PrivateVault balance");
+    assertEq(WETH9.balanceOf(privateVault), 40 ether - tenthOfRemaining, "Incorrect PrivateVault balance");
+    assertEq(WETH9.balanceOf(publicVault), 40 ether + tenthOfRemaining, "Incorrect PublicVault balance");
+    assertEq(PublicVault(publicVault).getYIntercept(), 50 ether + tenthOfRemaining, "Incorrect PublicVault YIntercept");
+    assertEq(PublicVault(publicVault).totalAssets(), 50 ether + tenthOfRemaining, "Incorrect PublicVault YIntercept");
+    assertEq(PublicVault(publicVault).getSlope(), 0, "Incorrect PublicVault slope");
 //    assertEq(WETH9.balanceOf(privateVault), 39.7575342466, "Incorrect PrivateVault balance");
 
     /////
