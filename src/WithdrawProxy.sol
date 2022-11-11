@@ -119,20 +119,24 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
    * @param receiver The receiver of the Withdraw Tokens.
    * @param shares The number of shares to mint.
    */
-  function mint(
-    uint256 shares,
-    address receiver
-  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 assets) {
+  function mint(uint256 shares, address receiver)
+    public
+    virtual
+    override(ERC4626Cloned, IERC4626)
+    returns (uint256 assets)
+  {
     require(msg.sender == owner(), "only owner can mint");
     _mint(receiver, shares);
     return shares;
   }
 
-  function deposit(
-    uint256 assets,
-    address receiver
-  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 shares) {
-    _mint(receiver, assets);
+  function deposit(uint256 assets, address receiver)
+    public
+    virtual
+    override(ERC4626Cloned, IERC4626)
+    returns (uint256 shares)
+  {
+    revert NotSupported();
   }
 
   /**
@@ -159,9 +163,12 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   //TODO: create a withdraw proxy to expose properly here, used during repayments in AH
-  function supportsInterface(
-    bytes4 interfaceId
-  ) external view virtual returns (bool) {
+  function supportsInterface(bytes4 interfaceId)
+    external
+    view
+    virtual
+    returns (bool)
+  {
     return interfaceId == type(IWithdrawProxy).interfaceId;
   }
 
@@ -219,20 +226,27 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
 
     if (balance < s.expected) {
       PublicVault(VAULT()).decreaseYIntercept(
-        (s.expected - balance).mulWadDown(1e18 - s.withdrawRatio)
+        (s.expected - balance).mulWadDown(
+          10**ERC20(asset()).decimals() - s.withdrawRatio
+        )
       );
     }
 
     if (s.withdrawRatio == uint256(0)) {
       ERC20(asset()).safeTransfer(VAULT(), balance);
     } else {
-      transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
+      transferAmount = uint256(s.withdrawRatio).mulDivDown(
+        balance,
+        10**ERC20(asset()).decimals()
+      );
 
       unchecked {
         balance -= transferAmount;
       }
 
-      ERC20(asset()).safeTransfer(VAULT(), balance);
+      if (balance > 0) {
+        ERC20(asset()).safeTransfer(VAULT(), balance);
+      }
     }
     s.finalAuctionEnd = 0;
 
@@ -244,10 +258,10 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
    * @param amount The amount to attempt to drain from the WithdrawProxy.
    * @param withdrawProxy The address of the withdrawProxy to drain to.
    */
-  function drain(
-    uint256 amount,
-    address withdrawProxy
-  ) public returns (uint256) {
+  function drain(uint256 amount, address withdrawProxy)
+    public
+    returns (uint256)
+  {
     require(msg.sender == VAULT());
     uint256 balance = ERC20(asset()).balanceOf(address(this));
     if (amount > balance) {
