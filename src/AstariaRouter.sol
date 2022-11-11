@@ -38,8 +38,8 @@ import {Pausable} from "core/utils/Pausable.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC4626Router} from "gpl/ERC4626Router.sol";
 import {ERC4626RouterBase} from "gpl/ERC4626RouterBase.sol";
-import "./interfaces/IERC4626.sol";
-import "./interfaces/IPublicVault.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 
 /**
  * @title AstariaRouter

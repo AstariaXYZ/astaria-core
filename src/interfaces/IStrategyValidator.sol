@@ -10,9 +10,8 @@
 
 pragma solidity ^0.8.17;
 
-import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
-import {ILienToken} from "../interfaces/IAstariaRouter.sol";
-import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/IAstariaRouter.sol";
 
 interface IStrategyValidator {
   function validateAndParse(

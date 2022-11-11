@@ -22,24 +22,24 @@ import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {ITokenBase} from "core/interfaces/ITokenBase.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IERC20} from "core/interfaces/IERC20.sol";
+import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {ERC20Cloned} from "gpl/ERC20-Cloned.sol";
 
 import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {LienToken} from "./LienToken.sol";
-import {VaultImplementation} from "./VaultImplementation.sol";
-import {WithdrawProxy} from "./WithdrawProxy.sol";
+import {LienToken} from "core/LienToken.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
-import {Math} from "./utils/Math.sol";
-import {IPublicVault} from "./interfaces/IPublicVault.sol";
-import {Vault} from "./Vault.sol";
+import {Math} from "core/utils/Math.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {Vault} from "core/Vault.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
-import "./interfaces/IERC4626.sol";
 
 /*
  * @title PublicVault
@@ -183,10 +183,9 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return s.yIntercept;
   }
 
-  function _deployWithdrawProxyIfNotDeployed(
-    VaultData storage s,
-    uint64 epoch
-  ) internal {
+  function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
+    internal
+  {
     if (s.epochData[epoch].withdrawProxy == address(0)) {
       s.epochData[epoch].withdrawProxy = ClonesWithImmutableArgs.clone(
         IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
@@ -202,10 +201,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function mint(
-    uint256 shares,
-    address receiver
-  ) public override(ERC4626Cloned) whenNotPaused returns (uint256) {
+  function mint(uint256 shares, address receiver)
+    public
+    override(ERC4626Cloned)
+    whenNotPaused
+    returns (uint256)
+  {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
@@ -224,10 +225,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param amount The amount of funds to deposit.
    * @param receiver The receiver of the resulting VaultToken shares.
    */
-  function deposit(
-    uint256 amount,
-    address receiver
-  ) public override(Vault, ERC4626Cloned) whenNotPaused returns (uint256) {
+  function deposit(uint256 amount, address receiver)
+    public
+    override(Vault, ERC4626Cloned)
+    whenNotPaused
+    returns (uint256)
+  {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
@@ -334,9 +337,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function supportsInterface(
-    bytes4 interfaceId
-  ) public pure override(IERC165, Vault) returns (bool) {
+  function supportsInterface(bytes4 interfaceId)
+    public
+    pure
+    override(IERC165, Vault)
+    returns (bool)
+  {
     return
       interfaceId == type(IPublicVault).interfaceId ||
       interfaceId == type(ERC4626Cloned).interfaceId ||
@@ -546,10 +552,11 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param assets The amount of assets deposited to the PublicVault.
    * @param shares The resulting amount of VaultToken shares that were issued.
    */
-  function afterDeposit(
-    uint256 assets,
-    uint256 shares
-  ) internal virtual override {
+  function afterDeposit(uint256 assets, uint256 shares)
+    internal
+    virtual
+    override
+  {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {

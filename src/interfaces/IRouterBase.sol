@@ -10,7 +10,7 @@
 
 pragma solidity ^0.8.17;
 
-import {IAstariaRouter} from "./IAstariaRouter.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 
 interface IRouterBase {
   function ROUTER() external view returns (IAstariaRouter);

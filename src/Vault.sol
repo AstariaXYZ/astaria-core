@@ -26,7 +26,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {LienToken} from "core/LienToken.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
-import {IERC4626} from "./interfaces/IERC4626.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
 
 /**
  * @title Vault
@@ -55,16 +55,20 @@ contract Vault is AstariaVaultBase, VaultImplementation {
       string(abi.encodePacked("AST-V", owner(), "-", ERC20(asset()).symbol()));
   }
 
-  function supportsInterface(
-    bytes4 interfaceId
-  ) public pure virtual returns (bool) {
+  function supportsInterface(bytes4 interfaceId)
+    public
+    pure
+    virtual
+    returns (bool)
+  {
     return false;
   }
 
-  function deposit(
-    uint256 amount,
-    address receiver
-  ) public virtual returns (uint256) {
+  function deposit(uint256 amount, address receiver)
+    public
+    virtual
+    returns (uint256)
+  {
     VIData storage s = _loadVISlot();
     require(
       s.allowList[msg.sender] ||
@@ -88,10 +92,11 @@ contract Vault is AstariaVaultBase, VaultImplementation {
     revert();
   }
 
-  function modifyAllowList(
-    address depositor,
-    bool enabled
-  ) external pure override(VaultImplementation) {
+  function modifyAllowList(address depositor, bool enabled)
+    external
+    pure
+    override(VaultImplementation)
+  {
     //invalid action private vautls can only be the owner or strategist
     revert();
   }

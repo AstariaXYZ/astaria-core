@@ -19,7 +19,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {IPausable} from "core/utils/Pausable.sol";
-import {IBeacon} from "./IBeacon.sol";
+import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {IERC4626RouterBase} from "gpl/interfaces/IERC4626RouterBase.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
@@ -132,9 +132,9 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param commitment The commitment proofs and requested loan data for each loan.
    * @return lien the new Lien data
    */
-  function validateCommitment(
-    IAstariaRouter.Commitment calldata commitment
-  ) external returns (ILienToken.Lien memory lien);
+  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
+    external
+    returns (ILienToken.Lien memory lien);
 
   /**
    * @notice Deploys a new PublicVault.
@@ -168,9 +168,9 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param commitments The commitment proofs and requested loan data for each loan.
    * @return lienIds the lienIds for each loan.
    */
-  function commitToLiens(
-    Commitment[] memory commitments
-  ) external returns (uint256[] memory, ILienToken.Stack[] memory);
+  function commitToLiens(Commitment[] memory commitments)
+    external
+    returns (uint256[] memory, ILienToken.Stack[] memory);
 
   /**
    * @notice Create a new lien against a CollateralToken.
@@ -180,7 +180,13 @@ interface IAstariaRouter is IPausable, IBeacon {
   function requestLienPosition(
     IAstariaRouter.Commitment calldata params,
     address recipient
-  ) external returns (uint256, ILienToken.Stack[] memory, uint256);
+  )
+    external
+    returns (
+      uint256,
+      ILienToken.Stack[] memory,
+      uint256
+    );
 
   function LIEN_TOKEN() external view returns (ILienToken);
 

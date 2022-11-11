@@ -19,10 +19,9 @@ import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {WithdrawVaultBase} from "core/WithdrawVaultBase.sol";
 import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-import {PublicVault} from "./PublicVault.sol";
+import {PublicVault} from "core/PublicVault.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
-import "./WithdrawVaultBase.sol";
 
 /**
  * @title WithdrawProxy
