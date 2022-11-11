@@ -168,8 +168,8 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     address payee = _getPayee(s, params.encumber.stack[params.position].point.lienId);
     if(s.ASTARIA_ROUTER.isValidVault(payee)) {
-      IPublicVault(payee).decreaseSlope(params.encumber.stack[params.position].lien.details.rate);
-      IPublicVault(payee).increaseYIntercept(owed - buyout);
+      IPublicVault(payee).decreaseSlope(calculateSlope(params.encumber.stack[params.position]));
+      IPublicVault(payee).increaseYIntercept(buyout - params.encumber.stack[params.position].point.amount);
     }
 
     return (
