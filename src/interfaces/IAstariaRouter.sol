@@ -55,8 +55,8 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   struct RouterStorage {
     //slot 1
-    uint32 minInterestBPS; // was uint64
     uint32 auctionWindow;
+    uint32 auctionWindowBuffer;
     uint32 liquidationFeeNumerator;
     uint32 liquidationFeeDenominator;
     uint32 maxEpochLength;
@@ -72,6 +72,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     address feeTo; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
     uint88 maxInterestRate; //6
+    uint32 minInterestBPS; // was uint64
     mapping(uint8 => address) strategyValidators;
     //slot 3 +
     address guardian; //20
@@ -200,7 +201,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function maxInterestRate() external view returns (uint256);
 
-  function getAuctionWindow() external view returns (uint256);
+  function getAuctionWindow(bool includeBuffer) external view returns (uint256);
 
   function getStrategistFee(uint256) external view returns (uint256);
 
@@ -254,7 +255,12 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint256 reserve,
     uint256[] fee
   );
-  event NewVault(address appraiser, address vault);
+  event NewVault(
+    address strategist,
+    address delegate,
+    address vault,
+    uint8 vaultType
+  );
 
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);

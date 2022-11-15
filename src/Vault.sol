@@ -79,17 +79,18 @@ contract Vault is AstariaVaultBase, VaultImplementation {
   }
 
   function withdraw(uint256 amount) external {
+    require(msg.sender == owner());
     ERC20(asset()).safeTransferFrom(address(this), address(msg.sender), amount);
   }
 
   function disableAllowList() external pure override(VaultImplementation) {
     //invalid action allowlist must be enabled for private vaults
-    revert();
+    revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
   }
 
   function enableAllowList() external pure override(VaultImplementation) {
     //invalid action allowlist must be enabled for private vaults
-    revert();
+    revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
   }
 
   function modifyAllowList(address depositor, bool enabled)
@@ -98,6 +99,6 @@ contract Vault is AstariaVaultBase, VaultImplementation {
     override(VaultImplementation)
   {
     //invalid action private vautls can only be the owner or strategist
-    revert();
+    revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
   }
 }

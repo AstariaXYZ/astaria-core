@@ -18,7 +18,7 @@ interface IPausable {
  */
 abstract contract Pausable is IPausable {
   bytes32 constant PAUSE_SLOT =
-    keccak256("xyz.astaria.router.pause.storage.location");
+    keccak256("xyz.astaria.AstariaRouter.Pausable.storage.location");
   /**
    * @dev Emitted when the pause is triggered by `account`.
    */

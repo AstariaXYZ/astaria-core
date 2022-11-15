@@ -310,11 +310,7 @@ contract TestHelpers is Test, IERC721Receiver {
       LienToken.createLien.selector,
       true
     );
-    //    MRA.setRoleCapability(
-    //      uint8(UserRoles.ASTARIA_ROUTER),
-    //      CollateralToken.auctionVault.selector,
-    //      true
-    //    );
+
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
       TRANSFER_PROXY.tokenTransferFrom.selector,
@@ -618,17 +614,6 @@ contract TestHelpers is Test, IERC721Receiver {
     address vault,
     ILienToken.Stack[] memory stack
   ) internal returns (IAstariaRouter.Commitment memory) {
-    ////  struct Details {
-    //  //    uint8 version;
-    //  //    address token;
-    //  //    address[] assets;
-    //  //    uint24 fee;
-    //  //    int24 tickLower;
-    //  //    int24 tickUpper;
-    //  //    uint128 minLiquidity;
-    //  //    address borrower;
-    //  //    ILienToken.Details lien;
-    //  //  }
     bytes memory validatorDetails = abi.encode(
       IUNI_V3Validator.Details({
         version: uint8(3),
@@ -792,7 +777,6 @@ contract TestHelpers is Test, IERC721Receiver {
     vm.startPrank(lender.addr);
     WETH9.deposit{value: lender.amountToLend}();
     WETH9.approve(address(TRANSFER_PROXY), lender.amountToLend);
-    //    IVault(vault).deposit(lender.amountToLend, lender.addr);
     //min slippage on the deposit
     ASTARIA_ROUTER.depositToVault(
       IERC4626(vault),

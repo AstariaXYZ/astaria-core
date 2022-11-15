@@ -39,7 +39,7 @@ contract AstariaTest is TestHelpers {
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
-  event IncrementNonce(uint32 nonce);
+  event NonceUpdated(uint32 nonce);
   event VaultShutdown();
 
   function testVaultShutdown() public {
@@ -64,12 +64,12 @@ contract AstariaTest is TestHelpers {
     });
 
     vm.expectEmit(true, true, true, true);
-    emit IncrementNonce(1);
+    emit NonceUpdated(1);
     vm.prank(strategistOne);
     VaultImplementation(privateVault).incrementNonce();
 
     vm.expectEmit(true, true, true, true);
-    emit IncrementNonce(2);
+    emit NonceUpdated(2);
     vm.prank(strategistTwo);
     VaultImplementation(privateVault).incrementNonce();
   }
@@ -167,7 +167,6 @@ contract AstariaTest is TestHelpers {
 
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
-    // _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
     _signalWithdraw(address(1), publicVault);
 
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
@@ -326,7 +325,7 @@ contract AstariaTest is TestHelpers {
 
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
-    vm.warp(block.timestamp + 14 days); // end of loan
+    skip(14 days); // end of loan
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
 
     _bid(address(2), collateralId, 33 ether);
@@ -347,8 +346,7 @@ contract AstariaTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    // assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
-    //    assertEq(WETH9.balanceOf(address(1)), 50575342465745600000);
+    assertEq(WETH9.balanceOf(address(1)), 50287680745810395000);
   }
 
   function testBuyoutLien() public {
@@ -499,11 +497,6 @@ contract AstariaTest is TestHelpers {
       ILienToken.File(ILienToken.FileType.CollateralToken, collateralIdAddr)
     );
     assert(LIEN_TOKEN.COLLATERAL_TOKEN() == ICollateralToken(address(0)));
-
-    //    vm.expectRevert(
-    //      abi.encodeWithSelector(ICollateralToken.UnsupportedFile.selector)
-    //    );
-    //    COLLATERAL_TOKEN.file(ICollateralToken.File(uint8(11), ""));
   }
 
   function testEpochProcessionMultipleActors() public {
@@ -569,7 +562,6 @@ contract AstariaTest is TestHelpers {
     address alice = address(1);
     address bob = address(2);
     TestNFT nft = new TestNFT(6);
-    //    mintAndDeposit(address(nft), uint256(5));
     uint256 tokenId = uint256(5);
     address tokenContract = address(nft);
     address publicVault = _createPublicVault({
@@ -595,14 +587,17 @@ contract AstariaTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _bid(address(2), collateralId, 10 ether);
     _cancelAuction(collateralId, address(this));
-    assertEq(address(this), ERC721(tokenContract).ownerOf(tokenId), "liquidator did not receive NFT");
+    assertEq(
+      address(this),
+      ERC721(tokenContract).ownerOf(tokenId),
+      "liquidator did not receive NFT"
+    );
   }
 
   function testAuctionEnd() public {
     address alice = address(1);
     address bob = address(2);
     TestNFT nft = new TestNFT(6);
-    //    mintAndDeposit(address(nft), uint256(5));
     uint256 tokenId = uint256(5);
     address tokenContract = address(nft);
     address publicVault = _createPublicVault({
@@ -636,7 +631,6 @@ contract AstariaTest is TestHelpers {
     address alice = address(1);
     address bob = address(2);
     TestNFT nft = new TestNFT(6);
-    //    mintAndDeposit(address(nft), uint256(5));
     uint256 tokenId = uint256(5);
     address tokenContract = address(nft);
     address publicVault = _createPublicVault({

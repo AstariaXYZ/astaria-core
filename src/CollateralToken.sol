@@ -62,9 +62,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     }
   }
 
-  function supportsInterface(
-    bytes4 interfaceId
-  ) public view override(ERC721, IERC165) returns (bool) {
+  function supportsInterface(bytes4 interfaceId)
+    public
+    view
+    override(ERC721, IERC165)
+    returns (bool)
+  {
     return
       interfaceId == type(ICollateralToken).interfaceId ||
       super.supportsInterface(interfaceId);
@@ -175,10 +178,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     }
   }
 
-  function releaseToAddress(
-    uint256 collateralId,
-    address releaseTo
-  ) public releaseCheck(collateralId) {
+  function releaseToAddress(uint256 collateralId, address releaseTo)
+    public
+    releaseCheck(collateralId)
+  {
     CollateralStorage storage s = _loadCollateralSlot();
     if (
       msg.sender != address(s.ASTARIA_ROUTER) &&
@@ -216,9 +219,11 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
    * @param collateralId The ID of the CollateralToken wrapping the NFT.
    * @return The address and tokenId of the underlying NFT.
    */
-  function getUnderlying(
-    uint256 collateralId
-  ) public view returns (address, uint256) {
+  function getUnderlying(uint256 collateralId)
+    public
+    view
+    returns (address, uint256)
+  {
     Asset memory underlying = _loadCollateralSlot().idToUnderlying[
       collateralId
     ];
@@ -230,9 +235,13 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
    * @param collateralId The ID of the CollateralToken.
    * @return the URI of the CollateralToken.
    */
-  function tokenURI(
-    uint256 collateralId
-  ) public view virtual override(ERC721, IERC721) returns (string memory) {
+  function tokenURI(uint256 collateralId)
+    public
+    view
+    virtual
+    override(ERC721, IERC721)
+    returns (string memory)
+  {
     (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
     return ERC721(underlyingAsset).tokenURI(assetId);
   }

@@ -45,7 +45,7 @@ abstract contract VaultImplementation is
   function symbol() public view virtual override returns (string memory);
 
   bytes32 constant VI_SLOT =
-    keccak256("xyz.astaria.core.VaultImplementation.storage.location");
+    keccak256("xyz.astaria.VaultImplementation.storage.location");
 
   function getStrategistNonce() external view returns (uint32) {
     return _loadVISlot().strategistNonce;
@@ -57,7 +57,7 @@ abstract contract VaultImplementation is
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
     s.strategistNonce++;
-    emit IncrementNonce(s.strategistNonce);
+    emit NonceUpdated(s.strategistNonce);
   }
 
   /**
@@ -80,10 +80,11 @@ abstract contract VaultImplementation is
    * @param depositor the depositor to modify
    * @param enabled the status of the depositor
    */
-  function modifyAllowList(
-    address depositor,
-    bool enabled
-  ) external virtual onlyOwner {
+  function modifyAllowList(address depositor, bool enabled)
+    external
+    virtual
+    onlyOwner
+  {
     _loadVISlot().allowList[depositor] = enabled;
   }
 
@@ -149,8 +150,6 @@ abstract contract VaultImplementation is
 
   bytes32 public constant STRATEGY_TYPEHASH =
     0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
-
-  // cast k "StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)"
 
   /*
    * @notice encodes the data for a 712 signature
@@ -221,13 +220,6 @@ abstract contract VaultImplementation is
     IAstariaRouter.Commitment calldata params,
     address receiver
   ) internal view {
-    //    if (
-    //      params.lienRequest.amount > ERC20(asset()).balanceOf(address(this))
-    //    ) {
-    //      revert IVaultImplementation.InvalidRequest(
-    //        InvalidRequestReason.INSUFFICIENT_FUNDS
-    //      );
-    //    }
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
@@ -306,12 +298,6 @@ abstract contract VaultImplementation is
       lienId,
       params.lienRequest.amount,
       slopeAddition
-    );
-    emit NewLien(
-      params.lienRequest.merkle.root,
-      params.tokenContract,
-      params.tokenId,
-      params.lienRequest.amount
     );
   }
 
@@ -392,7 +378,11 @@ abstract contract VaultImplementation is
     address receiver
   )
     internal
-    returns (uint256 newLienId, ILienToken.Stack[] memory stack, uint256 slope)
+    returns (
+      uint256 newLienId,
+      ILienToken.Stack[] memory stack,
+      uint256 slope
+    )
   {
     _validateCommitment(c, receiver);
     (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());

@@ -46,14 +46,8 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
     mapping(address => bool) allowList;
   }
 
-  event NewLien(
-    bytes32 strategyRoot,
-    address tokenContract,
-    uint256 tokenId,
-    uint256 amount
-  );
+  event NonceUpdated(uint32 nonce);
 
-  event NewVault(address appraiser, address vault);
   event IncrementNonce(uint32 nonce);
 
   event VaultShutdown();

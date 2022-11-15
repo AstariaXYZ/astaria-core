@@ -53,7 +53,7 @@ contract ForkedTesting is TestHelpers {
   address constant V3_NFT_ADDRESS =
     address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88); // todo get real nft address
 
-  function _hijackNFT(address nft, uint tokenId) internal {
+  function _hijackNFT(address nft, uint256 tokenId) internal {
     address holder = ERC721(nft).ownerOf(tokenId);
     vm.startPrank(holder);
     ERC721(nft).transferFrom(holder, address(this), tokenId);
@@ -132,7 +132,6 @@ contract ForkedTesting is TestHelpers {
     uint256 balance0Before = IERC20(assets[0]).balanceOf(address(this));
     uint256 balance1Before = IERC20(assets[1]).balanceOf(address(this));
 
-    //    vm.expectRevert()
     COLLATERAL_TOKEN.flashAction(
       IFlashAction(claimFees),
       tokenContract.computeId(tokenId),

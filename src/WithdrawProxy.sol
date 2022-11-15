@@ -46,7 +46,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   );
 
   bytes32 constant WITHDRAW_PROXY_SLOT =
-    keccak256("xyz.astaria.WithdrawProxy.storage.location"); // TODO change
+    keccak256("xyz.astaria.WithdrawProxy.storage.location");
 
   struct WPStorage {
     uint88 withdrawRatio;
@@ -138,6 +138,22 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     revert NotSupported();
   }
 
+  function withdraw(
+    uint256 assets,
+    address receiver,
+    address owner
+  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 shares) {
+    WPStorage storage s = _loadSlot();
+    // If auction funds have been collected to the WithdrawProxy
+    // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
+    if (s.finalAuctionEnd != 0) {
+      // if finalAuctionEnd is 0, no auctions were added
+      revert InvalidState(InvalidStates.NOT_CLAIMED);
+    }
+
+    return super.withdraw(assets, receiver, owner);
+  }
+
   /**
    * @notice Redeem funds collected in the WithdrawProxy.
    * @param shares The number of WithdrawToken shares to redeem.
@@ -158,10 +174,9 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       revert InvalidState(InvalidStates.NOT_CLAIMED);
     }
 
-    super.redeem(shares, receiver, owner);
+    return super.redeem(shares, receiver, owner);
   }
 
-  //TODO: create a withdraw proxy to expose properly here, used during repayments in AH
   function supportsInterface(bytes4 interfaceId)
     external
     view

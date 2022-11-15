@@ -191,7 +191,8 @@ contract IntegrationTest is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVaults[0]),
-      PublicVault(publicVaults[0]).totalAssets()
+      PublicVault(publicVaults[0]).totalAssets(),
+      "Incorrect WETH balance"
     );
 
     vm.warp(block.timestamp + 2 days);
@@ -205,26 +206,30 @@ contract IntegrationTest is TestHelpers {
       WithdrawProxy(withdrawProxies[i]).claim();
     }
 
-    assertEq(WETH9.balanceOf(withdrawProxies[1]), 0);
-    assertEq(WETH9.balanceOf(withdrawProxies[2]), 0);
-    assertEq(WETH9.balanceOf(withdrawProxies[3]), 0);
-    assertEq(WETH9.balanceOf(withdrawProxies[4]), 0);
+    assertEq(WETH9.balanceOf(withdrawProxies[1]), 0, "proxy 1 invalid");
+    assertEq(WETH9.balanceOf(withdrawProxies[2]), 0, "proxy 2 invalid");
+    assertEq(WETH9.balanceOf(withdrawProxies[3]), 0, "proxy 3 invalid");
+    assertEq(WETH9.balanceOf(withdrawProxies[4]), 0, "proxy 4 invalid");
 
     assertEq(
       WETH9.balanceOf(publicVaults[1]),
-      PublicVault(publicVaults[1]).totalAssets()
+      PublicVault(publicVaults[1]).totalAssets(),
+      "vault 1 invalid"
     );
     assertEq(
       WETH9.balanceOf(publicVaults[2]),
-      PublicVault(publicVaults[2]).totalAssets()
+      PublicVault(publicVaults[2]).totalAssets(),
+      "vault 2 invalid"
     );
     assertEq(
       WETH9.balanceOf(publicVaults[3]),
-      PublicVault(publicVaults[3]).totalAssets()
+      PublicVault(publicVaults[3]).totalAssets(),
+      "vault 3 invalid"
     );
     assertEq(
       WETH9.balanceOf(publicVaults[4]),
-      PublicVault(publicVaults[4]).totalAssets()
+      PublicVault(publicVaults[4]).totalAssets(),
+      "vault 4 invalid"
     );
   }
 

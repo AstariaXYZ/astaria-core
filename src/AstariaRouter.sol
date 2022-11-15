@@ -52,7 +52,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   using FixedPointMathLib for uint256;
 
   bytes32 constant ROUTER_SLOT =
-    keccak256("xyz.astaria.router.storage.location");
+    keccak256("xyz.astaria.AstariaRouter.storage.location");
 
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
@@ -86,6 +86,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.implementations[uint8(ImplementationType.WithdrawProxy)] = _WITHDRAW_IMPL;
     s.BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
     s.auctionWindow = uint32(2 days);
+    s.auctionWindowBuffer = uint32(1 days);
 
     s.liquidationFeeNumerator = uint32(130);
     s.liquidationFeeDenominator = uint32(1000);
@@ -207,8 +208,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     FileType what = incoming.what;
     bytes memory data = incoming.data;
     if (what == FileType.AuctionWindow) {
-      uint256 value = abi.decode(data, (uint256));
-      s.auctionWindow = value.safeCastTo32();
+      (uint256 window, uint256 windowBuffer) = abi.decode(
+        data,
+        (uint256, uint256)
+      );
+      s.auctionWindow = window.safeCastTo32();
+      s.auctionWindowBuffer = windowBuffer.safeCastTo32();
     } else if (what == FileType.LiquidationFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
@@ -320,8 +325,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     }
   }
 
-  function getAuctionWindow() public view returns (uint256) {
-    return _loadRouterSlot().auctionWindow;
+  function getAuctionWindow(bool includeBuffer) public view returns (uint256) {
+    RouterStorage storage s = _loadRouterSlot();
+    return s.auctionWindow + (includeBuffer ? s.auctionWindowBuffer : 0);
   }
 
   function _sliceUint(bytes memory bs, uint256 start)
@@ -507,11 +513,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     }
 
     RouterStorage storage s = _loadRouterSlot();
+    uint256 auctionWindowMax = s.auctionWindow + s.auctionWindowBuffer;
     ILienToken.AuctionStack[]
       memory stackAtLiquidation = new ILienToken.AuctionStack[](stack.length);
     (reserve, stackAtLiquidation) = s.LIEN_TOKEN.stopLiens(
       collateralId,
-      s.auctionWindow,
+      auctionWindowMax,
       stack
     );
 
@@ -523,6 +530,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.AUCTION_HOUSE.createAuction(
       collateralId,
       s.auctionWindow,
+      auctionWindowMax,
       msg.sender,
       s.liquidationFeeNumerator,
       s.liquidationFeeDenominator,
@@ -703,7 +711,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
     s.vaults[vaultAddr] = msg.sender;
 
-    emit NewVault(msg.sender, vaultAddr);
+    emit NewVault(msg.sender, delegate, vaultAddr, vaultType);
 
     return vaultAddr;
   }

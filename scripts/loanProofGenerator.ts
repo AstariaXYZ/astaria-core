@@ -27,16 +27,6 @@ if (detailsType === 0) {
     "uint256",
   ];
 } else if (detailsType === 2) {
-  // uint8 version;
-  //     address token;
-  //     address[] assets;
-  //     uint24 fee;
-  //     int24 tickLower;
-  //     int24 tickUpper;
-  //     uint128 minLiquidity;
-  //     uint256 amount0Min;
-  //     uint256 amount1Min;
-  //     address borrower;
   mapping = [
     "uint8",
     "address",
@@ -55,7 +45,6 @@ if (detailsType === 0) {
     "uint256",
   ];
 }
-// console.error(leaves);
 // Create tree
 
 const termData: string[] = defaultAbiCoder
@@ -70,8 +59,6 @@ const termData: string[] = defaultAbiCoder
 
 // @ts-ignore
 leaves.push(termData);
-// console.error(leaves);
-//
 const output: string = leaves.reduce((acc, cur) => {
   return acc + cur.join(",") + "\n";
 }, "");

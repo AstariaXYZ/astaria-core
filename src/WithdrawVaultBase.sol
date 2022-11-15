@@ -15,12 +15,7 @@ import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {Clone} from "clones-with-immutable-args/Clone.sol";
 
-abstract contract WithdrawVaultBase is
-  Clone,
-  IERC4626,
-  IRouterBase,
-  IWithdrawProxy
-{
+abstract contract WithdrawVaultBase is Clone, IWithdrawProxy {
   function name() public view virtual returns (string memory);
 
   function symbol() public view virtual returns (string memory);

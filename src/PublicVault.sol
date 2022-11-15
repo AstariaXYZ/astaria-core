@@ -38,7 +38,6 @@ import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
 import {Math} from "core/utils/Math.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
-import {Vault} from "core/Vault.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 
 /*
@@ -46,13 +45,18 @@ import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
  * @author androolloyd
  * @notice
  */
-contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
+contract PublicVault is
+  AstariaVaultBase,
+  VaultImplementation,
+  IPublicVault,
+  ERC4626Cloned
+{
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
 
   bytes32 constant PUBLIC_VAULT_SLOT =
-    keccak256("xyz.astaria.core.PublicVault.storage.location");
+    keccak256("xyz.astaria.PublicVault.storage.location");
 
   function asset()
     public
@@ -78,20 +82,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     public
     view
     virtual
-    override(IERC20Metadata, Vault)
+    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
     returns (string memory)
   {
-    return super.name();
+    return string(abi.encodePacked("AST-Vault-", ERC20(asset()).symbol()));
   }
 
   function symbol()
     public
     view
     virtual
-    override(IERC20Metadata, Vault)
+    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
     returns (string memory)
   {
-    return super.symbol();
+    return string(abi.encodePacked("AST-V-", ERC20(asset()).symbol()));
   }
 
   /**
@@ -144,7 +148,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
     // WithdrawProxy shares are minted 1:1 with PublicVault shares
-    WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(shares, receiver); // was withdrawProxies[withdrawEpoch]
+    WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(shares, receiver);
   }
 
   function getWithdrawProxy(uint64 epoch) public view returns (WithdrawProxy) {
@@ -227,7 +231,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function deposit(uint256 amount, address receiver)
     public
-    override(Vault, ERC4626Cloned)
+    override(ERC4626Cloned)
     whenNotPaused
     returns (uint256)
   {
@@ -340,7 +344,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   function supportsInterface(bytes4 interfaceId)
     public
     pure
-    override(IERC165, Vault)
+    override(IERC165)
     returns (bool)
   {
     return
@@ -590,13 +594,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   }
 
   /**
-   * @notice TODO
-   * @param auctionWindow The auction duration.
+   * @notice
+   * @param maxAuctionWindow The max possible auction duration.
    * @param params AfterLiquidation data.
    * @return withdrawProxyIfNearBoundary The address of the WithdrawProxy to set the payee to if the liquidation is triggered near an epoch boundary.
    */
   function updateVaultAfterLiquidation(
-    uint256 auctionWindow,
+    uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
   ) public returns (address withdrawProxyIfNearBoundary) {
     require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
@@ -617,13 +621,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _decreaseEpochLienCount(s, lienEpoch);
 
     uint256 timeToEnd = timeToEpochEnd(lienEpoch);
-    if (timeToEnd <= auctionWindow) {
+    if (timeToEnd <= maxAuctionWindow) {
       _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
       withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
       if (withdrawProxyIfNearBoundary != address(0)) {
         WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
           params.newAmount,
-          auctionWindow + 1 days //TODO: this has to be a variable or constant
+          maxAuctionWindow
         );
       }
     }

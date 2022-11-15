@@ -43,7 +43,6 @@ contract WithdrawTest is TestHelpers {
   // One LP, one lien that's liquidated with no bids, so withdrawing LP does not receive anything from WithdrawProxy
   function testWithdrawLiquidatedNoBids() public {
     TestNFT nft = new TestNFT(1);
-    // _mintAndDeposit(address(nft), 1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
 
@@ -82,8 +81,6 @@ contract WithdrawTest is TestHelpers {
     vm.warp(block.timestamp + lien.duration);
 
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-
-    // _bid(address(2), collateralId, 1 ether);
 
     vm.warp(block.timestamp + 2 days); // end of auction
 
@@ -166,7 +163,6 @@ contract WithdrawTest is TestHelpers {
 
     _bid(address(3), collateralId, 5 ether);
     _bid(address(3), collateralId2, 20 ether);
-    //    _warpToEpochEnd(publicVault); // epoch boundary
     vm.warp(withdrawProxy.getFinalAuctionEnd());
     emit log_named_uint("finalAuctionEnd", block.timestamp);
     PublicVault(publicVault).processEpoch();
@@ -190,7 +186,6 @@ contract WithdrawTest is TestHelpers {
       PublicVault(publicVault).getCurrentEpoch()
     );
 
-    //    _warpToEpochEnd(publicVault);
     uint256 finalAuctionEnd = withdrawProxy.getFinalAuctionEnd();
 
     PublicVault(publicVault).processEpoch();

@@ -203,12 +203,6 @@ contract LienToken is ERC721, ILienToken, Auth {
         newStack[i] = stack[i];
       }
     }
-
-    emit LienStackUpdated(
-      stack[0].lien.collateralId,
-      StackAction.REPLACE,
-      uint8(newStack.length)
-    );
   }
 
   function getInterest(Stack calldata stack) public view returns (uint256) {
@@ -310,6 +304,18 @@ contract LienToken is ERC721, ILienToken, Auth {
     return "";
   }
 
+  function transferFrom(
+    address from,
+    address to,
+    uint256 id
+  ) public override(ERC721, IERC721) {
+    LienStorage storage s = _loadLienStorageSlot();
+    if (s.lienMeta[id].amountAtLiquidation > 0) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+    super.transferFrom(from, to, id);
+  }
+
   function AUCTION_HOUSE() public view returns (IAuctionHouse) {
     return _loadLienStorageSlot().AUCTION_HOUSE;
   }
@@ -357,6 +363,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     );
     emit LienStackUpdated(
       params.collateralId,
+      newStackSlot.point.position,
       StackAction.ADD,
       uint8(newStack.length)
     );
@@ -771,6 +778,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
     emit LienStackUpdated(
       collateralId,
+      position,
       StackAction.REMOVE,
       uint8(newStack.length)
     );
