@@ -173,8 +173,16 @@ contract IntegrationTest is TestHelpers {
     vm.warp(block.timestamp + 11 days);
 
     uint256 collateralId = tokenContract.computeId(tokenId);
+    emit log_named_address(
+      "first lien payee before liq",
+      LIEN_TOKEN.getPayee(stack[0].point.lienId)
+    );
     ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
-
+    emit log_named_address("vault", address(publicVaults[0]));
+    emit log_named_address(
+      "first lien payee",
+      LIEN_TOKEN.getPayee(stack[0].point.lienId)
+    );
     _bid(address(2), collateralId, 200 ether);
 
     address[5] memory withdrawProxies;

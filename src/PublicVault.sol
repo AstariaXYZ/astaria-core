@@ -621,15 +621,16 @@ contract PublicVault is
     _decreaseEpochLienCount(s, lienEpoch);
 
     uint256 timeToEnd = timeToEpochEnd(lienEpoch);
-    if (timeToEnd <= maxAuctionWindow) {
+    if (timeToEnd < maxAuctionWindow) {
       _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
       withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
-      if (withdrawProxyIfNearBoundary != address(0)) {
-        WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
-          params.newAmount,
-          maxAuctionWindow
-        );
-      }
+    }
+
+    if (withdrawProxyIfNearBoundary != address(0)) {
+      WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
+        params.newAmount,
+        maxAuctionWindow
+      );
     }
   }
 
