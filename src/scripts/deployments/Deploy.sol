@@ -19,22 +19,24 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {WEth} from "eip4626/WEth.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {AuctionHouse} from "gpl/AuctionHouse.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
-import {IERC20} from "../../interfaces/IERC20.sol";
+import {IERC20} from "core/interfaces/IERC20.sol";
 
-import {CollateralToken} from "../../CollateralToken.sol";
-import {LienToken} from "../../LienToken.sol";
-import {AstariaRouter} from "../../AstariaRouter.sol";
+import {CollateralToken} from "core/CollateralToken.sol";
+import {LienToken} from "core/LienToken.sol";
+import {AstariaRouter} from "core/AstariaRouter.sol";
 
-import {Vault, PublicVault} from "../../PublicVault.sol";
-import {TransferProxy} from "../../TransferProxy.sol";
+import {Vault} from "core/Vault.sol";
+import {PublicVault} from "core/PublicVault.sol";
+import {TransferProxy} from "core/TransferProxy.sol";
 
-import {ICollateralToken} from "../../interfaces/ICollateralToken.sol";
-import {ILienToken} from "../../interfaces/ILienToken.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {WithdrawProxy} from "../../WithdrawProxy.sol";
-import {LiquidationAccountant} from "../../LiquidationAccountant.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
+import {BeaconProxy} from "core/BeaconProxy.sol";
 
 interface IWETH9 is IERC20 {
   function deposit() external payable;
@@ -62,7 +64,6 @@ contract Deploy is Script {
   Vault SOLO_IMPLEMENTATION;
   PublicVault VAULT_IMPLEMENTATION;
   WithdrawProxy WITHDRAW_PROXY;
-  LiquidationAccountant LIQUIDATION_IMPLEMENTATION;
   AstariaRouter ASTARIA_ROUTER;
   AuctionHouse AUCTION_HOUSE;
 
@@ -168,17 +169,7 @@ contract Deploy is Script {
         )
       )
     );
-    LIQUIDATION_IMPLEMENTATION = new LiquidationAccountant();
-    emit Deployed(address(LIQUIDATION_IMPLEMENTATION));
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked(
-          "LIQUIDATION_ACCOUNTANT_ADDR=",
-          vm.toString(address(LIQUIDATION_IMPLEMENTATION))
-        )
-      )
-    );
+    BeaconProxy BEACON_PROXY = new BeaconProxy();
     ASTARIA_ROUTER = new AstariaRouter(
       MRA,
       address(WETH9),
@@ -186,7 +177,9 @@ contract Deploy is Script {
       ILienToken(address(LIEN_TOKEN)),
       ITransferProxy(address(TRANSFER_PROXY)),
       address(VAULT_IMPLEMENTATION),
-      address(SOLO_IMPLEMENTATION)
+      address(SOLO_IMPLEMENTATION),
+      address(WITHDRAW_PROXY),
+      address(BEACON_PROXY)
     );
     emit Deployed(address(ASTARIA_ROUTER));
     vm.writeLine(
@@ -202,23 +195,24 @@ contract Deploy is Script {
     //    data[0] = abi.encode(address(WITHDRAW_PROXY));
     //    data[1] = abi.encode(address(LIQUIDATION_IMPLEMENTATION));
 
-    AstariaRouter.File[] memory files = new AstariaRouter.File[](2);
-    files[0] = AstariaRouter.File(
-      bytes32("WITHDRAW_IMPLEMENTATION"),
-      abi.encode(address(WITHDRAW_PROXY))
-    );
-    files[1] = AstariaRouter.File(
-      bytes32("LIQUIDATION_IMPLEMENTATION"),
-      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
-    );
-    ASTARIA_ROUTER.fileBatch(files);
+    //    AstariaRouter.File[] memory files = new AstariaRouter.File[](2);
+    //    files[0] = AstariaRouter.File(
+    //      bytes32("WITHDRAW_IMPLEMENTATION"),
+    //      abi.encode(address(WITHDRAW_PROXY))
+    //    );
+    //    files[1] = AstariaRouter.File(
+    //      bytes32("LIQUIDATION_IMPLEMENTATION"),
+    //      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
+    //    );
+    //    ASTARIA_ROUTER.fileBatch(files);
 
     AUCTION_HOUSE = new AuctionHouse(
       address(WETH9),
       MRA,
       ICollateralToken(address(COLLATERAL_TOKEN)),
       ILienToken(address(LIEN_TOKEN)),
-      TRANSFER_PROXY
+      TRANSFER_PROXY,
+      ASTARIA_ROUTER
     );
     vm.writeLine(
       string(".env"),
@@ -229,14 +223,22 @@ contract Deploy is Script {
         )
       )
     );
-    COLLATERAL_TOKEN.file(
-      bytes32("setAstariaRouter"),
-      abi.encode(address(ASTARIA_ROUTER))
-    );
-    COLLATERAL_TOKEN.file(
-      bytes32("setAuctionHouse"),
+
+    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](1);
+
+    files[0] = IAstariaRouter.File(
+      IAstariaRouter.FileType.AuctionHouse,
       abi.encode(address(AUCTION_HOUSE))
     );
+    ASTARIA_ROUTER.fileGuardian(files);
+
+    ICollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
+
+    ctfiles[0] = ICollateralToken.File({
+      what: ICollateralToken.FileType.AstariaRouter,
+      data: abi.encode(address(ASTARIA_ROUTER))
+    });
+    COLLATERAL_TOKEN.fileBatch(ctfiles);
     emit Deployed(address(AUCTION_HOUSE));
 
     _setupRolesAndCapabilities();
@@ -246,12 +248,12 @@ contract Deploy is Script {
 
   function _setupRolesAndCapabilities() internal {
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.createAuction.selector,
       true
     );
     MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
+      uint8(UserRoles.ASTARIA_ROUTER),
       AuctionHouse.endAuction.selector,
       true
     );
@@ -265,11 +267,11 @@ contract Deploy is Script {
       AuctionHouse.cancelAuction.selector,
       true
     );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      CollateralToken.auctionVault.selector,
-      true
-    );
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.ASTARIA_ROUTER),
+    //      CollateralToken.auctionVault.selector,
+    //      true
+    //    );
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
       TRANSFER_PROXY.tokenTransferFrom.selector,

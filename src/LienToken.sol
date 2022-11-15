@@ -17,50 +17,34 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 import {ERC721} from "gpl/ERC721.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
-import {ITransferProxy} from "gpl/interfaces/ITransferProxy.sol";
+import {IERC721} from "core/interfaces/IERC721.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {Base64} from "./libraries/Base64.sol";
-import {CollateralLookup} from "./libraries/CollateralLookup.sol";
+import {Base64} from "core/libraries/Base64.sol";
+import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ICollateralToken} from "./interfaces/ICollateralToken.sol";
-import {ILienBase, ILienToken} from "./interfaces/ILienToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {IPublicVault} from "./PublicVault.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
-
-contract TransferAgent {
-  address public immutable WETH;
-  ITransferProxy public immutable TRANSFER_PROXY;
-
-  constructor(ITransferProxy _TRANSFER_PROXY, address _WETH) {
-    TRANSFER_PROXY = _TRANSFER_PROXY;
-    WETH = _WETH;
-  }
-}
+import "./interfaces/ICollateralToken.sol";
+import "./interfaces/IAstariaRouter.sol";
+import "./interfaces/IPublicVault.sol";
 
 /**
  * @title LienToken
- * @author androolloyd
  * @notice This contract handles the creation, payments, buyouts, and liquidations of tokenized NFT-collateralized debt (liens). Vaults which originate loans against supported collateral are issued a LienToken representing the right to loan repayments and auctioned funds on liquidation.
  */
-contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
+contract LienToken is ERC721, ILienToken, Auth {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
-  IAuctionHouse public AUCTION_HOUSE;
-  IAstariaRouter public ASTARIA_ROUTER;
-  ICollateralToken public COLLATERAL_TOKEN;
-
-  uint256 INTEREST_DENOMINATOR = 1e18; //wad per second
-
-  uint256 constant MAX_LIENS = uint256(5);
-
-  mapping(uint256 => Lien) public lienData;
-  mapping(uint256 => uint256[]) public liens;
+  bytes32 constant LIEN_SLOT = keccak256("xyz.astaria.lien.storage.location");
 
   /**
    * @dev Setup transfer authority and initialize the buyoutNumerator and buyoutDenominator for the lien buyout premium.
@@ -72,36 +56,43 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
     Authority _AUTHORITY,
     ITransferProxy _TRANSFER_PROXY,
     address _WETH
-  )
-    Auth(address(msg.sender), _AUTHORITY)
-    TransferAgent(_TRANSFER_PROXY, _WETH)
-    ERC721("Astaria Lien Token", "ALT")
-  {}
+  ) Auth(address(msg.sender), _AUTHORITY) ERC721("Astaria Lien Token", "ALT") {
+    LienStorage storage s = _loadLienStorageSlot();
+    s.TRANSFER_PROXY = _TRANSFER_PROXY;
+    s.WETH = _WETH;
+    s.maxLiens = uint8(5);
+  }
 
-  /**
-   * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
-   * @param what The identifier for what is being filed.
-   * @param data The encoded address data to be decoded and filed.
-   */
-  function file(bytes32 what, bytes calldata data) external requiresAuth {
-    if (what == "setAuctionHouse") {
+  function _loadLienStorageSlot()
+    internal
+    pure
+    returns (LienStorage storage s)
+  {
+    bytes32 slot = LIEN_SLOT;
+    assembly {
+      s.slot := slot
+    }
+  }
+
+  function file(File calldata incoming) external requiresAuth {
+    FileType what = incoming.what;
+    bytes memory data = incoming.data;
+    LienStorage storage s = _loadLienStorageSlot();
+    if (what == FileType.AuctionHouse) {
       address addr = abi.decode(data, (address));
-      AUCTION_HOUSE = IAuctionHouse(addr);
-    } else if (what == "setCollateralToken") {
+      s.AUCTION_HOUSE = IAuctionHouse(addr);
+    } else if (what == FileType.CollateralToken) {
       address addr = abi.decode(data, (address));
-      COLLATERAL_TOKEN = ICollateralToken(addr);
-    } else if (what == "setAstariaRouter") {
+      s.COLLATERAL_TOKEN = ICollateralToken(addr);
+    } else if (what == FileType.AstariaRouter) {
       address addr = abi.decode(data, (address));
-      ASTARIA_ROUTER = IAstariaRouter(addr);
+      s.ASTARIA_ROUTER = IAstariaRouter(addr);
     } else {
       revert UnsupportedFile();
     }
-    emit File(what, data);
+    emit FileUpdated(what, data);
   }
 
-  /**
-   * @dev See {IERC165-supportsInterface}.
-   */
   function supportsInterface(bytes4 interfaceId)
     public
     view
@@ -113,587 +104,739 @@ contract LienToken is ERC721, ILienToken, Auth, TransferAgent {
       super.supportsInterface(interfaceId);
   }
 
-  /**
-   * @notice Purchase a LienToken for its buyout price.
-   * @param params The LienActionBuyout data specifying the lien position, receiver address, and underlying CollateralToken information of the lien.
-   */
-
-  function buyoutLien(ILienToken.LienActionBuyout calldata params) external {
-    (bool valid, IAstariaRouter.LienDetails memory ld) = ASTARIA_ROUTER
-      .validateCommitment(params.incoming);
-
-    if (!valid) {
-      revert InvalidTerms();
+  function buyoutLien(ILienToken.LienActionBuyout calldata params)
+    external
+    validateStack(
+      params.encumber.stack[0].lien.collateralId,
+      params.encumber.stack
+    )
+    returns (Stack[] memory, Stack memory newStack)
+  {
+    if (msg.sender != params.encumber.receiver) {
+      require(
+        _loadERC721Slot().isApprovedForAll[msg.sender][params.encumber.receiver]
+      );
     }
 
-    uint256 collateralId = params.incoming.tokenContract.computeId(
-      params.incoming.tokenId
-    );
-    (uint256 owed, uint256 buyout) = getBuyout(collateralId, params.position);
-    uint256 lienId = liens[collateralId][params.position];
+    LienStorage storage s = _loadLienStorageSlot();
 
+    return _buyoutLien(s, params);
+  }
+
+  function _buyoutLien(
+    LienStorage storage s,
+    ILienToken.LienActionBuyout calldata params
+  ) internal returns (Stack[] memory, Stack memory newStack) {
     //the borrower shouldn't incur more debt from the buyout than they already owe
-    if (ld.maxAmount < owed) {
-      revert InvalidBuyoutDetails(ld.maxAmount, owed);
-    }
-    if (!ASTARIA_ROUTER.isValidRefinance(lienData[lienId], ld)) {
+    (, newStack) = _createLien(s, params.encumber);
+    if (
+      !s.ASTARIA_ROUTER.isValidRefinance({
+        newLien: params.encumber.lien,
+        position: params.position,
+        stack: params.encumber.stack
+      })
+    ) {
       revert InvalidRefinance();
     }
 
-    TRANSFER_PROXY.tokenTransferFrom(
-      WETH,
-      address(msg.sender),
-      getPayee(lienId),
-      uint256(buyout)
+    if (
+      s.collateralStateHash[params.encumber.lien.collateralId] ==
+      bytes32("ACTIVE_AUCTION")
+    ) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+    (uint256 owed, uint256 buyout) = _getBuyout(
+      s,
+      params.encumber.stack[params.position]
     );
 
-    lienData[lienId].last = block.timestamp.safeCastTo32();
-    lienData[lienId].start = block.timestamp.safeCastTo32();
-    lienData[lienId].rate = ld.rate.safeCastTo240();
-    lienData[lienId].duration = ld.duration.safeCastTo32();
+    if (params.encumber.lien.details.maxAmount < owed) {
+      revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
+    }
 
-    _transfer(ownerOf(lienId), address(params.receiver), lienId);
+    s.TRANSFER_PROXY.tokenTransferFrom(
+      s.WETH,
+      address(msg.sender),
+      _getPayee(s, params.encumber.stack[params.position].point.lienId),
+      buyout
+    );
+
+    address payee = _getPayee(
+      s,
+      params.encumber.stack[params.position].point.lienId
+    );
+    if (_isPublicVault(s, payee)) {
+      IPublicVault(payee).handleBuyoutLien(
+        IPublicVault.BuyoutLienParams({
+          lienSlope: calculateSlope(params.encumber.stack[params.position]),
+          lienEnd: params.encumber.stack[params.position].point.end,
+          increaseYIntercept: buyout -
+            params.encumber.stack[params.position].point.amount
+        })
+      );
+    }
+
+    return (
+      _replaceStackAtPositionWithNewLien(
+        s,
+        params.encumber.stack,
+        params.position,
+        newStack,
+        params.encumber.stack[params.position].point.lienId,
+        newStack.point.lienId
+      ),
+      newStack
+    );
   }
 
-  /**
-   * @notice Public view function that computes the interest for a LienToken since its last payment.
-   * @param collateralId The ID of the underlying CollateralToken
-   * @param position The position of the lien to calculate interest for.
-   */
-  function getInterest(uint256 collateralId, uint256 position)
-    public
-    view
-    returns (uint256)
-  {
-    uint256 lien = liens[collateralId][position];
-    return _getInterest(lienData[lien], block.timestamp);
+  function _replaceStackAtPositionWithNewLien(
+    LienStorage storage s,
+    ILienToken.Stack[] calldata stack,
+    uint256 position,
+    Stack memory newLien,
+    uint256 oldLienId,
+    uint256 newLienId
+  ) internal returns (ILienToken.Stack[] memory newStack) {
+    newStack = new ILienToken.Stack[](stack.length);
+    for (uint256 i = 0; i < stack.length; i++) {
+      if (i == position) {
+        newStack[i] = newLien;
+        _burn(oldLienId);
+        delete s.lienMeta[oldLienId];
+      } else {
+        newStack[i] = stack[i];
+      }
+    }
+  }
+
+  function getInterest(Stack calldata stack) public view returns (uint256) {
+    LienStorage storage s = _loadLienStorageSlot();
+    return _getInterest(stack, block.timestamp);
   }
 
   /**
    * @dev Computes the interest accrued for a lien since its last payment.
-   * @param lien The Lien for the loan to calculate interest for.
+   * @param stack The Lien for the loan to calculate interest for.
    * @param timestamp The timestamp at which to compute interest for.
    */
-  function _getInterest(Lien memory lien, uint256 timestamp)
+  function _getInterest(Stack memory stack, uint256 timestamp)
     internal
-    view
+    pure
     returns (uint256)
   {
-    if (!lien.active) {
-      return uint256(0);
-    }
-    uint256 delta_t;
-    if (block.timestamp >= lien.start + lien.duration) {
-      delta_t = uint256(lien.start + lien.duration - lien.last);
-    } else {
-      delta_t = uint256(timestamp.safeCastTo32() - lien.last);
-    }
+    uint256 delta_t = timestamp - stack.point.last;
+
     return
-      delta_t.mulDivDown(lien.rate, 1).mulDivDown(
-        lien.amount,
-        INTEREST_DENOMINATOR
+      delta_t.mulDivDown(stack.lien.details.rate, 1).mulWadDown(
+        stack.point.amount
       );
   }
 
-  /**
-   * @notice Stops accruing interest for all liens against a single CollateralToken.
-   * @param collateralId The ID for the  CollateralToken of the NFT used as collateral for the liens.
-   */
-  function stopLiens(uint256 collateralId)
-    external
-    requiresAuth
-    returns (uint256 reserve, uint256[] memory lienIds)
-  {
-    reserve = 0;
-    lienIds = liens[collateralId];
-    for (uint256 i = 0; i < lienIds.length; ++i) {
-      Lien storage lien = lienData[lienIds[i]];
-      unchecked {
-        lien.amount = _getOwed(lien);
-        reserve += lien.amount;
-      }
-      lien.active = false;
+  modifier validateStack(uint256 collateralId, Stack[] memory stack) {
+    LienStorage storage s = _loadLienStorageSlot();
+    bytes32 stateHash = s.collateralStateHash[collateralId];
+    if (stateHash != bytes32(0)) {
+      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
     }
+    _;
   }
 
-  /**
-   * @dev See {IERC721Metadata-tokenURI}.
-   */
+  function stopLiens(
+    uint256 collateralId,
+    uint256 auctionWindow,
+    Stack[] calldata stack
+  )
+    external
+    validateStack(collateralId, stack)
+    requiresAuth
+    returns (uint256 reserve, AuctionStack[] memory lienIds)
+  {
+    (reserve, lienIds) = _stopLiens(
+      _loadLienStorageSlot(),
+      collateralId,
+      auctionWindow,
+      stack
+    );
+  }
+
+  function _stopLiens(
+    LienStorage storage s,
+    uint256 collateralId,
+    uint256 auctionWindow,
+    Stack[] calldata stack
+  ) internal returns (uint256 reserve, AuctionStack[] memory lienIds) {
+    reserve = 0;
+    lienIds = new AuctionStack[](stack.length);
+
+    for (uint256 i = 0; i < stack.length; ++i) {
+      lienIds[i].lienId = stack[i].point.lienId;
+      lienIds[i].end = stack[i].point.end;
+
+      uint88 owed;
+      unchecked {
+        owed = _getOwed(stack[i], block.timestamp);
+        reserve += owed;
+        s.lienMeta[stack[i].point.lienId].amountAtLiquidation = owed;
+      }
+      address payee = _getPayee(s, lienIds[i].lienId);
+      if (_isPublicVault(s, payee)) {
+        // update the public vault state and get the liquidation accountant back if any
+        address withdrawProxyIfNearBoundary = IPublicVault(payee)
+          .updateVaultAfterLiquidation(
+            auctionWindow,
+            IPublicVault.AfterLiquidationParams({
+              lienSlope: calculateSlope(stack[i]),
+              newAmount: owed,
+              lienEnd: stack[i].point.end
+            })
+          );
+
+        if (withdrawProxyIfNearBoundary != address(0)) {
+          _setPayee(s, lienIds[i].lienId, withdrawProxyIfNearBoundary);
+        }
+      }
+    }
+    s.collateralStateHash[collateralId] = bytes32("ACTIVE_AUCTION");
+  }
+
   function tokenURI(uint256 tokenId)
     public
     pure
-    override
+    override(ERC721, IERC721)
     returns (string memory)
   {
     return "";
   }
 
-  /**
-   * @notice Creates a new lien against a CollateralToken.
-   * @param params LienActionEncumber data containing CollateralToken information and lien parameters (rate, duration, and amount, rate, and debt caps).
-   */
-  function createLien(ILienBase.LienActionEncumber memory params)
-    external
-    requiresAuth
-    returns (uint256 lienId)
-  {
-    // require that the auction is not under way
-
-    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
-
-    if (AUCTION_HOUSE.auctionExists(collateralId)) {
-      revert InvalidCollateralState(InvalidStates.AUCTION);
+  function transferFrom(
+    address from,
+    address to,
+    uint256 id
+  ) public override(ERC721, IERC721) {
+    LienStorage storage s = _loadLienStorageSlot();
+    if (s.lienMeta[id].amountAtLiquidation > 0) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-
-    (address tokenContract, ) = COLLATERAL_TOKEN.getUnderlying(collateralId);
-    if (tokenContract == address(0)) {
-      revert InvalidCollateralState(InvalidStates.NO_DEPOSIT);
-    }
-
-    uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
-    uint256 impliedRate = getImpliedRate(collateralId);
-
-    uint256 potentialDebt = totalDebt *
-      (impliedRate + 1) *
-      params.terms.duration;
-
-    if (potentialDebt > params.terms.maxPotentialDebt) {
-      revert InvalidCollateralState(InvalidStates.DEBT_LIMIT);
-    }
-
-    lienId = uint256(
-      keccak256(
-        abi.encodePacked(
-          abi.encode(
-            bytes32(collateralId),
-            params.vault,
-            WETH,
-            params.terms.maxAmount,
-            params.terms.rate,
-            params.terms.duration,
-            params.terms.maxPotentialDebt
-          ),
-          params.strategyRoot
-        )
-      )
-    );
-
-    //0 - 4 are valid
-    require(
-      uint256(liens[collateralId].length) < MAX_LIENS,
-      "too many liens active"
-    );
-
-    uint8 newPosition = uint8(liens[collateralId].length);
-
-    _mint(VaultImplementation(params.vault).recipient(), lienId);
-    lienData[lienId] = Lien({
-      collateralId: collateralId,
-      position: newPosition,
-      amount: params.amount,
-      active: true,
-      rate: params.terms.rate.safeCastTo240(),
-      last: block.timestamp.safeCastTo32(),
-      start: block.timestamp.safeCastTo32(),
-      duration: params.terms.duration.safeCastTo32(),
-      payee: address(0)
-    });
-
-    liens[collateralId].push(lienId);
-    emit NewLien(lienId, lienData[lienId]);
+    super.transferFrom(from, to, id);
   }
 
-  /**
-   * @notice Removes all liens for a given CollateralToken.
-   * @param collateralId The ID for the underlying CollateralToken.
-   * @param remainingLiens The IDs for the unpaid liens
-   */
-  function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
+  function AUCTION_HOUSE() public view returns (IAuctionHouse) {
+    return _loadLienStorageSlot().AUCTION_HOUSE;
+  }
+
+  function ASTARIA_ROUTER() public view returns (IAstariaRouter) {
+    return _loadLienStorageSlot().ASTARIA_ROUTER;
+  }
+
+  function COLLATERAL_TOKEN() public view returns (ICollateralToken) {
+    return _loadLienStorageSlot().COLLATERAL_TOKEN;
+  }
+
+  function _exists(uint256 tokenId) internal view returns (bool) {
+    return _loadERC721Slot()._ownerOf[tokenId] != address(0);
+  }
+
+  function createLien(ILienToken.LienActionEncumber memory params)
     external
     requiresAuth
+    validateStack(params.collateralId, params.stack)
+    returns (
+      uint256 lienId,
+      Stack[] memory newStack,
+      uint256 lienSlope
+    )
   {
-    for (uint256 i = 0; i < remainingLiens.length; i++) {
-      delete lienData[remainingLiens[i]];
-      _burn(remainingLiens[i]);
+    LienStorage storage s = _loadLienStorageSlot();
+    //0 - 4 are valid
+    Stack memory newStackSlot;
+    (lienId, newStackSlot) = _createLien(s, params);
+
+    newStack = _appendStack(s, params.stack, newStackSlot);
+    s.collateralStateHash[params.collateralId] = keccak256(
+      abi.encode(newStack)
+    );
+
+    unchecked {
+      lienSlope = calculateSlope(newStackSlot);
     }
-    delete liens[collateralId];
+    emit AddLien(
+      params.collateralId,
+      newStackSlot.point.position,
+      lienId,
+      newStackSlot
+    );
+    emit LienStackUpdated(
+      params.collateralId,
+      newStackSlot.point.position,
+      StackAction.ADD,
+      uint8(newStack.length)
+    );
+  }
+
+  function _createLien(
+    LienStorage storage s,
+    ILienToken.LienActionEncumber memory params
+  ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
+    if (
+      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
+    ) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+
+    if (params.stack.length >= s.maxLiens) {
+      revert InvalidState(InvalidStates.MAX_LIENS);
+    }
+    uint256 maxPotentialDebt = getMaxPotentialDebtForCollateral(params.stack);
+
+    if (maxPotentialDebt > params.lien.details.maxPotentialDebt) {
+      revert InvalidState(InvalidStates.DEBT_LIMIT);
+    }
+
+    unchecked {
+      newLienId = uint256(keccak256(abi.encode(params.lien)));
+    }
+    Point memory point = Point({
+      lienId: newLienId,
+      amount: params.amount.safeCastTo88(),
+      last: block.timestamp.safeCastTo40(),
+      position: uint8(params.stack.length),
+      end: (block.timestamp + params.lien.details.duration).safeCastTo40()
+    });
+    _mint(params.receiver, newLienId);
+    return (newLienId, Stack({lien: params.lien, point: point}));
+  }
+
+  function _appendStack(
+    LienStorage storage s,
+    Stack[] memory stack,
+    Stack memory newSlot
+  ) internal view returns (Stack[] memory newStack) {
+    newStack = new Stack[](stack.length + 1);
+    for (uint256 i = 0; i < stack.length; ++i) {
+      if (block.timestamp > stack[i].point.end) {
+        revert InvalidState(InvalidStates.EXPIRED_LIEN);
+      }
+      newStack[i] = stack[i];
+    }
+    newStack[stack.length] = newSlot;
+  }
+
+  function removeLiens(
+    uint256 collateralId,
+    AuctionStack[] memory remainingLiens
+  ) external requiresAuth {
+    LienStorage storage s = _loadLienStorageSlot();
+    for (uint256 i = 0; i < remainingLiens.length; i++) {
+      address owner = ownerOf(remainingLiens[i].lienId);
+      address payee = _getPayee(s, remainingLiens[i].lienId);
+      if (_isPublicVault(s, owner) && payee == owner) {
+        IPublicVault(owner).decreaseYIntercept(
+          s.lienMeta[remainingLiens[i].lienId].amountAtLiquidation
+        );
+      }
+
+      delete s.lienMeta[remainingLiens[i].lienId];
+      _burn(remainingLiens[i].lienId); //burn the underlying lien associated
+    }
+    delete s.collateralStateHash[collateralId];
     emit RemovedLiens(collateralId);
   }
 
-  /**
-   * @notice Retrieves all liens taken out against the underlying NFT of a CollateralToken.
-   * @param collateralId The ID for the underlying CollateralToken.
-   * @return The IDs of the liens against the CollateralToken.
-   */
-  function getLiens(uint256 collateralId)
+  function getAmountOwingAtLiquidation(uint256 lienId)
+    external
+    view
+    returns (uint256)
+  {
+    return _loadLienStorageSlot().lienMeta[lienId].amountAtLiquidation;
+  }
+
+  function getAmountOwingAtLiquidation(ILienToken.Stack calldata stack)
     public
     view
-    returns (uint256[] memory)
+    returns (uint256)
   {
-    return liens[collateralId];
+    return
+      _loadLienStorageSlot()
+        .lienMeta[uint256(keccak256(abi.encode(stack.lien)))]
+        .amountAtLiquidation;
   }
 
-  /**
-   * @notice Retrieves a specific Lien by its ID.
-   * @param lienId The ID of the requested Lien.
-   * @return lien The Lien for the lienId.
-   */
-  function getLien(uint256 lienId) public view returns (Lien memory lien) {
-    lien = lienData[lienId];
-    lien.amount = _getOwed(lien);
-    lien.last = block.timestamp.safeCastTo32();
+  function validateLien(Lien memory lien) public view returns (uint256 lienId) {
+    lienId = uint256(keccak256(abi.encode(lien)));
+    if (!_exists(lienId)) {
+      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
+    }
   }
 
-  /**
-   * @notice Retrives a specific Lien from the ID of the CollateralToken for the underlying NFT and the lien position.
-   * @param collateralId The ID for the underlying CollateralToken.
-   * @param position The requested lien position.
-   *  @ return lien The Lien for the lienId.
-   */
-  function getLien(uint256 collateralId, uint256 position)
-    public
+  function getCollateralState(uint256 collateralId)
+    external
     view
-    returns (Lien memory)
+    returns (bytes32)
   {
-    uint256 lienId = liens[collateralId][position];
-    return getLien(lienId);
+    return _loadLienStorageSlot().collateralStateHash[collateralId];
   }
 
-  /**
-   * @notice Computes and returns the buyout amount for a Lien.
-   * @param collateralId The ID for the underlying CollateralToken.
-   * @param position The position of the Lien to compute the buyout amount for.
-   * @return The outstanding debt for the lien and the buyout amount for the Lien.
-   */
-  function getBuyout(uint256 collateralId, uint256 position)
+  function getBuyout(Stack calldata stack)
     public
     view
     returns (uint256, uint256)
   {
-    Lien memory lien = getLien(collateralId, position);
+    LienStorage storage s = _loadLienStorageSlot();
 
-    uint256 remainingInterest = _getRemainingInterest(lien, true);
-    uint256 buyoutTotal = lien.amount +
-      ASTARIA_ROUTER.getBuyoutFee(remainingInterest);
-
-    return (lien.amount, buyoutTotal);
+    return _getBuyout(s, stack);
   }
 
-  /**
-   * @notice Make a payment for the debt against a CollateralToken.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param paymentAmount The amount to pay against the debt.
-   */
-  function makePayment(uint256 collateralId, uint256 paymentAmount) public {
-    _makePayment(collateralId, paymentAmount);
-  }
-
-  /**
-   * @notice Make a payment for the debt against a CollateralToken for a specific lien.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param paymentAmount The amount to pay against the debt.
-   * @param position The lien position to make a payment to.
-   */
-  function makePayment(
-    uint256 collateralId,
-    uint256 paymentAmount,
-    uint8 position
-  ) external {
-    _payment(collateralId, position, paymentAmount, address(msg.sender));
-  }
-
-  /**
-   * @notice Have a specified paymer make a payment for the debt against a CollateralToken.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param totalCapitalAvailable The amount to pay against the debts
-   */
-  function _makePayment(uint256 collateralId, uint256 totalCapitalAvailable)
+  function _getBuyout(LienStorage storage s, Stack calldata stack)
     internal
+    view
+    returns (uint256, uint256)
   {
-    uint256[] memory openLiens = liens[collateralId];
-    uint256 paymentAmount = totalCapitalAvailable;
-    for (uint256 i = 0; i < openLiens.length; ++i) {
-      uint256 capitalSpent = _payment(
+    uint256 remainingInterest = _getRemainingInterest(s, stack);
+    uint256 owed = _getOwed(stack, block.timestamp);
+    uint256 buyoutTotal = owed +
+      s.ASTARIA_ROUTER.getBuyoutFee(remainingInterest);
+
+    return (owed, buyoutTotal);
+  }
+
+  function makePayment(Stack[] calldata stack, uint256 amount)
+    public
+    validateStack(stack[0].lien.collateralId, stack)
+    returns (Stack[] memory newStack)
+  {
+    LienStorage storage s = _loadLienStorageSlot();
+    (newStack, ) = _makePayment(s, stack, amount);
+  }
+
+  function makePayment(
+    Stack[] calldata stack,
+    uint8 position,
+    uint256 amount
+  )
+    external
+    validateStack(stack[0].lien.collateralId, stack)
+    returns (Stack[] memory newStack)
+  {
+    (newStack, ) = _payment(
+      _loadLienStorageSlot(),
+      stack,
+      position,
+      amount,
+      address(msg.sender)
+    );
+  }
+
+  function makePaymentAuctionHouse(
+    AuctionStack[] memory stack,
+    uint256 collateralId,
+    uint256 payment,
+    address payer
+  )
+    external
+    requiresAuth
+    returns (AuctionStack[] memory outStack, uint256 spent)
+  {
+    spent = 0;
+    outStack = stack;
+    LienStorage storage s = _loadLienStorageSlot();
+    uint256 loops = stack.length;
+    for (uint256 i = 0; i < loops; i++) {
+      uint256 paymentMade;
+      (outStack, paymentMade) = _paymentAH(
+        s,
+        outStack,
         collateralId,
-        uint8(i),
-        paymentAmount,
-        address(msg.sender)
+        payment,
+        payer
       );
-      paymentAmount -= capitalSpent;
+      unchecked {
+        spent += paymentMade;
+      }
+    }
+    if (outStack.length == 0) {
+      delete s.collateralStateHash[collateralId];
     }
   }
 
-  function makePayment(
+  function _paymentAH(
+    LienStorage storage s,
+    AuctionStack[] memory stack,
     uint256 collateralId,
-    uint256 paymentAmount,
-    uint8 position,
+    uint256 payment,
     address payer
-  ) public requiresAuth {
-    _payment(collateralId, position, paymentAmount, payer);
+  ) internal returns (AuctionStack[] memory, uint256) {
+    uint256 lienId = stack[0].lienId;
+    uint256 end = stack[0].end;
+    //checks the lien exists
+    address payee = _getPayee(s, lienId);
+
+    //owing at liquidation
+    if (s.lienMeta[lienId].amountAtLiquidation > payment.safeCastTo88()) {
+      s.lienMeta[lienId].amountAtLiquidation -= payment.safeCastTo88();
+    } else {
+      payment = s.lienMeta[lienId].amountAtLiquidation;
+      delete s.lienMeta[lienId]; //full delete
+      _burn(lienId);
+      AuctionStack[] memory newStack = new AuctionStack[](stack.length - 1);
+
+      if (_isPublicVault(s, payee)) {
+        IPublicVault(payee).decreaseEpochLienCount(
+          IPublicVault(payee).getLienEpoch(uint64(end))
+        );
+      }
+
+      for (uint256 i = 1; i < stack.length; i++) {
+        newStack[i - 1] = stack[i];
+      }
+      stack = newStack;
+    }
+
+    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
+
+    emit Payment(lienId, payment);
+    return (stack, payment);
   }
 
   /**
-   * @notice Computes the rate for a specified lien.
-   * @param lienId The ID for the lien.
-   * @return The rate for the specified lien, in WETH per second.
+
+   * @notice Have a specified payer make a payment for the debt against a CollateralToken.
+   * @param stack the stack for the payment
+   * @param totalCapitalAvailable The amount to pay against the debts
    */
-  function calculateSlope(uint256 lienId) public view returns (uint256) {
-    Lien memory lien = lienData[lienId];
-    uint256 end = (lien.start + lien.duration);
-    uint256 owedAtEnd = _getOwed(lien, end);
-    return (owedAtEnd - lien.amount).mulDivDown(1, end - lien.last);
+  function _makePayment(
+    LienStorage storage s,
+    Stack[] calldata stack,
+    uint256 totalCapitalAvailable
+  ) internal returns (Stack[] memory newStack, uint256 spent) {
+    uint256 amount = totalCapitalAvailable;
+    for (uint256 i = 0; i < stack.length; ++i) {
+      (newStack, spent) = _payment(
+        s,
+        stack,
+        uint8(i),
+        amount,
+        address(msg.sender)
+      );
+      amount -= spent;
+    }
   }
 
-  /**
-   * @notice Computes the change in rate for a lien if a specific payment amount was made.
-   * @param lienId The ID for the lien.
-   * @param paymentAmount The hypothetical payment amount that would be made to the lien.
-   * @return slope The difference between the current lien rate and the lien rate if the payment was made.
-   */
-  function changeInSlope(uint256 lienId, uint256 paymentAmount)
-    public
-    view
-    returns (uint256 slope)
-  {
-    Lien memory lien = lienData[lienId];
-    uint256 oldSlope = calculateSlope(lienId);
-    uint256 newAmount = (lien.amount - paymentAmount);
-
-    // slope = (rate*time*amount - amount) / time -> amount(rate*time - 1) / time
-    uint256 newSlope = newAmount.mulDivDown(
-      (uint256(lien.rate).mulDivDown(lien.duration, 1) - 1),
-      lien.duration
-    );
-
-    slope = oldSlope - newSlope;
+  function calculateSlope(Stack memory stack) public pure returns (uint256) {
+    uint256 owedAtEnd = _getOwed(stack, stack.point.end);
+    return
+      (owedAtEnd - stack.point.amount).mulDivDown(
+        1,
+        stack.point.end - stack.point.last
+      );
   }
 
   /**
    * @notice Computes the total amount owed on all liens against a CollateralToken.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @return totalDebt The aggregate debt for all loans against the collateral.
+   * @return maxPotentialDebt the total possible debt for the collateral
    */
-  function getTotalDebtForCollateralToken(uint256 collateralId)
+  function getMaxPotentialDebtForCollateral(Stack[] memory stack)
     public
-    view
-    returns (uint256 totalDebt)
+    pure
+    returns (uint256 maxPotentialDebt)
   {
-    uint256[] memory openLiens = getLiens(collateralId);
-    totalDebt = 0;
-    for (uint256 i = 0; i < openLiens.length; ++i) {
-      totalDebt += _getOwed(lienData[openLiens[i]]);
+    maxPotentialDebt = 0;
+    for (uint256 i = 0; i < stack.length; ++i) {
+      maxPotentialDebt += _getOwed(stack[i], stack[i].point.end);
     }
   }
 
-  /**
-   * @notice Computes the total amount owed on all liens against a CollateralToken at a specified timestamp.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param timestamp The timestamp to use to calculate owed debt.
-   * @return totalDebt The aggregate debt for all loans against the specified collateral at the specified timestamp.
-   */
-  function getTotalDebtForCollateralToken(
-    uint256 collateralId,
-    uint256 timestamp
-  ) public view returns (uint256 totalDebt) {
-    uint256[] memory openLiens = getLiens(collateralId);
-    totalDebt = 0;
-
-    for (uint256 i = 0; i < openLiens.length; ++i) {
-      totalDebt += _getOwed(lienData[openLiens[i]], timestamp);
-    }
+  function getOwed(Stack memory stack) external view returns (uint192) {
+    return _getOwed(stack, block.timestamp);
   }
 
-  /**
-   * @notice Computes the combined rate of all liens against a CollateralToken
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @return impliedRate The aggregate rate for all loans against the specified collateral.
-   */
-  function getImpliedRate(uint256 collateralId)
-    public
+  function getOwed(Stack memory stack, uint256 timestamp)
+    external
     view
-    returns (uint256 impliedRate)
+    returns (uint192)
   {
-    uint256 totalDebt = getTotalDebtForCollateralToken(collateralId);
-    uint256[] memory openLiens = getLiens(collateralId);
-    impliedRate = 0;
-    for (uint256 i = 0; i < openLiens.length; ++i) {
-      Lien memory lien = lienData[openLiens[i]];
-
-      impliedRate += lien.rate * lien.amount;
-    }
-
-    if (totalDebt > uint256(0)) {
-      impliedRate = impliedRate.mulDivDown(1, totalDebt);
-    }
-  }
-
-  /**
-   * @dev Computes the debt owed to a Lien.
-   * @param lien The specified Lien.
-   * @return The amount owed to the specified Lien.
-   */
-  function _getOwed(Lien memory lien) internal view returns (uint256) {
-    return _getOwed(lien, block.timestamp);
+    uint256 lienId = validateLien(stack.lien);
+    return _getOwed(stack, timestamp);
   }
 
   /**
    * @dev Computes the debt owed to a Lien at a specified timestamp.
-   * @param lien The specified Lien.
+   * @param stack The specified Lien.
    * @return The amount owed to the Lien at the specified timestamp.
    */
-  function _getOwed(Lien memory lien, uint256 timestamp)
+  function _getOwed(Stack memory stack, uint256 timestamp)
     internal
-    view
-    returns (uint256)
+    pure
+    returns (uint88)
   {
-    return lien.amount + _getInterest(lien, timestamp);
+    return stack.point.amount + _getInterest(stack, timestamp).safeCastTo88();
   }
 
   /**
    * @dev Computes the interest still owed to a Lien.
-   * @param lien The specified Lien.
-   * @param buyout compute with a ceiling based on the buyout interest window
+   * @param s active storage slot
+   * @param stack the lien
    * @return The WETH still owed in interest to the Lien.
    */
-  function _getRemainingInterest(Lien memory lien, bool buyout)
+  function _getRemainingInterest(LienStorage storage s, Stack memory stack)
     internal
     view
     returns (uint256)
   {
-    uint256 end = lien.start + lien.duration;
-    if (buyout) {
-      uint32 getBuyoutInterestWindow = ASTARIA_ROUTER.getBuyoutInterestWindow();
-      if (
-        lien.start + lien.duration >= block.timestamp + getBuyoutInterestWindow
-      ) {
-        end = block.timestamp + getBuyoutInterestWindow;
-      }
-    }
+    uint256 end = stack.point.end;
 
     uint256 delta_t = end - block.timestamp;
 
     return
-      delta_t.mulDivDown(lien.rate, 1).mulDivDown(
-        lien.amount,
-        INTEREST_DENOMINATOR
+      delta_t.mulDivDown(stack.lien.details.rate, 1).mulWadDown(
+        stack.point.amount
       );
-  }
-
-  function getInterest(uint256 lienId) public view returns (uint256) {
-    return _getInterest(lienData[lienId], block.timestamp);
   }
 
   /**
    * @dev Make a payment from a payer to a specific lien against a CollateralToken.
-   * @param collateralId The ID of the underlying CollateralToken.
-   * @param position The position of the lien to make a payment to.
-   * @param paymentAmount The amount to pay against the debt.
+   * @param activeStack The stack
+   * @param amount The amount to pay against the debt.
    * @param payer The address to make the payment.
-   * @return The paymentAmount for the payment.
    */
   function _payment(
-    uint256 collateralId,
+    LienStorage storage s,
+    Stack[] memory activeStack,
     uint8 position,
-    uint256 paymentAmount,
+    uint256 amount,
     address payer
-  ) internal returns (uint256) {
-    if (paymentAmount == uint256(0)) {
-      return uint256(0);
+  ) internal returns (Stack[] memory, uint256) {
+    Stack memory stack = activeStack[position];
+    uint256 lienId = stack.point.lienId;
+    uint256 liquidatedAmount = s.lienMeta[lienId].amountAtLiquidation;
+    if (liquidatedAmount > 0) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-
-    uint256 lienId = liens[collateralId][position];
-    Lien storage lien = lienData[lienId];
-    uint256 end = (lien.start + lien.duration);
-    require(
-      block.timestamp < end || address(msg.sender) == address(AUCTION_HOUSE),
-      "cannot pay off an expired lien"
-    );
+    // Blocking off payments for a lien that has exceeded the lien.end to prevent repayment unless the msg.sender() is the AuctionHouse
+    if (block.timestamp > activeStack[position].point.end) {
+      revert InvalidLoanState();
+    }
+    uint256 owed = _getOwed(activeStack[position], block.timestamp);
 
     address lienOwner = ownerOf(lienId);
-    bool isPublicVault = IPublicVault(lienOwner).supportsInterface(
-      type(IPublicVault).interfaceId
-    );
+    bool isPublicVault = _isPublicVault(s, lienOwner);
 
-    lien.amount = _getOwed(lien);
+    address payee = _getPayee(s, lienId);
 
-    address payee = getPayee(lienId);
+    if (amount > owed) amount = owed;
     if (isPublicVault) {
-      IPublicVault(lienOwner).beforePayment(lienId, paymentAmount);
+      IPublicVault(lienOwner).beforePayment(
+        IPublicVault.BeforePaymentParams({
+          interestOwed: owed - stack.point.amount,
+          amount: stack.point.amount,
+          lienSlope: calculateSlope(stack)
+        })
+      );
     }
-    if (lien.amount > paymentAmount) {
-      lien.amount -= paymentAmount;
-      lien.last = block.timestamp.safeCastTo32();
-      // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
+
+    //bring the point up to block.timestamp, compute the owed
+    stack.point.amount = owed.safeCastTo88();
+    stack.point.last = block.timestamp.safeCastTo40();
+
+    if (stack.point.amount > amount) {
+      stack.point.amount -= amount.safeCastTo88();
+      //      // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
       if (isPublicVault) {
-        IPublicVault(lienOwner).afterPayment(lienId);
+        IPublicVault(lienOwner).afterPayment(calculateSlope(stack));
       }
     } else {
-      if (isPublicVault && !AUCTION_HOUSE.auctionExists(collateralId)) {
+      amount = stack.point.amount;
+      if (isPublicVault) {
         // since the openLiens count is only positive when there are liens that haven't been paid off
         // that should be liquidated, this lien should not be counted anymore
         IPublicVault(lienOwner).decreaseEpochLienCount(
-          IPublicVault(lienOwner).getLienEpoch(end)
+          IPublicVault(lienOwner).getLienEpoch(stack.point.end)
         );
       }
-      //delete liens
-      _deleteLienPosition(collateralId, position);
-      delete lienData[lienId]; //full delete
-
+      delete s.lienMeta[lienId]; //full delete of point data for the lien
       _burn(lienId);
+      activeStack = _removeStackPosition(activeStack, position);
+    }
+    if (activeStack.length == 0) {
+      delete s.collateralStateHash[stack.lien.collateralId];
+    } else {
+      s.collateralStateHash[stack.lien.collateralId] = keccak256(
+        abi.encode(activeStack)
+      );
     }
 
-    TRANSFER_PROXY.tokenTransferFrom(WETH, payer, payee, paymentAmount);
+    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, amount);
 
-    emit Payment(lienId, paymentAmount);
-    return paymentAmount;
+    emit Payment(lienId, amount);
+    return (activeStack, amount);
   }
 
-  function _deleteLienPosition(uint256 collateralId, uint256 position) public {
-    uint256[] storage stack = liens[collateralId];
-    require(position < stack.length, "index out of bounds");
+  function _removeStackPosition(Stack[] memory stack, uint8 position)
+    internal
+    returns (Stack[] memory newStack)
+  {
+    require(position < stack.length);
+    uint256 collateralId = stack[position].lien.collateralId;
 
-    emit RemoveLien(
-      stack[position],
-      lienData[stack[position]].collateralId,
-      lienData[stack[position]].position
+    newStack = new ILienToken.Stack[](stack.length - 1);
+    for (uint256 i = 0; i < stack.length; i++) {
+      if (i == position) continue;
+      newStack[i] = stack[i];
+    }
+    emit LienStackUpdated(
+      collateralId,
+      position,
+      StackAction.REMOVE,
+      uint8(newStack.length)
     );
-    for (uint256 i = position; i < stack.length - 1; i++) {
-      stack[i] = stack[i + 1];
-    }
-    stack.pop();
   }
 
-  /**
-   * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.
-   * @param lienId The ID of the Lien.
-   * @return The address of the payee for the Lien.
-   */
-  function getPayee(uint256 lienId) public view returns (address) {
+  function _isPublicVault(LienStorage storage s, address account)
+    internal
+    view
+    returns (bool)
+  {
     return
-      lienData[lienId].payee != address(0)
-        ? lienData[lienId].payee
+      s.ASTARIA_ROUTER.isValidVault(account) &&
+      IPublicVault(account).supportsInterface(type(IPublicVault).interfaceId);
+  }
+
+  function getPayee(uint256 lienId) public view returns (address) {
+    LienStorage storage s = _loadLienStorageSlot();
+    if (!_exists(lienId)) {
+      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
+    }
+    return _getPayee(s, lienId);
+  }
+
+  function _getPayee(LienStorage storage s, uint256 lienId)
+    internal
+    view
+    returns (address)
+  {
+    return
+      s.lienMeta[lienId].payee != address(0)
+        ? s.lienMeta[lienId].payee
         : ownerOf(lienId);
   }
 
-  /**
-   * @notice Change the payee for a specified Lien.
-   * @param lienId The ID of the Lien.
-   * @param newPayee The new Lien payee.
-   */
-  function setPayee(uint256 lienId, address newPayee) public {
-    if (AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId)) {
-      revert InvalidCollateralState(InvalidStates.AUCTION);
+  function setPayee(Lien calldata lien, address newPayee) public {
+    LienStorage storage s = _loadLienStorageSlot();
+    uint256 lienId = validateLien(lien);
+    require(
+      msg.sender == ownerOf(lienId) || msg.sender == address(s.ASTARIA_ROUTER)
+    );
+    if (s.AUCTION_HOUSE.auctionExists(lien.collateralId)) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-    require(
-      !AUCTION_HOUSE.auctionExists(lienData[lienId].collateralId),
-      "collateralId is being liquidated, cannot change payee from LiquidationAccountant"
-    );
-    require(
-      msg.sender == ownerOf(lienId) || msg.sender == address(ASTARIA_ROUTER),
-      "invalid owner"
-    );
+    _setPayee(s, lienId, newPayee);
+  }
 
-    lienData[lienId].payee = newPayee;
+  function _setPayee(
+    LienStorage storage s,
+    uint256 lienId,
+    address newPayee
+  ) internal {
+    s.lienMeta[lienId].payee = newPayee;
     emit PayeeChanged(lienId, newPayee);
   }
 }

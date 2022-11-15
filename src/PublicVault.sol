@@ -15,132 +15,87 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {IERC721, IERC165} from "gpl/interfaces/IERC721.sol";
-import {
-  IVault,
-  ERC4626Cloned,
-  ITokenBase,
-  ERC4626Base,
-  AstariaVaultBase
-} from "gpl/ERC4626-Cloned.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
+import {ITokenBase} from "core/interfaces/ITokenBase.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
+import {IERC20} from "core/interfaces/IERC20.sol";
+import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
+import {ERC20Cloned} from "gpl/ERC20-Cloned.sol";
 
 import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ILienBase} from "./interfaces/ILienToken.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {LienToken} from "./LienToken.sol";
-import {LiquidationAccountant} from "./LiquidationAccountant.sol";
-import {VaultImplementation} from "./VaultImplementation.sol";
-import {WithdrawProxy} from "./WithdrawProxy.sol";
+import {LienToken} from "core/LienToken.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
-import {Math} from "./utils/Math.sol";
-import {Pausable} from "./utils/Pausable.sol";
-
-interface IPublicVault is IERC165 {
-  function beforePayment(uint256 escrowId, uint256 amount) external;
-
-  function decreaseEpochLienCount(uint256 lienId) external;
-
-  function getLienEpoch(uint256 end) external view returns (uint256);
-
-  function afterPayment(uint256 lienId) external;
-}
-
-/**
- * @title Vault
- * @author androolloyd
- */
-contract Vault is AstariaVaultBase, VaultImplementation, IVault {
-  using SafeTransferLib for ERC20;
-
-  function name() public view override returns (string memory) {
-    return string(abi.encodePacked("AST-Vault-", ERC20(underlying()).symbol()));
-  }
-
-  function symbol() public view override returns (string memory) {
-    return
-      string(
-        abi.encodePacked("AST-V", owner(), "-", ERC20(underlying()).symbol())
-      );
-  }
-
-  function _handleStrategistInterestReward(uint256 lienId, uint256 shares)
-    internal
-    virtual
-    override
-  {}
-
-  function deposit(uint256 amount, address)
-    public
-    virtual
-    override
-    returns (uint256)
-  {
-    require(msg.sender == owner(), "only the appraiser can fund this vault");
-    ERC20(underlying()).safeTransferFrom(
-      address(msg.sender),
-      address(this),
-      amount
-    );
-    return amount;
-  }
-
-  function withdraw(uint256 amount) external {
-    require(msg.sender == owner(), "only the appraiser can exit this vault");
-    ERC20(underlying()).safeTransferFrom(
-      address(this),
-      address(msg.sender),
-      amount
-    );
-  }
-}
+import {Math} from "core/utils/Math.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 
 /*
  * @title PublicVault
  * @author androolloyd
  * @notice
  */
-contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
+contract PublicVault is
+  AstariaVaultBase,
+  VaultImplementation,
+  IPublicVault,
+  ERC4626Cloned
+{
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
+  using SafeCastLib for uint256;
 
-  // epoch seconds when yIntercept was calculated last
-  uint256 public last;
-  // sum of all LienToken amounts
-  uint256 public yIntercept;
-  // sum of all slopes of each LienToken
-  uint256 public slope;
+  bytes32 constant PUBLIC_VAULT_SLOT =
+    keccak256("xyz.astaria.PublicVault.storage.location");
 
-  // block.timestamp of first epoch
-  uint256 public withdrawReserve = 0;
-  uint256 liquidationWithdrawRatio = 0;
-  uint256 strategistUnclaimedShares = 0;
-  uint64 public currentEpoch = 0;
+  function asset()
+    public
+    pure
+    virtual
+    override(AstariaVaultBase, ERC4626Cloned)
+    returns (address)
+  {
+    return super.asset();
+  }
 
-  //mapping of epoch to number of open liens
-  mapping(uint256 => uint256) public liensOpenForEpoch;
-  // WithdrawProxies and LiquidationAccountants for each epoch.
-  // The first possible WithdrawProxy and LiquidationAccountant starts at index 0, i.e. an LP that marks a withdraw in epoch 0 to collect by the end of epoch *1* would use the 0th WithdrawProxy.
-  mapping(uint64 => address) public withdrawProxies;
-  mapping(uint64 => address) public liquidationAccountants;
-  mapping(uint64 => uint256) public liquidationsExpectedAtBoundary;
+  function decimals()
+    public
+    pure
+    virtual
+    override(IERC20Metadata)
+    returns (uint8)
+  {
+    return 18;
+  }
 
-  event YInterceptChanged(uint256 newYintercept);
-  event WithdrawReserveTransferred(uint256 amount);
-
-  function underlying()
+  function name()
     public
     view
     virtual
-    override(ERC4626Base, AstariaVaultBase)
-    returns (address)
+    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
+    returns (string memory)
   {
-    return super.underlying();
+    return string(abi.encodePacked("AST-Vault-", ERC20(asset()).symbol()));
+  }
+
+  function symbol()
+    public
+    view
+    virtual
+    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
+    returns (string memory)
+  {
+    return string(abi.encodePacked("AST-V-", ERC20(asset()).symbol()));
   }
 
   /**
@@ -154,61 +109,119 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 shares,
     address receiver,
     address owner
-  ) public virtual override returns (uint256 assets) {
-    assets = redeemFutureEpoch(shares, receiver, owner, currentEpoch);
+  ) public virtual override(ERC4626Cloned) returns (uint256 assets) {
+    VaultData storage s = _loadStorageSlot();
+    assets = redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
   }
 
   function withdraw(
     uint256 assets,
     address receiver,
     address owner
-  ) public virtual override returns (uint256 shares) {
+  ) public virtual override(ERC4626Cloned) returns (uint256 shares) {
     shares = previewWithdraw(assets);
-    redeemFutureEpoch(shares, receiver, owner, currentEpoch);
+    VaultData storage s = _loadStorageSlot();
+
+    redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
   }
 
-  /**
-   * @notice Signal a withdrawal of funds (redeeming for underlying asset) in an arbitrary future epoch.
-   * @param shares The number of VaultToken shares to redeem.
-   * @param receiver The receiver of the WithdrawTokens (and eventual underlying asset)
-   * @param owner The owner of the VaultTokens.
-   * @param epoch The epoch to withdraw for.
-   * @return assets The amount of the underlying asset redeemed.
-   */
   function redeemFutureEpoch(
     uint256 shares,
     address receiver,
     address owner,
     uint64 epoch
   ) public virtual returns (uint256 assets) {
-    // check to ensure that the requested epoch is not the current epoch or in the past
-    require(epoch >= currentEpoch, "Exit epoch too low");
+    // check to ensure that the requested epoch is not in the past
+    VaultData storage s = _loadStorageSlot();
 
-    require(msg.sender == owner, "Only the owner can redeem");
+    if (epoch < s.currentEpoch) {
+      revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
+    }
+
     // check for rounding error since we round down in previewRedeem.
 
-    ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
+    ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
 
     // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
-    _deployWithdrawProxyIfNotDeployed(epoch);
+    _deployWithdrawProxyIfNotDeployed(s, epoch);
 
     emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
     // WithdrawProxy shares are minted 1:1 with PublicVault shares
-    WithdrawProxy(withdrawProxies[epoch]).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
+    WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(shares, receiver);
   }
 
-  function _deployWithdrawProxyIfNotDeployed(uint64 epoch) internal {
-    if (withdrawProxies[epoch] == address(0)) {
-      address proxy = ClonesWithImmutableArgs.clone(
-        IAstariaRouter(ROUTER()).WITHDRAW_IMPLEMENTATION(),
+  function getWithdrawProxy(uint64 epoch) public view returns (WithdrawProxy) {
+    VaultData storage s = _loadStorageSlot();
+
+    return WithdrawProxy(s.epochData[epoch].withdrawProxy);
+  }
+
+  function getCurrentEpoch() public view returns (uint64) {
+    VaultData storage s = _loadStorageSlot();
+
+    return s.currentEpoch;
+  }
+
+  function getSlope() public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+
+    return uint256(s.slope);
+  }
+
+  function getWithdrawReserve() public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+
+    return uint256(s.withdrawReserve);
+  }
+
+  function getLiquidationWithdrawRatio() public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+
+    return s.liquidationWithdrawRatio;
+  }
+
+  function getYIntercept() public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+
+    return s.yIntercept;
+  }
+
+  function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
+    internal
+  {
+    if (s.epochData[epoch].withdrawProxy == address(0)) {
+      s.epochData[epoch].withdrawProxy = ClonesWithImmutableArgs.clone(
+        IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
         abi.encodePacked(
-          address(this), //owner
-          underlying() //token
+          address(ROUTER()), // router is the beacon
+          uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
+          address(this), // owner
+          asset(), // token
+          address(this), // vault
+          epoch + 1 // claimable epoch
         )
       );
-      withdrawProxies[epoch] = proxy;
     }
+  }
+
+  function mint(uint256 shares, address receiver)
+    public
+    override(ERC4626Cloned)
+    whenNotPaused
+    returns (uint256)
+  {
+    VIData storage s = _loadVISlot();
+    if (s.allowListEnabled) {
+      require(s.allowList[receiver]);
+    }
+
+    uint256 assets = totalAssets();
+    if (s.depositCap != 0 && assets >= s.depositCap) {
+      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+    }
+
+    return super.mint(shares, receiver);
   }
 
   /**
@@ -218,10 +231,20 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function deposit(uint256 amount, address receiver)
     public
-    override(Vault, ERC4626Cloned)
+    override(ERC4626Cloned)
     whenNotPaused
     returns (uint256)
   {
+    VIData storage s = _loadVISlot();
+    if (s.allowListEnabled) {
+      require(s.allowList[receiver]);
+    }
+
+    uint256 assets = totalAssets();
+    if (s.depositCap != 0 && assets >= s.depositCap) {
+      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+    }
+
     return super.deposit(amount, receiver);
   }
 
@@ -233,88 +256,89 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     return super.domainSeparator();
   }
 
-  /**
-   * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
-   */
-  function processEpoch() external {
+  function processEpoch() public {
     // check to make sure epoch is over
-    require(getEpochEnd(currentEpoch) < block.timestamp, "Epoch has not ended");
-    require(withdrawReserve == 0, "Withdraw reserve not empty");
-    if (liquidationAccountants[currentEpoch] != address(0)) {
-      require(
-        LiquidationAccountant(liquidationAccountants[currentEpoch])
-          .getFinalAuctionEnd() < block.timestamp,
-        "Final auction not ended"
-      );
+    if (timeToEpochEnd() > 0) {
+      revert InvalidState(InvalidStates.EPOCH_NOT_OVER);
+    }
+    VaultData storage s = _loadStorageSlot();
+
+    if (s.withdrawReserve > 0) {
+      revert InvalidState(InvalidStates.WITHDRAW_RESERVE_NOT_ZERO);
     }
 
-    // split funds from LiquidationAccountant between PublicVault and WithdrawProxy if hasn't been already
-    if (
-      currentEpoch != 0 &&
-      liquidationAccountants[currentEpoch - 1] != address(0)
-    ) {
-      LiquidationAccountant(liquidationAccountants[currentEpoch - 1]).claim();
-    }
-
-    require(
-      liensOpenForEpoch[currentEpoch] == uint256(0),
-      "loans are still open for this epoch"
+    WithdrawProxy currentWithdrawProxy = WithdrawProxy(
+      s.epochData[s.currentEpoch].withdrawProxy
     );
 
+    if (address(currentWithdrawProxy) != address(0)) {
+      if (currentWithdrawProxy.getFinalAuctionEnd() > block.timestamp) {
+        revert InvalidState(
+          InvalidStates.LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN
+        );
+      }
+    }
+
+    // split funds from previous WithdrawProxy with PublicVault if hasn't been already
+    if (s.currentEpoch != 0) {
+      WithdrawProxy previousWithdrawProxy = WithdrawProxy(
+        s.epochData[s.currentEpoch - 1].withdrawProxy
+      );
+      if (
+        address(previousWithdrawProxy) != address(0) &&
+        previousWithdrawProxy.getFinalAuctionEnd() != 0
+      ) {
+        previousWithdrawProxy.claim();
+      }
+    }
+
+    if (s.epochData[s.currentEpoch].liensOpenForEpoch > 0) {
+      revert InvalidState(InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO);
+    }
+
     // reset liquidationWithdrawRatio to prepare for re calcualtion
-    liquidationWithdrawRatio = 0;
+    s.liquidationWithdrawRatio = 0;
 
     // check if there are LPs withdrawing this epoch
-    if (withdrawProxies[currentEpoch] != address(0)) {
-      uint256 proxySupply = WithdrawProxy(withdrawProxies[currentEpoch])
-        .totalSupply();
+    if ((address(currentWithdrawProxy) != address(0))) {
+      uint256 proxySupply = currentWithdrawProxy.totalSupply();
 
-      liquidationWithdrawRatio = proxySupply.mulDivDown(1e18, totalSupply());
-
-      if (liquidationAccountants[currentEpoch] != address(0)) {
-        LiquidationAccountant(liquidationAccountants[currentEpoch])
-          .setWithdrawRatio(liquidationWithdrawRatio);
+      unchecked {
+        s.liquidationWithdrawRatio = proxySupply
+          .mulDivDown(1e18, totalSupply())
+          .safeCastTo88();
       }
 
-      uint256 withdrawAssets = convertToAssets(proxySupply);
-      // compute the withdrawReserve
-      uint256 withdrawLiquidations = liquidationsExpectedAtBoundary[
-        currentEpoch
-      ].mulDivDown(liquidationWithdrawRatio, 1e18);
-      withdrawReserve = withdrawAssets - withdrawLiquidations;
+      if (address(currentWithdrawProxy) != address(0)) {
+        currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
+      }
+
+      uint256 expected = 0;
+      if (address(currentWithdrawProxy) != address(0)) {
+        expected = currentWithdrawProxy.getExpected();
+      }
+
+      unchecked {
+        if (totalAssets() > expected) {
+          s.withdrawReserve = (totalAssets() - expected)
+            .mulWadDown(s.liquidationWithdrawRatio)
+            .safeCastTo88();
+        } else {
+          s.withdrawReserve = 0;
+        }
+      }
+      _decreaseYIntercept(
+        s,
+        totalAssets().mulDivDown(s.liquidationWithdrawRatio, 1e18)
+      );
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
-
-      _decreaseYIntercept(withdrawAssets);
     }
 
     // increment epoch
-    currentEpoch++;
-  }
-
-  /**
-   * @notice Deploys a LiquidationAccountant for the WithdrawProxy for the upcoming epoch boundary.
-   * @return accountant The address of the deployed LiquidationAccountant.
-   */
-  function deployLiquidationAccountant() public returns (address accountant) {
-    require(
-      liquidationAccountants[currentEpoch] == address(0),
-      "cannot deploy two liquidation accountants for the same epoch"
-    );
-
-    _deployWithdrawProxyIfNotDeployed(currentEpoch);
-
-    accountant = ClonesWithImmutableArgs.clone(
-      IAstariaRouter(ROUTER()).LIQUIDATION_IMPLEMENTATION(),
-      abi.encodePacked(
-        underlying(),
-        ROUTER(),
-        address(this),
-        address(LIEN_TOKEN()),
-        address(withdrawProxies[currentEpoch])
-      )
-    );
-    liquidationAccountants[currentEpoch] = accountant;
+    unchecked {
+      s.currentEpoch++;
+    }
   }
 
   function supportsInterface(bytes4 interfaceId)
@@ -325,39 +349,78 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   {
     return
       interfaceId == type(IPublicVault).interfaceId ||
-      interfaceId == type(IVault).interfaceId ||
       interfaceId == type(ERC4626Cloned).interfaceId ||
       interfaceId == type(ERC4626).interfaceId ||
       interfaceId == type(ERC20).interfaceId ||
       interfaceId == type(IERC165).interfaceId;
   }
 
-  event TransferWithdraw(uint256 a, uint256 b);
-
-  /**
-   * @notice Transfers funds from the PublicVault to the WithdrawProxy.
-   */
-
   function transferWithdrawReserve() public {
-    // check the available balance to be withdrawn
-    uint256 withdraw = ERC20(underlying()).balanceOf(address(this));
-    emit TransferWithdraw(withdraw, withdrawReserve);
+    VaultData storage s = _loadStorageSlot();
 
-    // prevent transfer of more assets then are available
-    if (withdrawReserve <= withdraw) {
-      withdraw = withdrawReserve;
-      withdrawReserve = 0;
-    } else {
-      withdrawReserve -= withdraw;
+    if (s.currentEpoch > uint64(0)) {
+      // check the available balance to be withdrawn
+
+      address currentWithdrawProxy = s
+        .epochData[s.currentEpoch - 1]
+        .withdrawProxy;
+      // prevents transfer to a non-existent WithdrawProxy
+      // withdrawProxies are indexed by the epoch where they're deployed
+      if (currentWithdrawProxy != address(0)) {
+        uint256 withdrawBalance = ERC20(asset()).balanceOf(address(this));
+
+        // prevent transfer of more assets then are available
+        if (s.withdrawReserve <= withdrawBalance) {
+          withdrawBalance = s.withdrawReserve;
+          s.withdrawReserve = 0;
+        } else {
+          unchecked {
+            s.withdrawReserve -= uint88(withdrawBalance);
+          }
+        }
+
+        ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+        WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
+          withdrawBalance
+        );
+        emit WithdrawReserveTransferred(withdrawBalance);
+      }
     }
-    emit TransferWithdraw(withdraw, withdrawReserve);
 
-    address currentWithdrawProxy = withdrawProxies[currentEpoch - 1]; //
-    // prevents transfer to a non-existent WithdrawProxy
-    // withdrawProxies are indexed by the epoch where they're deployed
-    if (currentWithdrawProxy != address(0)) {
-      ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdraw);
-      emit WithdrawReserveTransferred(withdraw);
+    address withdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
+    if (
+      s.withdrawReserve > 0 &&
+      timeToEpochEnd() == 0 &&
+      withdrawProxy != address(0)
+    ) {
+      unchecked {
+        s.withdrawReserve -= WithdrawProxy(withdrawProxy)
+          .drain(
+            s.withdrawReserve,
+            s.epochData[s.currentEpoch - 1].withdrawProxy
+          )
+          .safeCastTo88();
+      }
+    }
+  }
+
+  function _beforeCommitToLien(
+    IAstariaRouter.Commitment calldata params,
+    address receiver
+  ) internal virtual override(VaultImplementation) {
+    VaultData storage s = _loadStorageSlot();
+
+    if (timeToEpochEnd() == uint256(0)) {
+      processEpoch();
+    } else if (s.withdrawReserve > uint256(0)) {
+      transferWithdrawReserve();
+    }
+  }
+
+  function _loadStorageSlot() internal pure returns (VaultData storage s) {
+    bytes32 slot = PUBLIC_VAULT_SLOT;
+    assembly {
+      s.slot := slot
     }
   }
 
@@ -366,129 +429,126 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @param lienId The ID of the lien.
    * @param amount The amount of debt
    */
-  function _afterCommitToLien(uint256 lienId, uint256 amount)
-    internal
-    virtual
-    override
-  {
+  function _afterCommitToLien(
+    uint40 lienEnd,
+    uint256 lienId,
+    uint256 amount,
+    uint256 lienSlope
+  ) internal virtual override {
+    VaultData storage s = _loadStorageSlot();
+
     // increment slope for the new lien
+    _accrue(s);
     unchecked {
-      slope += LIEN_TOKEN().calculateSlope(lienId);
+      s.slope += lienSlope.safeCastTo48();
     }
 
-    ILienToken.Lien memory lien = LIEN_TOKEN().getLien(lienId);
+    uint64 epoch = getLienEpoch(lienEnd);
 
-    uint256 epoch = Math.ceilDiv(
-      lien.start + lien.duration - START(),
-      EPOCH_LENGTH()
-    ) - 1;
-
-    liensOpenForEpoch[epoch]++;
+    _increaseOpenLiens(s, epoch);
+    if (s.last == 0) {
+      s.last = block.timestamp.safeCastTo40();
+    }
     emit LienOpen(lienId, epoch);
   }
 
-  event LienOpen(uint256 lienId, uint256 epoch);
+  function accrue() public returns (uint256) {
+    return _accrue(_loadStorageSlot());
+  }
 
-  /**
-   * @notice Retrieves the address of the LienToken contract for this PublicVault.
-   * @return The LienToken address.
-   */
+  function _accrue(VaultData storage s) internal returns (uint256) {
+    unchecked {
+      s.yIntercept += uint256(block.timestamp - s.last)
+        .mulDivDown(uint256(s.slope), 1)
+        .safeCastTo88();
+      s.last = block.timestamp.safeCastTo40();
+    }
+    emit YInterceptChanged(s.yIntercept);
 
-  function LIEN_TOKEN() public view returns (ILienToken) {
-    return IAstariaRouter(ROUTER()).LIEN_TOKEN();
+    return s.yIntercept;
   }
 
   /**
    * @notice Computes the implied value of this PublicVault. This includes interest payments that have not yet been made.
    * @return The implied value for this PublicVault.
    */
-
-  function totalAssets() public view virtual override returns (uint256) {
-    if (last == 0 || yIntercept == 0) {
-      return ERC20(underlying()).balanceOf(address(this));
-    }
-    uint256 delta_t = block.timestamp - last;
-
-    return slope.mulDivDown(delta_t, 1) + yIntercept;
+  function totalAssets()
+    public
+    view
+    virtual
+    override(ERC4626Cloned)
+    returns (uint256)
+  {
+    VaultData storage s = _loadStorageSlot();
+    uint256 delta_t = block.timestamp - s.last;
+    return uint256(s.slope).mulDivDown(delta_t, 1) + uint256(s.yIntercept);
   }
 
-  function totalSupply() public view virtual override returns (uint256) {
-    return _totalSupply + strategistUnclaimedShares;
+  function totalSupply()
+    public
+    view
+    virtual
+    override(IERC20, ERC20Cloned)
+    returns (uint256)
+  {
+    return
+      _loadERC20Slot()._totalSupply +
+      _loadStorageSlot().strategistUnclaimedShares;
   }
 
-  /**
-   * @notice Mints earned fees by the strategist to the strategist address.
-   */
   function claim() external onlyOwner {
-    _mint(owner(), strategistUnclaimedShares);
-    strategistUnclaimedShares = 0;
+    VaultData storage s = _loadStorageSlot();
+    uint256 unclaimed = s.strategistUnclaimedShares;
+    s.strategistUnclaimedShares = 0;
+    _mint(owner(), unclaimed);
   }
 
-  /**
-   * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
-   * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
-   * @param lienId The ID of the lien.
-   * @param amount The amount paid off to deduct from the yIntercept of the PublicVault.
-   */
-  function beforePayment(uint256 lienId, uint256 amount) public onlyLienToken {
-    _handleStrategistInterestReward(lienId, amount);
-    uint256 lienSlope = LIEN_TOKEN().calculateSlope(lienId);
-    if (lienSlope > slope) {
-      slope = 0;
-    } else {
-      slope -= lienSlope;
-    }
-    last = block.timestamp;
-  }
-
-  /** @notice
-   * hook to modify the liens open for then given epoch
-   * @param epoch epoch to decrease liens of
-   */
-  function decreaseEpochLienCount(uint256 epoch) external {
-    require(
-      msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN()),
-      "only router or lien token"
-    );
-    liensOpenForEpoch[epoch]--;
-  }
-
-  /** @notice
-   * hook to increase the amount of debt currently liquidated to discount in processEpoch
-   * @param amount the amount of debt liquidated
-   */
-  function increaseLiquidationsExpectedAtBoundary(uint256 amount) external {
-    require(msg.sender == ROUTER(), "only router");
-    liquidationsExpectedAtBoundary[currentEpoch] += amount;
-  }
-
-  /** @notice
-   * helper to return the LienEpoch for a given end date
-   * @param end time to compute the end for
-   */
-  function getLienEpoch(uint256 end) external view returns (uint256) {
-    return Math.ceilDiv(end - START(), EPOCH_LENGTH()) - 1;
-  }
-
-  function getEpochEnd(uint256 epoch) public view returns (uint256) {
-    return START() + (epoch + 1) * EPOCH_LENGTH();
-  }
-
-  function _increaseOpenLiens() internal {
-    liensOpenForEpoch[currentEpoch]++;
-  }
-
-  /**
-   * @notice Hook to recalculate the slope of a lien after a payment has been made.
-   * @param lienId The ID of the lien.
-   */
-  function afterPayment(uint256 lienId) public onlyLienToken {
-    slope += LIEN_TOKEN().calculateSlope(lienId);
-  }
-
-  modifier onlyLienToken() {
+  function beforePayment(BeforePaymentParams calldata params) public {
     require(msg.sender == address(LIEN_TOKEN()));
-    _;
+    VaultData storage s = _loadStorageSlot();
+    _accrue(s);
+    unchecked {
+      s.slope -= params.lienSlope.safeCastTo48();
+    }
+    _handleStrategistInterestReward(s, params.interestOwed, params.amount);
+  }
+
+  function decreaseEpochLienCount(uint64 epoch) public {
+    require(
+      msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN())
+    );
+    VaultData storage s = _loadStorageSlot();
+    _decreaseEpochLienCount(s, epoch);
+  }
+
+  function _decreaseEpochLienCount(VaultData storage s, uint64 epoch) internal {
+    unchecked {
+      s.epochData[epoch].liensOpenForEpoch--;
+    }
+  }
+
+  function getLienEpoch(uint64 end) public pure returns (uint64) {
+    return
+      uint256(Math.ceilDiv(end - uint64(START()), EPOCH_LENGTH()) - 1)
+        .safeCastTo64();
+  }
+
+  function getEpochEnd(uint256 epoch) public pure returns (uint64) {
+    return uint256(START() + (epoch + 1) * EPOCH_LENGTH()).safeCastTo64();
+  }
+
+  function _increaseOpenLiens(VaultData storage s, uint64 epoch) internal {
+    unchecked {
+      s.epochData[epoch].liensOpenForEpoch++;
+    }
+  }
+
+  function afterPayment(uint256 computedSlope) public {
+    VaultData storage s = _loadStorageSlot();
+    require(msg.sender == address(LIEN_TOKEN()));
+    unchecked {
+      s.slope += computedSlope.safeCastTo48();
+    }
   }
 
   /**
@@ -501,79 +561,124 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     virtual
     override
   {
-    yIntercept += assets;
-    emit YInterceptChanged(yIntercept);
+    VaultData storage s = _loadStorageSlot();
+
+    unchecked {
+      s.yIntercept += assets.safeCastTo88();
+    }
+
+    emit YInterceptChanged(s.yIntercept);
   }
 
   /**
    * @dev Handles the dilutive fees (on lien repayments) for strategists in VaultTokens.
-   * @param lienId The ID of the lien that received a payment.
+   * @param interestOwing the owingInterest for the lien
    * @param amount The amount that was paid.
    */
-  function _handleStrategistInterestReward(uint256 lienId, uint256 amount)
-    internal
-    virtual
-    override
-  {
+  function _handleStrategistInterestReward(
+    VaultData storage s,
+    uint256 interestOwing,
+    uint256 amount
+  ) internal virtual {
     if (VAULT_FEE() != uint256(0)) {
-      uint256 interestOwing = LIEN_TOKEN().getInterest(lienId);
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
-      uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //VAULT_FEE is a basis point
-      strategistUnclaimedShares += convertToShares(fee);
+      unchecked {
+        uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //TODO: make const VAULT_FEE is a basis point
+        s.strategistUnclaimedShares += convertToShares(fee).safeCastTo88();
+      }
     }
   }
 
-  function updateVaultAfterLiquidation(uint256 lienSlope) public {
-    require(msg.sender == ROUTER(), "can only be called by the router");
-    uint256 delta_t = block.timestamp - last;
-
-    yIntercept = slope.mulDivDown(delta_t, 1) + yIntercept;
-    last = block.timestamp;
-    slope -= lienSlope;
+  function LIEN_TOKEN() public view returns (ILienToken) {
+    return ROUTER().LIEN_TOKEN();
   }
 
-  function getYIntercept() public view returns (uint256) {
-    return yIntercept;
-  }
+  function handleBuyoutLien(BuyoutLienParams calldata params) public {
+    require(msg.sender == address(LIEN_TOKEN()));
+    VaultData storage s = _loadStorageSlot();
 
-  function _decreaseYIntercept(uint256 amount) internal {
-    yIntercept -= amount;
-    emit YInterceptChanged(yIntercept);
-  }
+    unchecked {
+      s.slope -= params.lienSlope.safeCastTo48();
+      s.yIntercept += params.increaseYIntercept.safeCastTo88();
+      s.last = block.timestamp.safeCastTo40();
+    }
 
-  function decreaseYIntercept(uint256 amount) public {
-    require(
-      msg.sender == AUCTION_HOUSE() ||
-        (currentEpoch != 0 &&
-          msg.sender == liquidationAccountants[currentEpoch - 1]),
-      "msg sender only from auction house or liquidation accountant"
-    );
-    _decreaseYIntercept(amount);
-  }
-
-  function getCurrentEpoch() public view returns (uint64) {
-    return currentEpoch;
+    uint64 lienEpoch = getLienEpoch(params.lienEnd.safeCastTo64());
+    _decreaseEpochLienCount(s, lienEpoch);
+    emit YInterceptChanged(s.yIntercept);
   }
 
   /**
-   * @notice Computes the time until the current epoch is over.
-   * @return Seconds until the current epoch ends.
+   * @notice
+   * @param maxAuctionWindow The max possible auction duration.
+   * @param params AfterLiquidation data.
+   * @return withdrawProxyIfNearBoundary The address of the WithdrawProxy to set the payee to if the liquidation is triggered near an epoch boundary.
    */
-  function timeToEpochEnd() public view returns (uint256) {
-    uint256 epochEnd = START() + ((currentEpoch + 1) * EPOCH_LENGTH());
+  function updateVaultAfterLiquidation(
+    uint256 maxAuctionWindow,
+    AfterLiquidationParams calldata params
+  ) public returns (address withdrawProxyIfNearBoundary) {
+    require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
+    VaultData storage s = _loadStorageSlot();
 
-    if (epochEnd >= block.timestamp) {
+    unchecked {
+      s.yIntercept += uint256(s.slope)
+        .mulDivDown(block.timestamp - s.last, 1)
+        .safeCastTo88();
+      s.slope -= params.lienSlope.safeCastTo48();
+      s.last = block.timestamp.safeCastTo40();
+    }
+
+    if (s.currentEpoch != 0) {
+      transferWithdrawReserve();
+    }
+    uint64 lienEpoch = getLienEpoch(params.lienEnd);
+    _decreaseEpochLienCount(s, lienEpoch);
+
+    uint256 timeToEnd = timeToEpochEnd(lienEpoch);
+    if (timeToEnd < maxAuctionWindow) {
+      _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
+      withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
+    }
+
+    if (withdrawProxyIfNearBoundary != address(0)) {
+      WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
+        params.newAmount,
+        maxAuctionWindow
+      );
+    }
+  }
+
+  function _decreaseYIntercept(VaultData storage s, uint256 amount) internal {
+    unchecked {
+      s.yIntercept -= amount.safeCastTo88();
+    }
+    emit YInterceptChanged(s.yIntercept);
+  }
+
+  function decreaseYIntercept(uint256 amount) public {
+    VaultData storage s = _loadStorageSlot();
+    uint256 currentEpoch = s.currentEpoch;
+    require(
+      msg.sender == address(LIEN_TOKEN()) ||
+        (currentEpoch != 0 &&
+          msg.sender == s.epochData[currentEpoch - 1].withdrawProxy)
+    );
+    _decreaseYIntercept(s, amount);
+  }
+
+  function timeToEpochEnd() public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+    return timeToEpochEnd(s.currentEpoch);
+  }
+
+  function timeToEpochEnd(uint256 epoch) public view returns (uint256) {
+    uint256 epochEnd = START() + ((epoch + 1) * EPOCH_LENGTH());
+
+    if (block.timestamp >= epochEnd) {
       return uint256(0);
     }
 
-    return block.timestamp - epochEnd; //
-  }
-
-  function getLiquidationAccountant(uint64 epoch)
-    public
-    view
-    returns (address)
-  {
-    return liquidationAccountants[epoch];
+    return epochEnd - block.timestamp;
   }
 }

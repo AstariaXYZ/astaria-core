@@ -4,7 +4,7 @@
  *       __  ___       __
  *  /\  /__'  |   /\  |__) |  /\
  * /~~\ .__/  |  /~~\ |  \ | /~~\
- * 
+ *
  * Copyright (c) Astaria Labs, Inc
  */
 
@@ -12,8 +12,9 @@ pragma solidity ^0.8.17;
 
 import {ERC721} from "solmate/tokens/ERC721.sol";
 
-import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
-import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
 interface IUniqueValidator is IStrategyValidator {
   struct Details {
@@ -21,27 +22,22 @@ interface IUniqueValidator is IStrategyValidator {
     address token;
     uint256 tokenId;
     address borrower;
-    IAstariaRouter.LienDetails lien;
+    ILienToken.Details lien;
   }
 }
 
 contract UniqueValidator is IUniqueValidator {
-  event LogLeaf(bytes32 leaf);
-  event LogDetails(Details);
+  uint8 public constant VERSION_TYPE = uint8(1);
 
-  function getLeafDetails(bytes memory nlrDetails)
-    public
-    pure
-    returns (Details memory)
-  {
+  function getLeafDetails(
+    bytes memory nlrDetails
+  ) public pure returns (Details memory) {
     return abi.decode(nlrDetails, (Details));
   }
 
-  function assembleLeaf(Details memory details)
-    public
-    pure
-    returns (bytes memory)
-  {
+  function assembleLeaf(
+    Details memory details
+  ) public pure returns (bytes memory) {
     return abi.encode(details);
   }
 
@@ -54,9 +50,12 @@ contract UniqueValidator is IUniqueValidator {
     external
     pure
     override
-    returns (bytes32 leaf, IAstariaRouter.LienDetails memory ld)
+    returns (bytes32 leaf, ILienToken.Details memory ld)
   {
     Details memory cd = getLeafDetails(params.nlrDetails);
+    if (cd.version != VERSION_TYPE) {
+      revert("invalid type");
+    }
 
     if (cd.borrower != address(0)) {
       require(

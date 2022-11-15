@@ -6,8 +6,6 @@
   "private": true,
   "main": "index.js",
   "dependencies": {
-    "@openzeppelin/contracts": "^4.6.0",
-    "@rari-capital/solmate": "^6.2.0",
     "global": "^4.4.0",
     "hardhat": "^2.9.3",
     "hardhat-preprocessor": "^0.1.4",
@@ -16,7 +14,7 @@
     "merkletreejs": "^0.2.31",
     "solidity-metrics": "^0.0.5",
     "ts-generator": "^0.1.1",
-    "ts-node": "^10.1.0"
+    "ts-node": "^10.9.1"
   },
   "engines": {
     "node": "^16.0.0"
@@ -24,7 +22,8 @@
   "scripts": {
     "lint": "eslint src/**/*.sol",
     "lint:fix": "prettier --write src/**/*.sol",
-    "write-headers": "node scripts/writeHeaders.js"
+    "write-headers": "node scripts/writeHeaders.js",
+    "postinstall": "bash scripts/postinstall.sh"
   },
   "devDependencies": {
     "@dethcrypto/eth-sdk": "^0.3.3",
@@ -34,12 +33,9 @@
     "@nomiclabs/hardhat-waffle": "^2.0.0",
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^2.3.0",
-    "@types/chai": "^4.2.21",
-    "@types/mocha": "^9.0.0",
     "@types/node": "^12.0.0",
     "@typescript-eslint/eslint-plugin": "^4.29.1",
     "@typescript-eslint/parser": "^4.29.1",
-    "chai": "^4.2.0",
     "dotenv": "^10.0.0",
     "eslint": "^7.29.0",
     "eslint-config-prettier": "^8.3.0",

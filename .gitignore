@@ -3,7 +3,9 @@ node_modules
 coverage
 coverage.json
 typechain
+.DS_Store 
 
+dist
 #Hardhat files
 cache
 artifacts
@@ -12,3 +14,4 @@ out
 
 lcov.info
 
+scripts/loanProofGenerator.js

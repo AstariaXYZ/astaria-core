@@ -6,3 +6,5 @@ forge-std/=lib/forge-std/src/
 eip4626/=lib/foundry_eip-4626/src/
 gpl/=lib/gpl/src/
 solmate/=lib/solmate/src/
+core/=./src/
+
