@@ -152,15 +152,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (params.encumber.lien.details.maxAmount < owed) {
       revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
     }
-    //    if (
-    //      msg.sender !=
-    //      s.COLLATERAL_TOKEN.ownerOf(
-    //        params.encumber.stack[params.position].lien.collateralId
-    //      ) &&
-    //      msg.sender != ownerOf(params.encumber.stack[params.position].point.lienId)
-    //    ) {
-    //
-    //    }
 
     s.TRANSFER_PROXY.tokenTransferFrom(
       s.WETH,
