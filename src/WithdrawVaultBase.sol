@@ -40,7 +40,7 @@ abstract contract WithdrawVaultBase is Clone, IWithdrawProxy {
     return _getArgAddress(61);
   }
 
-  function CLAIMABLE_EPOCH() public pure returns (uint256) {
+  function CLAIMABLE_EPOCH() public pure returns (uint64) {
     return _getArgUint64(81);
   }
 }

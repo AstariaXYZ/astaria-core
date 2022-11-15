@@ -9,7 +9,7 @@ interface IWithdrawProxy is IRouterBase, IERC165, IERC4626 {
 
   function VAULT() external pure returns (address);
 
-  function CLAIMABLE_EPOCH() external pure returns (uint256);
+  function CLAIMABLE_EPOCH() external pure returns (uint64);
 
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) external;
 
