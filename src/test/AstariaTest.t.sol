@@ -25,7 +25,7 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {VaultImplementation} from "../VaultImplementation.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
@@ -38,6 +38,41 @@ contract AstariaTest is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
   using SafeCastLib for uint256;
+
+  event NonceUpdated(uint32 nonce);
+  event VaultShutdown();
+
+  function testVaultShutdown() public {
+    address publicVault = _createPublicVault({
+      epochLength: 10 days, // 10 days
+      strategist: strategistTwo,
+      delegate: strategistOne
+    });
+
+    vm.expectEmit(true, true, true, true);
+    emit VaultShutdown();
+    vm.startPrank(strategistTwo);
+    VaultImplementation(publicVault).shutdown();
+    vm.stopPrank();
+    assert(VaultImplementation(publicVault).getShutdown());
+  }
+
+  function testIncrementNonceAsStrategistAndDelegate() public {
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    vm.expectEmit(true, true, true, true);
+    emit NonceUpdated(1);
+    vm.prank(strategistOne);
+    VaultImplementation(privateVault).incrementNonce();
+
+    vm.expectEmit(true, true, true, true);
+    emit NonceUpdated(2);
+    vm.prank(strategistTwo);
+    VaultImplementation(privateVault).incrementNonce();
+  }
 
   function testBasicPublicVaultLoan() public {
     TestNFT nft = new TestNFT(1);
@@ -132,10 +167,9 @@ contract AstariaTest is TestHelpers {
 
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
 
-    // _signalWithdrawAtFutureEpoch(address(1), publicVault, uint64(1));
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       PublicVault(publicVault).getCurrentEpoch()
     );
 
@@ -157,7 +191,7 @@ contract AstariaTest is TestHelpers {
     );
     vm.stopPrank();
     assertEq(
-      ERC20(PublicVault(publicVault).underlying()).balanceOf(address(1)),
+      ERC20(PublicVault(publicVault).asset()).balanceOf(address(1)),
       50 ether
     );
   }
@@ -285,18 +319,18 @@ contract AstariaTest is TestHelpers {
     _signalWithdraw(address(1), publicVault4);
     _signalWithdraw(address(1), publicVault5);
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       PublicVault(publicVault).getCurrentEpoch()
     );
 
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
-    vm.warp(block.timestamp + 14 days); // end of loan
+    skip(14 days); // end of loan
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
 
     _bid(address(2), collateralId, 33 ether);
 
-    skip(1 days); // epoch boundary
+    skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd()); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
 
@@ -312,8 +346,7 @@ contract AstariaTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    // assertEq(WETH9.balanceOf(address(1)), 50410958904104000000);
-    //    assertEq(WETH9.balanceOf(address(1)), 50575342465745600000);
+    assertEq(WETH9.balanceOf(address(1)), 50287680745810395000);
   }
 
   function testBuyoutLien() public {
@@ -351,7 +384,9 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 3 days);
 
     uint256 accruedInterest = uint256(LIEN_TOKEN.getOwed(stack[0]));
-    uint256 tenthOfRemaining = (uint256(LIEN_TOKEN.getOwed(stack[0], block.timestamp + 7 days)) - accruedInterest).mulDivDown(1, 10);
+    uint256 tenthOfRemaining = (uint256(
+      LIEN_TOKEN.getOwed(stack[0], block.timestamp + 7 days)
+    ) - accruedInterest).mulDivDown(1, 10);
 
     address privateVault = _createPrivateVault({
       strategist: strategistOne,
@@ -381,21 +416,49 @@ contract AstariaTest is TestHelpers {
       stack
     );
 
-    assertEq(WETH9.balanceOf(privateVault), 40 ether - tenthOfRemaining, "Incorrect PrivateVault balance");
-    assertEq(WETH9.balanceOf(publicVault), 50 ether + tenthOfRemaining, "Incorrect PublicVault balance");
-    assertEq(PublicVault(publicVault).getYIntercept(), 50 ether + tenthOfRemaining, "Incorrect PublicVault YIntercept");
-    assertEq(PublicVault(publicVault).totalAssets(), 50 ether + tenthOfRemaining, "Incorrect PublicVault YIntercept");
-    assertEq(PublicVault(publicVault).getSlope(), 0, "Incorrect PublicVault slope");
+    assertEq(
+      WETH9.balanceOf(privateVault),
+      40 ether - tenthOfRemaining,
+      "Incorrect PrivateVault balance"
+    );
+    assertEq(
+      WETH9.balanceOf(publicVault),
+      50 ether + tenthOfRemaining,
+      "Incorrect PublicVault balance"
+    );
+    assertEq(
+      PublicVault(publicVault).getYIntercept(),
+      50 ether + tenthOfRemaining,
+      "Incorrect PublicVault YIntercept"
+    );
+    assertEq(
+      PublicVault(publicVault).totalAssets(),
+      50 ether + tenthOfRemaining,
+      "Incorrect PublicVault YIntercept"
+    );
+    assertEq(
+      PublicVault(publicVault).getSlope(),
+      0,
+      "Incorrect PublicVault slope"
+    );
 
     _signalWithdraw(address(1), publicVault);
     _warpToEpochEnd(publicVault);
     PublicVault(publicVault).processEpoch();
+    PublicVault(publicVault).transferWithdrawReserve();
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
-    WithdrawProxy(withdrawProxy).redeem(ERC20(withdrawProxy).balanceOf(address(1)), address(1), address(1));
-    assertEq(WETH9.balanceOf(address(1)), 50 ether + tenthOfRemaining, "Incorrect withdrawer balance");
-    
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50 ether + tenthOfRemaining,
+      "Incorrect withdrawer balance"
+    );
   }
 
   function testReleaseToAddress() public {
@@ -446,32 +509,29 @@ contract AstariaTest is TestHelpers {
 
   function testCollateralTokenFileSetup() public {
     bytes memory astariaRouterAddr = abi.encode(address(0));
-    //    COLLATERAL_TOKEN.file(
-    //      ICollateralToken.File(bytes32("setAstariaRouter"), astariaRouterAddr)
-    //    );
-    //    assert(COLLATERAL_TOKEN.ASTARIA_ROUTER() == IAstariaRouter(address(0)));
 
     bytes memory securityHook = abi.encode(address(0), address(0));
     COLLATERAL_TOKEN.file(
-      ICollateralToken.File(bytes32("setSecurityHook"), securityHook)
+      ICollateralToken.File(
+        ICollateralToken.FileType.SecurityHook,
+        securityHook
+      )
     );
     assert(COLLATERAL_TOKEN.securityHooks(address(0)) == address(0));
-
-    vm.expectRevert("unsupported/file");
-    COLLATERAL_TOKEN.file(ICollateralToken.File(bytes32("Andrew Redden"), ""));
   }
 
   function testLienTokenFileSetup() public {
     bytes memory auctionHouseAddr = abi.encode(address(0));
-    LIEN_TOKEN.file(bytes32("setAuctionHouse"), auctionHouseAddr);
+    LIEN_TOKEN.file(
+      ILienToken.File(ILienToken.FileType.AuctionHouse, auctionHouseAddr)
+    );
     assert(LIEN_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
 
     bytes memory collateralIdAddr = abi.encode(address(0));
-    LIEN_TOKEN.file(bytes32("setCollateralToken"), collateralIdAddr);
+    LIEN_TOKEN.file(
+      ILienToken.File(ILienToken.FileType.CollateralToken, collateralIdAddr)
+    );
     assert(LIEN_TOKEN.COLLATERAL_TOKEN() == ICollateralToken(address(0)));
-
-    vm.expectRevert("unsupported/file");
-    COLLATERAL_TOKEN.file(ICollateralToken.File(bytes32("Justin Bram"), ""));
   }
 
   function testEpochProcessionMultipleActors() public {
@@ -511,7 +571,7 @@ contract AstariaTest is TestHelpers {
     _repay(stack1, 0, 100 ether, address(this));
     _warpToEpochEnd(publicVault);
     //after epoch end
-    uint256 balance = ERC20(PublicVault(publicVault).underlying()).balanceOf(
+    uint256 balance = ERC20(PublicVault(publicVault).asset()).balanceOf(
       publicVault
     );
     PublicVault(publicVault).processEpoch();
@@ -537,7 +597,6 @@ contract AstariaTest is TestHelpers {
     address alice = address(1);
     address bob = address(2);
     TestNFT nft = new TestNFT(6);
-    //    mintAndDeposit(address(nft), uint256(5));
     uint256 tokenId = uint256(5);
     address tokenContract = address(nft);
     address publicVault = _createPublicVault({
@@ -546,23 +605,98 @@ contract AstariaTest is TestHelpers {
       epochLength: 14 days
     });
 
-    _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
+    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
     (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLienDetails,
-      amount: 10 ether,
+      lienDetails: blueChipDetails,
+      amount: 100 ether,
       isFirstLien: true
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    _bid(address(2), collateralId, 10 ether);
     _cancelAuction(collateralId, address(this));
-    assertEq(address(this), ERC721(tokenContract).ownerOf(tokenId), "liquidator did not receive NFT");
+    assertEq(
+      address(this),
+      ERC721(tokenContract).ownerOf(tokenId),
+      "liquidator did not receive NFT"
+    );
+  }
+
+  function testAuctionEnd() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 100 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    vm.warp(block.timestamp + 11 days);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    _bid(address(2), collateralId, 10 ether);
+    skip(4 days);
+    ASTARIA_ROUTER.endAuction(collateralId);
+    assertEq(nft.ownerOf(tokenId), address(2), "the owner is not the bidder");
+  }
+
+  function testAuctionEndNoBids() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 100 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    vm.warp(block.timestamp + 11 days);
+    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    skip(4 days);
+    ASTARIA_ROUTER.endAuction(collateralId);
+    PublicVault(publicVault).processEpoch();
+    assertEq(
+      nft.ownerOf(tokenId),
+      address(this),
+      "the owner is not the bidder"
+    );
   }
 
   function _cancelAuction(uint256 auctionId, address sender) internal {
@@ -570,7 +704,7 @@ contract AstariaTest is TestHelpers {
     vm.deal(sender, reserve);
     vm.startPrank(sender);
     WETH9.deposit{value: reserve}();
-    WETH9.approve(address(TRANSFER_PROXY), reserve * 2);
+    WETH9.approve(address(TRANSFER_PROXY), reserve);
     ASTARIA_ROUTER.cancelAuction(auctionId);
     vm.stopPrank();
   }

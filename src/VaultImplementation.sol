@@ -16,7 +16,6 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-import {IVault} from "core/interfaces/IVault.sol";
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
@@ -41,35 +40,32 @@ abstract contract VaultImplementation is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
-  bytes32 constant VI_SLOT =
-    keccak256("xyz.astaria.core.VaultImplementation.storage.location");
-  address public delegate; //account connected to the daemon
-  bool public allowListEnabled;
-  uint256 public depositCap;
+  function name() public view virtual override returns (string memory);
 
-  struct VIData {
-    address delegate;
-    bool allowListEnabled;
-    uint256 depositCap;
-    mapping(address => bool) allowList;
+  function symbol() public view virtual override returns (string memory);
+
+  bytes32 constant VI_SLOT =
+    keccak256("xyz.astaria.VaultImplementation.storage.location");
+
+  function getStrategistNonce() external view returns (uint32) {
+    return _loadVISlot().strategistNonce;
   }
 
-  mapping(address => bool) public allowList;
-  event NewLien(
-    bytes32 strategyRoot,
-    address tokenContract,
-    uint256 tokenId,
-    uint256 amount
-  );
-
-  event NewVault(address appraiser, address vault);
+  function incrementNonce() external {
+    VIData storage s = _loadVISlot();
+    if (msg.sender != owner() && msg.sender != s.delegate) {
+      revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
+    }
+    s.strategistNonce++;
+    emit NonceUpdated(s.strategistNonce);
+  }
 
   /**
    * @notice modify the deposit cap for the vault
    * @param newCap The deposit cap.
    */
   function modifyDepositCap(uint256 newCap) public onlyOwner {
-    depositCap = newCap;
+    _loadVISlot().depositCap = newCap.safeCastTo88();
   }
 
   function _loadVISlot() internal pure returns (VIData storage vi) {
@@ -89,14 +85,21 @@ abstract contract VaultImplementation is
     virtual
     onlyOwner
   {
-    allowList[depositor] = enabled;
+    _loadVISlot().allowList[depositor] = enabled;
   }
 
   /**
    * @notice disable the allowlist for the vault
    */
   function disableAllowList() external virtual onlyOwner {
-    allowListEnabled = false;
+    _loadVISlot().allowListEnabled = false;
+  }
+
+  /**
+   * @notice enable the allowl ist for the vault
+   */
+  function enableAllowList() external virtual onlyOwner {
+    _loadVISlot().allowListEnabled = true;
   }
 
   /**
@@ -112,10 +115,23 @@ abstract contract VaultImplementation is
   }
 
   modifier whenNotPaused() {
-    if (IAstariaRouter(ROUTER()).paused()) {
-      revert("protocol is paused");
+    if (ROUTER().paused()) {
+      revert InvalidRequest(InvalidRequestReason.PAUSED);
+    }
+
+    if (_loadVISlot().isShutdown) {
+      revert InvalidRequest(InvalidRequestReason.SHUTDOWN);
     }
     _;
+  }
+
+  function getShutdown() external view returns (bool) {
+    return _loadVISlot().isShutdown;
+  }
+
+  function shutdown() external onlyOwner {
+    _loadVISlot().isShutdown = true;
+    emit VaultShutdown();
   }
 
   function domainSeparator() public view virtual returns (bytes32) {
@@ -125,12 +141,15 @@ abstract contract VaultImplementation is
           keccak256(
             "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
           ),
-          keccak256("0"),
+          keccak256("0"), //version
           block.chainid,
           address(this)
         )
       );
   }
+
+  bytes32 public constant STRATEGY_TYPEHASH =
+    0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
 
   /*
    * @notice encodes the data for a 712 signature
@@ -138,50 +157,38 @@ abstract contract VaultImplementation is
    * @param tokenId The id of the token
    * @param amount The amount of the token
    */
-
-  // cast k "StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)"
-  bytes32 private constant STRATEGY_TYPEHASH =
-    0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
-
   function encodeStrategyData(
     IAstariaRouter.StrategyDetails calldata strategy,
     bytes32 root
-  ) public view returns (bytes memory) {
+  ) external view returns (bytes memory) {
+    VIData storage s = _loadVISlot();
+    return _encodeStrategyData(s, strategy, root);
+  }
+
+  function _encodeStrategyData(
+    VIData storage s,
+    IAstariaRouter.StrategyDetails calldata strategy,
+    bytes32 root
+  ) internal view returns (bytes memory) {
     bytes32 hash = keccak256(
-      abi.encode(
-        STRATEGY_TYPEHASH,
-        IAstariaRouter(ROUTER()).strategistNonce(strategy.strategist),
-        strategy.deadline,
-        root
-      )
+      abi.encode(STRATEGY_TYPEHASH, s.strategistNonce, strategy.deadline, root)
     );
     return
       abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), hash);
   }
 
-  struct InitParams {
-    address delegate;
-    bool allowListEnabled;
-    address[] allowList;
-    uint256 depositCap; // max amount of tokens that can be deposited
-  }
-
   function init(InitParams calldata params) external virtual {
     require(msg.sender == address(ROUTER()));
-    VIData storage vi;
-    bytes32 slot = VI_SLOT;
-    assembly {
-      vi.slot := slot
-    }
+    VIData storage s = _loadVISlot();
 
     if (params.delegate != address(0)) {
-      vi.delegate = params.delegate;
+      s.delegate = params.delegate;
     }
-    depositCap = params.depositCap;
+    s.depositCap = params.depositCap.safeCastTo88();
     if (params.allowListEnabled) {
-      vi.allowListEnabled = true;
+      s.allowListEnabled = true;
       for (uint256 i = 0; i < params.allowList.length; i++) {
-        vi.allowList[params.allowList[i]] = true;
+        s.allowList[params.allowList[i]] = true;
       }
     }
   }
@@ -191,10 +198,11 @@ abstract contract VaultImplementation is
     _;
   }
 
-  function setDelegate(address delegate_) public onlyOwner {
-    allowList[delegate] = false;
-    allowList[delegate_] = true;
-    delegate = delegate_;
+  function setDelegate(address delegate_) external onlyOwner {
+    VIData storage s = _loadVISlot();
+    s.allowList[s.delegate] = false;
+    s.allowList[delegate_] = true;
+    s.delegate = delegate_;
   }
 
   /**
@@ -212,23 +220,16 @@ abstract contract VaultImplementation is
     IAstariaRouter.Commitment calldata params,
     address receiver
   ) internal view {
-    if (
-      params.lienRequest.amount > ERC20(underlying()).balanceOf(address(this))
-    ) {
-      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
-    }
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
+    address holder = CT.ownerOf(collateralId);
     address operator = CT.getApproved(collateralId);
-
-    address holder = ERC721(address(COLLATERAL_TOKEN())).ownerOf(collateralId);
 
     if (
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      receiver != recipient() &&
-      !IAstariaRouter(ROUTER()).isValidVault(receiver)
+      !ROUTER().isValidVault(receiver)
     ) {
       if (operator != address(0)) {
         require(operator == receiver);
@@ -236,10 +237,11 @@ abstract contract VaultImplementation is
         require(CT.isApprovedForAll(holder, receiver));
       }
     }
-
+    VIData storage s = _loadVISlot();
     address recovered = ecrecover(
       keccak256(
-        encodeStrategyData(
+        _encodeStrategyData(
+          s,
           params.lienRequest.strategy,
           params.lienRequest.merkle.root
         )
@@ -248,11 +250,12 @@ abstract contract VaultImplementation is
       params.lienRequest.r,
       params.lienRequest.s
     );
-    if (recovered != params.lienRequest.strategy.strategist) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_SIGNATURE);
-    }
-    if (recovered != owner() && recovered != delegate) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_STRATEGIST);
+    if (
+      recovered != owner() && recovered != s.delegate && recovered != address(0)
+    ) {
+      revert IVaultImplementation.InvalidRequest(
+        InvalidRequestReason.INVALID_SIGNATURE
+      );
     }
   }
 
@@ -296,12 +299,6 @@ abstract contract VaultImplementation is
       params.lienRequest.amount,
       slopeAddition
     );
-    emit NewLien(
-      params.lienRequest.merkle.root,
-      params.tokenContract,
-      params.tokenId,
-      params.lienRequest.amount
-    );
   }
 
   /**
@@ -315,25 +312,26 @@ abstract contract VaultImplementation is
     uint8 position,
     IAstariaRouter.Commitment calldata incomingTerms,
     ILienToken.Stack[] calldata stack
-  ) external whenNotPaused {
+  )
+    external
+    whenNotPaused
+    returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
+  {
     (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
       .LIEN_TOKEN()
       .getBuyout(stack[position]);
 
-    if (buyout > ERC20(underlying()).balanceOf(address(this))) {
-      revert InvalidRequest(InvalidRequestReason.INSUFFICIENT_FUNDS);
+    if (buyout > ERC20(asset()).balanceOf(address(this))) {
+      revert IVaultImplementation.InvalidRequest(
+        InvalidRequestReason.INSUFFICIENT_FUNDS
+      );
     }
 
     _validateCommitment(incomingTerms, recipient());
 
-    ERC20(underlying()).safeApprove(
-      address(IAstariaRouter(ROUTER()).TRANSFER_PROXY()),
-      buyout
-    );
+    ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
-    LienToken lienToken = LienToken(
-      address(IAstariaRouter(ROUTER()).LIEN_TOKEN())
-    );
+    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
     if (
       recipient() != address(this) &&
@@ -342,21 +340,20 @@ abstract contract VaultImplementation is
       lienToken.setApprovalForAll(recipient(), true);
     }
 
-    ILienToken.Lien memory newLien = ROUTER().validateCommitment(incomingTerms);
-
-    lienToken.buyoutLien(
-      ILienToken.LienActionBuyout({
-        incoming: incomingTerms,
-        position: position,
-        encumber: ILienToken.LienActionEncumber({
-          collateralId: collateralId,
-          amount: incomingTerms.lienRequest.amount,
-          receiver: recipient(),
-          lien: newLien,
-          stack: stack
+    return
+      lienToken.buyoutLien(
+        ILienToken.LienActionBuyout({
+          incoming: incomingTerms,
+          position: position,
+          encumber: ILienToken.LienActionEncumber({
+            collateralId: collateralId,
+            amount: incomingTerms.lienRequest.amount,
+            receiver: recipient(),
+            lien: ROUTER().validateCommitment(incomingTerms),
+            stack: stack
+          })
         })
-      })
-    );
+      );
   }
 
   /**
@@ -387,25 +384,22 @@ abstract contract VaultImplementation is
       uint256 slope
     )
   {
-    (newLienId, stack, slope) = IAstariaRouter(ROUTER()).requestLienPosition(
-      c,
-      recipient()
-    );
-
+    _validateCommitment(c, receiver);
+    (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
     uint256 payout = _handleProtocolFee(c.lienRequest.amount);
-    ERC20(underlying()).safeTransfer(receiver, payout);
+    ERC20(asset()).safeTransfer(receiver, payout);
   }
 
   function _handleProtocolFee(uint256 amount) internal returns (uint256) {
-    address feeTo = IAstariaRouter(ROUTER()).feeTo();
+    address feeTo = ROUTER().feeTo();
     bool feeOn = feeTo != address(0);
     if (feeOn) {
-      uint256 fee = IAstariaRouter(ROUTER()).getProtocolFee(amount);
+      uint256 fee = ROUTER().getProtocolFee(amount);
 
       unchecked {
         amount -= fee;
       }
-      ERC20(underlying()).safeTransfer(feeTo, fee);
+      ERC20(asset()).safeTransfer(feeTo, fee);
     }
     return amount;
   }

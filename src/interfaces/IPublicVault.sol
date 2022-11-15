@@ -10,10 +10,10 @@
 
 pragma solidity ^0.8.17;
 
-import {IERC165} from "./IERC165.sol";
-import {IVault} from "core/interfaces/IVault.sol";
+import {IERC165} from "core/interfaces/IERC165.sol";
+import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 
-interface IPublicVault is IERC165, IVault {
+interface IPublicVault is IVaultImplementation {
   struct EpochData {
     uint64 liensOpenForEpoch;
     address withdrawProxy;
@@ -34,6 +34,12 @@ interface IPublicVault is IERC165, IVault {
     uint256 lienSlope;
     uint256 amount;
     uint256 interestOwed;
+  }
+
+  struct BuyoutLienParams {
+    uint256 lienSlope;
+    uint256 lienEnd;
+    uint256 increaseYIntercept;
   }
 
   struct AfterLiquidationParams {
@@ -104,9 +110,7 @@ interface IPublicVault is IERC165, IVault {
 
   function decreaseYIntercept(uint256 amount) external;
 
-  function increaseYIntercept(uint256 amount) external;
-
-  function decreaseSlope(uint256 amount) external;
+  function handleBuyoutLien(BuyoutLienParams calldata params) external;
 
   function updateVaultAfterLiquidation(
     uint256 auctionWindow,

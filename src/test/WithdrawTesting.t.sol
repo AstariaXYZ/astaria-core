@@ -8,7 +8,6 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
@@ -27,7 +26,7 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {VaultImplementation} from "../VaultImplementation.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
@@ -44,7 +43,6 @@ contract WithdrawTest is TestHelpers {
   // One LP, one lien that's liquidated with no bids, so withdrawing LP does not receive anything from WithdrawProxy
   function testWithdrawLiquidatedNoBids() public {
     TestNFT nft = new TestNFT(1);
-    // _mintAndDeposit(address(nft), 1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
 
@@ -84,8 +82,6 @@ contract WithdrawTest is TestHelpers {
 
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
 
-    // _bid(address(2), collateralId, 1 ether);
-
     vm.warp(block.timestamp + 2 days); // end of auction
 
     AUCTION_HOUSE.endAuction(0);
@@ -94,12 +90,10 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
     PublicVault(publicVault).transferWithdrawReserve();
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
-      WithdrawProxy(withdrawProxy).previewRedeem(
-        ERC20(withdrawProxy).balanceOf(address(1))
-      ),
+      withdrawProxy.previewRedeem(withdrawProxy.balanceOf(address(1))),
       0
     );
   }
@@ -158,31 +152,30 @@ contract WithdrawTest is TestHelpers {
 
     _signalWithdraw(address(1), publicVault);
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       PublicVault(publicVault).getCurrentEpoch()
     );
 
-    vm.warp(block.timestamp + 14 days);
+    skip(14 days);
 
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack1);
     ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stack2); // TODO test this
 
     _bid(address(3), collateralId, 5 ether);
     _bid(address(3), collateralId2, 20 ether);
-
-    _warpToEpochEnd(publicVault); // epoch boundary
-
+    vm.warp(withdrawProxy.getFinalAuctionEnd());
+    emit log_named_uint("finalAuctionEnd", block.timestamp);
     PublicVault(publicVault).processEpoch();
 
-    vm.warp(block.timestamp + 13 days);
+    skip(13 days);
 
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
 
     PublicVault(publicVault).transferWithdrawReserve();
 
     vm.startPrank(address(1));
-    WithdrawProxy(withdrawProxy).redeem(
-      IERC20(withdrawProxy).balanceOf(address(1)),
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
       address(1),
       address(1)
     );
@@ -193,13 +186,13 @@ contract WithdrawTest is TestHelpers {
       PublicVault(publicVault).getCurrentEpoch()
     );
 
-    _warpToEpochEnd(publicVault);
+    uint256 finalAuctionEnd = withdrawProxy.getFinalAuctionEnd();
 
     PublicVault(publicVault).processEpoch();
     PublicVault(publicVault).transferWithdrawReserve();
     vm.startPrank(address(2));
-    WithdrawProxy(withdrawProxy).redeem(
-      IERC20(withdrawProxy).balanceOf(address(2)),
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(2)),
       address(2),
       address(2)
     );
@@ -294,17 +287,17 @@ contract WithdrawTest is TestHelpers {
 
     ASTARIA_ROUTER.liquidate(collateralId1, uint8(0), stacks[0]);
 
-
-    address withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
+    WithdrawProxy withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
       LIEN_TOKEN.getPayee(lienId1),
-      withdrawProxy1,
+      address(withdrawProxy1),
       "First lien not pointing to first WithdrawProxy"
     );
 
     _bid(address(3), collateralId1, 20 ether);
 
+    vm.warp(withdrawProxy1.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch(); // epoch 0 processing
 
     vm.warp(block.timestamp + 14 days);
@@ -313,11 +306,11 @@ contract WithdrawTest is TestHelpers {
 
     ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stacks[1]);
 
-    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
+    WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
 
     assertEq(
       LIEN_TOKEN.getPayee(lienId2),
-      withdrawProxy2,
+      address(withdrawProxy2),
       "Second lien not pointing to second WithdrawProxy"
     );
 
@@ -325,21 +318,21 @@ contract WithdrawTest is TestHelpers {
 
     PublicVault(publicVault).transferWithdrawReserve();
 
-    WithdrawProxy(withdrawProxy1).claim();
+    withdrawProxy1.claim();
 
-    WithdrawProxy(withdrawProxy1).redeem(
-      IERC20(withdrawProxy1).balanceOf(address(1)),
+    withdrawProxy1.redeem(
+      withdrawProxy1.balanceOf(address(1)),
       address(1),
       address(1)
     );
-
+    vm.warp(withdrawProxy2.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch();
 
     PublicVault(publicVault).transferWithdrawReserve();
-    
-    WithdrawProxy(withdrawProxy2).claim(); // TODO maybe 2
-    WithdrawProxy(withdrawProxy2).redeem(
-      IERC20(withdrawProxy2).balanceOf(address(2)),
+
+    withdrawProxy2.claim(); // TODO maybe 2
+    withdrawProxy2.redeem(
+      withdrawProxy2.balanceOf(address(2)),
       address(2),
       address(2)
     );
@@ -349,25 +342,25 @@ contract WithdrawTest is TestHelpers {
       "PublicVault should have 0 assets"
     );
     assertEq(
-      WETH9.balanceOf(PublicVault(publicVault).getWithdrawProxy(0)),
+      WETH9.balanceOf(address(PublicVault(publicVault).getWithdrawProxy(0))),
       0,
       "WithdrawProxy 0 should have 0 assets"
     );
     assertEq(
-      WETH9.balanceOf(PublicVault(publicVault).getWithdrawProxy(1)),
+      WETH9.balanceOf(address(PublicVault(publicVault).getWithdrawProxy(1))),
       0,
       "WithdrawProxy 1 should have 0 assets"
     );
 
     assertEq(
       WETH9.balanceOf(address(1)),
-      50575342941392479750,
+      50636986777008079750,
       "LPs have different amounts"
     );
 
     assertEq(
       WETH9.balanceOf(address(2)),
-      51150685407138079750,
+      51212329242753679750,
       "LPs have different amounts"
     );
   }
@@ -492,12 +485,15 @@ contract WithdrawTest is TestHelpers {
       "PublicVault yIntercept calculation incorrect"
     );
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
-    assertTrue(WETH9.balanceOf(withdrawProxy) != 0, "WITHDRAWPROXY IS 0");
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    assertTrue(
+      WETH9.balanceOf(address(withdrawProxy)) != 0,
+      "WITHDRAWPROXY IS 0"
+    );
 
     vm.startPrank(address(1));
-    WithdrawProxy(withdrawProxy).redeem(
-      IERC20(withdrawProxy).balanceOf(address(1)),
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
       address(1),
       address(1)
     );
@@ -523,13 +519,16 @@ contract WithdrawTest is TestHelpers {
     );
 
     // WithdrawProxy(withdrawProxy).claim();
-    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
-    WithdrawProxy(withdrawProxy2).claim();
-    assertTrue(WETH9.balanceOf(withdrawProxy2) != 0, "WITHDRAWPROXY 2 IS 0");
+    WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
+    withdrawProxy2.claim();
+    assertTrue(
+      WETH9.balanceOf(address(withdrawProxy2)) != 0,
+      "WITHDRAWPROXY 2 IS 0"
+    );
 
     vm.startPrank(address(3));
-    WithdrawProxy(withdrawProxy2).redeem(
-      IERC20(withdrawProxy2).balanceOf(address(3)),
+    withdrawProxy2.redeem(
+      withdrawProxy2.balanceOf(address(3)),
       address(3),
       address(3)
     );
@@ -595,7 +594,7 @@ contract WithdrawTest is TestHelpers {
 
     _bid(address(3), collateralId1, 20 ether);
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -603,7 +602,7 @@ contract WithdrawTest is TestHelpers {
         WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
 
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
     ASTARIA_ROUTER.liquidate(collateralId2, 0, stacks[1]);
@@ -615,8 +614,9 @@ contract WithdrawTest is TestHelpers {
         WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
 
+    skip(withdrawProxy.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch();
 
     assertEq(
@@ -635,14 +635,14 @@ contract WithdrawTest is TestHelpers {
       "Incorrect PublicVault withdrawRatio calculation after epoch 0"
     );
 
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
     PublicVault(publicVault).transferWithdrawReserve();
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault balance not 0");
 
     vm.startPrank(address(1));
-    WithdrawProxy(withdrawProxy).redeem(
-      IERC20(withdrawProxy).balanceOf(address(1)),
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
       address(1),
       address(1)
     );
@@ -714,9 +714,9 @@ contract WithdrawTest is TestHelpers {
     );
 
     PublicVault(publicVault).transferWithdrawReserve();
-    address withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
-    WithdrawProxy(withdrawProxy1).redeem(
-      IERC20(withdrawProxy1).balanceOf(address(1)),
+    WithdrawProxy withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
+    withdrawProxy1.redeem(
+      withdrawProxy1.balanceOf(address(1)),
       address(1),
       address(1)
     );
@@ -780,9 +780,9 @@ contract WithdrawTest is TestHelpers {
       "Incorrect PublicVault withdrawReserve calculation after epoch 1"
     );
     PublicVault(publicVault).transferWithdrawReserve();
-    address withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
-    WithdrawProxy(withdrawProxy2).redeem(
-      IERC20(withdrawProxy2).balanceOf(address(2)),
+    WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
+    withdrawProxy2.redeem(
+      withdrawProxy2.balanceOf(address(2)),
       address(2),
       address(2)
     );
@@ -805,9 +805,9 @@ contract WithdrawTest is TestHelpers {
 
     // create a PublicVault with a 14-day epoch
     address publicVault = _createPublicVault({
-    strategist: strategistOne,
-    delegate: strategistTwo,
-    epochLength: 14 days
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
     });
 
     // lend 50 ether to the PublicVault as address(1)
@@ -821,35 +821,60 @@ contract WithdrawTest is TestHelpers {
 
     // borrow 10 eth against the dummy NFT
     (, ILienToken.Stack[] memory stack) = _commitToLien({
-    vault: publicVault,
-    strategist: strategistOne,
-    strategistPK: strategistOnePK,
-    tokenContract: tokenContract,
-    tokenId: tokenId,
-    lienDetails: details,
-    amount: 10 ether,
-    isFirstLien: true
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details,
+      amount: 10 ether,
+      isFirstLien: true
     });
 
     vm.warp(block.timestamp + 13 days);
     uint256 collateralId = tokenContract.computeId(tokenId);
-    assertEq(LIEN_TOKEN.getOwed(stack[0]), uint192(10534246575335200000), "Incorrect lien interest");
+    assertEq(
+      LIEN_TOKEN.getOwed(stack[0]),
+      uint192(10534246575335200000),
+      "Incorrect lien interest"
+    );
+
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _bid(address(3), collateralId, 5 ether);
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
-    _warpToEpochEnd(publicVault);
+    vm.warp(withdrawProxy.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch();
 
     vm.warp(block.timestamp + 4 days);
     AUCTION_HOUSE.endAuction(collateralId);
-    assertEq(address(this), COLLATERAL_TOKEN.ownerOf(collateralId), "liquidator did not receive NFT");
+    assertEq(
+      address(this),
+      COLLATERAL_TOKEN.ownerOf(collateralId),
+      "liquidator did not receive NFT"
+    );
 
-    address withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
-    WithdrawProxy(withdrawProxy).claim();
+    withdrawProxy.claim();
 
-    assertEq(WETH9.balanceOf(publicVault), 44350000000000000000, "Incorrect PublicVault balance");
-    assertEq(PublicVault(publicVault).getYIntercept(), 44350000000000000000, "Incorrect PublicVault YIntercept");
-    assertEq(PublicVault(publicVault).totalAssets(), 44350000000000000000, "Incorrect PublicVault totalAssets()");
-    assertEq(PublicVault(publicVault).getSlope(), 0, "Incorrect PublicVault slope");
+    assertEq(
+      WETH9.balanceOf(publicVault),
+      44350000000000000000,
+      "Incorrect PublicVault balance"
+    );
+    assertEq(
+      PublicVault(publicVault).getYIntercept(),
+      44350000000000000000,
+      "Incorrect PublicVault YIntercept"
+    );
+    assertEq(
+      PublicVault(publicVault).totalAssets(),
+      44350000000000000000,
+      "Incorrect PublicVault totalAssets()"
+    );
+    assertEq(
+      PublicVault(publicVault).getSlope(),
+      0,
+      "Incorrect PublicVault slope"
+    );
   }
 }

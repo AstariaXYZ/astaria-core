@@ -33,7 +33,8 @@ import {ILienToken} from "../interfaces/ILienToken.sol";
 import {IPublicVault} from "../interfaces/IPublicVault.sol";
 import {CollateralToken, IFlashAction} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {VaultImplementation} from "../VaultImplementation.sol";
+import {IVaultImplementation} from "../interfaces/IVaultImplementation.sol";
 import {LienToken} from "../LienToken.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
@@ -46,6 +47,66 @@ import "./TestHelpers.t.sol";
 contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
+
+  function testFailRandomAccountIncrementNonce() public {
+    address privateVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 10 days
+    });
+
+    vm.expectRevert(abi.encodePacked("InvalidRequest(0)"));
+    VaultImplementation(privateVault).incrementNonce();
+    assertEq(
+      VaultImplementation(privateVault).getStrategistNonce(),
+      uint32(0),
+      "vault was incremented, when it shouldn't be"
+    );
+  }
+
+  function testFailInvalidSignature() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    _lendToVault(
+      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      privateVault
+    );
+
+    IAstariaRouter.Commitment memory terms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistRoguePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      stack: new ILienToken.Stack[](0)
+    });
+
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId,
+      ""
+    );
+
+    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+
+    uint256 balanceOfBefore = ERC20(privateVault).balanceOf(address(this));
+    vm.expectRevert(abi.encodePacked("InvalidRequest(1)"));
+    VaultImplementation(privateVault).commitToLien(terms, address(this));
+    assertEq(
+      balanceOfBefore,
+      ERC20(privateVault).balanceOf(address(this)),
+      "balance changed"
+    );
+  }
 
   // Only strategists for PrivateVaults can supply capital
   function testFailSoloLendNotAppraiser() public {

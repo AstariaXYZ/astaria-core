@@ -12,20 +12,51 @@ pragma solidity ^0.8.17;
 
 import {IERC721} from "core/interfaces/IERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-import {IVault} from "gpl/ERC4626-Cloned.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {IPausable} from "core/utils/Pausable.sol";
-import {IBeacon} from "./IBeacon.sol";
+import {IBeacon} from "core/interfaces/IBeacon.sol";
+import {IERC4626RouterBase} from "gpl/interfaces/IERC4626RouterBase.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
+  enum FileType {
+    FeeTo,
+    LiquidationFee,
+    ProtocolFee,
+    StrategistFee,
+    MinInterestBPS,
+    MinEpochLength,
+    MaxEpochLength,
+    MinInterestRate,
+    MaxInterestRate,
+    BuyoutFee,
+    MinDurationIncrease,
+    BuyoutInterestWindow,
+    AuctionWindow,
+    StrategyValidator,
+    AuctionHouse,
+    Implementation,
+    CollateralToken,
+    LienToken,
+    TransferProxy
+  }
+
+  struct File {
+    FileType what;
+    bytes data;
+  }
+
+  event FileUpdated(FileType what, bytes data);
+  error UnsupportedFile();
+
   struct RouterStorage {
     //slot 1
-    uint32 minInterestBPS; // was uint64
     uint32 auctionWindow;
+    uint32 auctionWindowBuffer;
     uint32 liquidationFeeNumerator;
     uint32 liquidationFeeDenominator;
     uint32 maxEpochLength;
@@ -39,19 +70,19 @@ interface IAstariaRouter is IPausable, IBeacon {
     ITransferProxy TRANSFER_PROXY; //20
     IAuctionHouse AUCTION_HOUSE; //20
     address feeTo; //20
-    address guardian; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
     uint88 maxInterestRate; //6
-    uint32 strategistFeeNumerator; //4
-    uint32 strategistFeeDenominator;
+    uint32 minInterestBPS; // was uint64
     //slot 3 +
+    address guardian; //20
     uint32 buyoutFeeNumerator;
     uint32 buyoutFeeDenominator;
+    uint32 strategistFeeDenominator;
+    uint32 strategistFeeNumerator; //4
     uint32 minDurationIncrease;
     mapping(uint32 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
-    mapping(address => uint32) strategistNonce;
     mapping(address => address) vaults;
   }
 
@@ -62,6 +93,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   enum LienRequestType {
+    DEACTIVATED,
     UNIQUE,
     COLLECTION,
     UNIV3_LIQUIDITY
@@ -69,7 +101,6 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   struct StrategyDetails {
     uint8 version;
-    address strategist;
     uint256 deadline;
     address vault;
   }
@@ -82,7 +113,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   struct NewLienRequest {
     StrategyDetails strategy;
     ILienToken.Stack[] stack;
-    uint8 nlrType;
     bytes nlrDetails;
     MerkleData merkle;
     uint256 amount;
@@ -96,8 +126,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint256 tokenId;
     NewLienRequest lienRequest;
   }
-
-  function strategistNonce(address strategist) external view returns (uint256);
 
   /**
    * @notice Validates the incoming commitment
@@ -172,7 +200,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function maxInterestRate() external view returns (uint256);
 
-  function getAuctionWindow() external view returns (uint256);
+  function getAuctionWindow(bool includeBuffer) external view returns (uint256);
 
   function getStrategistFee(uint256) external view returns (uint256);
 
@@ -181,13 +209,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   function getBuyoutFee(uint256) external view returns (uint256);
 
   function getLiquidatorFee(uint256) external view returns (uint256);
-
-  /**
-   * @notice Lend to a PublicVault.
-   * @param vault The address of the PublicVault.
-   * @param amount The amount to lend.
-   */
-  function lendToVault(IVault vault, uint256 amount) external;
 
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
@@ -204,6 +225,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 
   function isValidVault(address) external view returns (bool);
+
+  function file(File calldata incoming) external;
 
   function isValidRefinance(
     ILienToken.Lien calldata newLien,
@@ -223,8 +246,18 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function endAuction(uint256 tokenId) external;
 
-  event Liquidation(uint256 collateralId, uint256 position, uint256 reserve);
-  event NewVault(address appraiser, address vault);
+  event Liquidation(
+    uint256 collateralId,
+    uint256 position,
+    uint256 reserve,
+    uint256[] fee
+  );
+  event NewVault(
+    address strategist,
+    address delegate,
+    address vault,
+    uint8 vaultType
+  );
 
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);

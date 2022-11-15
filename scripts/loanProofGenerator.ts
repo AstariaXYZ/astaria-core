@@ -30,19 +30,21 @@ if (detailsType === 0) {
   mapping = [
     "uint8",
     "address",
-    "address[]",
+    "address",
+    "address",
+    "address",
     "uint24",
     "int24",
     "int24",
     "uint128",
-    "address",
+    "uint256",
+    "uint256",
     "uint256",
     "uint256",
     "uint256",
     "uint256",
   ];
 }
-// console.error(leaves);
 // Create tree
 
 const termData: string[] = defaultAbiCoder
@@ -57,12 +59,11 @@ const termData: string[] = defaultAbiCoder
 
 // @ts-ignore
 leaves.push(termData);
-//
-const csvOuput: string = leaves.reduce((acc, cur) => {
+const output: string = leaves.reduce((acc, cur) => {
   return acc + cur.join(",") + "\n";
 }, "");
 
-const merkleTree = new StrategyTree(csvOuput);
+const merkleTree = new StrategyTree(output);
 
 const rootHash: string = merkleTree.getHexRoot();
 const proof = merkleTree.getHexProof(merkleTree.getLeaf(0));

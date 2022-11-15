@@ -25,7 +25,7 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
-import {IVault, VaultImplementation} from "../VaultImplementation.sol";
+import {VaultImplementation} from "../VaultImplementation.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
@@ -173,13 +173,23 @@ contract IntegrationTest is TestHelpers {
     vm.warp(block.timestamp + 11 days);
 
     uint256 collateralId = tokenContract.computeId(tokenId);
+    emit log_named_address(
+      "first lien payee before liq",
+      LIEN_TOKEN.getPayee(stack[0].point.lienId)
+    );
     ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
-
+    emit log_named_address("vault", address(publicVaults[0]));
+    emit log_named_address(
+      "first lien payee",
+      LIEN_TOKEN.getPayee(stack[0].point.lienId)
+    );
     _bid(address(2), collateralId, 200 ether);
 
     address[5] memory withdrawProxies;
     for (uint256 i = 0; i < lienSize; i++) {
-      withdrawProxies[i] = PublicVault(publicVaults[i]).getWithdrawProxy(0);
+      withdrawProxies[i] = address(
+        PublicVault(publicVaults[i]).getWithdrawProxy(0)
+      );
     }
     assertTrue(withdrawProxies[0] == address(0)); // 3 days from epoch end
     assertTrue(withdrawProxies[1] != address(0)); // 2 days from epoch end
@@ -189,12 +199,14 @@ contract IntegrationTest is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVaults[0]),
-      PublicVault(publicVaults[0]).totalAssets()
+      PublicVault(publicVaults[0]).totalAssets(),
+      "Incorrect WETH balance"
     );
 
     vm.warp(block.timestamp + 2 days);
 
     for (uint256 i = 1; i < lienSize; i++) {
+      vm.warp(WithdrawProxy(withdrawProxies[i]).getFinalAuctionEnd());
       PublicVault(publicVaults[i]).processEpoch();
     }
 
@@ -202,30 +214,34 @@ contract IntegrationTest is TestHelpers {
       WithdrawProxy(withdrawProxies[i]).claim();
     }
 
-    assertEq(WETH9.balanceOf(withdrawProxies[1]), 0);
-    assertEq(WETH9.balanceOf(withdrawProxies[2]), 0);
-    assertEq(WETH9.balanceOf(withdrawProxies[3]), 0);
-    assertEq(WETH9.balanceOf(withdrawProxies[4]), 0);
+    assertEq(WETH9.balanceOf(withdrawProxies[1]), 0, "proxy 1 invalid");
+    assertEq(WETH9.balanceOf(withdrawProxies[2]), 0, "proxy 2 invalid");
+    assertEq(WETH9.balanceOf(withdrawProxies[3]), 0, "proxy 3 invalid");
+    assertEq(WETH9.balanceOf(withdrawProxies[4]), 0, "proxy 4 invalid");
 
     assertEq(
       WETH9.balanceOf(publicVaults[1]),
-      PublicVault(publicVaults[1]).totalAssets()
+      PublicVault(publicVaults[1]).totalAssets(),
+      "vault 1 invalid"
     );
     assertEq(
       WETH9.balanceOf(publicVaults[2]),
-      PublicVault(publicVaults[2]).totalAssets()
+      PublicVault(publicVaults[2]).totalAssets(),
+      "vault 2 invalid"
     );
     assertEq(
       WETH9.balanceOf(publicVaults[3]),
-      PublicVault(publicVaults[3]).totalAssets()
+      PublicVault(publicVaults[3]).totalAssets(),
+      "vault 3 invalid"
     );
     assertEq(
       WETH9.balanceOf(publicVaults[4]),
-      PublicVault(publicVaults[4]).totalAssets()
+      PublicVault(publicVaults[4]).totalAssets(),
+      "vault 4 invalid"
     );
   }
 
-   function testBorrowerReservePriceCancellationTest() public {
+  function testBorrowerReservePriceCancellationTest() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -262,6 +278,10 @@ contract IntegrationTest is TestHelpers {
 
     vm.warp(block.timestamp + 4 days);
     ASTARIA_ROUTER.endAuction(collateralId);
-    assertEq(ERC721(tokenContract).ownerOf(tokenId), address(3), "Bidder address does not own NFT");
+    assertEq(
+      ERC721(tokenContract).ownerOf(tokenId),
+      address(3),
+      "Bidder address does not own NFT"
+    );
   }
 }

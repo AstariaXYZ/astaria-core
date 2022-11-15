@@ -18,8 +18,22 @@ import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 interface ILienToken is IERC721 {
+  enum FileType {
+    NotSupported,
+    AuctionHouse,
+    CollateralToken,
+    AstariaRouter
+  }
+
+  struct File {
+    FileType what;
+    bytes data;
+  }
+
+  event FileUpdated(FileType what, bytes data);
+
   struct LienStorage {
-    uint256 maxLiens;
+    uint8 maxLiens;
     address WETH;
     ITransferProxy TRANSFER_PROXY;
     IAuctionHouse AUCTION_HOUSE;
@@ -42,19 +56,19 @@ interface ILienToken is IERC721 {
   }
 
   struct Lien {
-    Details details;
-    bytes32 strategyRoot;
-    uint256 collateralId;
-    address vault;
-    address token;
+    address token; //20
+    address vault; //20
+    bytes32 strategyRoot; //32
+    uint256 collateralId; //32
+    Details details; //32 * 4
   }
 
   struct Point {
-    uint256 lienId;
-    uint88 amount;
-    uint8 position;
-    uint40 last;
-    uint40 end;
+    uint88 amount; //11
+    uint8 position; //1
+    uint40 last; //5
+    uint40 end; //5
+    uint256 lienId; //32
   }
 
   struct Stack {
@@ -109,7 +123,7 @@ interface ILienToken is IERC721 {
     uint256 collateralId,
     uint256 auctionWindow,
     ILienToken.Stack[] memory stack
-  ) external returns (uint256 reserve, uint256[] memory);
+  ) external returns (uint256 reserve, AuctionStack[] memory);
 
   /**
    * @notice Computes and returns the buyout amount for a Lien.
@@ -126,8 +140,10 @@ interface ILienToken is IERC721 {
    * @param collateralId The ID for the underlying CollateralToken.
    * @param remainingLiens The IDs for the unpaid liens
    */
-  function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
-    external;
+  function removeLiens(
+    uint256 collateralId,
+    AuctionStack[] memory remainingLiens
+  ) external;
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -209,6 +225,11 @@ interface ILienToken is IERC721 {
     external
     returns (Stack[] memory newStack);
 
+  struct AuctionStack {
+    uint256 lienId;
+    uint40 end;
+  }
+
   /**
    * @notice Make a payment for the debt against a CollateralToken for a specific lien.
    * @param stack the stack to repay
@@ -218,11 +239,11 @@ interface ILienToken is IERC721 {
    * @return the amount of the payment that was applied to the lien
    */
   function makePaymentAuctionHouse(
-    uint256[] memory stack,
+    AuctionStack[] memory stack,
     uint256 collateralId,
     uint256 paymentAmount,
     address payer
-  ) external returns (uint256[] memory, uint256);
+  ) external returns (ILienToken.AuctionStack[] memory, uint256);
 
   function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory)
     external
@@ -245,19 +266,32 @@ interface ILienToken is IERC721 {
 
   /**
    * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
-   * @param what The identifier for what is being filed.
-   * @param data The encoded address data to be decoded and filed.
+   * @param file The incoming file to handle
    */
-  function file(bytes32 what, bytes calldata data) external;
+  function file(File calldata file) external;
 
-  event AddLien(uint256 indexed collateralId, uint256 lienId, uint8 position);
-  event LienStackUpdated(uint256 indexed collateralId, Stack[] stack);
-  event RemovedLien(uint256 indexed collateralId, uint8 position);
+  event AddLien(
+    uint256 indexed collateralId,
+    uint8 position,
+    uint256 indexed lienId,
+    Stack stack
+  );
+  enum StackAction {
+    CLEAR,
+    ADD,
+    REMOVE,
+    REPLACE
+  }
+  event LienStackUpdated(
+    uint256 indexed collateralId,
+    uint8 position,
+    StackAction action,
+    uint8 stackLength
+  );
   event RemovedLiens(uint256 indexed collateralId);
   event Payment(uint256 indexed lienId, uint256 amount);
   event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
   event PayeeChanged(uint256 indexed lienId, address indexed payee);
-  event File(bytes32 indexed what, bytes data);
 
   error UnsupportedFile();
   error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
@@ -269,6 +303,7 @@ interface ILienToken is IERC721 {
     COLLATERAL_AUCTION,
     COLLATERAL_NOT_DEPOSITED,
     LIEN_NO_DEBT,
+    EXPIRED_LIEN,
     DEBT_LIMIT,
     MAX_LIENS
   }
