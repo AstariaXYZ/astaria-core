@@ -33,10 +33,20 @@ interface ICollateralToken is IERC721 {
     //mapping of a security token hook for an nft's token contract address
     mapping(address => address) securityHooks;
   }
+  enum FileType {
+    NotSupported,
+    AstariaRouter,
+    AuctionHouse,
+    SecurityHook,
+    FlashEnabled
+  }
+
   struct File {
-    bytes32 what;
+    FileType what;
     bytes data;
   }
+
+  event FileUpdated(FileType what, bytes data);
 
   /**
    * @notice Executes a FlashAction using locked collateral. A valid FlashAction performs a specified action with the collateral within a single transaction and must end with the collateral being returned to the Vault it was locked in.
@@ -57,10 +67,9 @@ interface ICollateralToken is IERC721 {
    * @param collateralId The ID of the CollateralToken wrapping the NFT.
    * @return The address and tokenId of the underlying NFT.
    */
-  function getUnderlying(uint256 collateralId)
-    external
-    view
-    returns (address, uint256);
+  function getUnderlying(
+    uint256 collateralId
+  ) external view returns (address, uint256);
 
   /**
    * @notice Unlocks the NFT for a CollateralToken and sends it to a specified address.
@@ -80,8 +89,8 @@ interface ICollateralToken is IERC721 {
     uint256 assetId,
     address indexed to
   );
-  event FileUpdated(bytes32 indexed what, bytes data);
 
+  error UnsupportedFile();
   error InvalidCollateral();
   error InvalidSender();
   error InvalidCollateralState(InvalidCollateralStates);

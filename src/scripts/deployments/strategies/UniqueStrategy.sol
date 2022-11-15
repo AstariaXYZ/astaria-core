@@ -10,23 +10,23 @@
 pragma solidity ^0.8.17;
 
 import {Script} from "forge-std/Script.sol";
-import {AstariaRouter} from "../../../AstariaRouter.sol";
 import {UniqueValidator} from "../../../strategies/UniqueValidator.sol";
 import {AstariaStack} from "../AstariaStack.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 
 contract UniqueStrategy is AstariaStack {
-  AstariaRouter router;
+  IAstariaRouter router;
 
   function run() external {
-    router = AstariaRouter(ROUTER_ADDR);
+    router = IAstariaRouter(ROUTER_ADDR);
     vm.startBroadcast(msg.sender);
 
     UniqueValidator validator = new UniqueValidator();
 
     router.file(
-      AstariaRouter.File(
-        bytes32("setStrategyValidator"),
-        abi.encode(uint8(0), address(validator))
+      IAstariaRouter.File(
+        IAstariaRouter.FileType.StrategyValidator,
+        abi.encode(validator.VERSION_TYPE(), address(validator))
       )
     );
 

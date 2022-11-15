@@ -20,23 +20,24 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {ITokenBase} from "core/interfaces/ITokenBase.sol";
-import {ERC4626Base} from "core/ERC4626Base.sol";
+import {IERC4626} from "core/interfaces/IERC4626.sol";
+import {IERC20} from "core/interfaces/IERC20.sol";
+import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
+import {ERC20Cloned} from "gpl/ERC20-Cloned.sol";
 
 import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
 
-import {IAstariaRouter} from "./interfaces/IAstariaRouter.sol";
-import {ILienToken} from "./interfaces/ILienToken.sol";
-import {IVault} from "core/interfaces/IVault.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {LienToken} from "./LienToken.sol";
-import {VaultImplementation} from "./VaultImplementation.sol";
-import {WithdrawProxy} from "./WithdrawProxy.sol";
+import {LienToken} from "core/LienToken.sol";
+import {VaultImplementation} from "core/VaultImplementation.sol";
+import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
-import {Math} from "./utils/Math.sol";
-import {IPublicVault} from "./interfaces/IPublicVault.sol";
-import {Vault} from "./Vault.sol";
+import {Math} from "core/utils/Math.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 
 /*
@@ -44,22 +45,57 @@ import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
  * @author androolloyd
  * @notice
  */
-contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
+contract PublicVault is
+  AstariaVaultBase,
+  VaultImplementation,
+  IPublicVault,
+  ERC4626Cloned
+{
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
 
   bytes32 constant PUBLIC_VAULT_SLOT =
-    keccak256("xyz.astaria.core.PublicVault.storage.location");
+    keccak256("xyz.astaria.PublicVault.storage.location");
 
-  function underlying()
+  function asset()
     public
     pure
     virtual
-    override(ERC4626Base, AstariaVaultBase)
+    override(AstariaVaultBase, ERC4626Cloned)
     returns (address)
   {
-    return super.underlying();
+    return super.asset();
+  }
+
+  function decimals()
+    public
+    pure
+    virtual
+    override(IERC20Metadata)
+    returns (uint8)
+  {
+    return 18;
+  }
+
+  function name()
+    public
+    view
+    virtual
+    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
+    returns (string memory)
+  {
+    return string(abi.encodePacked("AST-Vault-", ERC20(asset()).symbol()));
+  }
+
+  function symbol()
+    public
+    view
+    virtual
+    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
+    returns (string memory)
+  {
+    return string(abi.encodePacked("AST-V-", ERC20(asset()).symbol()));
   }
 
   /**
@@ -73,7 +109,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 shares,
     address receiver,
     address owner
-  ) public virtual override returns (uint256 assets) {
+  ) public virtual override(ERC4626Cloned) returns (uint256 assets) {
     VaultData storage s = _loadStorageSlot();
     assets = redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
   }
@@ -82,7 +118,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     uint256 assets,
     address receiver,
     address owner
-  ) public virtual override returns (uint256 shares) {
+  ) public virtual override(ERC4626Cloned) returns (uint256 shares) {
     shares = previewWithdraw(assets);
     VaultData storage s = _loadStorageSlot();
 
@@ -95,8 +131,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     address owner,
     uint64 epoch
   ) public virtual returns (uint256 assets) {
-    // check to ensure that the requested epoch is not the current epoch or in the past
-    require(msg.sender == owner);
+    // check to ensure that the requested epoch is not in the past
     VaultData storage s = _loadStorageSlot();
 
     if (epoch < s.currentEpoch) {
@@ -105,7 +140,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     // check for rounding error since we round down in previewRedeem.
 
-    ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
+    ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
 
     // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
     _deployWithdrawProxyIfNotDeployed(s, epoch);
@@ -113,13 +148,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
     // WithdrawProxy shares are minted 1:1 with PublicVault shares
-    WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(receiver, shares); // was withdrawProxies[withdrawEpoch]
+    WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(shares, receiver);
   }
 
-  function getWithdrawProxy(uint64 epoch) public view returns (address) {
+  function getWithdrawProxy(uint64 epoch) public view returns (WithdrawProxy) {
     VaultData storage s = _loadStorageSlot();
 
-    return s.epochData[epoch].withdrawProxy;
+    return WithdrawProxy(s.epochData[epoch].withdrawProxy);
   }
 
   function getCurrentEpoch() public view returns (uint64) {
@@ -162,12 +197,31 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           address(ROUTER()), // router is the beacon
           uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
           address(this), // owner
-          underlying(), // token
+          asset(), // token
           address(this), // vault
           epoch + 1 // claimable epoch
         )
       );
     }
+  }
+
+  function mint(uint256 shares, address receiver)
+    public
+    override(ERC4626Cloned)
+    whenNotPaused
+    returns (uint256)
+  {
+    VIData storage s = _loadVISlot();
+    if (s.allowListEnabled) {
+      require(s.allowList[receiver]);
+    }
+
+    uint256 assets = totalAssets();
+    if (s.depositCap != 0 && assets >= s.depositCap) {
+      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+    }
+
+    return super.mint(shares, receiver);
   }
 
   /**
@@ -177,7 +231,7 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    */
   function deposit(uint256 amount, address receiver)
     public
-    override(IVault, Vault, ERC4626Cloned)
+    override(ERC4626Cloned)
     whenNotPaused
     returns (uint256)
   {
@@ -213,13 +267,12 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
       revert InvalidState(InvalidStates.WITHDRAW_RESERVE_NOT_ZERO);
     }
 
-    address currentWithdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
+    WithdrawProxy currentWithdrawProxy = WithdrawProxy(
+      s.epochData[s.currentEpoch].withdrawProxy
+    );
 
-    if (currentWithdrawProxy != address(0)) {
-      if (
-        WithdrawProxy(currentWithdrawProxy).getFinalAuctionEnd() >
-        block.timestamp
-      ) {
+    if (address(currentWithdrawProxy) != address(0)) {
+      if (currentWithdrawProxy.getFinalAuctionEnd() > block.timestamp) {
         revert InvalidState(
           InvalidStates.LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN
         );
@@ -228,14 +281,14 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     // split funds from previous WithdrawProxy with PublicVault if hasn't been already
     if (s.currentEpoch != 0) {
-      address previousWithdrawProxy = s
-        .epochData[s.currentEpoch - 1]
-        .withdrawProxy;
+      WithdrawProxy previousWithdrawProxy = WithdrawProxy(
+        s.epochData[s.currentEpoch - 1].withdrawProxy
+      );
       if (
-        previousWithdrawProxy != address(0) &&
-        WithdrawProxy(previousWithdrawProxy).getFinalAuctionEnd() != 0
+        address(previousWithdrawProxy) != address(0) &&
+        previousWithdrawProxy.getFinalAuctionEnd() != 0
       ) {
-        WithdrawProxy(previousWithdrawProxy).claim();
+        previousWithdrawProxy.claim();
       }
     }
 
@@ -247,9 +300,8 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     s.liquidationWithdrawRatio = 0;
 
     // check if there are LPs withdrawing this epoch
-    address withdrawProxy = getWithdrawProxy(s.currentEpoch);
-    if ((withdrawProxy != address(0))) {
-      uint256 proxySupply = WithdrawProxy(withdrawProxy).totalSupply();
+    if ((address(currentWithdrawProxy) != address(0))) {
+      uint256 proxySupply = currentWithdrawProxy.totalSupply();
 
       unchecked {
         s.liquidationWithdrawRatio = proxySupply
@@ -257,15 +309,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
           .safeCastTo88();
       }
 
-      if (currentWithdrawProxy != address(0)) {
-        WithdrawProxy(currentWithdrawProxy).setWithdrawRatio(
-          s.liquidationWithdrawRatio
-        );
+      if (address(currentWithdrawProxy) != address(0)) {
+        currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
       }
 
       uint256 expected = 0;
-      if (currentWithdrawProxy != address(0)) {
-        expected = WithdrawProxy(currentWithdrawProxy).getExpected();
+      if (address(currentWithdrawProxy) != address(0)) {
+        expected = currentWithdrawProxy.getExpected();
       }
 
       unchecked {
@@ -299,7 +349,6 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   {
     return
       interfaceId == type(IPublicVault).interfaceId ||
-      interfaceId == type(IVault).interfaceId ||
       interfaceId == type(ERC4626Cloned).interfaceId ||
       interfaceId == type(ERC4626).interfaceId ||
       interfaceId == type(ERC20).interfaceId ||
@@ -311,24 +360,26 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
 
     if (s.currentEpoch > uint64(0)) {
       // check the available balance to be withdrawn
-      uint256 withdrawBalance = ERC20(underlying()).balanceOf(address(this));
 
-      // prevent transfer of more assets then are available
-      if (s.withdrawReserve <= withdrawBalance) {
-        withdrawBalance = s.withdrawReserve;
-        s.withdrawReserve = 0;
-      } else {
-        unchecked {
-          s.withdrawReserve -= uint88(withdrawBalance);
-        }
-      }
       address currentWithdrawProxy = s
         .epochData[s.currentEpoch - 1]
         .withdrawProxy;
       // prevents transfer to a non-existent WithdrawProxy
       // withdrawProxies are indexed by the epoch where they're deployed
       if (currentWithdrawProxy != address(0)) {
-        ERC20(underlying()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+        uint256 withdrawBalance = ERC20(asset()).balanceOf(address(this));
+
+        // prevent transfer of more assets then are available
+        if (s.withdrawReserve <= withdrawBalance) {
+          withdrawBalance = s.withdrawReserve;
+          s.withdrawReserve = 0;
+        } else {
+          unchecked {
+            s.withdrawReserve -= uint88(withdrawBalance);
+          }
+        }
+
+        ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
         WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
           withdrawBalance
         );
@@ -421,13 +472,25 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
    * @notice Computes the implied value of this PublicVault. This includes interest payments that have not yet been made.
    * @return The implied value for this PublicVault.
    */
-  function totalAssets() public view virtual override returns (uint256) {
+  function totalAssets()
+    public
+    view
+    virtual
+    override(ERC4626Cloned)
+    returns (uint256)
+  {
     VaultData storage s = _loadStorageSlot();
     uint256 delta_t = block.timestamp - s.last;
     return uint256(s.slope).mulDivDown(delta_t, 1) + uint256(s.yIntercept);
   }
 
-  function totalSupply() public view virtual override returns (uint256) {
+  function totalSupply()
+    public
+    view
+    virtual
+    override(IERC20, ERC20Cloned)
+    returns (uint256)
+  {
     return
       _loadERC20Slot()._totalSupply +
       _loadStorageSlot().strategistUnclaimedShares;
@@ -531,13 +594,13 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
   }
 
   /**
-   * @notice TODO
-   * @param auctionWindow The auction duration.
+   * @notice
+   * @param maxAuctionWindow The max possible auction duration.
    * @param params AfterLiquidation data.
    * @return withdrawProxyIfNearBoundary The address of the WithdrawProxy to set the payee to if the liquidation is triggered near an epoch boundary.
    */
   function updateVaultAfterLiquidation(
-    uint256 auctionWindow,
+    uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
   ) public returns (address withdrawProxyIfNearBoundary) {
     require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
@@ -558,14 +621,15 @@ contract PublicVault is Vault, IPublicVault, ERC4626Cloned {
     _decreaseEpochLienCount(s, lienEpoch);
 
     uint256 timeToEnd = timeToEpochEnd(lienEpoch);
-    if (timeToEnd <= auctionWindow) {
+    if (timeToEnd < maxAuctionWindow) {
       _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
       withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
     }
+
     if (withdrawProxyIfNearBoundary != address(0)) {
       WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
         params.newAmount,
-        auctionWindow
+        maxAuctionWindow
       );
     }
   }

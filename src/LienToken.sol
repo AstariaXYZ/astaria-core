@@ -22,7 +22,7 @@ import {IERC165} from "core/interfaces/IERC165.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {Base64} from "./libraries/Base64.sol";
+import {Base64} from "core/libraries/Base64.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
@@ -60,7 +60,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
     s.WETH = _WETH;
-    s.maxLiens = uint256(5);
+    s.maxLiens = uint8(5);
   }
 
   function _loadLienStorageSlot()
@@ -74,21 +74,23 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
   }
 
-  function file(bytes32 what, bytes calldata data) external requiresAuth {
+  function file(File calldata incoming) external requiresAuth {
+    FileType what = incoming.what;
+    bytes memory data = incoming.data;
     LienStorage storage s = _loadLienStorageSlot();
-    if (what == "setAuctionHouse") {
+    if (what == FileType.AuctionHouse) {
       address addr = abi.decode(data, (address));
       s.AUCTION_HOUSE = IAuctionHouse(addr);
-    } else if (what == "setCollateralToken") {
+    } else if (what == FileType.CollateralToken) {
       address addr = abi.decode(data, (address));
       s.COLLATERAL_TOKEN = ICollateralToken(addr);
-    } else if (what == "setAstariaRouter") {
+    } else if (what == FileType.AstariaRouter) {
       address addr = abi.decode(data, (address));
       s.ASTARIA_ROUTER = IAstariaRouter(addr);
     } else {
       revert UnsupportedFile();
     }
-    emit File(what, data);
+    emit FileUpdated(what, data);
   }
 
   function supportsInterface(bytes4 interfaceId)
@@ -138,9 +140,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
 
     if (
-      s
-        .lienMeta[params.encumber.stack[params.position].point.lienId]
-        .amountAtLiquidation > 0
+      s.collateralStateHash[params.encumber.lien.collateralId] ==
+      bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -192,11 +193,16 @@ contract LienToken is ERC721, ILienToken, Auth {
       if (i == position) {
         newStack[i] = newLien;
         _burn(oldLienId);
+        delete s.lienMeta[oldLienId];
+        if (s.ASTARIA_ROUTER.isValidVault(stack[i].lien.vault)) {
+          IPublicVault(stack[i].lien.vault).decreaseEpochLienCount(
+            stack[i].point.end
+          );
+        }
       } else {
         newStack[i] = stack[i];
       }
     }
-    emit LienStackUpdated(stack[0].lien.collateralId, newStack);
   }
 
   function getInterest(Stack calldata stack) public view returns (uint256) {
@@ -231,15 +237,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     _;
   }
 
-  modifier validateAuctionStack(uint256 collateralId, uint256[] memory stack) {
-    LienStorage storage s = _loadLienStorageSlot();
-    bytes32 stateHash = s.collateralStateHash[collateralId];
-    if (stateHash != bytes32(0)) {
-      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
-    }
-    _;
-  }
-
   function stopLiens(
     uint256 collateralId,
     uint256 auctionWindow,
@@ -248,7 +245,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     external
     validateStack(collateralId, stack)
     requiresAuth
-    returns (uint256 reserve, uint256[] memory lienIds)
+    returns (uint256 reserve, AuctionStack[] memory lienIds)
   {
     (reserve, lienIds) = _stopLiens(
       _loadLienStorageSlot(),
@@ -263,23 +260,24 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 collateralId,
     uint256 auctionWindow,
     Stack[] calldata stack
-  ) internal returns (uint256 reserve, uint256[] memory lienIds) {
+  ) internal returns (uint256 reserve, AuctionStack[] memory lienIds) {
     reserve = 0;
-    lienIds = new uint256[](stack.length);
+    lienIds = new AuctionStack[](stack.length);
 
     for (uint256 i = 0; i < stack.length; ++i) {
-      lienIds[i] = stack[i].point.lienId;
+      lienIds[i].lienId = stack[i].point.lienId;
+      lienIds[i].end = stack[i].point.end;
+
       uint88 owed;
       unchecked {
         owed = _getOwed(stack[i], block.timestamp);
         reserve += owed;
         s.lienMeta[stack[i].point.lienId].amountAtLiquidation = owed;
       }
-      if (
-          s.ASTARIA_ROUTER.isValidVault(_getPayee(s, lienIds[i]))
-      ) {
+      address payee = _getPayee(s, lienIds[i].lienId);
+      if (_isPublicVault(s, payee)) {
         // update the public vault state and get the liquidation accountant back if any
-        address withdrawProxyIfNearBoundary = IPublicVault(_getPayee(s, lienIds[i]))
+        address withdrawProxyIfNearBoundary = IPublicVault(payee)
           .updateVaultAfterLiquidation(
             auctionWindow,
             IPublicVault.AfterLiquidationParams({
@@ -290,11 +288,11 @@ contract LienToken is ERC721, ILienToken, Auth {
           );
 
         if (withdrawProxyIfNearBoundary != address(0)) {
-          _setPayee(s, lienIds[i], withdrawProxyIfNearBoundary);
+          _setPayee(s, lienIds[i].lienId, withdrawProxyIfNearBoundary);
         }
       }
     }
-    s.collateralStateHash[collateralId] = keccak256(abi.encode(lienIds));
+    s.collateralStateHash[collateralId] = bytes32("ACTIVE_AUCTION");
   }
 
   function tokenURI(uint256 tokenId)
@@ -304,6 +302,18 @@ contract LienToken is ERC721, ILienToken, Auth {
     returns (string memory)
   {
     return "";
+  }
+
+  function transferFrom(
+    address from,
+    address to,
+    uint256 id
+  ) public override(ERC721, IERC721) {
+    LienStorage storage s = _loadLienStorageSlot();
+    if (s.lienMeta[id].amountAtLiquidation > 0) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+    super.transferFrom(from, to, id);
   }
 
   function AUCTION_HOUSE() public view returns (IAuctionHouse) {
@@ -334,7 +344,6 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
     //0 - 4 are valid
-
     Stack memory newStackSlot;
     (lienId, newStackSlot) = _createLien(s, params);
 
@@ -343,15 +352,33 @@ contract LienToken is ERC721, ILienToken, Auth {
       abi.encode(newStack)
     );
 
-    lienSlope = calculateSlope(newStackSlot);
-    emit AddLien(params.collateralId, lienId, newStackSlot.point.position);
-    emit LienStackUpdated(params.collateralId, newStack);
+    unchecked {
+      lienSlope = calculateSlope(newStackSlot);
+    }
+    emit AddLien(
+      params.collateralId,
+      newStackSlot.point.position,
+      lienId,
+      newStackSlot
+    );
+    emit LienStackUpdated(
+      params.collateralId,
+      newStackSlot.point.position,
+      StackAction.ADD,
+      uint8(newStack.length)
+    );
   }
 
   function _createLien(
     LienStorage storage s,
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
+    if (
+      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
+    ) {
+      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+
     if (params.stack.length >= s.maxLiens) {
       revert InvalidState(InvalidStates.MAX_LIENS);
     }
@@ -379,31 +406,33 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     Stack[] memory stack,
     Stack memory newSlot
-  ) internal pure returns (Stack[] memory newStack) {
+  ) internal view returns (Stack[] memory newStack) {
     newStack = new Stack[](stack.length + 1);
     for (uint256 i = 0; i < stack.length; ++i) {
+      if (block.timestamp > stack[i].point.end) {
+        revert InvalidState(InvalidStates.EXPIRED_LIEN);
+      }
       newStack[i] = stack[i];
     }
     newStack[stack.length] = newSlot;
   }
 
-  function removeLiens(uint256 collateralId, uint256[] memory remainingLiens)
-    external
-    requiresAuth
-  {
+  function removeLiens(
+    uint256 collateralId,
+    AuctionStack[] memory remainingLiens
+  ) external requiresAuth {
     LienStorage storage s = _loadLienStorageSlot();
     for (uint256 i = 0; i < remainingLiens.length; i++) {
-      address payee = _getPayee(s, remainingLiens[i]);
-      if (
-        s.ASTARIA_ROUTER.isValidVault(payee)
-      ) {
-        IPublicVault(payee).decreaseYIntercept(
-          s.lienMeta[remainingLiens[i]].amountAtLiquidation
+      address owner = ownerOf(remainingLiens[i].lienId);
+      address payee = _getPayee(s, remainingLiens[i].lienId);
+      if (_isPublicVault(s, owner) && payee == owner) {
+        IPublicVault(owner).decreaseYIntercept(
+          s.lienMeta[remainingLiens[i].lienId].amountAtLiquidation
         );
       }
 
-      delete s.lienMeta[remainingLiens[i]];
-      _burn(remainingLiens[i]); //burn the underlying lien associated
+      delete s.lienMeta[remainingLiens[i].lienId];
+      _burn(remainingLiens[i].lienId); //burn the underlying lien associated
     }
     delete s.collateralStateHash[collateralId];
     emit RemovedLiens(collateralId);
@@ -485,15 +514,14 @@ contract LienToken is ERC721, ILienToken, Auth {
   }
 
   function makePaymentAuctionHouse(
-    uint256[] memory stack,
+    AuctionStack[] memory stack,
     uint256 collateralId,
     uint256 payment,
     address payer
   )
     external
-    validateAuctionStack(collateralId, stack)
     requiresAuth
-    returns (uint256[] memory outStack, uint256 spent)
+    returns (AuctionStack[] memory outStack, uint256 spent)
   {
     spent = 0;
     outStack = stack;
@@ -512,32 +540,37 @@ contract LienToken is ERC721, ILienToken, Auth {
         spent += paymentMade;
       }
     }
-    if (outStack.length != 0) {
-      s.collateralStateHash[collateralId] = keccak256(abi.encode(outStack));
-    } else {
+    if (outStack.length == 0) {
       delete s.collateralStateHash[collateralId];
     }
   }
 
   function _paymentAH(
     LienStorage storage s,
-    uint256[] memory stack,
+    AuctionStack[] memory stack,
     uint256 collateralId,
     uint256 payment,
     address payer
-  ) internal returns (uint256[] memory, uint256) {
-    uint256 lienId = stack[0];
+  ) internal returns (AuctionStack[] memory, uint256) {
+    uint256 lienId = stack[0].lienId;
+    uint256 end = stack[0].end;
     //checks the lien exists
     address payee = _getPayee(s, lienId);
 
     //owing at liquidation
-    if (s.lienMeta[lienId].amountAtLiquidation > payment) {
+    if (s.lienMeta[lienId].amountAtLiquidation > payment.safeCastTo88()) {
       s.lienMeta[lienId].amountAtLiquidation -= payment.safeCastTo88();
     } else {
       payment = s.lienMeta[lienId].amountAtLiquidation;
       delete s.lienMeta[lienId]; //full delete
       _burn(lienId);
-      uint256[] memory newStack = new uint256[](stack.length - 1);
+      AuctionStack[] memory newStack = new AuctionStack[](stack.length - 1);
+
+      if (_isPublicVault(s, payee)) {
+        IPublicVault(payee).decreaseEpochLienCount(
+          IPublicVault(payee).getLienEpoch(uint64(end))
+        );
+      }
 
       for (uint256 i = 1; i < stack.length; i++) {
         newStack[i - 1] = stack[i];
@@ -679,7 +712,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 owed = _getOwed(activeStack[position], block.timestamp);
 
     address lienOwner = ownerOf(lienId);
-    bool isPublicVault = _isPublicVault(lienOwner);
+    bool isPublicVault = _isPublicVault(s, lienOwner);
 
     address payee = _getPayee(s, lienId);
 
@@ -743,12 +776,21 @@ contract LienToken is ERC721, ILienToken, Auth {
       if (i == position) continue;
       newStack[i] = stack[i];
     }
-    emit RemovedLien(collateralId, position);
-    emit LienStackUpdated(collateralId, newStack);
+    emit LienStackUpdated(
+      collateralId,
+      position,
+      StackAction.REMOVE,
+      uint8(newStack.length)
+    );
   }
 
-  function _isPublicVault(address account) internal view returns (bool) {
+  function _isPublicVault(LienStorage storage s, address account)
+    internal
+    view
+    returns (bool)
+  {
     return
+      s.ASTARIA_ROUTER.isValidVault(account) &&
       IPublicVault(account).supportsInterface(type(IPublicVault).interfaceId);
   }
 

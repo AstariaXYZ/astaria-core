@@ -27,19 +27,17 @@ interface IUniqueValidator is IStrategyValidator {
 }
 
 contract UniqueValidator is IUniqueValidator {
-  function getLeafDetails(bytes memory nlrDetails)
-    public
-    pure
-    returns (Details memory)
-  {
+  uint8 public constant VERSION_TYPE = uint8(1);
+
+  function getLeafDetails(
+    bytes memory nlrDetails
+  ) public pure returns (Details memory) {
     return abi.decode(nlrDetails, (Details));
   }
 
-  function assembleLeaf(Details memory details)
-    public
-    pure
-    returns (bytes memory)
-  {
+  function assembleLeaf(
+    Details memory details
+  ) public pure returns (bytes memory) {
     return abi.encode(details);
   }
 
@@ -55,6 +53,9 @@ contract UniqueValidator is IUniqueValidator {
     returns (bytes32 leaf, ILienToken.Details memory ld)
   {
     Details memory cd = getLeafDetails(params.nlrDetails);
+    if (cd.version != VERSION_TYPE) {
+      revert("invalid type");
+    }
 
     if (cd.borrower != address(0)) {
       require(

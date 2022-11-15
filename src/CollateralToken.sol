@@ -90,19 +90,19 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   function file(File calldata incoming) public requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
 
-    bytes32 what = incoming.what;
+    FileType what = incoming.what;
     bytes memory data = incoming.data;
-    if (what == "setAstariaRouter") {
+    if (what == FileType.AstariaRouter) {
       address addr = abi.decode(data, (address));
       s.ASTARIA_ROUTER = IAstariaRouter(addr);
-    } else if (what == "setSecurityHook") {
+    } else if (what == FileType.SecurityHook) {
       (address target, address hook) = abi.decode(data, (address, address));
       s.securityHooks[target] = hook;
-    } else if (what == "setFlashEnabled") {
+    } else if (what == FileType.FlashEnabled) {
       (address target, bool enabled) = abi.decode(data, (address, bool));
       s.flashEnabled[target] = enabled;
     } else {
-      revert("unsupported/file");
+      revert UnsupportedFile();
     }
     emit FileUpdated(what, data);
   }
@@ -136,7 +136,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     CollateralStorage storage s = _loadCollateralSlot();
     (addr, tokenId) = getUnderlying(collateralId);
 
-    require(s.flashEnabled[addr]);
+    require(
+      s.flashEnabled[addr] &&
+        !s.ASTARIA_ROUTER.AUCTION_HOUSE().auctionExists(collateralId)
+    );
     IERC721 nft = IERC721(addr);
 
     bytes memory preTransferState;
@@ -202,7 +205,12 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
     delete s.idToUnderlying[collateralId];
     _burn(collateralId);
-    IERC721(underlyingAsset).transferFrom(address(this), releaseTo, assetId);
+    IERC721(underlyingAsset).safeTransferFrom(
+      address(this),
+      releaseTo,
+      assetId,
+      ""
+    );
     emit ReleaseTo(underlyingAsset, assetId, releaseTo);
   }
 
@@ -258,9 +266,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     uint256 collateralId = msg.sender.computeId(tokenId_);
 
     CollateralStorage storage s = _loadCollateralSlot();
-    Asset memory underlying = s.idToUnderlying[collateralId];
-    (address underlyingAsset, ) = getUnderlying(collateralId);
-    if (underlyingAsset == address(0)) {
+    Asset memory incomingAsset = s.idToUnderlying[collateralId];
+    if (incomingAsset.tokenContract == address(0)) {
+      require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
+
       if (msg.sender == address(this) || msg.sender == address(s.LIEN_TOKEN)) {
         revert InvalidCollateral();
       }
@@ -279,8 +288,10 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
       });
 
       emit Deposit721(msg.sender, tokenId_, collateralId, depositFor);
+      return IERC721Receiver.onERC721Received.selector;
+    } else {
+      revert();
     }
-    return IERC721Receiver.onERC721Received.selector;
   }
 
   modifier whenNotPaused() {

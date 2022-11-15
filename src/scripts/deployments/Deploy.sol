@@ -27,10 +27,12 @@ import {CollateralToken} from "core/CollateralToken.sol";
 import {LienToken} from "core/LienToken.sol";
 import {AstariaRouter} from "core/AstariaRouter.sol";
 
-import {Vault, PublicVault} from "core/PublicVault.sol";
+import {Vault} from "core/Vault.sol";
+import {PublicVault} from "core/PublicVault.sol";
 import {TransferProxy} from "core/TransferProxy.sol";
 
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
@@ -221,15 +223,20 @@ contract Deploy is Script {
         )
       )
     );
-    ICollateralToken.File[] memory ctfiles = new ICollateralToken.File[](2);
+
+    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](1);
+
+    files[0] = IAstariaRouter.File(
+      IAstariaRouter.FileType.AuctionHouse,
+      abi.encode(address(AUCTION_HOUSE))
+    );
+    ASTARIA_ROUTER.fileGuardian(files);
+
+    ICollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
 
     ctfiles[0] = ICollateralToken.File({
-      what: "setAstariaRouter",
+      what: ICollateralToken.FileType.AstariaRouter,
       data: abi.encode(address(ASTARIA_ROUTER))
-    });
-    ctfiles[1] = ICollateralToken.File({
-      what: "setAuctionHouse",
-      data: abi.encode(address(AUCTION_HOUSE))
     });
     COLLATERAL_TOKEN.fileBatch(ctfiles);
     emit Deployed(address(AUCTION_HOUSE));

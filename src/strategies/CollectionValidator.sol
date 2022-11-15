@@ -12,9 +12,9 @@ pragma solidity ^0.8.17;
 
 import {ERC721} from "solmate/tokens/ERC721.sol";
 
-import {IAstariaRouter} from "../interfaces/IAstariaRouter.sol";
-import {ILienToken} from "../interfaces/ILienToken.sol";
-import {IStrategyValidator} from "../interfaces/IStrategyValidator.sol";
+import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
 interface ICollectionValidator is IStrategyValidator {
   struct Details {
@@ -26,6 +26,8 @@ interface ICollectionValidator is IStrategyValidator {
 }
 
 contract CollectionValidator is ICollectionValidator {
+  uint8 public constant VERSION_TYPE = uint8(2);
+
   function getLeafDetails(bytes memory nlrDetails)
     public
     pure
@@ -55,6 +57,9 @@ contract CollectionValidator is ICollectionValidator {
   {
     ICollectionValidator.Details memory cd = getLeafDetails(params.nlrDetails);
 
+    if (cd.version != VERSION_TYPE) {
+      revert("invalid type");
+    }
     if (cd.borrower != address(0)) {
       require(
         borrower == cd.borrower,
