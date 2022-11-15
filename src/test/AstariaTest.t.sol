@@ -418,22 +418,22 @@ contract AstariaTest is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(privateVault),
-      40 ether - tenthOfRemaining,
+      40 ether - tenthOfRemaining - (accruedInterest - stack[0].point.amount),
       "Incorrect PrivateVault balance"
     );
     assertEq(
       WETH9.balanceOf(publicVault),
-      50 ether + tenthOfRemaining,
+      50 ether + tenthOfRemaining + ((accruedInterest - stack[0].point.amount)),
       "Incorrect PublicVault balance"
     );
     assertEq(
       PublicVault(publicVault).getYIntercept(),
-      50 ether + tenthOfRemaining,
+      50 ether + tenthOfRemaining + ((accruedInterest - stack[0].point.amount)),
       "Incorrect PublicVault YIntercept"
     );
     assertEq(
       PublicVault(publicVault).totalAssets(),
-      50 ether + tenthOfRemaining,
+      50 ether + tenthOfRemaining + (accruedInterest - stack[0].point.amount),
       "Incorrect PublicVault YIntercept"
     );
     assertEq(
@@ -456,7 +456,7 @@ contract AstariaTest is TestHelpers {
     );
     assertEq(
       WETH9.balanceOf(address(1)),
-      50 ether + tenthOfRemaining,
+      50 ether + tenthOfRemaining + (accruedInterest - stack[0].point.amount),
       "Incorrect withdrawer balance"
     );
   }

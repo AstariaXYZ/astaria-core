@@ -145,7 +145,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-    (uint256 owed, uint256 buyout) = getBuyout(
+    (uint256 owed, uint256 buyout) = _getBuyout(
+      s,
       params.encumber.stack[params.position]
     );
 
@@ -482,11 +483,20 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
 
+    return _getBuyout(s, stack);
+  }
+
+  function _getBuyout(LienStorage storage s, Stack calldata stack)
+    internal
+    view
+    returns (uint256, uint256)
+  {
     uint256 remainingInterest = _getRemainingInterest(s, stack);
-    uint256 buyoutTotal = stack.point.amount +
+    uint256 owed = _getOwed(stack, block.timestamp);
+    uint256 buyoutTotal = owed +
       s.ASTARIA_ROUTER.getBuyoutFee(remainingInterest);
 
-    return (_getOwed(stack, block.timestamp), buyoutTotal);
+    return (owed, buyoutTotal);
   }
 
   function makePayment(Stack[] calldata stack, uint256 amount)
