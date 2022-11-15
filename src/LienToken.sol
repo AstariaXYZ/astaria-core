@@ -145,25 +145,34 @@ contract LienToken is ERC721, ILienToken, Auth {
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-    (uint256 owed, uint256 buyout) = getBuyout(
+    (uint256 owed, uint256 buyout) = _getBuyout(
+      s,
       params.encumber.stack[params.position]
     );
 
     if (params.encumber.lien.details.maxAmount < owed) {
       revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
     }
-    if (
-      msg.sender !=
-      s.COLLATERAL_TOKEN.ownerOf(
-        params.encumber.stack[params.position].lien.collateralId
-      ) &&
-      msg.sender != ownerOf(params.encumber.stack[params.position].point.lienId)
-    ) {
-      s.TRANSFER_PROXY.tokenTransferFrom(
-        s.WETH,
-        address(msg.sender),
-        _getPayee(s, params.encumber.stack[params.position].point.lienId),
-        buyout
+
+    s.TRANSFER_PROXY.tokenTransferFrom(
+      s.WETH,
+      address(msg.sender),
+      _getPayee(s, params.encumber.stack[params.position].point.lienId),
+      buyout
+    );
+
+    address payee = _getPayee(
+      s,
+      params.encumber.stack[params.position].point.lienId
+    );
+    if (_isPublicVault(s, payee)) {
+      IPublicVault(payee).handleBuyoutLien(
+        IPublicVault.BuyoutLienParams({
+          lienSlope: calculateSlope(params.encumber.stack[params.position]),
+          lienEnd: params.encumber.stack[params.position].point.end,
+          increaseYIntercept: buyout -
+            params.encumber.stack[params.position].point.amount
+        })
       );
     }
 
@@ -194,11 +203,6 @@ contract LienToken is ERC721, ILienToken, Auth {
         newStack[i] = newLien;
         _burn(oldLienId);
         delete s.lienMeta[oldLienId];
-        if (s.ASTARIA_ROUTER.isValidVault(stack[i].lien.vault)) {
-          IPublicVault(stack[i].lien.vault).decreaseEpochLienCount(
-            stack[i].point.end
-          );
-        }
       } else {
         newStack[i] = stack[i];
       }
@@ -479,11 +483,20 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
 
-    uint256 remainingInterest = _getRemainingInterest(s, stack, true);
-    uint256 buyoutTotal = stack.point.amount +
+    return _getBuyout(s, stack);
+  }
+
+  function _getBuyout(LienStorage storage s, Stack calldata stack)
+    internal
+    view
+    returns (uint256, uint256)
+  {
+    uint256 remainingInterest = _getRemainingInterest(s, stack);
+    uint256 owed = _getOwed(stack, block.timestamp);
+    uint256 buyoutTotal = owed +
       s.ASTARIA_ROUTER.getBuyoutFee(remainingInterest);
 
-    return (_getOwed(stack, block.timestamp), buyoutTotal);
+    return (owed, buyoutTotal);
   }
 
   function makePayment(Stack[] calldata stack, uint256 amount)
@@ -662,21 +675,14 @@ contract LienToken is ERC721, ILienToken, Auth {
    * @dev Computes the interest still owed to a Lien.
    * @param s active storage slot
    * @param stack the lien
-   * @param buyout compute with a ceiling based on the buyout interest window
    * @return The WETH still owed in interest to the Lien.
    */
-  function _getRemainingInterest(
-    LienStorage storage s,
-    Stack memory stack,
-    bool buyout
-  ) internal view returns (uint256) {
+  function _getRemainingInterest(LienStorage storage s, Stack memory stack)
+    internal
+    view
+    returns (uint256)
+  {
     uint256 end = stack.point.end;
-    if (buyout) {
-      uint32 buyoutInterestWindow = s.ASTARIA_ROUTER.getBuyoutInterestWindow();
-      if (end >= block.timestamp + buyoutInterestWindow) {
-        end = block.timestamp + buyoutInterestWindow;
-      }
-    }
 
     uint256 delta_t = end - block.timestamp;
 

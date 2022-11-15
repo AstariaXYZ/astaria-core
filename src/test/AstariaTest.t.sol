@@ -381,7 +381,12 @@ contract AstariaTest is TestHelpers {
       isFirstLien: true
     });
 
-    // buyout liens
+    vm.warp(block.timestamp + 3 days);
+
+    uint256 accruedInterest = uint256(LIEN_TOKEN.getOwed(stack[0]));
+    uint256 tenthOfRemaining = (uint256(
+      LIEN_TOKEN.getOwed(stack[0], block.timestamp + 7 days)
+    ) - accruedInterest).mulDivDown(1, 10);
 
     address privateVault = _createPrivateVault({
       strategist: strategistOne,
@@ -403,6 +408,7 @@ contract AstariaTest is TestHelpers {
       Lender({addr: strategistOne, amountToLend: 50 ether}),
       privateVault
     );
+
     VaultImplementation(privateVault).buyoutLien(
       tokenContract.computeId(tokenId),
       uint8(0),
@@ -410,20 +416,49 @@ contract AstariaTest is TestHelpers {
       stack
     );
 
-    //     LIEN_TOKEN.buyoutLien(liens[0], 10 ether, address(1), address(1));
+    assertEq(
+      WETH9.balanceOf(privateVault),
+      40 ether - tenthOfRemaining - (accruedInterest - stack[0].point.amount),
+      "Incorrect PrivateVault balance"
+    );
+    assertEq(
+      WETH9.balanceOf(publicVault),
+      50 ether + tenthOfRemaining + ((accruedInterest - stack[0].point.amount)),
+      "Incorrect PublicVault balance"
+    );
+    assertEq(
+      PublicVault(publicVault).getYIntercept(),
+      50 ether + tenthOfRemaining + ((accruedInterest - stack[0].point.amount)),
+      "Incorrect PublicVault YIntercept"
+    );
+    assertEq(
+      PublicVault(publicVault).totalAssets(),
+      50 ether + tenthOfRemaining + (accruedInterest - stack[0].point.amount),
+      "Incorrect PublicVault YIntercept"
+    );
+    assertEq(
+      PublicVault(publicVault).getSlope(),
+      0,
+      "Incorrect PublicVault slope"
+    );
 
-    //    uint256 collateralId = tokenContract.computeId(tokenId);
-    //
-    //    // make sure the borrow was successful
-    //    assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
-    //
-    //    vm.warp(block.timestamp + 9 days);
-    //
-    //    _repay(collateralId, 50 ether, address(this));
-    //
-    //    COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
-    //
-    //    assertEq(ERC721(tokenContract).ownerOf(tokenId), address(this));
+    _signalWithdraw(address(1), publicVault);
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50 ether + tenthOfRemaining + (accruedInterest - stack[0].point.amount),
+      "Incorrect withdrawer balance"
+    );
   }
 
   function testReleaseToAddress() public {

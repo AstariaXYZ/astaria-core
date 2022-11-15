@@ -593,6 +593,21 @@ contract PublicVault is
     return ROUTER().LIEN_TOKEN();
   }
 
+  function handleBuyoutLien(BuyoutLienParams calldata params) public {
+    require(msg.sender == address(LIEN_TOKEN()));
+    VaultData storage s = _loadStorageSlot();
+
+    unchecked {
+      s.slope -= params.lienSlope.safeCastTo48();
+      s.yIntercept += params.increaseYIntercept.safeCastTo88();
+      s.last = block.timestamp.safeCastTo40();
+    }
+
+    uint64 lienEpoch = getLienEpoch(params.lienEnd.safeCastTo64());
+    _decreaseEpochLienCount(s, lienEpoch);
+    emit YInterceptChanged(s.yIntercept);
+  }
+
   /**
    * @notice
    * @param maxAuctionWindow The max possible auction duration.

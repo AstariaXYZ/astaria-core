@@ -36,6 +36,12 @@ interface IPublicVault is IVaultImplementation {
     uint256 interestOwed;
   }
 
+  struct BuyoutLienParams {
+    uint256 lienSlope;
+    uint256 lienEnd;
+    uint256 increaseYIntercept;
+  }
+
   struct AfterLiquidationParams {
     uint256 lienSlope;
     uint256 newAmount;
@@ -103,6 +109,8 @@ interface IPublicVault is IVaultImplementation {
   function processEpoch() external;
 
   function decreaseYIntercept(uint256 amount) external;
+
+  function handleBuyoutLien(BuyoutLienParams calldata params) external;
 
   function updateVaultAfterLiquidation(
     uint256 auctionWindow,

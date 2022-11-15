@@ -73,7 +73,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     address BEACON_PROXY_IMPLEMENTATION; //20
     uint88 maxInterestRate; //6
     uint32 minInterestBPS; // was uint64
-    mapping(uint8 => address) strategyValidators;
     //slot 3 +
     address guardian; //20
     uint32 buyoutFeeNumerator;
@@ -81,7 +80,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 strategistFeeDenominator;
     uint32 strategistFeeNumerator; //4
     uint32 minDurationIncrease;
-    uint32 buyoutInterestWindow;
+    mapping(uint32 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
     mapping(address => address) vaults;
@@ -210,8 +209,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   function getBuyoutFee(uint256) external view returns (uint256);
 
   function getLiquidatorFee(uint256) external view returns (uint256);
-
-  function getBuyoutInterestWindow() external view returns (uint32);
 
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
