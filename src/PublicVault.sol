@@ -437,6 +437,10 @@ contract PublicVault is
   ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
 
+    if(lienEnd > timeToEpochEnd() + EPOCH_LENGTH()) {
+      revert InvalidState(InvalidStates.LIEN_DURATION_TOO_LONG);
+    }
+
     // increment slope for the new lien
     _accrue(s);
     unchecked {
