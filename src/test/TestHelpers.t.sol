@@ -21,7 +21,6 @@ import {
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
@@ -32,7 +31,9 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
-
+import {
+  ConduitControllerInterface
+} from "seaport/interfaces/ConduitControllerInterface.sol";
 import {
   ICollectionValidator,
   CollectionValidator
@@ -58,8 +59,18 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import {Strings2} from "./utils/Strings2.sol";
 import {BeaconProxy} from "../BeaconProxy.sol";
-import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
+import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
+
 import {IERC4626} from "core/interfaces/IERC4626.sol";
+import {IERC1155} from "core/interfaces/IERC1155.sol";
+import {ValidatorAsset} from "core/ValidatorAsset.sol";
+import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
+import {
+  OrderParameters,
+  Order,
+  CriteriaResolver
+} from "seaport/lib/ConsiderationStructs.sol";
+
 string constant weth9Artifact = "src/test/WETH9.json";
 
 interface IWETH9 is IERC20 {
@@ -75,8 +86,9 @@ contract TestNFT is MockERC721 {
     }
   }
 }
+import {BaseOrderTest} from "lib/seaport/test/foundry/utils/BaseOrderTest.sol";
 
-contract TestHelpers is Test, IERC721Receiver {
+contract TestHelpers is BaseOrderTest {
   using CollateralLookup for address;
   using Strings2 for bytes;
   using SafeCastLib for uint256;
@@ -148,7 +160,9 @@ contract TestHelpers is Test, IERC721Receiver {
     WRAPPER,
     AUCTION_HOUSE,
     TRANSFER_PROXY,
-    LIEN_TOKEN
+    LIEN_TOKEN,
+    SEAPORT,
+    AUCTION_VALIDATOR
   }
 
   enum StrategyTypes {
@@ -167,6 +181,7 @@ contract TestHelpers is Test, IERC721Receiver {
     uint256 expiration
   );
   event RedeemVault(bytes32 vault, uint256 amount, address indexed redeemer);
+  mapping(uint256 => OrderParameters) seaportOrders;
 
   CollateralToken COLLATERAL_TOKEN;
   LienToken LIEN_TOKEN;
@@ -177,20 +192,38 @@ contract TestHelpers is Test, IERC721Receiver {
   TransferProxy TRANSFER_PROXY;
   IWETH9 WETH9;
   MultiRolesAuthority MRA;
-  AuctionHouse AUCTION_HOUSE;
+  SeaportInterface SEAPORT;
 
-  function setUp() public virtual {
+  ValidatorAsset AUCTION_VALIDATOR;
+
+  function setUp() public virtual override {
+    super.setUp();
     WETH9 = IWETH9(deployCode(weth9Artifact));
-
+    vm.label(address(WETH9), "WETH9");
     MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
-
+    vm.label(address(MRA), "MRA");
     TRANSFER_PROXY = new TransferProxy(MRA);
+    vm.label(address(TRANSFER_PROXY), "TRANSFER_PROXY");
+
     LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
+    vm.label(address(LIEN_TOKEN), "LIEN_TOKEN");
+
+    //assumes mainnet forking
+    SEAPORT = SeaportInterface(address(consideration));
+
+    AUCTION_VALIDATOR = new ValidatorAsset(MRA, address(LIEN_TOKEN));
+
+    vm.label(address(AUCTION_VALIDATOR), "AUCTION_VALIDATOR");
     COLLATERAL_TOKEN = new CollateralToken(
       MRA,
       TRANSFER_PROXY,
-      ILienToken(address(LIEN_TOKEN))
+      ILienToken(address(LIEN_TOKEN)),
+      SEAPORT,
+      IERC1155(address(AUCTION_VALIDATOR))
     );
+    vm.label(address(COLLATERAL_TOKEN), "COLLATERAL_TOKEN");
+
+    vm.label(COLLATERAL_TOKEN.getConduit(), "collateral conduit");
 
     PUBLIC_VAULT = new PublicVault();
     SOLO_VAULT = new Vault();
@@ -209,14 +242,8 @@ contract TestHelpers is Test, IERC721Receiver {
       address(BEACON_PROXY)
     );
 
-    AUCTION_HOUSE = new AuctionHouse(
-      address(WETH9),
-      MRA,
-      ICollateralToken(address(COLLATERAL_TOKEN)),
-      ILienToken(address(LIEN_TOKEN)),
-      TRANSFER_PROXY,
-      ASTARIA_ROUTER
-    );
+    vm.label(address(ASTARIA_ROUTER), "ASTARIA_ROUTER");
+
     V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(
       address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88)
     );
@@ -259,20 +286,13 @@ contract TestHelpers is Test, IERC721Receiver {
     );
 
     ASTARIA_ROUTER.fileBatch(files);
-    files = new IAstariaRouter.File[](1);
 
-    files[0] = IAstariaRouter.File(
-      IAstariaRouter.FileType.AuctionHouse,
-      abi.encode(address(AUCTION_HOUSE))
-    );
-    ASTARIA_ROUTER.fileGuardian(files);
-
-    LIEN_TOKEN.file(
-      ILienToken.File(
-        ILienToken.FileType.AuctionHouse,
-        abi.encode(address(AUCTION_HOUSE))
-      )
-    );
+    //    LIEN_TOKEN.file(
+    //      ILienToken.File(
+    //        ILienToken.FileType.AuctionHouse,
+    //        abi.encode(address(AUCTION_HOUSE))
+    //      )
+    //    );
     LIEN_TOKEN.file(
       ILienToken.File(
         ILienToken.FileType.CollateralToken,
@@ -290,61 +310,34 @@ contract TestHelpers is Test, IERC721Receiver {
   }
 
   function _setupRolesAndCapabilities() internal {
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      AuctionHouse.createAuction.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      AuctionHouse.endAuction.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      AuctionHouse.cancelAuction.selector,
-      true
-    );
+    // ROUTER CAPABILITIES
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
       LienToken.createLien.selector,
       true
     );
-
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
       TRANSFER_PROXY.tokenTransferFrom.selector,
       true
     );
+
     MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
-      LienToken.removeLiens.selector,
+      uint8(UserRoles.ASTARIA_ROUTER),
+      CollateralToken.auctionVault.selector,
       true
     );
+
+    // LIEN TOKEN CAPABILITIES
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
       LienToken.stopLiens.selector,
       true
     );
+
     MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
-      ILienToken.makePaymentAuctionHouse.selector, //bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
-      true
-    );
-    MRA.setUserRole(
-      address(ASTARIA_ROUTER),
-      uint8(UserRoles.ASTARIA_ROUTER),
-      true
-    );
-    MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
-    MRA.setUserRole(
-      address(AUCTION_HOUSE),
-      uint8(UserRoles.AUCTION_HOUSE),
+      uint8(UserRoles.LIEN_TOKEN),
+      CollateralToken.settleAuction.selector,
       true
     );
 
@@ -353,16 +346,44 @@ contract TestHelpers is Test, IERC721Receiver {
       TRANSFER_PROXY.tokenTransferFrom.selector,
       true
     );
-    MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
-  }
 
-  function onERC721Received(
-    address operator_,
-    address from_,
-    uint256 tokenId_,
-    bytes calldata data_
-  ) external pure override returns (bytes4) {
-    return IERC721Receiver.onERC721Received.selector;
+    // SEAPORT CAPABILITIES
+    MRA.setRoleCapability(
+      uint8(UserRoles.SEAPORT),
+      ValidatorAsset.safeTransferFrom.selector,
+      true
+    );
+
+    // SEAPORT CAPABILITIES
+    MRA.setRoleCapability(
+      uint8(UserRoles.AUCTION_VALIDATOR),
+      LienToken.onERC1155Received.selector,
+      true
+    );
+
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.AUCTION_HOUSE),
+    //      TRANSFER_PROXY.tokenTransferFrom.selector,
+    //      true
+    //    );
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.AUCTION_HOUSE),
+    //      ILienToken.makePaymentAuctionHouse.selector, //bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
+    //      true
+    //    );
+    MRA.setUserRole(
+      address(ASTARIA_ROUTER),
+      uint8(UserRoles.ASTARIA_ROUTER),
+      true
+    );
+    MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
+    MRA.setUserRole(address(SEAPORT), uint8(UserRoles.SEAPORT), true);
+    MRA.setUserRole(
+      address(AUCTION_VALIDATOR),
+      uint8(UserRoles.AUCTION_VALIDATOR),
+      true
+    );
+    MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
   }
 
   // wrap NFT in a CollateralToken
@@ -833,6 +854,46 @@ contract TestHelpers is Test, IERC721Receiver {
 
   function _bid(
     address bidder,
+    OrderParameters memory params,
+    uint256 amount
+  ) internal {
+    vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
+    vm.startPrank(bidder);
+    WETH9.deposit{value: amount * 2}();
+    //    WETH9.approve(address(SEAPORT), type(uint256).max);
+    //todo make so you dont have to approve our conduit, but either your's or seaport or a channel in some fashion
+    //maybe just approve seaport ourselves vs conduit
+    //    WETH9.approve(address(COLLATERAL_TOKEN.getConduit()), amount);
+
+    emit log_named_uint("bidder balance", WETH9.balanceOf(bidder));
+    //    (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN.getUnderlying(
+    //      tokenId
+    //    );
+
+    //create seaport buy order
+
+    (, , address conduitController) = SEAPORT.information();
+    bytes32 CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(bidder));
+
+    address CONDUIT = ConduitControllerInterface(conduitController)
+      .createConduit(CONDUIT_KEY, address(bidder));
+
+    ConduitControllerInterface(conduitController).updateChannel(
+      address(CONDUIT),
+      address(consideration),
+      true
+    );
+
+    WETH9.approve(CONDUIT, amount * 2);
+
+    SEAPORT.fulfillOrder(Order(params, new bytes(0)), CONDUIT_KEY);
+
+    //    AUCTION_HOUSE.createBid(tokenId, amount);
+    vm.stopPrank();
+  }
+
+  function _bid(
+    address bidder,
     uint256 tokenId,
     uint256 amount
   ) internal {
@@ -841,7 +902,28 @@ contract TestHelpers is Test, IERC721Receiver {
     WETH9.deposit{value: amount}();
     WETH9.approve(address(TRANSFER_PROXY), amount);
     emit log_named_uint("bidder balance", WETH9.balanceOf(bidder));
-    AUCTION_HOUSE.createBid(tokenId, amount);
+    (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN.getUnderlying(
+      tokenId
+    );
+
+    //create seaport buy order
+
+    OrderParameters storage params = seaportOrders[tokenId];
+
+    //    SEAPORT.fulfillAdvancedOrder(
+    //      AdvancedOrder({
+    //        parameters: params,
+    //        numerator: 1,
+    //        denominator: 1,
+    //        signature: new bytes(0),
+    //        extraData: new bytes(0)
+    //      }),
+    //      new CriteriaResolver[](0),
+    //      COLLATERAL_TOKEN.getConduitKey(),
+    //      bidder
+    //    );
+
+    //    AUCTION_HOUSE.createBid(tokenId, amount);
     vm.stopPrank();
   }
 

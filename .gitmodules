@@ -20,3 +20,6 @@
 [submodule "lib/astaria-sdk"]
 	path = lib/astaria-sdk
 	url = git@github.com:AstariaXYZ/astaria-sdk.git
+[submodule "lib/seaport"]
+	path = lib/seaport
+	url = https://github.com/projectopensea/seaport

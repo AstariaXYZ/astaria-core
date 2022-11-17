@@ -16,9 +16,8 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {WEth} from "eip4626/WEth.sol";
+import {WETH} from "solmate/tokens/WETH.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 import {IERC20} from "core/interfaces/IERC20.sol";
@@ -37,6 +36,9 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 import {BeaconProxy} from "core/BeaconProxy.sol";
+import {ValidatorAsset} from "core/ValidatorAsset.sol";
+import {IERC1155} from "core/interfaces/IERC1155.sol";
+import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
 
 interface IWETH9 is IERC20 {
   function deposit() external payable;
@@ -49,7 +51,6 @@ contract Deploy is Script {
     ADMIN,
     ASTARIA_ROUTER,
     WRAPPER,
-    AUCTION_HOUSE,
     TRANSFER_PROXY,
     LIEN_TOKEN
   }
@@ -65,7 +66,6 @@ contract Deploy is Script {
   PublicVault VAULT_IMPLEMENTATION;
   WithdrawProxy WITHDRAW_PROXY;
   AstariaRouter ASTARIA_ROUTER;
-  AuctionHouse AUCTION_HOUSE;
 
   function run() external {
     vm.startBroadcast(msg.sender);
@@ -81,9 +81,7 @@ contract Deploy is Script {
       weth = vm.envAddress("WETH9_ADDR");
     } catch {}
     if (weth == address(0)) {
-      WETH9 = IWETH9(
-        address(new WEth("Wrapped Ether Test", "WETH", uint8(18)))
-      );
+      WETH9 = IWETH9(address(new WETH()));
       vm.writeLine(
         string(".env"),
         string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
@@ -120,10 +118,19 @@ contract Deploy is Script {
       )
     );
 
+    address SEAPORT = address(1);
+
+    ValidatorAsset AUCTION_VALIDATOR = new ValidatorAsset(
+      MRA,
+      address(LIEN_TOKEN)
+    );
+
     COLLATERAL_TOKEN = new CollateralToken(
       MRA,
       TRANSFER_PROXY,
-      ILienToken(address(LIEN_TOKEN))
+      ILienToken(address(LIEN_TOKEN)),
+      SeaportInterface(SEAPORT),
+      IERC1155(AUCTION_VALIDATOR)
     );
     emit Deployed(address(COLLATERAL_TOKEN));
 
@@ -206,32 +213,6 @@ contract Deploy is Script {
     //    );
     //    ASTARIA_ROUTER.fileBatch(files);
 
-    AUCTION_HOUSE = new AuctionHouse(
-      address(WETH9),
-      MRA,
-      ICollateralToken(address(COLLATERAL_TOKEN)),
-      ILienToken(address(LIEN_TOKEN)),
-      TRANSFER_PROXY,
-      ASTARIA_ROUTER
-    );
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked(
-          "AUCTION_HOUSE_ADDR=",
-          vm.toString(address(AUCTION_HOUSE))
-        )
-      )
-    );
-
-    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](1);
-
-    files[0] = IAstariaRouter.File(
-      IAstariaRouter.FileType.AuctionHouse,
-      abi.encode(address(AUCTION_HOUSE))
-    );
-    ASTARIA_ROUTER.fileGuardian(files);
-
     ICollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
 
     ctfiles[0] = ICollateralToken.File({
@@ -239,81 +220,13 @@ contract Deploy is Script {
       data: abi.encode(address(ASTARIA_ROUTER))
     });
     COLLATERAL_TOKEN.fileBatch(ctfiles);
-    emit Deployed(address(AUCTION_HOUSE));
-
     _setupRolesAndCapabilities();
     _setOwner();
     vm.stopBroadcast();
   }
 
   function _setupRolesAndCapabilities() internal {
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      AuctionHouse.createAuction.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      AuctionHouse.endAuction.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.createLien.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.WRAPPER),
-      AuctionHouse.cancelAuction.selector,
-      true
-    );
-    //    MRA.setRoleCapability(
-    //      uint8(UserRoles.ASTARIA_ROUTER),
-    //      CollateralToken.auctionVault.selector,
-    //      true
-    //    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
-      LienToken.removeLiens.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
-      LienToken.stopLiens.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
-      true
-    );
-    MRA.setUserRole(
-      address(ASTARIA_ROUTER),
-      uint8(UserRoles.ASTARIA_ROUTER),
-      true
-    );
-    MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
-    MRA.setUserRole(
-      address(AUCTION_HOUSE),
-      uint8(UserRoles.AUCTION_HOUSE),
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_HOUSE),
-      bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.LIEN_TOKEN),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
-      true
-    );
-    MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
+    //TODO refactor deploly flow to use single set of contracts to deploy in test and prod
   }
 
   function _setOwner() internal {

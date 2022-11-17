@@ -19,9 +19,7 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
@@ -33,6 +31,7 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
+import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
 contract AstariaTest is TestHelpers {
   using FixedPointMathLib for uint256;
@@ -198,6 +197,7 @@ contract AstariaTest is TestHelpers {
 
   function testLiquidationAtBoundary() public {
     TestNFT nft = new TestNFT(3);
+    vm.label(address(nft), "nft");
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
     address publicVault = _createPublicVault({
@@ -326,10 +326,10 @@ contract AstariaTest is TestHelpers {
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
     skip(14 days); // end of loan
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    (uint256 reserve, OrderParameters memory orderParams) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack);
 
-    _bid(address(2), collateralId, 33 ether);
-
+    _bid(address(2), orderParams, 33 ether);
     skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd()); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
@@ -521,12 +521,6 @@ contract AstariaTest is TestHelpers {
   }
 
   function testLienTokenFileSetup() public {
-    bytes memory auctionHouseAddr = abi.encode(address(0));
-    LIEN_TOKEN.file(
-      ILienToken.File(ILienToken.FileType.AuctionHouse, auctionHouseAddr)
-    );
-    assert(LIEN_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
-
     bytes memory collateralIdAddr = abi.encode(address(0));
     LIEN_TOKEN.file(
       ILienToken.File(ILienToken.FileType.CollateralToken, collateralIdAddr)
@@ -658,7 +652,7 @@ contract AstariaTest is TestHelpers {
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     _bid(address(2), collateralId, 10 ether);
     skip(4 days);
-    ASTARIA_ROUTER.endAuction(collateralId);
+    //    ASTARIA_ROUTER.endAuction(collateralId);
     assertEq(nft.ownerOf(tokenId), address(2), "the owner is not the bidder");
   }
 
@@ -690,7 +684,7 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 11 days);
     ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
     skip(4 days);
-    ASTARIA_ROUTER.endAuction(collateralId);
+    //    ASTARIA_ROUTER.endAuction(collateralId);
     PublicVault(publicVault).processEpoch();
     assertEq(
       nft.ownerOf(tokenId),
@@ -700,13 +694,13 @@ contract AstariaTest is TestHelpers {
   }
 
   function _cancelAuction(uint256 auctionId, address sender) internal {
-    (, , , uint256 reserve, ) = AUCTION_HOUSE.getAuctionData(auctionId);
-    vm.deal(sender, reserve);
-    vm.startPrank(sender);
-    WETH9.deposit{value: reserve}();
-    WETH9.approve(address(TRANSFER_PROXY), reserve);
-    ASTARIA_ROUTER.cancelAuction(auctionId);
-    vm.stopPrank();
+    //    (, , , uint256 reserve, ) = AUCTION_HOUSE.getAuctionData(auctionId);
+    //    vm.deal(sender, reserve);
+    //    vm.startPrank(sender);
+    //    WETH9.deposit{value: reserve}();
+    //    WETH9.approve(address(TRANSFER_PROXY), reserve);
+    //    ASTARIA_ROUTER.cancelAuction(auctionId);
+    //    vm.stopPrank();
   }
 
   uint8 FUZZ_SIZE = uint8(10);

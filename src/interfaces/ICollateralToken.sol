@@ -10,13 +10,17 @@
 
 pragma solidity ^0.8.15;
 
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IFlashAction} from "core/interfaces/IFlashAction.sol";
+import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
+import {
+  ConduitControllerInterface
+} from "seaport/interfaces/ConduitControllerInterface.sol";
+import {IERC1155} from "core/interfaces/IERC1155.sol";
+import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
 interface ICollateralToken is IERC721 {
   struct Asset {
@@ -27,6 +31,14 @@ interface ICollateralToken is IERC721 {
     ITransferProxy TRANSFER_PROXY;
     ILienToken LIEN_TOKEN;
     IAstariaRouter ASTARIA_ROUTER;
+    SeaportInterface SEAPORT;
+    ConduitControllerInterface CONDUIT_CONTROLLER;
+    IERC1155 AUCTION_VALIDATOR;
+    address CONDUIT;
+    bytes32 CONDUIT_KEY;
+    mapping(address => bool) validatorAssetEnabled;
+    mapping(uint256 => bool) collateralIdToAuction;
+    mapping(bytes32 => bool) orderSigned;
     mapping(address => bool) flashEnabled;
     //mapping of the collateralToken ID and its underlying asset
     mapping(uint256 => Asset) idToUnderlying;
@@ -38,7 +50,9 @@ interface ICollateralToken is IERC721 {
     AstariaRouter,
     AuctionHouse,
     SecurityHook,
-    FlashEnabled
+    FlashEnabled,
+    Seaport,
+    ValidatorAsset
   }
 
   struct File {
@@ -62,14 +76,34 @@ interface ICollateralToken is IERC721 {
 
   function securityHooks(address) external view returns (address);
 
+  struct AuctionVaultParams {
+    address settlementToken;
+    uint256 collateralId;
+    uint56 maxDuration;
+    address liquidator;
+    uint256 reserve;
+  }
+
+  function auctionVault(AuctionVaultParams calldata params)
+    external
+    returns (OrderParameters memory);
+
+  function settleAuction(uint256 collateralId) external;
+
+  function isValidatorAssetOperator(address validatorAsset, address operator)
+    external
+    view
+    returns (bool);
+
   /**
    * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.
    * @param collateralId The ID of the CollateralToken wrapping the NFT.
    * @return The address and tokenId of the underlying NFT.
    */
-  function getUnderlying(
-    uint256 collateralId
-  ) external view returns (address, uint256);
+  function getUnderlying(uint256 collateralId)
+    external
+    view
+    returns (address, uint256);
 
   /**
    * @notice Unlocks the NFT for a CollateralToken and sends it to a specified address.

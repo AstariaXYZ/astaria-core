@@ -24,7 +24,6 @@ import {
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
@@ -40,6 +39,7 @@ import {ERC4626Router} from "gpl/ERC4626Router.sol";
 import {ERC4626RouterBase} from "gpl/ERC4626RouterBase.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
 /**
  * @title AstariaRouter
@@ -147,11 +147,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function LIEN_TOKEN() public view returns (ILienToken) {
     RouterStorage storage s = _loadRouterSlot();
     return s.LIEN_TOKEN;
-  }
-
-  function AUCTION_HOUSE() public view returns (IAuctionHouse) {
-    RouterStorage storage s = _loadRouterSlot();
-    return s.AUCTION_HOUSE;
   }
 
   function TRANSFER_PROXY() public view returns (ITransferProxy) {
@@ -286,9 +281,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       if (what == FileType.Implementation) {
         (uint8 implType, address addr) = abi.decode(data, (uint8, address));
         s.implementations[implType] = addr;
-      } else if (what == FileType.AuctionHouse) {
-        address addr = abi.decode(data, (address));
-        s.AUCTION_HOUSE = IAuctionHouse(addr);
       } else if (what == FileType.CollateralToken) {
         address addr = abi.decode(data, (address));
         s.COLLATERAL_TOKEN = ICollateralToken(addr);
@@ -503,63 +495,76 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     uint256 collateralId,
     uint8 position,
     ILienToken.Stack[] memory stack
-  ) external returns (uint256 reserve) {
+  ) external returns (uint256 reserve, OrderParameters memory) {
     if (!canLiquidate(stack[position])) {
       revert InvalidLienState(LienState.HEALTHY);
     }
 
     RouterStorage storage s = _loadRouterSlot();
     uint256 auctionWindowMax = s.auctionWindow + s.auctionWindowBuffer;
-    ILienToken.AuctionStack[]
-      memory stackAtLiquidation = new ILienToken.AuctionStack[](stack.length);
-    (reserve, stackAtLiquidation) = s.LIEN_TOKEN.stopLiens(
-      collateralId,
-      auctionWindowMax,
-      stack
-    );
+
+    reserve = s.LIEN_TOKEN.stopLiens(collateralId, auctionWindowMax, stack);
 
     reserve += reserve.mulDivDown(
       s.liquidationFeeNumerator,
       s.liquidationFeeDenominator
     );
 
-    s.AUCTION_HOUSE.createAuction(
-      collateralId,
-      s.auctionWindow,
-      auctionWindowMax,
-      msg.sender,
-      s.liquidationFeeNumerator,
-      s.liquidationFeeDenominator,
-      reserve,
-      stackAtLiquidation
-    );
+    //    s.AUCTION_HOUSE.createAuction(
+    //      collateralId,
+    //      s.auctionWindow,
+    //      auctionWindowMax,
+    //      msg.sender,
+    //      s.liquidationFeeNumerator,
+    //      s.liquidationFeeDenominator,
+    //      reserve,
+    //      stackAtLiquidation
+    //    );
+
+    //address settlementToken;
+    //    uint256 collateralId;
+    //    uint56 maxDuration;
+    //    address liquidator;
+    //    uint256 reserve;
+    //    bytes32 stackHash;
 
     uint256[] memory fees = new uint256[](2);
     fees[0] = s.liquidationFeeNumerator;
     fees[1] = s.liquidationFeeDenominator;
 
     emit Liquidation(collateralId, position, reserve, fees);
+    OrderParameters memory listedParams = s.COLLATERAL_TOKEN.auctionVault(
+      ICollateralToken.AuctionVaultParams({
+        settlementToken: address(s.WETH),
+        collateralId: collateralId,
+        maxDuration: uint56(s.auctionWindow),
+        liquidator: msg.sender,
+        reserve: reserve
+      })
+    );
+
+    return (reserve, listedParams);
   }
 
-  function cancelAuction(uint256 collateralId) external {
-    RouterStorage storage s = _loadRouterSlot();
+  //  function cancelAuction(uint256 collateralId) external {
+  //    RouterStorage storage s = _loadRouterSlot();
+  //
+  //    require(msg.sender == s.COLLATERAL_TOKEN.ownerOf(collateralId));
+  //
+  //    //    s.AUCTION_HOUSE.cancelAuction(collateralId, msg.sender);
+  //    s.COLLATERAL_TOKEN.releaseToAddress(collateralId, msg.sender);
+  //  }
 
-    require(msg.sender == s.COLLATERAL_TOKEN.ownerOf(collateralId));
-
-    s.AUCTION_HOUSE.cancelAuction(collateralId, msg.sender);
-    s.COLLATERAL_TOKEN.releaseToAddress(collateralId, msg.sender);
-  }
-
-  function endAuction(uint256 collateralId) external {
-    RouterStorage storage s = _loadRouterSlot();
-
-    if (!s.AUCTION_HOUSE.auctionExists(collateralId)) {
-      revert InvalidCollateralState(CollateralStates.NO_AUCTION);
-    }
-
-    address winner = s.AUCTION_HOUSE.endAuction(collateralId);
-    s.COLLATERAL_TOKEN.releaseToAddress(collateralId, winner);
-  }
+  //  function endAuction(uint256 collateralId) external {
+  //    RouterStorage storage s = _loadRouterSlot();
+  //
+  ////    if (!s.AUCTION_HOUSE.auctionExists(collateralId)) {
+  ////      revert InvalidCollateralState(CollateralStates.NO_AUCTION);
+  ////    }
+  //
+  ////    address winner = s.AUCTION_HOUSE.endAuction(collateralId);
+  //    s.COLLATERAL_TOKEN.releaseToAddress(collateralId, winner);
+  //  }
 
   /**
    * @notice Retrieves the fee PublicVault strategists earn on loan origination.

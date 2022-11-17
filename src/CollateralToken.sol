@@ -12,7 +12,6 @@ pragma solidity ^0.8.17;
 
 pragma experimental ABIEncoderV2;
 
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IERC165} from "core/interfaces/IERC165.sol";
@@ -30,8 +29,36 @@ import {ERC721} from "gpl/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
+import {ZoneInterface} from "seaport/interfaces/ZoneInterface.sol";
+import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
+import {IERC1155} from "core/interfaces/IERC1155.sol";
+import {
+  ConduitControllerInterface
+} from "seaport/interfaces/ConduitControllerInterface.sol";
+import {SeaportInterface, Order} from "seaport/interfaces/SeaportInterface.sol";
+import {
+  AdvancedOrder,
+  CriteriaResolver,
+  OfferItem,
+  ConsiderationItem,
+  ItemType,
+  OrderParameters,
+  OrderComponents,
+  OrderType
+} from "seaport/lib/ConsiderationStructs.sol";
 
-contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
+import {Consideration} from "seaport/lib/Consideration.sol";
+import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
+import {EIP1271Interface} from "core/interfaces/EIP1271Interface.sol";
+
+contract CollateralToken is
+  Auth,
+  ERC721,
+  IERC721Receiver,
+  EIP1271Interface,
+  ICollateralToken,
+  ZoneInterface
+{
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
 
@@ -41,7 +68,9 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
   constructor(
     Authority AUTHORITY_,
     ITransferProxy TRANSFER_PROXY_,
-    ILienToken LIEN_TOKEN_
+    ILienToken LIEN_TOKEN_,
+    SeaportInterface SEAPORT_,
+    IERC1155 AUCTION_VALIDATOR_
   )
     Auth(msg.sender, Authority(AUTHORITY_))
     ERC721("Astaria Collateral Token", "ACT")
@@ -49,6 +78,32 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     CollateralStorage storage s = _loadCollateralSlot();
     s.TRANSFER_PROXY = TRANSFER_PROXY_;
     s.LIEN_TOKEN = LIEN_TOKEN_;
+    s.AUCTION_VALIDATOR = AUCTION_VALIDATOR_;
+    s.validatorAssetEnabled[address(AUCTION_VALIDATOR_)] = true;
+    s.SEAPORT = SEAPORT_;
+    (, , address conduitController) = s.SEAPORT.information();
+    bytes32 CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
+    s.CONDUIT_KEY = CONDUIT_KEY;
+    s.CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
+
+    s.CONDUIT = s.CONDUIT_CONTROLLER.createConduit(CONDUIT_KEY, address(this));
+    s.CONDUIT_CONTROLLER.updateChannel(
+      address(s.CONDUIT),
+      address(SEAPORT_),
+      true
+    );
+  }
+
+  function isValidSignature(bytes32 hash, bytes memory)
+    external
+    view
+    override
+    returns (bytes4)
+  {
+    return
+      _loadCollateralSlot().orderSigned[hash]
+        ? EIP1271Interface.isValidSignature.selector
+        : bytes4(0);
   }
 
   function _loadCollateralSlot()
@@ -60,6 +115,34 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     assembly {
       s.slot := position
     }
+  }
+
+  function isValidOrder(
+    bytes32 orderHash,
+    address caller,
+    address offerer,
+    bytes32 zoneHash
+  ) external view returns (bytes4 validOrderMagicValue) {
+    CollateralStorage storage s = _loadCollateralSlot();
+    return
+      s.collateralIdToAuction[uint256(zoneHash)]
+        ? ZoneInterface.isValidOrder.selector
+        : bytes4(0xffffffff);
+  }
+
+  // Called by Consideration whenever any extraData is provided by the caller.
+  function isValidOrderIncludingExtraData(
+    bytes32 orderHash,
+    address caller,
+    AdvancedOrder calldata order,
+    bytes32[] calldata priorOrderHashes,
+    CriteriaResolver[] calldata criteriaResolvers
+  ) external view returns (bytes4 validOrderMagicValue) {
+    CollateralStorage storage s = _loadCollateralSlot();
+    return
+      s.collateralIdToAuction[uint256(order.parameters.zoneHash)]
+        ? ZoneInterface.isValidOrder.selector
+        : bytes4(0xffffffff);
   }
 
   function supportsInterface(bytes4 interfaceId)
@@ -101,6 +184,20 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     } else if (what == FileType.FlashEnabled) {
       (address target, bool enabled) = abi.decode(data, (address, bool));
       s.flashEnabled[target] = enabled;
+    } else if (what == FileType.ValidatorAsset) {
+      (address target, bool enabled) = abi.decode(data, (address, bool));
+      s.validatorAssetEnabled[target] = enabled;
+    } else if (what == FileType.Seaport) {
+      address target = abi.decode(data, (address));
+      //setup seaport conduit
+      s.SEAPORT = SeaportInterface(target);
+      (, , address conduitController) = s.SEAPORT.information();
+      s.CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
+      s.CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
+      s.CONDUIT = s.CONDUIT_CONTROLLER.createConduit(
+        s.CONDUIT_KEY,
+        address(this)
+      );
     } else {
       revert UnsupportedFile();
     }
@@ -113,7 +210,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     if (s.LIEN_TOKEN.getCollateralState(collateralId) != bytes32(0)) {
       revert InvalidCollateralState(InvalidCollateralStates.ACTIVE_LIENS);
     }
-    if (s.ASTARIA_ROUTER.AUCTION_HOUSE().auctionExists(collateralId)) {
+    if (s.collateralIdToAuction[collateralId]) {
       revert InvalidCollateralState(InvalidCollateralStates.AUCTION);
     }
     _;
@@ -138,7 +235,8 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
 
     require(
       s.flashEnabled[addr] &&
-        !s.ASTARIA_ROUTER.AUCTION_HOUSE().auctionExists(collateralId)
+        !(s.LIEN_TOKEN.getCollateralState(collateralId) !=
+          bytes32("ACTIVE_AUCTION"))
     );
     IERC721 nft = IERC721(addr);
 
@@ -183,10 +281,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     releaseCheck(collateralId)
   {
     CollateralStorage storage s = _loadCollateralSlot();
-    if (
-      msg.sender != address(s.ASTARIA_ROUTER) &&
-      msg.sender != ownerOf(collateralId)
-    ) {
+    if (msg.sender != ownerOf(collateralId)) {
       revert InvalidSender();
     }
     _releaseToAddress(s, collateralId, releaseTo);
@@ -212,6 +307,16 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
       ""
     );
     emit ReleaseTo(underlyingAsset, assetId, releaseTo);
+  }
+
+  function getConduitKey() public view returns (bytes32) {
+    CollateralStorage storage s = _loadCollateralSlot();
+    return s.CONDUIT_KEY;
+  }
+
+  function getConduit() public view returns (address) {
+    CollateralStorage storage s = _loadCollateralSlot();
+    return s.CONDUIT;
   }
 
   /**
@@ -248,6 +353,176 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
 
   function securityHooks(address target) public view returns (address) {
     return _loadCollateralSlot().securityHooks[target];
+  }
+
+  //collateralId,
+  //      s.auctionWindow,
+  //      auctionWindowMax,
+  //      msg.sender,
+  //      s.liquidationFeeNumerator,
+  //      s.liquidationFeeDenominator,
+  //      reserve,
+  //      stackAtLiquidation
+
+  //uint256 collateralId;
+  //    uint56 maxDuration;
+  //    address liquidator;
+  //    uint256 reserve;
+  //    bytes32 stackHash;
+  function auctionVault(AuctionVaultParams calldata params)
+    external
+    requiresAuth
+    returns (OrderParameters memory)
+  {
+    CollateralStorage storage s = _loadCollateralSlot();
+    Asset memory underlying = s.idToUnderlying[params.collateralId];
+    address settlementToken = params.settlementToken;
+    OfferItem[] memory offer = new OfferItem[](1);
+
+    uint256 startingPrice = 33 ether;
+    uint256 endingPrice = 0;
+
+    offer[0] = OfferItem(
+      ItemType.ERC721,
+      underlying.tokenContract,
+      underlying.tokenId,
+      1,
+      1
+    );
+    ConsiderationItem[] memory considerationItems = new ConsiderationItem[](3);
+
+    //TODO: compute listing fee for opensea
+    //compute royalty fee for the asset if it exists
+    //seaport royalty registry
+
+    uint256 listingFee = startingPrice; // TODO make good and compute fee for seaport
+    considerationItems[0] = ConsiderationItem(
+      ItemType.ERC20,
+      settlementToken,
+      uint256(0),
+      uint256(2),
+      uint256(0),
+      payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //opensea fees
+    );
+    considerationItems[1] = ConsiderationItem(
+      ItemType.ERC20,
+      settlementToken,
+      uint256(0),
+      startingPrice,
+      endingPrice,
+      payable(address(s.LIEN_TOKEN))
+    );
+    considerationItems[2] = ConsiderationItem(
+      ItemType.ERC1155,
+      address(s.AUCTION_VALIDATOR),
+      params.collateralId,
+      startingPrice,
+      endingPrice,
+      payable(address(s.LIEN_TOKEN))
+    );
+
+    OrderParameters memory orderParameters = OrderParameters({
+      offerer: address(this),
+      zone: address(this), // 0x20
+      offer: offer,
+      consideration: considerationItems,
+      orderType: OrderType.FULL_OPEN,
+      startTime: uint256(block.timestamp),
+      endTime: uint256(block.timestamp + params.maxDuration),
+      zoneHash: bytes32(params.collateralId),
+      salt: uint256(blockhash(block.number)),
+      conduitKey: Bytes32AddressLib.fillLast12Bytes(address(this)), // 0x120
+      totalOriginalConsiderationItems: uint256(3)
+    });
+
+    _listUnderlyingOnSeaport(
+      s,
+      params.collateralId,
+      Order(orderParameters, new bytes(0))
+    );
+    return orderParameters;
+  }
+
+  function isValidatorAssetOperator(address validatorAsset, address operator)
+    public
+    view
+    returns (bool)
+  {
+    //make sure its a conduit from seaport calling
+    CollateralStorage storage s = _loadCollateralSlot();
+    return (s.CONDUIT_CONTROLLER.getKey(operator) != bytes32(0) &&
+      s.validatorAssetEnabled[validatorAsset]);
+  }
+
+  function _listUnderlyingOnSeaport(
+    CollateralStorage storage s,
+    uint256 collateralId,
+    Order memory listingOrder
+  ) internal {
+    if (
+      listingOrder.parameters.consideration[0].itemType != ItemType.ERC20 ||
+      listingOrder.parameters.consideration[1].itemType != ItemType.ERC20 ||
+      listingOrder.parameters.consideration[2].itemType != ItemType.ERC1155 ||
+      !s.validatorAssetEnabled[listingOrder.parameters.consideration[2].token]
+    ) {
+      //      revert InvalidConsiderationItem();
+    }
+
+    if (
+      address(s.LIEN_TOKEN) !=
+      listingOrder.parameters.consideration[2].recipient
+    ) {
+      //      revert InvalidConsiderationRecipient();
+    }
+    //get total Debt and ensure its being sold for more than that
+
+    if (listingOrder.parameters.conduitKey != s.CONDUIT_KEY) {
+      //      revert InvalidConduitKey();
+    }
+    if (listingOrder.parameters.zone != address(this)) {
+      //      revert InvalidZone();
+    }
+
+    IERC721(listingOrder.parameters.offer[0].token).approve(
+      s.CONDUIT,
+      listingOrder.parameters.offer[0].identifierOrCriteria
+    );
+    Order[] memory listings = new Order[](1);
+    listings[0] = listingOrder;
+    s.SEAPORT.validate(listings);
+
+    uint256 nonce = s.SEAPORT.getCounter(address(this));
+    OrderComponents memory orderComponents = OrderComponents(
+      listingOrder.parameters.offerer,
+      listingOrder.parameters.zone,
+      listingOrder.parameters.offer,
+      listingOrder.parameters.consideration,
+      listingOrder.parameters.orderType,
+      listingOrder.parameters.startTime,
+      listingOrder.parameters.endTime,
+      listingOrder.parameters.zoneHash,
+      listingOrder.parameters.salt,
+      listingOrder.parameters.conduitKey,
+      nonce
+    );
+
+    s.orderSigned[s.SEAPORT.getOrderHash(orderComponents)] = true;
+    emit ListedOnSeaport(collateralId, listingOrder);
+    s.collateralIdToAuction[uint256(listingOrder.parameters.zoneHash)] = true;
+  }
+
+  event ListedOnSeaport(uint256 collateralId, Order listingOrder);
+  event log_named_address(string, address);
+
+  function settleAuction(uint256 collateralId) public requiresAuth {
+    CollateralStorage storage s = _loadCollateralSlot();
+    require(
+      s.collateralIdToAuction[collateralId],
+      "Collateral is not listed on seaport"
+    );
+    delete s.collateralIdToAuction[collateralId];
+    delete s.idToUnderlying[collateralId];
+    _burn(collateralId);
   }
 
   /**

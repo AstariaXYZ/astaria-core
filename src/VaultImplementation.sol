@@ -15,8 +15,6 @@ import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
-
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
@@ -274,7 +272,7 @@ abstract contract VaultImplementation is
   /**
    * @notice Pipeline for lifecycle of new loan origination.
    * Origination consists of a few phases: pre-commitment validation, lien token issuance, strategist reward, and after commitment actions
-   * Starts by depositing collateral and take out a lien against it. Next, verifies the merkle proof for a loan commitment. Vault owners are then rewarded fees for successful loan origination.
+   * Starts by depositing collateral and take optimized-out a lien against it. Next, verifies the merkle proof for a loan commitment. Vault owners are then rewarded fees for successful loan origination.
    * @param params Commitment data for the incoming lien request
    * @param receiver The borrower receiving the loan.
    * @return lienId The id of the newly minted lien token.
@@ -302,7 +300,7 @@ abstract contract VaultImplementation is
   }
 
   /**
-   * @notice Buy out a lien to replace it with new terms.
+   * @notice Buy optimized-out a lien to replace it with new terms.
    * @param collateralId The ID of the underlying CollateralToken.
    * @param position The position of the specified lien.
    * @param incomingTerms The loan terms of the new lien.

@@ -19,9 +19,7 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
@@ -277,7 +275,7 @@ contract IntegrationTest is TestHelpers {
     _bid(address(3), collateralId, 5 ether);
 
     vm.warp(block.timestamp + 4 days);
-    ASTARIA_ROUTER.endAuction(collateralId);
+    //    ASTARIA_ROUTER.endAuction(collateralId);
     assertEq(
       ERC721(tokenContract).ownerOf(tokenId),
       address(3),

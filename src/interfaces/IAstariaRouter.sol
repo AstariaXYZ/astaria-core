@@ -16,11 +16,11 @@ import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {IPausable} from "core/utils/Pausable.sol";
 import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {IERC4626RouterBase} from "gpl/interfaces/IERC4626RouterBase.sol";
+import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
   enum FileType {
@@ -68,7 +68,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     ICollateralToken COLLATERAL_TOKEN; //20
     ILienToken LIEN_TOKEN; //20
     ITransferProxy TRANSFER_PROXY; //20
-    IAuctionHouse AUCTION_HOUSE; //20
     address feeTo; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
     uint88 maxInterestRate; //6
@@ -190,8 +189,6 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function LIEN_TOKEN() external view returns (ILienToken);
 
-  function AUCTION_HOUSE() external view returns (IAuctionHouse);
-
   function TRANSFER_PROXY() external view returns (ITransferProxy);
 
   function BEACON_PROXY_IMPLEMENTATION() external view returns (address);
@@ -220,7 +217,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint256 collateralId,
     uint8 position,
     ILienToken.Stack[] calldata stack
-  ) external returns (uint256 reserve);
+  ) external returns (uint256 reserve, OrderParameters memory);
 
   function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 
@@ -233,18 +230,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint8 position,
     ILienToken.Stack[] calldata stack
   ) external view returns (bool);
-
-  /**
-   * @notice Cancels the auction for a CollateralToken and returns the NFT to the borrower.
-   * @param tokenId The ID of the CollateralToken to cancel the auction for.
-   */
-  function cancelAuction(uint256 tokenId) external;
-
-  /**
-   * @notice Ends the auction for a CollateralToken.
-   * @param tokenId The ID of the CollateralToken to stop the auction for.
-   */
-  function endAuction(uint256 tokenId) external;
 
   event Liquidation(
     uint256 collateralId,

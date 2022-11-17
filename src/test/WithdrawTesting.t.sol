@@ -19,9 +19,7 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
@@ -84,7 +82,7 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + 2 days); // end of auction
 
-    AUCTION_HOUSE.endAuction(0);
+    //    AUCTION_HOUSE.endAuction(0);
 
     _warpToEpochEnd(publicVault);
     PublicVault(publicVault).processEpoch();
@@ -847,7 +845,7 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
 
     vm.warp(block.timestamp + 4 days);
-    AUCTION_HOUSE.endAuction(collateralId);
+    //    AUCTION_HOUSE.endAuction(collateralId);
     assertEq(
       address(this),
       COLLATERAL_TOKEN.ownerOf(collateralId),

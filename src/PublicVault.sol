@@ -608,6 +608,16 @@ contract PublicVault is
     emit YInterceptChanged(s.yIntercept);
   }
 
+  function updateAfterLiquidationPayment(
+    LiquidationPaymentParams calldata params
+  ) external {
+    require(msg.sender == address(LIEN_TOKEN()));
+    _decreaseEpochLienCount(
+      _loadStorageSlot(),
+      getLienEpoch(params.lienEnd.safeCastTo64())
+    );
+  }
+
   /**
    * @notice
    * @param maxAuctionWindow The max possible auction duration.

@@ -286,7 +286,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   /**
-   * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays out to all parties.
+   * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays optimized-out to all parties.
    * @param liquidationWithdrawRatio The ratio of withdrawing to remaining LPs for the current epoch boundary.
    */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {

@@ -14,10 +14,10 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
+import {IERC1155Receiver} from "core/interfaces/IERC1155Receiver.sol";
 
-interface ILienToken is IERC721 {
+interface ILienToken is IERC721, IERC1155Receiver {
   enum FileType {
     NotSupported,
     AuctionHouse,
@@ -36,16 +36,16 @@ interface ILienToken is IERC721 {
     uint8 maxLiens;
     address WETH;
     ITransferProxy TRANSFER_PROXY;
-    IAuctionHouse AUCTION_HOUSE;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
     mapping(uint256 => bytes32) collateralStateHash;
+    mapping(uint256 => AuctionStack[]) auctionStack;
     mapping(uint256 => LienMeta) lienMeta;
   }
 
   struct LienMeta {
     address payee;
-    uint88 amountAtLiquidation;
+    bool atLiquidation;
   }
 
   struct Details {
@@ -100,8 +100,6 @@ interface ILienToken is IERC721 {
     view
     returns (uint256 lienId);
 
-  function AUCTION_HOUSE() external view returns (IAuctionHouse);
-
   function ASTARIA_ROUTER() external view returns (IAstariaRouter);
 
   function COLLATERAL_TOKEN() external view returns (ICollateralToken);
@@ -123,7 +121,7 @@ interface ILienToken is IERC721 {
     uint256 collateralId,
     uint256 auctionWindow,
     ILienToken.Stack[] memory stack
-  ) external returns (uint256 reserve, AuctionStack[] memory);
+  ) external returns (uint256 reserve);
 
   /**
    * @notice Computes and returns the buyout amount for a Lien.
@@ -188,15 +186,6 @@ interface ILienToken is IERC721 {
     returns (uint256);
 
   /**
-   * @notice Retrieves a specific point by its lienId.
-   * @param lienId the ID to get the point for
-   */
-  function getAmountOwingAtLiquidation(uint256 lienId)
-    external
-    view
-    returns (uint256);
-
-  /**
    * @notice Creates a new lien against a CollateralToken.
    * @param params LienActionEncumber data containing CollateralToken information and lien parameters (rate, duration, and amount, rate, and debt caps).
    */
@@ -227,23 +216,9 @@ interface ILienToken is IERC721 {
 
   struct AuctionStack {
     uint256 lienId;
+    uint88 amountOwed;
     uint40 end;
   }
-
-  /**
-   * @notice Make a payment for the debt against a CollateralToken for a specific lien.
-   * @param stack the stack to repay
-   * @param collateralId the Lien to make a payment towards
-   * @param paymentAmount The amount to pay against the debt.
-   * @param payer the account paying
-   * @return the amount of the payment that was applied to the lien
-   */
-  function makePaymentAuctionHouse(
-    AuctionStack[] memory stack,
-    uint256 collateralId,
-    uint256 paymentAmount,
-    address payer
-  ) external returns (ILienToken.AuctionStack[] memory, uint256);
 
   function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory)
     external
@@ -299,6 +274,8 @@ interface ILienToken is IERC721 {
   error InvalidRefinance();
   error InvalidLoanState();
   enum InvalidStates {
+    NO_AUTHORITY,
+    NOT_ENOUGH_FUNDS,
     INVALID_LIEN_ID,
     COLLATERAL_AUCTION,
     COLLATERAL_NOT_DEPOSITED,
