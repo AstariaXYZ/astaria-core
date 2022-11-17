@@ -339,12 +339,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return x;
   }
 
-  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
+  function validateCommitment(IAstariaRouter.Commitment calldata commitment, uint256 timeToSecondEpochEnd)
     external
     view
     returns (ILienToken.Lien memory lien)
   {
-    return _validateCommitment(_loadRouterSlot(), commitment, 5 weeks);
+    return _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
   }
 
   function _validateCommitment(
