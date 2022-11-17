@@ -93,8 +93,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
     s.minEpochLength = uint32(7 days);
     s.maxEpochLength = uint32(45 days);
-    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88();
-    //63419583966; // 200% apy / second
+    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88(); //63419583966; // 200% apy / second
     s.strategistFeeNumerator = uint32(200);
     s.strategistFeeDenominator = uint32(1000);
     s.buyoutFeeNumerator = uint32(100);
@@ -489,9 +488,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
           lien: _validateCommitment({
             s: s,
             commitment: params,
-            timeToSecondEpochEnd: IPublicVault(msg.sender).supportsInterface(
-              type(IPublicVault).interfaceId
-            )
+            timeToSecondEpochEnd: 
+            isValidVault(msg.sender) && IPublicVault(msg.sender).supportsInterface(type(IPublicVault).interfaceId)
               ? IPublicVault(msg.sender).timeToSecondEpochEnd()
               : 0
           }),
@@ -636,7 +634,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    * @param vault The Vault address.
    * @return A boolean representing whether the address exists as a Vault.
    */
-  function isValidVault(address vault) external view returns (bool) {
+  function isValidVault(address vault) public view returns (bool) {
     return _loadRouterSlot().vaults[vault] != address(0);
   }
 
