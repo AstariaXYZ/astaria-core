@@ -390,7 +390,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       revert InvalidCommitmentState(CommitmentState.INVALID);
     }
 
-    if (details.duration > timeToSecondEpochEnd) {
+    if (timeToSecondEpochEnd > 0 && details.duration > timeToSecondEpochEnd) {
       details.duration = timeToSecondEpochEnd;
     }
 
