@@ -98,6 +98,8 @@ interface IPublicVault is IVaultImplementation {
    */
   function timeToEpochEnd() external view returns (uint256);
 
+  function timeToSecondEpochEnd() external view returns (uint256);
+
   /**
    * @notice Transfers funds from the PublicVault to the WithdrawProxy.
    */
@@ -128,7 +130,8 @@ interface IPublicVault is IVaultImplementation {
     WITHDRAW_RESERVE_NOT_ZERO,
     LIENS_OPEN_FOR_EPOCH_NOT_ZERO,
     LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN,
-    LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH
+    LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH,
+    DEPOSIT_CAP_EXCEEDED
   }
 
   event YInterceptChanged(uint88 newYintercept);

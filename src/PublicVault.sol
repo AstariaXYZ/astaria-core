@@ -681,4 +681,8 @@ contract PublicVault is
 
     return epochEnd - block.timestamp;
   }
+
+  function timeToSecondEpochEnd() public view returns (uint256) {
+    return timeToEpochEnd() + EPOCH_LENGTH();
+  }
 }

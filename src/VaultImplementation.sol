@@ -355,8 +355,7 @@ abstract contract VaultImplementation is
               commitment: incomingTerms,
               timeToSecondEpochEnd: IPublicVault(address(this))
                 .supportsInterface(type(IPublicVault).interfaceId)
-                ? IPublicVault(address(this)).timeToEpochEnd() +
-                  IPublicVault(address(this)).EPOCH_LENGTH()
+                ? IPublicVault(address(this)).timeToSecondEpochEnd()
                 : 0
             }),
             stack: stack
