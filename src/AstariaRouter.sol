@@ -344,12 +344,13 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     view
     returns (ILienToken.Lien memory lien)
   {
-    return _validateCommitment(_loadRouterSlot(), commitment);
+    return _validateCommitment(_loadRouterSlot(), commitment, 5 weeks);
   }
 
   function _validateCommitment(
     RouterStorage storage s,
-    IAstariaRouter.Commitment calldata commitment
+    IAstariaRouter.Commitment calldata commitment,
+    uint256 timeToSecondEpochEnd
   ) internal view returns (ILienToken.Lien memory lien) {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
@@ -387,6 +388,10 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       )
     ) {
       revert InvalidCommitmentState(CommitmentState.INVALID);
+    }
+
+    if (details.duration > timeToSecondEpochEnd) {
+      details.duration = timeToSecondEpochEnd;
     }
 
     lien = ILienToken.Lien({
@@ -473,11 +478,17 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   {
     RouterStorage storage s = _loadRouterSlot();
 
+    uint256 timeToSecondEpochEnd = 0;
+
+    if(IPublicVault(msg.sender).supportsInterface(type(IPublicVault).interfaceId)) {
+      timeToSecondEpochEnd = IPublicVault(msg.sender).timeToEpochEnd() + IPublicVault(msg.sender).EPOCH_LENGTH();
+    }
+
     return
       s.LIEN_TOKEN.createLien(
         ILienToken.LienActionEncumber({
           collateralId: params.tokenContract.computeId(params.tokenId),
-          lien: _validateCommitment(s, params),
+          lien: _validateCommitment(s, params, timeToSecondEpochEnd),
           amount: params.lienRequest.amount,
           stack: params.lienRequest.stack,
           receiver: receiver
