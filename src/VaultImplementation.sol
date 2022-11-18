@@ -353,15 +353,16 @@ abstract contract VaultImplementation is
             receiver: recipient(),
             lien: ROUTER().validateCommitment({
               commitment: incomingTerms,
-              timeToSecondEpochEnd: IPublicVault(address(this))
-                .supportsInterface(type(IPublicVault).interfaceId)
-                ? IPublicVault(address(this)).timeToSecondEpochEnd()
-                : 0
+              timeToSecondEpochEnd: _timeToSecondEndIfPublic()
             }),
             stack: stack
           })
         })
       );
+  }
+
+  function _timeToSecondEndIfPublic() internal view virtual returns (uint256 timeToSecondEpochEnd) {
+    return 0;
   }
 
   /**
