@@ -195,8 +195,7 @@ abstract contract VaultImplementation is
   }
 
   modifier onlyOwner() {
-    require(msg.sender == owner());
-    //owner is "strategist"
+    require(msg.sender == owner()); //owner is "strategist"
     _;
   }
 
