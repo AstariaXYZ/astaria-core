@@ -28,6 +28,9 @@ contract ClearingHouse is Clone {
       address(ASTARIA_ROUTER.TRANSFER_PROXY()),
       payment
     );
-    ASTARIA_ROUTER.LIEN_TOKEN().payLiquidatedDebt(_getArgUint256(20), payment);
+    ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
+      _getArgUint256(20),
+      payment
+    );
   }
 }

@@ -101,7 +101,7 @@ contract TestHelpers is BaseOrderTest {
   using Strings2 for bytes;
   using SafeCastLib for uint256;
   using SafeTransferLib for ERC20;
-
+  using FixedPointMathLib for uint256;
   uint256 strategistOnePK = uint256(0x1339);
   uint256 strategistTwoPK = uint256(0x1344); // strategistTwo is delegate for PublicVault created by strategistOne
   uint256 strategistRoguePK = uint256(0x1559); // strategist who doesn't have a vault
@@ -877,26 +877,14 @@ contract TestHelpers is BaseOrderTest {
 
   mapping(address => Conduit) bidderConduits;
 
-  function _computeWarp(OrderParameters memory params, uint256 amount)
-    internal
-    returns (uint256)
-  {
-    uint256 m = (params.consideration[0].startAmount /
-      params.startTime -
-      params.endTime);
-    uint256 x = ((params.consideration[0].startAmount - amount) / m);
-    emit log_named_uint("x", x);
-    return x;
-  }
-
   function _bid(
     Bidder memory incomingBidder,
     OrderParameters memory params,
-    uint256 amount
+    uint256 bidAmount
   ) internal {
     //compute the warp needed to get past the price slope
 
-    vm.deal(incomingBidder.bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
+    vm.deal(incomingBidder.bidder, bidAmount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
     vm.startPrank(incomingBidder.bidder);
 
     if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
@@ -1008,33 +996,73 @@ contract TestHelpers is BaseOrderTest {
     delete fulfillmentComponents;
 
     //royalty stuff, setup :TODO:
-    //    fulfillmentComponent = FulfillmentComponent(1, 2);
-    //    fulfillmentComponents.push(fulfillmentComponent);
-    //    fourthFulfillment.offerComponents = fulfillmentComponents;
-    //    delete fulfillmentComponents;
-    //    fulfillmentComponent = FulfillmentComponent(0, 2);
-    //    fulfillmentComponents.push(fulfillmentComponent);
-    //    fourthFulfillment.considerationComponents = fulfillmentComponents;
-    //    fulfillments.push(fourthFulfillment);
-
-    //offer 1,3
+    fulfillmentComponent = FulfillmentComponent(1, 2);
+    fulfillmentComponents.push(fulfillmentComponent);
+    fourthFulfillment.offerComponents = fulfillmentComponents;
     delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(0, 2);
+    fulfillmentComponents.push(fulfillmentComponent);
+    fourthFulfillment.considerationComponents = fulfillmentComponents;
+    fulfillments.push(fourthFulfillment);
 
-    if (amount < params.consideration[0].startAmount) {
-      uint256 warp = _computeWarp(params, amount);
+    delete fulfillmentComponents;
+    uint256 currentPrice;
+    for (uint256 i = 0; i < params.consideration.length; i++) {
+      currentPrice += _locateCurrentAmount(
+        params.consideration[i].startAmount,
+        params.consideration[i].endAmount,
+        params.startTime,
+        params.endTime,
+        false
+      );
+    }
+    if (bidAmount < currentPrice) {
+      uint256 warp = _computeWarp(
+        currentPrice,
+        bidAmount,
+        params.startTime,
+        params.endTime
+      );
       emit log_named_uint("start", params.consideration[0].startAmount);
-      emit log_named_uint("amount", amount);
+      emit log_named_uint("amount", bidAmount);
       emit log_named_uint("warping", warp);
-      vm.warp(params.endTime - 600); //TODO: figure this slope thing out
-      consideration.matchOrders{value: amount}(orders, fulfillments);
+      skip(warp + 100); //TODO: figure this slope thing out
+      consideration.matchOrders{value: bidAmount}(orders, fulfillments);
     } else {
-      consideration.fulfillOrder{value: amount}(
+      consideration.fulfillOrder{value: bidAmount}(
         orders[0],
         bidderConduits[incomingBidder.bidder].conduitKey
       );
     }
 
     vm.stopPrank();
+  }
+
+  function _computeWarp(
+    uint256 currentPrice,
+    uint256 bidAmount,
+    uint256 startTime,
+    uint256 endTime
+  ) internal returns (uint256) {
+    emit log_named_uint("currentPrice", currentPrice);
+    emit log_named_uint("bidAmount", bidAmount);
+    emit log_named_uint("startTime", startTime);
+    emit log_named_uint("endTime", endTime);
+    //    uint256 x = (currentPrice -
+    //      1000 wei -
+    //      25 wei -
+    //      80 wei *
+    //      (endTime - startTime)) / bidAmount;
+    uint256 m = ((currentPrice - 1000 wei - 25 wei - 80 wei) /
+      (endTime - startTime));
+    uint256 x = ((currentPrice - bidAmount) / m);
+    emit log_named_uint("m", m);
+    emit log_named_uint("x", x);
+    return x;
+
+    //given y = mx + b
+    // solve for x
+    // x = (y - b) / m
   }
 
   function _createMirrorOrderParameters(

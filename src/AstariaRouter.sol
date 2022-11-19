@@ -491,11 +491,10 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       msg.sender == s.COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId));
   }
 
-  function liquidate(
-    uint256 collateralId,
-    uint8 position,
-    ILienToken.Stack[] memory stack
-  ) external returns (uint256 reserve, OrderParameters memory listedOrder) {
+  function liquidate(ILienToken.Stack[] memory stack, uint8 position)
+    external
+    returns (uint256 reserve, OrderParameters memory listedOrder)
+  {
     if (!canLiquidate(stack[position])) {
       revert InvalidLienState(LienState.HEALTHY);
     }
@@ -503,7 +502,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     RouterStorage storage s = _loadRouterSlot();
     uint256 auctionWindowMax = s.auctionWindow + s.auctionWindowBuffer;
 
-    reserve = s.LIEN_TOKEN.stopLiens(collateralId, auctionWindowMax, stack);
+    reserve = s.LIEN_TOKEN.stopLiens(
+      stack[position].lien.collateralId,
+      auctionWindowMax,
+      stack,
+      msg.sender
+    );
 
     reserve += reserve.mulDivDown(
       s.liquidationFeeNumerator,
@@ -514,13 +518,17 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     fees[0] = s.liquidationFeeNumerator;
     fees[1] = s.liquidationFeeDenominator;
 
-    emit Liquidation(collateralId, position, reserve, fees);
+    emit Liquidation(
+      stack[position].lien.collateralId,
+      position,
+      reserve,
+      fees
+    );
     listedOrder = s.COLLATERAL_TOKEN.auctionVault(
       ICollateralToken.AuctionVaultParams({
         settlementToken: address(s.WETH),
-        collateralId: collateralId,
-        maxDuration: uint56(s.auctionWindow),
-        liquidator: msg.sender,
+        collateralId: stack[position].lien.collateralId,
+        maxDuration: uint256(s.auctionWindow + s.auctionWindowBuffer),
         reserve: reserve
       })
     );

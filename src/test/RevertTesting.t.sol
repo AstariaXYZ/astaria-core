@@ -371,7 +371,7 @@ contract RevertTesting is TestHelpers {
 
     vm.warp(block.timestamp + 14 days);
 
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack[0]);
+    ASTARIA_ROUTER.liquidate(stack[0], uint8(0));
 
     _repay(stack[0], 0, 10 ether, address(this));
   }

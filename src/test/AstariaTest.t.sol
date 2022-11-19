@@ -327,9 +327,9 @@ contract AstariaTest is TestHelpers {
 
     skip(14 days); // end of loan
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack);
+      .liquidate(stack, uint8(0));
 
-    _bid(Bidder(bidder, bidderPK), listedOrder, 33 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 50 ether);
     skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd()); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
@@ -615,7 +615,7 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 11 days);
 
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack);
+      .liquidate(stack, uint8(0));
     _cancelAuction(listedOrder, address(this));
 
     assertEq(
@@ -652,7 +652,7 @@ contract AstariaTest is TestHelpers {
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack);
+      .liquidate(stack, uint8(0));
     _bid(Bidder(bidder, bidderPK), listedOrder, 10 ether);
     skip(4 days);
     //TODO: add end auction flow for the bidder to get the nft
@@ -687,10 +687,10 @@ contract AstariaTest is TestHelpers {
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack);
+      .liquidate(stack, uint8(0));
     skip(4 days);
     //TODO: write something to end auction as bidder
-    //    ASTARIA_ROUTER.endAuction(collateralId);
+    COLLATERAL_TOKEN.liquidatorNFTClaim(listedOrder);
     PublicVault(publicVault).processEpoch();
     assertEq(
       nft.ownerOf(tokenId),

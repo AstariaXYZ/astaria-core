@@ -86,8 +86,7 @@ interface ICollateralToken is IERC721 {
   struct AuctionVaultParams {
     address settlementToken;
     uint256 collateralId;
-    uint56 maxDuration;
-    address liquidator;
+    uint256 maxDuration;
     uint256 reserve;
   }
 
@@ -119,6 +118,8 @@ interface ICollateralToken is IERC721 {
    */
   function releaseToAddress(uint256 collateralId, address releaseTo) external;
 
+  function liquidatorNFTClaim(OrderParameters memory params) external;
+
   event Deposit721(
     address indexed tokenContract,
     uint256 indexed tokenId,
@@ -138,8 +139,9 @@ interface ICollateralToken is IERC721 {
   error ProtocolPaused();
 
   enum InvalidCollateralStates {
+    NO_AUTHORITY,
     NO_AUCTION,
-    AUCTION,
+    AUCTION_ACTIVE,
     ACTIVE_LIENS
   }
 

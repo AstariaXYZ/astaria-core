@@ -80,7 +80,7 @@ contract WithdrawTest is TestHelpers {
     vm.warp(block.timestamp + lien.duration);
 
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack);
+      .liquidate(stack, uint8(0));
 
     vm.warp(block.timestamp + 2 days); // end of auction
     //TODO: add in something here for ending auction to liquidator for no bids.
@@ -159,9 +159,9 @@ contract WithdrawTest is TestHelpers {
     skip(14 days);
 
     (uint256 reserve1, OrderParameters memory listedOrder1) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack1);
+      .liquidate(stack1, uint8(0));
     (uint256 reserve2, OrderParameters memory listedOrder2) = ASTARIA_ROUTER
-      .liquidate(collateralId2, uint8(0), stack2);
+      .liquidate(stack2, uint8(0));
 
     //TODO: figure out how to do multiple bids here properly
 
@@ -287,9 +287,8 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
 
     (, OrderParameters memory listedOrder1) = ASTARIA_ROUTER.liquidate(
-      tokenContract.computeId(tokenId1),
-      uint8(0),
-      stacks[0]
+      stacks[0],
+      uint8(0)
     );
 
     WithdrawProxy withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
@@ -308,9 +307,8 @@ contract WithdrawTest is TestHelpers {
     vm.warp(block.timestamp + 14 days);
 
     (, OrderParameters memory listedOrder2) = ASTARIA_ROUTER.liquidate(
-      tokenContract.computeId(tokenId2),
-      uint8(0),
-      stacks[1]
+      stacks[1],
+      uint8(0)
     );
 
     WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
@@ -457,7 +455,7 @@ contract WithdrawTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack);
+      .liquidate(stack, uint8(0));
     _bid(Bidder(bidder, bidderPK), listedOrder, 150 ether);
 
     assertEq(
@@ -604,9 +602,9 @@ contract WithdrawTest is TestHelpers {
 
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
     (uint256 reserve1, OrderParameters memory listedOrder1) = ASTARIA_ROUTER
-      .liquidate(collateralId1, 0, stacks[0]);
+      .liquidate(stacks[0], uint8(0));
 
-    _bid(Bidder(bidder, bidderPK), listedOrder1, 200 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder1, 20 ether);
 
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
@@ -620,7 +618,7 @@ contract WithdrawTest is TestHelpers {
 
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
     (uint256 reserve2, OrderParameters memory listedOrder2) = ASTARIA_ROUTER
-      .liquidate(collateralId2, 0, stacks[1]);
+      .liquidate(stacks[1], uint8(0));
     _bid(Bidder(bidder, bidderPK), listedOrder2, 200 ether);
 
     vm.expectRevert(
@@ -855,8 +853,9 @@ contract WithdrawTest is TestHelpers {
     );
 
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack);
-    _bid(Bidder(bidder, bidderPK), listedOrder, reserve + 0.05 ether);
+      .liquidate(stack, uint8(0));
+
+    _bid(Bidder(bidder, bidderPK), listedOrder, reserve);
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     vm.warp(withdrawProxy.getFinalAuctionEnd());

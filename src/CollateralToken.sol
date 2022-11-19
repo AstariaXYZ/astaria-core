@@ -21,7 +21,6 @@ import {IFlashAction} from "core/interfaces/IFlashAction.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {ISecurityHook} from "core/interfaces/ISecurityHook.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -65,7 +64,7 @@ contract CollateralToken is
 {
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
-
+  using FixedPointMathLib for uint256;
   bytes32 constant COLLATERAL_TOKEN_SLOT =
     keccak256("xyz.astaria.collateral.token.storage.location");
 
@@ -95,6 +94,27 @@ contract CollateralToken is
       address(SEAPORT_),
       true
     );
+  }
+
+  function liquidatorNFTClaim(OrderParameters memory params) external {
+    CollateralStorage storage s = _loadCollateralSlot();
+
+    uint256 collateralId = params.offer[0].token.computeId(
+      params.offer[0].identifierOrCriteria
+    );
+    address liquidator = s.LIEN_TOKEN.getAuctionData(collateralId).liquidator;
+    if (!s.collateralIdToAuction[collateralId] || liquidator == address(0)) {
+      //revert no auction
+      revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
+    }
+
+    if (block.timestamp < params.endTime) {
+      //auction hasn't ended yet
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
+    }
+
+    _settleAuction(s, collateralId);
+    _releaseToAddress(s, collateralId, liquidator);
   }
 
   function _loadCollateralSlot()
@@ -202,7 +222,7 @@ contract CollateralToken is
       revert InvalidCollateralState(InvalidCollateralStates.ACTIVE_LIENS);
     }
     if (s.collateralIdToAuction[collateralId]) {
-      revert InvalidCollateralState(InvalidCollateralStates.AUCTION);
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
     }
     _;
   }
@@ -396,7 +416,7 @@ contract CollateralToken is
     );
     CollateralStorage storage s = _loadCollateralSlot();
     uint256 reserve = s.collateralIdAuctionReservePrice[collateralId];
-    s.LIEN_TOKEN.payLiquidatedDebtAsHolder(collateralId, reserve);
+    s.LIEN_TOKEN.payDebtViaClearingHouseAsHolder(collateralId, reserve);
     OrderComponents[] memory orderComponents = new OrderComponents[](1);
     orderComponents[0] = OrderComponents(
       params.offerer,
@@ -426,7 +446,7 @@ contract CollateralToken is
     //check the collateral isn't at auction
 
     if (s.collateralIdToAuction[params.stack[0].lien.collateralId]) {
-      revert InvalidCollateralState(InvalidCollateralStates.AUCTION);
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
     }
     //fetch the current total debt of the asset
     uint256 maxPossibleDebtAtMaxDuration = s
@@ -480,7 +500,7 @@ contract CollateralToken is
 
     uint256 listingFee = startingPrice; // TODO make good and compute fee for seaport
 
-    ConsiderationItem[] memory considerationItems = new ConsiderationItem[](2);
+    ConsiderationItem[] memory considerationItems = new ConsiderationItem[](3);
 
     considerationItems[0] = ConsiderationItem(
       ItemType.NATIVE,
@@ -494,10 +514,29 @@ contract CollateralToken is
       ItemType.NATIVE,
       address(0),
       uint256(0),
-      uint256(1000),
-      uint256(1000),
+      startingPrice.mulDivDown(uint256(250), 10000),
+      endingPrice.mulDivDown(uint256(250), 10000),
       payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //opensea fees
     );
+
+    if (true) {
+      uint256 royaltyRateNumerator = uint256(800);
+      uint256 royaltyRateDenomerator = uint256(10000);
+      considerationItems[2] = ConsiderationItem(
+        ItemType.NATIVE,
+        address(0),
+        uint256(0),
+        startingPrice.mulDivDown(
+          uint256(royaltyRateNumerator),
+          royaltyRateDenomerator
+        ),
+        endingPrice.mulDivDown(
+          uint256(royaltyRateNumerator),
+          royaltyRateDenomerator
+        ),
+        payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //opensea fees
+      );
+    }
     //put in royalty considerationItems
 
     orderParameters = OrderParameters({
@@ -523,7 +562,7 @@ contract CollateralToken is
     CollateralStorage storage s = _loadCollateralSlot();
     s.collateralIdAuctionReservePrice[params.collateralId] = params.reserve;
     uint256 startingPrice = params.reserve;
-    uint256 endingPrice = 1 ether;
+    uint256 endingPrice = 1000 wei;
 
     orderParameters = _generateValidOrderParameters(
       s,

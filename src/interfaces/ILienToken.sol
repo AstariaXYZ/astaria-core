@@ -38,7 +38,7 @@ interface ILienToken is IERC721 {
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
     mapping(uint256 => bytes32) collateralStateHash;
-    mapping(uint256 => AuctionStack[]) auctionStack;
+    mapping(uint256 => AuctionData) auctionData;
     mapping(uint256 => LienMeta) lienMeta;
   }
 
@@ -119,7 +119,8 @@ interface ILienToken is IERC721 {
   function stopLiens(
     uint256 collateralId,
     uint256 auctionWindow,
-    ILienToken.Stack[] memory stack
+    Stack[] calldata stack,
+    address liquidator
   ) external returns (uint256 reserve);
 
   /**
@@ -204,7 +205,8 @@ interface ILienToken is IERC721 {
     external
     returns (Stack[] memory, Stack memory);
 
-  function payLiquidatedDebt(uint256 collateralId, uint256 payment) external;
+  function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
+    external;
 
   /**
    * @notice Make a payment for the debt against a CollateralToken.
@@ -221,6 +223,16 @@ interface ILienToken is IERC721 {
     uint40 end;
   }
 
+  struct AuctionData {
+    address liquidator;
+    AuctionStack[] stack;
+  }
+
+  function getAuctionData(uint256 collateralId)
+    external
+    view
+    returns (AuctionData memory);
+
   function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory)
     external
     view
@@ -231,8 +243,10 @@ interface ILienToken is IERC721 {
     view
     returns (uint256);
 
-  function payLiquidatedDebtAsHolder(uint256 collateralId, uint256 payment)
-    external;
+  function payDebtViaClearingHouseAsHolder(
+    uint256 collateralId,
+    uint256 payment
+  ) external;
 
   /**
    * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.

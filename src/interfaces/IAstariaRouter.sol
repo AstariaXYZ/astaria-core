@@ -211,15 +211,13 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
-   * @param collateralId The ID of the CollateralToken.
+   * @param stack the stack being liquidated
    * @param position The position of the defaulted lien.
    * @return reserve The amount owed on all liens for against the collateral being liquidated, including accrued interest.
    */
-  function liquidate(
-    uint256 collateralId,
-    uint8 position,
-    ILienToken.Stack[] calldata stack
-  ) external returns (uint256, OrderParameters memory);
+  function liquidate(ILienToken.Stack[] calldata stack, uint8 position)
+    external
+    returns (uint256, OrderParameters memory);
 
   function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 

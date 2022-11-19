@@ -176,7 +176,7 @@ contract IntegrationTest is TestHelpers {
       LIEN_TOKEN.getPayee(stack[0].point.lienId)
     );
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(3), stack);
+      .liquidate(stack, uint8(3));
     emit log_named_address("vault", address(publicVaults[0]));
     emit log_named_address(
       "first lien payee",
@@ -272,7 +272,7 @@ contract IntegrationTest is TestHelpers {
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(collateralId, uint8(0), stack);
+      .liquidate(stack, uint8(0));
 
     _bid(Bidder(bidder, bidderPK), listedOrder, 5 ether);
 
