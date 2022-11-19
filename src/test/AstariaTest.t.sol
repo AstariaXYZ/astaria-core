@@ -619,15 +619,9 @@ contract AstariaTest is TestHelpers {
     _cancelAuction(listedOrder, address(this));
 
     assertEq(
-      address(COLLATERAL_TOKEN),
-      ERC721(tokenContract).ownerOf(tokenId),
-      "the NFT is not wrapped"
-    );
-
-    assertEq(
       address(this),
-      COLLATERAL_TOKEN.ownerOf(collateralId),
-      "collateralId holder changed when it shouldn't have"
+      ERC721(tokenContract).ownerOf(tokenId),
+      "the owner of the NFT should be the previous owner of the collateral token"
     );
   }
 

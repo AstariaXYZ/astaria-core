@@ -412,6 +412,8 @@ contract CollateralToken is
       s.SEAPORT.getCounter(address(this))
     );
     s.SEAPORT.cancel(orderComponents);
+    _settleAuction(s, collateralId);
+    _releaseToAddress(s, collateralId, ownerOf(collateralId));
   }
 
   function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
@@ -584,13 +586,18 @@ contract CollateralToken is
 
   function settleAuction(uint256 collateralId) public requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
-    require(
-      s.collateralIdToAuction[collateralId],
-      "Collateral is not listed on seaport"
-    );
-    delete s.collateralIdToAuction[collateralId];
+    if (!s.collateralIdToAuction[collateralId]) {
+      revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
+    }
+    _settleAuction(s, collateralId);
     delete s.idToUnderlying[collateralId];
     _burn(collateralId);
+  }
+
+  function _settleAuction(CollateralStorage storage s, uint256 collateralId)
+    internal
+  {
+    delete s.collateralIdToAuction[collateralId];
   }
 
   /**
