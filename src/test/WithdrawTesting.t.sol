@@ -32,6 +32,7 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
+import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
 contract WithdrawTest is TestHelpers {
   using FixedPointMathLib for uint256;
@@ -78,10 +79,11 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + lien.duration);
 
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack);
 
     vm.warp(block.timestamp + 2 days); // end of auction
-
+    //TODO: add in something here for ending auction to liquidator for no bids.
     //    AUCTION_HOUSE.endAuction(0);
 
     _warpToEpochEnd(publicVault);
@@ -156,11 +158,15 @@ contract WithdrawTest is TestHelpers {
 
     skip(14 days);
 
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack1);
-    ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stack2); // TODO test this
+    (uint256 reserve1, OrderParameters memory listedOrder1) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack1);
+    (uint256 reserve2, OrderParameters memory listedOrder2) = ASTARIA_ROUTER
+      .liquidate(collateralId2, uint8(0), stack2);
 
-    _bid(address(3), collateralId, 5 ether);
-    _bid(address(3), collateralId2, 20 ether);
+    //TODO: figure out how to do multiple bids here properly
+
+    _bid(Bidder(bidder, bidderPK), listedOrder2, 20 ether);
+    //    _bid(Bidder(bidder, bidderPK), listedOrder1, 5 ether);
     vm.warp(withdrawProxy.getFinalAuctionEnd());
     emit log_named_uint("finalAuctionEnd", block.timestamp);
     PublicVault(publicVault).processEpoch();
@@ -255,8 +261,6 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
-    uint256 lienId1 = liens[0][0];
-
     ILienToken.Details memory lien2 = standardLienDetails;
     lien2.duration = 27 days; // payee will be sent to WithdrawProxy at liquidation
     (liens[1], stacks[1]) = _commitToLien({
@@ -269,7 +273,8 @@ contract WithdrawTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: true
     });
-    uint256 lienId2 = liens[1][0];
+    //    uint256 lienId1 = liens[0][0];
+    //    uint256 lienId2 = liens[1][0];
 
     _warpToEpochEnd(publicVault);
 
@@ -281,38 +286,42 @@ contract WithdrawTest is TestHelpers {
     );
     PublicVault(publicVault).processEpoch();
 
-    uint256 collateralId1 = tokenContract.computeId(tokenId1);
-
-    ASTARIA_ROUTER.liquidate(collateralId1, uint8(0), stacks[0]);
+    (, OrderParameters memory listedOrder1) = ASTARIA_ROUTER.liquidate(
+      tokenContract.computeId(tokenId1),
+      uint8(0),
+      stacks[0]
+    );
 
     WithdrawProxy withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
-      LIEN_TOKEN.getPayee(lienId1),
+      LIEN_TOKEN.getPayee(liens[0][0]),
       address(withdrawProxy1),
       "First lien not pointing to first WithdrawProxy"
     );
 
-    _bid(address(3), collateralId1, 20 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder1, 200 ether);
 
     vm.warp(withdrawProxy1.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch(); // epoch 0 processing
 
     vm.warp(block.timestamp + 14 days);
 
-    uint256 collateralId2 = tokenContract.computeId(tokenId2);
-
-    ASTARIA_ROUTER.liquidate(collateralId2, uint8(0), stacks[1]);
+    (, OrderParameters memory listedOrder2) = ASTARIA_ROUTER.liquidate(
+      tokenContract.computeId(tokenId2),
+      uint8(0),
+      stacks[1]
+    );
 
     WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
 
     assertEq(
-      LIEN_TOKEN.getPayee(lienId2),
+      LIEN_TOKEN.getPayee(liens[1][0]),
       address(withdrawProxy2),
       "Second lien not pointing to second WithdrawProxy"
     );
 
-    _bid(address(3), collateralId2, 20 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder2, 200 ether);
 
     PublicVault(publicVault).transferWithdrawReserve();
 
@@ -385,22 +394,27 @@ contract WithdrawTest is TestHelpers {
       epochLength: 14 days
     });
 
+    vm.label(publicVault, "publicVault");
+
     _lendToVault(
       Lender({addr: address(1), amountToLend: 25 ether}),
       publicVault
     );
+    vm.label(address(1), "lender 1");
     _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
 
     _lendToVault(
       Lender({addr: address(2), amountToLend: 25 ether}),
       publicVault
     );
+    vm.label(address(2), "lender 2");
     _signalWithdrawAtFutureEpoch(address(2), publicVault, 0);
 
     _lendToVault(
       Lender({addr: address(3), amountToLend: 50 ether}),
       publicVault
     );
+    vm.label(address(3), "lender 3");
     _signalWithdrawAtFutureEpoch(address(3), publicVault, 1);
 
     ILienToken.Details memory lien1 = standardLienDetails;
@@ -442,8 +456,9 @@ contract WithdrawTest is TestHelpers {
     _warpToEpochEnd(publicVault);
 
     uint256 collateralId = tokenContract.computeId(tokenId);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-    _bid(address(4), collateralId, 150 ether);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 150 ether);
 
     assertEq(
       PublicVault(publicVault).getSlope(),
@@ -588,9 +603,10 @@ contract WithdrawTest is TestHelpers {
     _warpToEpochEnd(publicVault);
 
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
-    ASTARIA_ROUTER.liquidate(collateralId1, 0, stacks[0]);
+    (uint256 reserve1, OrderParameters memory listedOrder1) = ASTARIA_ROUTER
+      .liquidate(collateralId1, 0, stacks[0]);
 
-    _bid(address(3), collateralId1, 20 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder1, 200 ether);
 
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
@@ -603,8 +619,9 @@ contract WithdrawTest is TestHelpers {
     withdrawProxy.claim();
 
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
-    ASTARIA_ROUTER.liquidate(collateralId2, 0, stacks[1]);
-    _bid(address(3), collateralId2, 20 ether);
+    (uint256 reserve2, OrderParameters memory listedOrder2) = ASTARIA_ROUTER
+      .liquidate(collateralId2, 0, stacks[1]);
+    _bid(Bidder(bidder, bidderPK), listedOrder2, 200 ether);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -837,8 +854,9 @@ contract WithdrawTest is TestHelpers {
       "Incorrect lien interest"
     );
 
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-    _bid(address(3), collateralId, 5 ether);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack);
+    _bid(Bidder(bidder, bidderPK), listedOrder, reserve + 0.05 ether);
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     vm.warp(withdrawProxy.getFinalAuctionEnd());
@@ -846,11 +864,11 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + 4 days);
     //    AUCTION_HOUSE.endAuction(collateralId);
-    assertEq(
-      address(this),
-      COLLATERAL_TOKEN.ownerOf(collateralId),
-      "liquidator did not receive NFT"
-    );
+    //    assertEq(
+    //      address(this),
+    //      COLLATERAL_TOKEN.ownerOf(collateralId),
+    //      "liquidator did not receive NFT"
+    //    );
 
     withdrawProxy.claim();
 

@@ -33,7 +33,6 @@ import {VaultImplementation} from "./VaultImplementation.sol";
 import {IERC1155Receiver} from "core/interfaces/IERC1155Receiver.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import "./interfaces/ILienToken.sol";
 
 /**
  * @title LienToken
@@ -417,67 +416,59 @@ contract LienToken is ERC721, ILienToken, Auth {
     AuctionStack[] memory remainingLiens
   ) external requiresAuth {}
 
-  function onERC1155BatchReceived(
-    address operator,
-    address from,
-    uint256[] calldata ids,
-    uint256[] calldata values,
-    bytes calldata data
-  ) external requiresAuth returns (bytes4) {
-    require(ids.length == values.length);
-    for (uint256 i = 0; i < ids.length; ++i) {
-      _onERC1155Received(operator, from, ids[i], values[i], data);
-    }
-    return IERC1155Receiver.onERC1155BatchReceived.selector;
-  }
+  event log_named_address(string, address);
 
-  //only the validator asset can call this
-  function onERC1155Received(
-    address operator,
-    address,
-    uint256 collateralId,
-    uint256 payment,
-    bytes calldata data
-  ) external requiresAuth returns (bytes4) {
-    _onERC1155Received(operator, msg.sender, collateralId, payment, data);
-    return IERC1155Receiver.onERC1155Received.selector;
-  }
-
-  function _onERC1155Received(
-    address operator,
-    address,
-    uint256 collateralId,
-    uint256 payment,
-    bytes calldata data
-  ) internal {
-    //check operator is someone we allow to send us stuff
-
+  function payLiquidatedDebt(uint256 collateralId, uint256 payment) external {
     LienStorage storage s = _loadLienStorageSlot();
-
-    if (!s.COLLATERAL_TOKEN.isValidatorAssetOperator(msg.sender, operator)) {
-      revert InvalidState(InvalidStates.NO_AUTHORITY);
-    }
-
-    if (payment > ERC20(s.WETH).balanceOf(address(this))) {
-      revert InvalidState(InvalidStates.NOT_ENOUGH_FUNDS);
-    }
-
-    uint256 spent = 0;
-    ERC20(s.WETH).safeApprove(address(s.TRANSFER_PROXY), payment);
-    AuctionStack[] storage stack = s.auctionStack[collateralId];
-    for (uint256 i = 0; i < stack.length; i++) {
-      unchecked {
-        spent += _paymentAH(s, collateralId, stack, i, payment);
-      }
-    }
+    require(msg.sender == s.COLLATERAL_TOKEN.getClearingHouse(collateralId));
+    uint256 spent = _payDebt(s, collateralId, payment, msg.sender);
+    emit log_named_address("msg.sender", msg.sender);
+    emit log_named_address("tx.origin", tx.origin);
     delete s.collateralStateHash[collateralId];
     if (spent < payment) {
-      ERC20(s.WETH).safeTransfer(
+      s.TRANSFER_PROXY.tokenTransferFrom(
+        s.WETH,
+        msg.sender,
         s.COLLATERAL_TOKEN.ownerOf(collateralId),
         payment - spent
       );
     }
     s.COLLATERAL_TOKEN.settleAuction(collateralId);
+  }
+
+  function payLiquidatedDebtAsHolder(uint256 collateralId, uint256 payment)
+    external
+  {
+    LienStorage storage s = _loadLienStorageSlot();
+    require(msg.sender == address(s.COLLATERAL_TOKEN));
+    emit log_named_address("msg.sender", msg.sender);
+    emit log_named_address("tx.origin", tx.origin);
+    _payDebt(s, collateralId, payment, tx.origin);
+  }
+
+  function _payDebt(
+    LienStorage storage s,
+    uint256 collateralId,
+    uint256 payment,
+    address payer
+  ) internal returns (uint256 spent) {
+    //check operator is someone we allow to send us stuff
+
+    //    if (!s.COLLATERAL_TOKEN.isValidatorAssetOperator(msg.sender, operator)) {
+    //      revert InvalidState(InvalidStates.NO_AUTHORITY);
+    //    }
+
+    //    if (payment > ERC20(s.WETH).balanceOf(address(this))) {
+    //      revert InvalidState(InvalidStates.NOT_ENOUGH_FUNDS);
+    //    }
+
+    spent = 0;
+    AuctionStack[] storage stack = s.auctionStack[collateralId];
+    for (uint256 i = 0; i < stack.length; i++) {
+      unchecked {
+        spent += _paymentAH(s, collateralId, stack, i, payment, payer);
+      }
+    }
   }
 
   function getAmountOwingAtLiquidation(ILienToken.Stack calldata stack)
@@ -560,7 +551,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 collateralId,
     AuctionStack[] memory stack,
     uint256 position,
-    uint256 payment
+    uint256 payment,
+    address payer
   ) internal returns (uint256) {
     uint256 lienId = stack[position].lienId;
     uint256 end = stack[position].end;
@@ -574,7 +566,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     } else {
       payment = owing;
     }
-    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, address(this), payee, payment);
+    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
 
     delete s.lienMeta[lienId]; //full delete
     delete stack[position];
@@ -638,6 +630,21 @@ contract LienToken is ERC721, ILienToken, Auth {
     maxPotentialDebt = 0;
     for (uint256 i = 0; i < stack.length; ++i) {
       maxPotentialDebt += _getOwed(stack[i], stack[i].point.end);
+    }
+  }
+
+  /**
+   * @notice Computes the total amount owed on all liens against a CollateralToken.
+   * @return maxPotentialDebt the total possible debt for the collateral
+   */
+  function getMaxPotentialDebtForCollateral(Stack[] memory stack, uint256 end)
+    public
+    pure
+    returns (uint256 maxPotentialDebt)
+  {
+    maxPotentialDebt = 0;
+    for (uint256 i = 0; i < stack.length; ++i) {
+      maxPotentialDebt += _getOwed(stack[i], end);
     }
   }
 

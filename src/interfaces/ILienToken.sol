@@ -15,9 +15,8 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-import {IERC1155Receiver} from "core/interfaces/IERC1155Receiver.sol";
 
-interface ILienToken is IERC721, IERC1155Receiver {
+interface ILienToken is IERC721 {
   enum FileType {
     NotSupported,
     AuctionHouse,
@@ -205,6 +204,8 @@ interface ILienToken is IERC721, IERC1155Receiver {
     external
     returns (Stack[] memory, Stack memory);
 
+  function payLiquidatedDebt(uint256 collateralId, uint256 payment) external;
+
   /**
    * @notice Make a payment for the debt against a CollateralToken.
    * @param stack the stack to pay against
@@ -224,6 +225,14 @@ interface ILienToken is IERC721, IERC1155Receiver {
     external
     view
     returns (uint256);
+
+  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory, uint256)
+    external
+    view
+    returns (uint256);
+
+  function payLiquidatedDebtAsHolder(uint256 collateralId, uint256 payment)
+    external;
 
   /**
    * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.

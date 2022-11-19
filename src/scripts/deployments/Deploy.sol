@@ -37,8 +37,10 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 import {BeaconProxy} from "core/BeaconProxy.sol";
 import {ValidatorAsset} from "core/ValidatorAsset.sol";
-import {IERC1155} from "core/interfaces/IERC1155.sol";
-import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
+import {ClearingHouse} from "core/ClearingHouse.sol";
+import {
+  ConsiderationInterface
+} from "seaport/interfaces/ConsiderationInterface.sol";
 
 interface IWETH9 is IERC20 {
   function deposit() external payable;
@@ -124,13 +126,13 @@ contract Deploy is Script {
       MRA,
       address(LIEN_TOKEN)
     );
-
+    ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
     COLLATERAL_TOKEN = new CollateralToken(
       MRA,
       TRANSFER_PROXY,
       ILienToken(address(LIEN_TOKEN)),
-      SeaportInterface(SEAPORT),
-      IERC1155(AUCTION_VALIDATOR)
+      ConsiderationInterface(SEAPORT),
+      address(CLEARING_HOUSE_IMPL)
     );
     emit Deployed(address(COLLATERAL_TOKEN));
 

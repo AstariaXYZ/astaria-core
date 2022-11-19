@@ -55,7 +55,13 @@ contract Vault is AstariaVaultBase, VaultImplementation {
       string(abi.encodePacked("AST-V", owner(), "-", ERC20(asset()).symbol()));
   }
 
-  function supportsInterface(bytes4) public pure virtual returns (bool) {
+  function supportsInterface(bytes4)
+    public
+    pure
+    virtual
+    override(IERC165)
+    returns (bool)
+  {
     return false;
   }
 

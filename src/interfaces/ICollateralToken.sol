@@ -15,12 +15,15 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IFlashAction} from "core/interfaces/IFlashAction.sol";
-import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
+import {
+  ConsiderationInterface
+} from "seaport/interfaces/ConsiderationInterface.sol";
 import {
   ConduitControllerInterface
 } from "seaport/interfaces/ConduitControllerInterface.sol";
 import {IERC1155} from "core/interfaces/IERC1155.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
+import {ClearingHouse} from "core/ClearingHouse.sol";
 
 interface ICollateralToken is IERC721 {
   struct Asset {
@@ -31,19 +34,21 @@ interface ICollateralToken is IERC721 {
     ITransferProxy TRANSFER_PROXY;
     ILienToken LIEN_TOKEN;
     IAstariaRouter ASTARIA_ROUTER;
-    SeaportInterface SEAPORT;
+    ConsiderationInterface SEAPORT;
     ConduitControllerInterface CONDUIT_CONTROLLER;
-    IERC1155 AUCTION_VALIDATOR;
+    address CLEARING_HOUSE_IMPLEMENTATION;
     address CONDUIT;
     bytes32 CONDUIT_KEY;
-    mapping(address => bool) validatorAssetEnabled;
+    //    mapping(address => bool) validatorAssetEnabled;
     mapping(uint256 => bool) collateralIdToAuction;
+    mapping(uint256 => uint256) collateralIdAuctionReservePrice;
     mapping(bytes32 => bool) orderSigned;
     mapping(address => bool) flashEnabled;
     //mapping of the collateralToken ID and its underlying asset
     mapping(uint256 => Asset) idToUnderlying;
     //mapping of a security token hook for an nft's token contract address
     mapping(address => address) securityHooks;
+    mapping(uint256 => address) clearingHouse;
   }
   enum FileType {
     NotSupported,
@@ -52,7 +57,7 @@ interface ICollateralToken is IERC721 {
     SecurityHook,
     FlashEnabled,
     Seaport,
-    ValidatorAsset
+    ClearingHouseImplementation
   }
 
   struct File {
@@ -76,6 +81,8 @@ interface ICollateralToken is IERC721 {
 
   function securityHooks(address) external view returns (address);
 
+  function getClearingHouse(uint256) external view returns (address);
+
   struct AuctionVaultParams {
     address settlementToken;
     uint256 collateralId;
@@ -90,10 +97,10 @@ interface ICollateralToken is IERC721 {
 
   function settleAuction(uint256 collateralId) external;
 
-  function isValidatorAssetOperator(address validatorAsset, address operator)
-    external
-    view
-    returns (bool);
+  //  function isValidatorAssetOperator(address validatorAsset, address operator)
+  //    external
+  //    view
+  //    returns (bool);
 
   /**
    * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.

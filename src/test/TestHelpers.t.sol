@@ -64,13 +64,21 @@ import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IERC1155} from "core/interfaces/IERC1155.sol";
 import {ValidatorAsset} from "core/ValidatorAsset.sol";
-import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
+import {
+  ConsiderationInterface
+} from "seaport/interfaces/ConsiderationInterface.sol";
 import {
   OrderParameters,
+  OrderComponents,
   Order,
-  CriteriaResolver
+  CriteriaResolver,
+  AdvancedOrder,
+  OfferItem,
+  ConsiderationItem,
+  OrderType,
+  FulfillmentComponent
 } from "seaport/lib/ConsiderationStructs.sol";
-
+import {ClearingHouse} from "core/ClearingHouse.sol";
 string constant weth9Artifact = "src/test/WETH9.json";
 
 interface IWETH9 is IERC20 {
@@ -102,6 +110,8 @@ contract TestHelpers is BaseOrderTest {
   address strategistRogue = vm.addr(strategistRoguePK);
 
   address borrower = vm.addr(0x1341);
+  uint256 bidderPK = uint256(2566);
+  address bidder = vm.addr(bidderPK);
   address bidderOne = vm.addr(0x1342);
   address bidderTwo = vm.addr(0x1343);
 
@@ -192,9 +202,12 @@ contract TestHelpers is BaseOrderTest {
   TransferProxy TRANSFER_PROXY;
   IWETH9 WETH9;
   MultiRolesAuthority MRA;
-  SeaportInterface SEAPORT;
+  ConsiderationInterface SEAPORT;
 
   ValidatorAsset AUCTION_VALIDATOR;
+
+  address bidderConduit;
+  bytes32 bidderConduitKey;
 
   function setUp() public virtual override {
     super.setUp();
@@ -209,17 +222,17 @@ contract TestHelpers is BaseOrderTest {
     vm.label(address(LIEN_TOKEN), "LIEN_TOKEN");
 
     //assumes mainnet forking
-    SEAPORT = SeaportInterface(address(consideration));
+    SEAPORT = ConsiderationInterface(address(consideration));
 
-    AUCTION_VALIDATOR = new ValidatorAsset(MRA, address(LIEN_TOKEN));
+    //    AUCTION_VALIDATOR = new ValidatorAsset(MRA, address(LIEN_TOKEN));
 
-    vm.label(address(AUCTION_VALIDATOR), "AUCTION_VALIDATOR");
+    ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
     COLLATERAL_TOKEN = new CollateralToken(
       MRA,
       TRANSFER_PROXY,
       ILienToken(address(LIEN_TOKEN)),
       SEAPORT,
-      IERC1155(address(AUCTION_VALIDATOR))
+      address(CLEARING_HOUSE_IMPL)
     );
     vm.label(address(COLLATERAL_TOKEN), "COLLATERAL_TOKEN");
 
@@ -355,11 +368,11 @@ contract TestHelpers is BaseOrderTest {
     );
 
     // SEAPORT CAPABILITIES
-    MRA.setRoleCapability(
-      uint8(UserRoles.AUCTION_VALIDATOR),
-      LienToken.onERC1155Received.selector,
-      true
-    );
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.AUCTION_VALIDATOR),
+    //      LienToken.onERC1155Received.selector,
+    //      true
+    //    );
 
     //    MRA.setRoleCapability(
     //      uint8(UserRoles.AUCTION_HOUSE),
@@ -852,80 +865,229 @@ contract TestHelpers is BaseOrderTest {
     vm.stopPrank();
   }
 
+  struct Bidder {
+    address bidder;
+    uint256 bidderPK;
+  }
+
+  struct Conduit {
+    bytes32 conduitKey;
+    address conduit;
+  }
+
+  mapping(address => Conduit) bidderConduits;
+
+  function _computeWarp(OrderParameters memory params, uint256 amount)
+    internal
+    returns (uint256)
+  {
+    uint256 m = (params.consideration[0].startAmount /
+      params.startTime -
+      params.endTime);
+    uint256 x = ((params.consideration[0].startAmount - amount) / m);
+    emit log_named_uint("x", x);
+    return x;
+  }
+
   function _bid(
-    address bidder,
+    Bidder memory incomingBidder,
     OrderParameters memory params,
     uint256 amount
   ) internal {
-    vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
-    vm.startPrank(bidder);
-    WETH9.deposit{value: amount * 2}();
-    //    WETH9.approve(address(SEAPORT), type(uint256).max);
-    //todo make so you dont have to approve our conduit, but either your's or seaport or a channel in some fashion
-    //maybe just approve seaport ourselves vs conduit
-    //    WETH9.approve(address(COLLATERAL_TOKEN.getConduit()), amount);
+    //compute the warp needed to get past the price slope
 
-    emit log_named_uint("bidder balance", WETH9.balanceOf(bidder));
-    //    (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN.getUnderlying(
-    //      tokenId
-    //    );
+    vm.deal(incomingBidder.bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
+    vm.startPrank(incomingBidder.bidder);
 
-    //create seaport buy order
+    if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
+      (, , address conduitController) = SEAPORT.information();
+      bidderConduits[incomingBidder.bidder].conduitKey = Bytes32AddressLib
+        .fillLast12Bytes(address(incomingBidder.bidder));
 
-    (, , address conduitController) = SEAPORT.information();
-    bytes32 CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(bidder));
+      bidderConduits[incomingBidder.bidder]
+        .conduit = ConduitControllerInterface(conduitController).createConduit(
+        bidderConduits[incomingBidder.bidder].conduitKey,
+        address(incomingBidder.bidder)
+      );
 
-    address CONDUIT = ConduitControllerInterface(conduitController)
-      .createConduit(CONDUIT_KEY, address(bidder));
+      ConduitControllerInterface(conduitController).updateChannel(
+        address(bidderConduits[incomingBidder.bidder].conduit),
+        address(SEAPORT),
+        true
+      );
+      vm.label(
+        address(bidderConduits[incomingBidder.bidder].conduit),
+        "bidder conduit"
+      );
+    }
 
-    ConduitControllerInterface(conduitController).updateChannel(
-      address(CONDUIT),
-      address(consideration),
-      true
+    //TODO: set this to not send more than needed, compute allowance from the order needed
+    //    WETH9.approve(bidderConduits[incomingBidder.bidder].conduit, amount * 2);
+
+    //OrderParameters memory orderParameters,
+    //        address payable offerer,
+    //        address zone,
+    //        bytes32 conduitKey
+    OrderParameters memory mirror = _createMirrorOrderParameters(
+      params,
+      payable(incomingBidder.bidder),
+      params.zone,
+      bidderConduits[incomingBidder.bidder].conduitKey
     );
 
-    WETH9.approve(CONDUIT, amount * 2);
+    //    _createMirrorOrderParameters(bidder, bidderConduitKey, params);
 
-    SEAPORT.fulfillOrder(Order(params, new bytes(0)), CONDUIT_KEY);
+    //    SEAPORT.matchAdvancedOrders();
+    Order[] memory orders = new Order[](2);
+    orders[0] = Order(params, new bytes(0));
 
-    //    AUCTION_HOUSE.createBid(tokenId, amount);
+    OrderComponents memory matchOrderComponents = getOrderComponents(
+      mirror,
+      consideration.getCounter(incomingBidder.bidder)
+    );
+
+    emit log_order(mirror);
+
+    bytes memory mirrorSignature = signOrder(
+      SEAPORT,
+      incomingBidder.bidderPK,
+      consideration.getOrderHash(matchOrderComponents)
+    );
+    orders[1] = Order(mirror, mirrorSignature);
+
+    //order 0 - 1 offer 3 consideration
+
+    // order 1 - 3 offer 1 consideration
+
+    //offers    fulfillments
+    // 0,0      1,0
+    // 1,0      0,0
+    // 1,1      0,1
+    // 1,2      0,2
+
+    // offer 0,0
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(0, 0);
+    fulfillmentComponents.push(fulfillmentComponent);
+
+    //for each fulfillment we need to match them up
+    firstFulfillment.offerComponents = fulfillmentComponents;
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(1, 0);
+    fulfillmentComponents.push(fulfillmentComponent);
+    firstFulfillment.considerationComponents = fulfillmentComponents;
+    fulfillments.push(firstFulfillment); // 0,0
+
+    // offer 1,0
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(1, 0);
+    fulfillmentComponents.push(fulfillmentComponent);
+    secondFulfillment.offerComponents = fulfillmentComponents;
+
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(0, 0);
+    fulfillmentComponents.push(fulfillmentComponent);
+    secondFulfillment.considerationComponents = fulfillmentComponents;
+    fulfillments.push(secondFulfillment); // 1,0
+
+    // offer 1,1
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(1, 1);
+    fulfillmentComponents.push(fulfillmentComponent);
+    thirdFulfillment.offerComponents = fulfillmentComponents;
+
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(0, 1);
+    fulfillmentComponents.push(fulfillmentComponent);
+
+    //for each fulfillment we need to match them up
+    thirdFulfillment.considerationComponents = fulfillmentComponents;
+    fulfillments.push(thirdFulfillment); // 1,1
+
+    //offer 1,2
+    delete fulfillmentComponents;
+
+    //royalty stuff, setup :TODO:
+    //    fulfillmentComponent = FulfillmentComponent(1, 2);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //    fourthFulfillment.offerComponents = fulfillmentComponents;
+    //    delete fulfillmentComponents;
+    //    fulfillmentComponent = FulfillmentComponent(0, 2);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //    fourthFulfillment.considerationComponents = fulfillmentComponents;
+    //    fulfillments.push(fourthFulfillment);
+
+    //offer 1,3
+    delete fulfillmentComponents;
+
+    if (amount < params.consideration[0].startAmount) {
+      uint256 warp = _computeWarp(params, amount);
+      emit log_named_uint("start", params.consideration[0].startAmount);
+      emit log_named_uint("amount", amount);
+      emit log_named_uint("warping", warp);
+      vm.warp(params.endTime - 600); //TODO: figure this slope thing out
+      consideration.matchOrders{value: amount}(orders, fulfillments);
+    } else {
+      consideration.fulfillOrder{value: amount}(
+        orders[0],
+        bidderConduits[incomingBidder.bidder].conduitKey
+      );
+    }
+
     vm.stopPrank();
   }
 
-  function _bid(
-    address bidder,
-    uint256 tokenId,
-    uint256 amount
-  ) internal {
-    vm.deal(bidder, amount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
-    vm.startPrank(bidder);
-    WETH9.deposit{value: amount}();
-    WETH9.approve(address(TRANSFER_PROXY), amount);
-    emit log_named_uint("bidder balance", WETH9.balanceOf(bidder));
-    (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN.getUnderlying(
-      tokenId
+  function _createMirrorOrderParameters(
+    OrderParameters memory orderParameters,
+    address payable offerer,
+    address zone,
+    bytes32 conduitKey
+  ) public pure returns (OrderParameters memory) {
+    OfferItem[] memory _offerItems = _toOfferItems(
+      orderParameters.consideration
+    );
+    ConsiderationItem[] memory _considerationItems = toConsiderationItems(
+      orderParameters.offer,
+      offerer
     );
 
-    //create seaport buy order
-
-    OrderParameters storage params = seaportOrders[tokenId];
-
-    //    SEAPORT.fulfillAdvancedOrder(
-    //      AdvancedOrder({
-    //        parameters: params,
-    //        numerator: 1,
-    //        denominator: 1,
-    //        signature: new bytes(0),
-    //        extraData: new bytes(0)
-    //      }),
-    //      new CriteriaResolver[](0),
-    //      COLLATERAL_TOKEN.getConduitKey(),
-    //      bidder
-    //    );
-
-    //    AUCTION_HOUSE.createBid(tokenId, amount);
-    vm.stopPrank();
+    OrderParameters memory _mirrorOrderParameters = OrderParameters(
+      offerer,
+      zone,
+      _offerItems,
+      _considerationItems,
+      orderParameters.orderType,
+      orderParameters.startTime,
+      orderParameters.endTime,
+      orderParameters.zoneHash,
+      orderParameters.salt,
+      conduitKey,
+      _considerationItems.length
+    );
+    return _mirrorOrderParameters;
   }
+
+  function _toOfferItems(ConsiderationItem[] memory _considerationItems)
+    internal
+    pure
+    returns (OfferItem[] memory)
+  {
+    OfferItem[] memory _offerItems = new OfferItem[](
+      _considerationItems.length
+    );
+    for (uint256 i = 0; i < _offerItems.length; i++) {
+      _offerItems[i] = OfferItem(
+        _considerationItems[i].itemType,
+        _considerationItems[i].token,
+        _considerationItems[i].identifierOrCriteria,
+        _considerationItems[i].startAmount + 100,
+        _considerationItems[i].endAmount + 100
+      );
+    }
+    return _offerItems;
+  }
+
+  event log_order(OrderParameters);
 
   // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
   function _signalWithdraw(address lender, address publicVault) internal {

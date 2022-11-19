@@ -175,13 +175,14 @@ contract IntegrationTest is TestHelpers {
       "first lien payee before liq",
       LIEN_TOKEN.getPayee(stack[0].point.lienId)
     );
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(3), stack);
     emit log_named_address("vault", address(publicVaults[0]));
     emit log_named_address(
       "first lien payee",
       LIEN_TOKEN.getPayee(stack[0].point.lienId)
     );
-    _bid(address(2), collateralId, 200 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 200 ether);
 
     address[5] memory withdrawProxies;
     for (uint256 i = 0; i < lienSize; i++) {
@@ -270,15 +271,17 @@ contract IntegrationTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack);
 
-    _bid(address(3), collateralId, 5 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 5 ether);
 
     vm.warp(block.timestamp + 4 days);
+    //TODO: end auction here
     //    ASTARIA_ROUTER.endAuction(collateralId);
     assertEq(
       ERC721(tokenContract).ownerOf(tokenId),
-      address(3),
+      bidder,
       "Bidder address does not own NFT"
     );
   }

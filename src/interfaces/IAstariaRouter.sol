@@ -187,6 +187,8 @@ interface IAstariaRouter is IPausable, IBeacon {
       uint256
     );
 
+  function WETH() external view returns (ERC20);
+
   function LIEN_TOKEN() external view returns (ILienToken);
 
   function TRANSFER_PROXY() external view returns (ITransferProxy);
@@ -217,7 +219,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint256 collateralId,
     uint8 position,
     ILienToken.Stack[] calldata stack
-  ) external returns (uint256 reserve, OrderParameters memory);
+  ) external returns (uint256, OrderParameters memory);
 
   function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 

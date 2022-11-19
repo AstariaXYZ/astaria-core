@@ -326,10 +326,10 @@ contract AstariaTest is TestHelpers {
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
     skip(14 days); // end of loan
-    (uint256 reserve, OrderParameters memory orderParams) = ASTARIA_ROUTER
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
       .liquidate(collateralId, uint8(0), stack);
 
-    _bid(address(2), orderParams, 33 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 33 ether);
     skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd()); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
@@ -613,13 +613,21 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-    _bid(address(2), collateralId, 10 ether);
-    _cancelAuction(collateralId, address(this));
+
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack);
+    _cancelAuction(listedOrder, address(this));
+
+    assertEq(
+      address(COLLATERAL_TOKEN),
+      ERC721(tokenContract).ownerOf(tokenId),
+      "the NFT is not wrapped"
+    );
+
     assertEq(
       address(this),
-      ERC721(tokenContract).ownerOf(tokenId),
-      "liquidator did not receive NFT"
+      COLLATERAL_TOKEN.ownerOf(collateralId),
+      "collateralId holder changed when it shouldn't have"
     );
   }
 
@@ -649,11 +657,13 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-    _bid(address(2), collateralId, 10 ether);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 10 ether);
     skip(4 days);
-    //    ASTARIA_ROUTER.endAuction(collateralId);
-    assertEq(nft.ownerOf(tokenId), address(2), "the owner is not the bidder");
+    //TODO: add end auction flow for the bidder to get the nft
+    //        ASTARIA_ROUTER.endAuction(collateralId);
+    assertEq(nft.ownerOf(tokenId), bidder, "the owner is not the bidder");
   }
 
   function testAuctionEndNoBids() public {
@@ -682,8 +692,10 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(collateralId, uint8(0), stack);
     skip(4 days);
+    //TODO: write something to end auction as bidder
     //    ASTARIA_ROUTER.endAuction(collateralId);
     PublicVault(publicVault).processEpoch();
     assertEq(
@@ -693,14 +705,21 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  function _cancelAuction(uint256 auctionId, address sender) internal {
-    //    (, , , uint256 reserve, ) = AUCTION_HOUSE.getAuctionData(auctionId);
-    //    vm.deal(sender, reserve);
-    //    vm.startPrank(sender);
-    //    WETH9.deposit{value: reserve}();
-    //    WETH9.approve(address(TRANSFER_PROXY), reserve);
-    //    ASTARIA_ROUTER.cancelAuction(auctionId);
-    //    vm.stopPrank();
+  //TODO: write method on CT to cancel auction via seaport zone
+  function _cancelAuction(OrderParameters memory params, address sender)
+    internal
+  {
+    uint256 reserve = COLLATERAL_TOKEN.getCollateralAuctionReservePrice(
+      params.offer[0].token.computeId(params.offer[0].identifierOrCriteria)
+    );
+    vm.label(sender, "sender");
+    vm.label(address(this), "harness");
+    vm.deal(sender, reserve * 2);
+    vm.startPrank(sender, sender);
+    WETH9.deposit{value: reserve * 2}();
+    WETH9.approve(address(ASTARIA_ROUTER.TRANSFER_PROXY()), reserve * 2);
+    COLLATERAL_TOKEN.cancelAuction(params);
+    vm.stopPrank();
   }
 
   uint8 FUZZ_SIZE = uint8(10);
