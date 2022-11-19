@@ -93,8 +93,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
     s.minEpochLength = uint32(7 days);
     s.maxEpochLength = uint32(45 days);
-    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88();
-    //63419583966; // 200% apy / second
+    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88(); //63419583966; // 200% apy / second
     s.strategistFeeNumerator = uint32(200);
     s.strategistFeeDenominator = uint32(1000);
     s.buyoutFeeNumerator = uint32(100);
@@ -280,8 +279,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    */
   function fileGuardian(File[] calldata file) external {
     RouterStorage storage s = _loadRouterSlot();
-    require(address(msg.sender) == address(s.guardian));
-    //only the guardian can call this
+    require(address(msg.sender) == address(s.guardian)); //only the guardian can call this
     for (uint256 i = 0; i < file.length; i++) {
       FileType what = file[i].what;
       bytes memory data = file[i].data;
@@ -642,8 +640,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
     return
       (newLien.details.rate < maxNewRate &&
-        newLien.details.duration >= stack[position].point.end) ||
-      (block.timestamp + newLien.details.duration - stack[position].point.end >
+        newLien.details.duration + block.timestamp >= stack[position].point.end) ||
+      (block.timestamp + newLien.details.duration - stack[position].point.end >=
         s.minDurationIncrease &&
         newLien.details.rate <= stack[position].lien.details.rate);
   }
