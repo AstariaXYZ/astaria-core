@@ -256,6 +256,14 @@ contract TestHelpers is ConsiderationTester {
     UNIV3_LIQUIDITY
   }
 
+  struct Fees {
+    uint256 opensea;
+    uint256 royalties;
+    uint256 liquidator;
+    uint256 lender;
+    uint256 borrower;
+  }
+
   event NewTermCommitment(bytes32 vault, uint256 collateralId, uint256 amount);
   event Repayment(bytes32 vault, uint256 collateralId, uint256 amount);
   event Liquidation(bytes32 vault, uint256 collateralId);
@@ -450,6 +458,40 @@ contract TestHelpers is ConsiderationTester {
       true
     );
     MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
+  }
+  
+  function getAmountOwedToLender(uint256 rate, uint256 amount, uint256 duration)
+    public
+    pure
+    returns (uint256)
+  {
+    return amount + (rate * amount * duration).mulDivDown(1, 365 days).mulDivDown(1, 1e18);
+  }
+
+  function getFeesForLiquidation (uint256 bid, uint256 openseaPercentage, uint256 royaltyPercentage, uint256 liquidatorPercentage, uint256 lenderAmountOwed) public returns (Fees memory fees) {
+    uint256 remainder = bid.mulDivDown(1e18, openseaPercentage + royaltyPercentage + 1e18);
+    fees = Fees({
+        opensea: remainder.mulDivDown(openseaPercentage, 1e18),
+        royalties: remainder.mulDivDown(royaltyPercentage, 1e18),
+        liquidator: remainder.mulDivDown(liquidatorPercentage, 1e18),
+        lender: 0,
+        borrower: 0
+      });
+    remainder -= fees.liquidator;
+    if(remainder <= lenderAmountOwed) {
+      fees.lender = remainder;
+    } else {
+      fees.lender = lenderAmountOwed;
+    }
+    remainder -= fees.lender;
+    fees.borrower = remainder;
+  }
+
+  event FeesCalculated(Fees fees);
+  function testFeesExample() public {
+    uint256 amountOwedToLender = getAmountOwedToLender(15e17, 10e18, 14 days);
+    Fees memory fees = getFeesForLiquidation(20e18, 25e15, 10e16, 13e16, amountOwedToLender);
+    emit FeesCalculated(fees);
   }
 
   // wrap NFT in a CollateralToken
