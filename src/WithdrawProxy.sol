@@ -214,9 +214,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     s.withdrawReserveReceived += amount;
   }
 
-  /**
-   * @notice Return any excess funds to the PublicVault.
-   */
   function claim() public {
     WPStorage storage s = _loadSlot();
 
@@ -267,11 +264,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     emit Claimed(address(this), transferAmount, VAULT(), balance);
   }
 
-  /**
-   * @notice Called by PublicVault if previous epoch's withdrawReserve hasn't been met.
-   * @param amount The amount to attempt to drain from the WithdrawProxy.
-   * @param withdrawProxy The address of the withdrawProxy to drain to.
-   */
   function drain(uint256 amount, address withdrawProxy)
     public
     returns (uint256)
@@ -285,10 +277,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     return amount;
   }
 
-  /**
-   * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays optimized-out to all parties.
-   * @param liquidationWithdrawRatio The ratio of withdrawing to remaining LPs for the current epoch boundary.
-   */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
     require(msg.sender == VAULT());
     unchecked {
@@ -296,11 +284,6 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     }
   }
 
-  /**
-   * @notice Adds an auction scheduled to end in a new epoch to this WithdrawProxy, to ensure that withdrawing LPs get a proportional share of auction returns.
-   * @param newLienExpectedValue The expected auction value for the lien being auctioned.
-   * @param finalAuctionDelta The timestamp by which the auction being added is guaranteed to end. As new auctions are added to the WithdrawProxy, this value will strictly increase as all auctions have the same maximum duration.
-   */
   function handleNewLiquidation(
     uint256 newLienExpectedValue,
     uint256 finalAuctionDelta

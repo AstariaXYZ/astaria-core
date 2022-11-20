@@ -182,20 +182,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     _unpause();
   }
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param files structs to file
-   */
   function fileBatch(File[] calldata files) external requiresAuth {
     for (uint256 i = 0; i < files.length; i++) {
       file(files[i]);
     }
   }
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param incoming incoming files
-   */
   function file(File calldata incoming) public requiresAuth {
     RouterStorage storage s = _loadRouterSlot();
     FileType what = incoming.what;
@@ -268,9 +260,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.guardian = _guardian;
   }
 
-  /* @notice specially guarded file
-   * @param file incoming data to file
-   */
   function fileGuardian(File[] calldata file) external {
     RouterStorage storage s = _loadRouterSlot();
     require(address(msg.sender) == address(s.guardian)); //only the guardian can call this
@@ -477,10 +466,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       );
   }
 
-  /**
-   * @notice Returns whether a specific lien can be liquidated.
-   * @return A boolean value indicating whether the specified lien can be liquidated.
-   */
   function canLiquidate(ILienToken.Stack memory stack)
     public
     view
@@ -531,20 +516,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     );
   }
 
-  /**
-   * @notice Retrieves the fee PublicVault strategists earn on loan origination.
-   * @return The numerator and denominator used to compute the percentage fee strategists earn by receiving minted vault shares.
-   */
   function getStrategistFee(uint256 amountIn) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
     return
       amountIn.mulDivDown(s.strategistFeeNumerator, s.strategistFeeDenominator);
   }
 
-  /**
-   * @notice Retrieves the fee the protocol earns on loan origination.
-   * @return The numerator and denominator used to compute the percentage fee taken by the protocol
-   */
   function getProtocolFee(uint256 amountIn) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -552,10 +529,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       amountIn.mulDivDown(s.protocolFeeNumerator, s.protocolFeeDenominator);
   }
 
-  /**
-   * @notice Retrieves the fee the liquidator earns for processing auctions
-   * @return The numerator and denominator used to compute the percentage fee taken by the liquidator
-   */
   function getLiquidatorFee(uint256 amountIn) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -565,11 +538,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         s.liquidationFeeDenominator
       );
   }
-
-  /**
-   * @notice Retrieves the fee the protocol earns on loan origination.
-   * @return The numerator and denominator used to compute the percentage fee taken by the protocol
-   */
 
   function getBuyoutFee(uint256 remainingInterestIn)
     external
@@ -584,21 +552,10 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       );
   }
 
-  /**
-   * @notice Returns whether a given address is that of a Vault.
-   * @param vault The Vault address.
-   * @return A boolean representing whether the address exists as a Vault.
-   */
   function isValidVault(address vault) external view returns (bool) {
     return _loadRouterSlot().vaults[vault] != address(0);
   }
 
-  /**
-   * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
-   * @param newLien The new Lien to replace the existing one.
-   * @param newLien The new Lien to replace the existing one.
-   * @return A boolean representing whether the potential refinance is valid.
-   */
   function isValidRefinance(
     ILienToken.Lien calldata newLien,
     uint8 position,

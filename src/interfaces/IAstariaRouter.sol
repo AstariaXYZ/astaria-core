@@ -127,9 +127,9 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   /**
-   * @notice Validates the incoming commitment
+   * @notice Validates the incoming loan commitment.
    * @param commitment The commitment proofs and requested loan data for each loan.
-   * @return lien the new Lien data
+   * @return lien the new Lien data.
    */
   function validateCommitment(IAstariaRouter.Commitment calldata commitment)
     external
@@ -202,14 +202,30 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function maxInterestRate() external view returns (uint256);
 
+  /**
+   * @notice Returns the current auction duration.
+   * @param includeBuffer Adds the current auctionWindowBuffer if true.
+   */
   function getAuctionWindow(bool includeBuffer) external view returns (uint256);
 
+  /**
+   * @notice Computes the fee PublicVault strategists earn on loan origination from the strategistFee numerator and denominator.
+   */
   function getStrategistFee(uint256) external view returns (uint256);
 
+  /**
+   * @notice Computes the fee the protocol earns on loan origination from the protocolFee numerator and denominator.
+   */
   function getProtocolFee(uint256) external view returns (uint256);
 
+  /**
+   * @notice Computes the fee Vaults earn when a Lien is bought out using the buyoutFee numerator and denominator.
+   */
   function getBuyoutFee(uint256) external view returns (uint256);
 
+  /**
+   * @notice Computes the fee the users earn on liquidating an expired lien from the liquidationFee numerator and denominator.
+   */
   function getLiquidatorFee(uint256) external view returns (uint256);
 
   /**
@@ -222,11 +238,47 @@ interface IAstariaRouter is IPausable, IBeacon {
     external
     returns (uint256, OrderParameters memory);
 
+  /**
+   * @notice Returns whether a specified lien can be liquidated.
+   */
   function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 
+  /**
+   * @notice Returns whether a given address is that of a Vault.
+   * @param vault The Vault address.
+   * @return A boolean representing whether the address exists as a Vault.
+   */
   function isValidVault(address) external view returns (bool);
 
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param files structs to file.
+   */
+  function fileBatch(File[] calldata files) external;
+
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param incoming The incoming File.
+   */
   function file(File calldata incoming) external;
+
+  /**
+   * @notice Updates the guardian address.
+   * @param _guardian The new guardian.
+   */
+  function setNewGuardian(address _guardian) external;
+
+  /**
+   * @notice Specially guarded file().
+   * @param file The incoming data to file.
+   */
+  function fileGuardian(File[] calldata file) external;
+
+  /**
+   * @notice Returns the address for the current implementation of a contract from the ImplementationType enum.
+   * @return impl The address of the clone implementation.
+   */
+  function getImpl(uint8 implType) external view returns (address impl);
 
   /**
    * @notice Returns whether a new lien offers more favorable terms over an old lien.

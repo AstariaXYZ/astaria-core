@@ -599,8 +599,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   }
 
   /**
-
-   * @notice Have a specified payer make a payment for the debt against a CollateralToken.
+   * @dev Have a specified payer make a payment for the debt against a CollateralToken.
    * @param stack the stack for the payment
    * @param totalCapitalAvailable The amount to pay against the debts
    */
@@ -631,10 +630,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       );
   }
 
-  /**
-   * @notice Computes the total amount owed on all liens against a CollateralToken.
-   * @return maxPotentialDebt the total possible debt for the collateral
-   */
   function getMaxPotentialDebtForCollateral(Stack[] memory stack)
     public
     pure
@@ -646,10 +641,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
   }
 
-  /**
-   * @notice Computes the total amount owed on all liens against a CollateralToken.
-   * @return maxPotentialDebt the total possible debt for the collateral
-   */
   function getMaxPotentialDebtForCollateral(Stack[] memory stack, uint256 end)
     public
     pure
