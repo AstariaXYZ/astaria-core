@@ -519,7 +519,7 @@ contract CollateralToken is
       zone: address(this), // 0x20
       offer: offer,
       consideration: considerationItems,
-      orderType: OrderType.FULL_RESTRICTED,
+      orderType: OrderType.FULL_OPEN,
       startTime: uint256(block.timestamp),
       endTime: uint256(block.timestamp + maxDuration),
       zoneHash: bytes32(collateralId),
@@ -536,14 +536,12 @@ contract CollateralToken is
   {
     CollateralStorage storage s = _loadCollateralSlot();
     s.collateralIdAuctionReservePrice[params.collateralId] = params.reserve;
-    uint256 startingPrice = params.reserve;
-    uint256 endingPrice = 1000 wei;
 
     orderParameters = _generateValidOrderParameters(
       s,
       params.collateralId,
-      startingPrice,
-      endingPrice,
+      params.startingPrice,
+      params.endingPrice,
       params.maxDuration
     );
 

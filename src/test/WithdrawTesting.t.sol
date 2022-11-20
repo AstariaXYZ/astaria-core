@@ -299,7 +299,7 @@ contract WithdrawTest is TestHelpers {
       "First lien not pointing to first WithdrawProxy"
     );
 
-    _bid(Bidder(bidder, bidderPK), listedOrder1, 200 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder1, 500 ether);
 
     vm.warp(withdrawProxy1.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch(); // epoch 0 processing
@@ -604,7 +604,7 @@ contract WithdrawTest is TestHelpers {
     (uint256 reserve1, OrderParameters memory listedOrder1) = ASTARIA_ROUTER
       .liquidate(stacks[0], uint8(0));
 
-    _bid(Bidder(bidder, bidderPK), listedOrder1, 20 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder1, 10000 ether);
 
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
@@ -619,7 +619,7 @@ contract WithdrawTest is TestHelpers {
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
     (uint256 reserve2, OrderParameters memory listedOrder2) = ASTARIA_ROUTER
       .liquidate(stacks[1], uint8(0));
-    _bid(Bidder(bidder, bidderPK), listedOrder2, 200 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder2, 10000 ether);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -855,7 +855,7 @@ contract WithdrawTest is TestHelpers {
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
       .liquidate(stack, uint8(0));
 
-    _bid(Bidder(bidder, bidderPK), listedOrder, reserve);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 5 ether);
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     vm.warp(withdrawProxy.getFinalAuctionEnd());
@@ -867,17 +867,17 @@ contract WithdrawTest is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVault),
-      44350000000000000000,
+      44350000000000000862,
       "Incorrect PublicVault balance"
     );
     assertEq(
       PublicVault(publicVault).getYIntercept(),
-      44350000000000000000,
+      44350000000000000862,
       "Incorrect PublicVault YIntercept"
     );
     assertEq(
       PublicVault(publicVault).totalAssets(),
-      44350000000000000000,
+      44350000000000000862,
       "Incorrect PublicVault totalAssets()"
     );
     assertEq(

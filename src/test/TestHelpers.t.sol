@@ -105,12 +105,13 @@ contract ConsiderationTester is BaseOrderTest {
     conduitController = ConduitController(
       deployCode("src/test/ConduitController.sol/ConduitController.json")
     );
-    consideration = ConsiderationInterface(
-      deployCode(
-        "src/test/Consideration.sol/Consideration.json",
-        abi.encode(address(conduitController))
-      )
-    );
+    //    consideration = ConsiderationInterface(
+    //      deployCode(
+    //        "src/test/Consideration.sol/Consideration.json",
+    //        abi.encode(address(conduitController))
+    //      )
+    //    );
+    consideration = new Consideration(address(conduitController));
 
     //create conduit, update channel
     conduit = Conduit(
@@ -1049,16 +1050,22 @@ contract TestHelpers is ConsiderationTester {
     }
 
     delete fulfillmentComponents;
-    uint256 currentPrice;
-    for (uint256 i = 0; i < params.consideration.length; i++) {
-      currentPrice += _locateCurrentAmount(
-        params.consideration[i].startAmount,
-        params.consideration[i].endAmount,
-        params.startTime,
-        params.endTime,
-        false
-      );
-    }
+    //    for (uint256 i = 0; i < params.consideration.length; i++) {
+    //      currentPrice += _locateCurrentAmount(
+    //        params.consideration[i].startAmount,
+    //        params.consideration[i].endAmount,
+    //        params.startTime,
+    //        params.endTime,
+    //        false
+    //      );
+    //    }
+    uint256 currentPrice = _locateCurrentAmount(
+      params.consideration[0].startAmount,
+      params.consideration[0].endAmount,
+      params.startTime,
+      params.endTime,
+      false
+    );
     if (bidAmount < currentPrice) {
       uint256 warp = _computeWarp(
         currentPrice,
@@ -1069,10 +1076,10 @@ contract TestHelpers is ConsiderationTester {
       emit log_named_uint("start", params.consideration[0].startAmount);
       emit log_named_uint("amount", bidAmount);
       emit log_named_uint("warping", warp);
-      skip(warp + 100); //TODO: figure this slope thing out
-      consideration.matchOrders{value: bidAmount}(orders, fulfillments);
+      skip(warp); //TODO: figure this slope thing out
+      consideration.matchOrders{value: bidAmount * 2}(orders, fulfillments);
     } else {
-      consideration.fulfillOrder{value: bidAmount}(
+      consideration.fulfillOrder{value: bidAmount + bidAmount / 2}(
         orders[0],
         bidderConduits[incomingBidder.bidder].conduitKey
       );
@@ -1142,8 +1149,8 @@ contract TestHelpers is ConsiderationTester {
         _considerationItems[i].itemType,
         _considerationItems[i].token,
         _considerationItems[i].identifierOrCriteria,
-        _considerationItems[i].startAmount + 100,
-        _considerationItems[i].endAmount + 100
+        _considerationItems[i].startAmount + 1,
+        _considerationItems[i].endAmount + 1
       );
     }
     return _offerItems;

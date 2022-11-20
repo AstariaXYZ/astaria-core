@@ -248,7 +248,7 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param vault The Vault address.
    * @return A boolean representing whether the address exists as a Vault.
    */
-  function isValidVault(address) external view returns (bool);
+  function isValidVault(address vault) external view returns (bool);
 
   /**
    * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.

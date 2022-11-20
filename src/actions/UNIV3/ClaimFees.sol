@@ -24,7 +24,11 @@ contract ClaimFees is IFlashAction {
         type(uint128).max
       )
     );
-    ERC721(asset.token).transferFrom(address(this), msg.sender, asset.tokenId);
+    ERC721(asset.token).safeTransferFrom(
+      address(this),
+      msg.sender,
+      asset.tokenId
+    );
     return keccak256("FlashAction.onFlashAction");
   }
 }
