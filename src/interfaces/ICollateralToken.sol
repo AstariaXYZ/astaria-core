@@ -93,10 +93,18 @@ interface ICollateralToken is IERC721 {
     uint256 endingPrice;
   }
 
+  /**
+   * @notice Send a CollateralToken to a Seaport auction on liquidation.
+   * @param params The auction data.
+   */
   function auctionVault(AuctionVaultParams calldata params)
     external
     returns (OrderParameters memory);
 
+  /**
+   * @notice Clears the auction for a CollateralToken.
+   * @param collateralId The ID of the CollateralToken.
+   */
   function settleAuction(uint256 collateralId) external;
 
   function SEAPORT() external view returns (ConsiderationInterface);
@@ -118,6 +126,10 @@ interface ICollateralToken is IERC721 {
    */
   function releaseToAddress(uint256 collateralId, address releaseTo) external;
 
+  /**
+   * @notice Permissionless hook which returns the underlying NFT for a CollateralToken to the liquidator after an auction.
+   * @param params The Seaport data from the liquidation.
+   */
   function liquidatorNFTClaim(OrderParameters memory params) external;
 
   event Deposit721(

@@ -116,10 +116,23 @@ interface IPublicVault is IVaultImplementation {
    */
   function processEpoch() external;
 
+  /**
+   * @notice Decrease the PublicVault YIntercept.
+   * @param amount The amount to decrement by.
+   */
   function decreaseYIntercept(uint256 amount) external;
 
+  /**
+   * Hook to update the PublicVault's slope, YIntercept, and last timestamp on a LienToken buyout.
+   * @param params The lien buyout parameters (lienSlope, lienEnd, and increaseYIntercept)
+   */
   function handleBuyoutLien(BuyoutLienParams calldata params) external;
 
+  /**
+   * Hook to update the PublicVault owner of a LienToken when it is sent to liquidation.
+   * @param auctionWindow The auction duration.
+   * @param params Liquidation data (lienSlope amount to deduct from the PublicVault slope, newAmount, and lienEnd timestamp)
+   */
   function updateVaultAfterLiquidation(
     uint256 auctionWindow,
     AfterLiquidationParams calldata params

@@ -160,6 +160,9 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function newVault(address delegate) external returns (address);
 
+  /**
+   * @notice Retrieves the address that collects protocol-level fees.
+   */
   function feeTo() external returns (address);
 
   /**
@@ -225,6 +228,14 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function file(File calldata incoming) external;
 
+  /**
+   * @notice Returns whether a new lien offers more favorable terms over an old lien.
+   * A new lien must have a rate less than or equal to maxNewRate,
+   * or a duration lower by minDurationIncrease, provided the other parameter does not get any worse.
+   * @param newLien The new Lien for the proposed refinance.
+   * @param position The Lien position against the CollateralToken.
+   * @param stack The Stack of existing Liens against the CollateralToken.
+   */
   function isValidRefinance(
     ILienToken.Lien calldata newLien,
     uint8 position,

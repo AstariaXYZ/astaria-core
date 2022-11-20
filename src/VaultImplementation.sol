@@ -84,7 +84,7 @@ abstract contract VaultImplementation is
   }
 
   /**
-   * @notice disable the allowlist for the vault
+   * @notice disable the allowList for the vault
    */
   function disableAllowList() external virtual {
     require(msg.sender == owner()); //owner is "strategist"
@@ -92,7 +92,7 @@ abstract contract VaultImplementation is
   }
 
   /**
-   * @notice enable the allowl ist for the vault
+   * @notice enable the allowList for the vault
    */
   function enableAllowList() external virtual {
     require(msg.sender == owner()); //owner is "strategist"

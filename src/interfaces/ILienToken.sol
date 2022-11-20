@@ -92,8 +92,8 @@ interface ILienToken is IERC721 {
 
   /**
    * @notice Removes all liens for a given CollateralToken.
-   * @param lien The Lien
-   * @return lienId the lienId if valid otherwise reverts
+   * @param lien The Lien.
+   * @return lienId The lienId of the requested Lien, if valid (otherwise, reverts).
    */
   function validateLien(Lien calldata lien)
     external
@@ -206,6 +206,11 @@ interface ILienToken is IERC721 {
     external
     returns (Stack[] memory, Stack memory);
 
+  /**
+   * @notice Called by the ClearingHouse (through Seaport) to pay back debt with auction funds.
+   * @param collateralId The CollateralId of the liquidated NFT.
+   * @param payment The payment amount.
+   */
   function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
     external;
 
@@ -229,17 +234,30 @@ interface ILienToken is IERC721 {
     AuctionStack[] stack;
   }
 
+  /**
+   * @notice Retrieves the AuctionData for a CollateralToken (The liquidator address and the AuctionStack).
+   * @param collateralId The ID of the CollateralToken.
+   */
   function getAuctionData(uint256 collateralId)
     external
     view
     returns (AuctionData memory);
 
-  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory)
+  /**
+   * Calculates the debt accrued by all liens against a CollateralToken, assuming no payments are made until the end timestamp in the stack.
+   * @param stack The stack data for active liens against the CollateralToken.
+   */
+  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory stack)
     external
     view
     returns (uint256);
 
-  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory, uint256)
+  /**
+   * Calculates the debt accrued by all liens against a CollateralToken, assuming no payments are made until the provided timestamp.
+   * @param stack The stack data for active liens against the CollateralToken.
+   * @param end The timestamp to accrue potential debt until.
+   */
+  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory stack, uint256 end)
     external
     view
     returns (uint256);
@@ -253,14 +271,14 @@ interface ILienToken is IERC721 {
 
   /**
    * @notice Change the payee for a specified Lien.
-   * @param lien the lienevent
+   * @param lien the Lien to change the payee for.
    * @param newPayee The new Lien payee.
    */
   function setPayee(Lien calldata lien, address newPayee) external;
 
   /**
    * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
-   * @param file The incoming file to handle
+   * @param file The incoming file to handle.
    */
   function file(File calldata file) external;
 
