@@ -32,6 +32,37 @@ test
 ```
 
 # Astaria Docs
+```ml
+ src
+ ├─ AstariaRouter.sol
+ ├─ AstariaVaultBase.sol
+ ├─ BeaconProxy.sol
+ ├─ CollateralToken.sol
+ ├─ LienToken.sol  
+ ├─ PublicVault.sol
+ ├─ TransferProxy.sol
+ ├─ Vault.sol
+ ├─ VaultImplementation.sol
+ ├─ WithdrawProxy.sol
+ ├─ WithdrawVaultBase.sol
+ └─ actions
+    └─ UNIV3
+       └─ClaimFees.sol
+ └─ libraries
+    └─ Base64.sol
+    └─ CollateralLookup.sol
+ └─ security
+    └─ V3SecurityHook.sol
+ └─ strategies
+    └─ CollectionValidator.sol
+       ├─ UNI_V3Validator.sol
+       └─ UniqueValidator.sol
+ └─ utils
+    ├─ Math.sol 
+    ├─ MerkleProofLib.sol
+    └─ Pausable.sol 
+	  
+```
 For more details on the Astaria protocol and its contracts, see the [docs](https://docs.astaria.xyz/docs/intro)
 
 # Astaria Contracts Setup
@@ -42,9 +73,8 @@ So make sure you get setup with Foundry first
 To install contract dependencies, run:
 
 ```sh
-yarn
 forge install
-git submodule install
+yarn
 ```
 
 
