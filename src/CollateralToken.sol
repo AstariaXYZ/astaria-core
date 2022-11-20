@@ -373,12 +373,6 @@ contract CollateralToken is
     return _loadCollateralSlot().securityHooks[target];
   }
 
-  struct ListUnderlyingForSaleParams {
-    ILienToken.Stack[] stack;
-    uint256 listPrice;
-    uint56 maxDuration;
-  }
-
   function getClearingHouse(uint256 collateralId)
     external
     view

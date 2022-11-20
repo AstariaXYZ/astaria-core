@@ -252,7 +252,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   /**
    * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param files structs to file.
+   * @param files Structs to file.
    */
   function fileBatch(File[] calldata files) external;
 
