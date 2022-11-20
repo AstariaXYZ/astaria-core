@@ -149,6 +149,9 @@ interface ICollateralToken is IERC721 {
   error InvalidSender();
   error InvalidCollateralState(InvalidCollateralStates);
   error ProtocolPaused();
+  error ListPriceTooLow();
+  error InvalidConduitKey();
+  error InvalidZone();
 
   enum InvalidCollateralStates {
     NO_AUTHORITY,
