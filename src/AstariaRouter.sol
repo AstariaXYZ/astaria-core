@@ -402,13 +402,14 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       commitments[0].tokenContract,
       commitments[0].tokenId
     );
-    unchecked {
-      for (uint256 i; i < commitments.length; ++i) {
-        if (i != 0) {
-          commitments[i].lienRequest.stack = stack;
-        }
-        (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
-        totalBorrowed += commitments[i].lienRequest.amount;
+    for (uint256 i; i < commitments.length; ) {
+      if (i != 0) {
+        commitments[i].lienRequest.stack = stack;
+      }
+      (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
+      totalBorrowed += commitments[i].lienRequest.amount;
+      unchecked {
+        ++i;
       }
     }
     s.WETH.safeApprove(address(s.TRANSFER_PROXY), totalBorrowed);
