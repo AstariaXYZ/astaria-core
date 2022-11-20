@@ -431,18 +431,10 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     LienStorage storage s = _loadLienStorageSlot();
     require(msg.sender == s.COLLATERAL_TOKEN.getClearingHouse(collateralId));
-    emit log_named_uint(
-      "approval remaining",
-      ERC20(s.WETH).allowance(msg.sender, address(s.TRANSFER_PROXY))
-    );
+
     uint256 spent = _payDebt(s, collateralId, payment, msg.sender);
-    //    emit log_named_address("msg.sender", msg.sender);
-    //    emit log_named_address("tx.origin", tx.origin);
     delete s.collateralStateHash[collateralId];
-    emit log_named_uint(
-      "approval remaining",
-      ERC20(s.WETH).allowance(msg.sender, address(s.TRANSFER_PROXY))
-    );
+
     if (spent < payment) {
       s.TRANSFER_PROXY.tokenTransferFrom(
         s.WETH,

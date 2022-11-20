@@ -534,26 +534,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     );
   }
 
-  //  function cancelAuction(uint256 collateralId) external {
-  //    RouterStorage storage s = _loadRouterSlot();
-  //
-  //    require(msg.sender == s.COLLATERAL_TOKEN.ownerOf(collateralId));
-  //
-  //    //    s.AUCTION_HOUSE.cancelAuction(collateralId, msg.sender);
-  //    s.COLLATERAL_TOKEN.releaseToAddress(collateralId, msg.sender);
-  //  }
-
-  //  function endAuction(uint256 collateralId) external {
-  //    RouterStorage storage s = _loadRouterSlot();
-  //
-  ////    if (!s.AUCTION_HOUSE.auctionExists(collateralId)) {
-  ////      revert InvalidCollateralState(CollateralStates.NO_AUCTION);
-  ////    }
-  //
-  ////    address winner = s.AUCTION_HOUSE.endAuction(collateralId);
-  //    s.COLLATERAL_TOKEN.releaseToAddress(collateralId, winner);
-  //  }
-
   /**
    * @notice Retrieves the fee PublicVault strategists earn on loan origination.
    * @return The numerator and denominator used to compute the percentage fee strategists earn by receiving minted vault shares.

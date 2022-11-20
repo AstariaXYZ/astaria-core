@@ -295,13 +295,10 @@ contract TestHelpers is ConsiderationTester {
     LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
     vm.label(address(LIEN_TOKEN), "LIEN_TOKEN");
 
-    //assumes mainnet forking
     SEAPORT = ConsiderationInterface(address(consideration));
 
     RoyaltyEngineMock royaltyEngine = new RoyaltyEngineMock();
     IRoyaltyEngine ROYALTY_REGISTRY = IRoyaltyEngine(address(royaltyEngine));
-
-    //    AUCTION_VALIDATOR = new ValidatorAsset(MRA, address(LIEN_TOKEN));
 
     ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
     COLLATERAL_TOKEN = new CollateralToken(
@@ -378,12 +375,6 @@ contract TestHelpers is ConsiderationTester {
 
     ASTARIA_ROUTER.fileBatch(files);
 
-    //    LIEN_TOKEN.file(
-    //      ILienToken.File(
-    //        ILienToken.FileType.AuctionHouse,
-    //        abi.encode(address(AUCTION_HOUSE))
-    //      )
-    //    );
     LIEN_TOKEN.file(
       ILienToken.File(
         ILienToken.FileType.CollateralToken,
@@ -445,23 +436,6 @@ contract TestHelpers is ConsiderationTester {
       true
     );
 
-    // SEAPORT CAPABILITIES
-    //    MRA.setRoleCapability(
-    //      uint8(UserRoles.AUCTION_VALIDATOR),
-    //      LienToken.onERC1155Received.selector,
-    //      true
-    //    );
-
-    //    MRA.setRoleCapability(
-    //      uint8(UserRoles.AUCTION_HOUSE),
-    //      TRANSFER_PROXY.tokenTransferFrom.selector,
-    //      true
-    //    );
-    //    MRA.setRoleCapability(
-    //      uint8(UserRoles.AUCTION_HOUSE),
-    //      ILienToken.makePaymentAuctionHouse.selector, //bytes4(keccak256(bytes("makePayment(uint256,uint256,uint8,address)"))),
-    //      true
-    //    );
     MRA.setUserRole(
       address(ASTARIA_ROUTER),
       uint8(UserRoles.ASTARIA_ROUTER),
@@ -960,8 +934,6 @@ contract TestHelpers is ConsiderationTester {
     OrderParameters memory params,
     uint256 bidAmount
   ) internal {
-    //compute the warp needed to get past the price slope
-
     vm.deal(incomingBidder.bidder, bidAmount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
     vm.startPrank(incomingBidder.bidder);
 
@@ -987,13 +959,6 @@ contract TestHelpers is ConsiderationTester {
       );
     }
 
-    //TODO: set this to not send more than needed, compute allowance from the order needed
-    //    WETH9.approve(bidderConduits[incomingBidder.bidder].conduit, amount * 2);
-
-    //OrderParameters memory orderParameters,
-    //        address payable offerer,
-    //        address zone,
-    //        bytes32 conduitKey
     OrderParameters memory mirror = _createMirrorOrderParameters(
       params,
       payable(incomingBidder.bidder),
@@ -1001,9 +966,6 @@ contract TestHelpers is ConsiderationTester {
       bidderConduits[incomingBidder.bidder].conduitKey
     );
 
-    //    _createMirrorOrderParameters(bidder, bidderConduitKey, params);
-
-    //    SEAPORT.matchAdvancedOrders();
     Order[] memory orders = new Order[](2);
     orders[0] = Order(params, new bytes(0));
 
@@ -1081,7 +1043,10 @@ contract TestHelpers is ConsiderationTester {
     fulfillmentComponent = FulfillmentComponent(0, 2);
     fulfillmentComponents.push(fulfillmentComponent);
     fourthFulfillment.considerationComponents = fulfillmentComponents;
-    fulfillments.push(fourthFulfillment);
+
+    if (params.consideration.length == uint8(3)) {
+      fulfillments.push(fourthFulfillment); // 1,2
+    }
 
     delete fulfillmentComponents;
     uint256 currentPrice;
@@ -1126,21 +1091,12 @@ contract TestHelpers is ConsiderationTester {
     emit log_named_uint("bidAmount", bidAmount);
     emit log_named_uint("startTime", startTime);
     emit log_named_uint("endTime", endTime);
-    //    uint256 x = (currentPrice -
-    //      1000 wei -
-    //      25 wei -
-    //      80 wei *
-    //      (endTime - startTime)) / bidAmount;
     uint256 m = ((currentPrice - 1000 wei - 25 wei - 80 wei) /
       (endTime - startTime));
     uint256 x = ((currentPrice - bidAmount) / m);
     emit log_named_uint("m", m);
     emit log_named_uint("x", x);
     return x;
-
-    //given y = mx + b
-    // solve for x
-    // x = (y - b) / m
   }
 
   function _createMirrorOrderParameters(

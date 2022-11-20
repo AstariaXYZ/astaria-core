@@ -601,17 +601,6 @@ contract CollateralToken is
     );
   }
 
-  //  function isValidatorAssetOperator(address validatorAsset, address operator)
-  //    public
-  //    view
-  //    returns (bool)
-  //  {
-  //    //make sure its a conduit from seaport calling
-  //    CollateralStorage storage s = _loadCollateralSlot();
-  //    return (s.CONDUIT_CONTROLLER.getKey(operator) != bytes32(0) &&
-  //      s.validatorAssetEnabled[validatorAsset]);
-  //  }
-
   function _listUnderlyingOnSeaport(
     CollateralStorage storage s,
     uint256 collateralId,
@@ -643,7 +632,6 @@ contract CollateralToken is
   }
 
   event ListedOnSeaport(uint256 collateralId, Order listingOrder);
-  event log_named_address(string, address);
 
   function settleAuction(uint256 collateralId) public requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();

@@ -651,13 +651,10 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    //    vm.expectRevert("Evmerror: revert");
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
       .liquidate(stack, uint8(0));
     _bid(Bidder(bidder, bidderPK), listedOrder, 10 ether);
     skip(4 days);
-    //TODO: add end auction flow for the bidder to get the nft
-    //        ASTARIA_ROUTER.endAuction(collateralId);
     assertEq(nft.ownerOf(tokenId), bidder, "the owner is not the bidder");
   }
 

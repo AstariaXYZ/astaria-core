@@ -354,7 +354,6 @@ contract RevertTesting is TestHelpers {
       publicVault
     );
 
-    // uint256[][] memory liens = new uint256[][](1);
     ILienToken.Stack[][] memory stack = new ILienToken.Stack[][](1);
     (, stack[0]) = _commitToLien({
       vault: publicVault,
