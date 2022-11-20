@@ -687,7 +687,6 @@ contract AstariaTest is TestHelpers {
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
       .liquidate(stack, uint8(0));
     skip(4 days);
-    //TODO: write something to end auction as bidder
     COLLATERAL_TOKEN.liquidatorNFTClaim(listedOrder);
     PublicVault(publicVault).processEpoch();
     assertEq(
@@ -697,7 +696,6 @@ contract AstariaTest is TestHelpers {
     );
   }
 
-  //TODO: write method on CT to cancel auction via seaport zone
   function _cancelAuction(OrderParameters memory params, address sender)
     internal
   {

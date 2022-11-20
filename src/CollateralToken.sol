@@ -99,6 +99,10 @@ contract CollateralToken is
     );
   }
 
+  function SEAPORT() public view returns (ConsiderationInterface) {
+    return _loadCollateralSlot().SEAPORT;
+  }
+
   function liquidatorNFTClaim(OrderParameters memory params) external {
     CollateralStorage storage s = _loadCollateralSlot();
 
@@ -369,21 +373,6 @@ contract CollateralToken is
   function securityHooks(address target) public view returns (address) {
     return _loadCollateralSlot().securityHooks[target];
   }
-
-  //collateralId,
-  //      s.auctionWindow,
-  //      auctionWindowMax,
-  //      msg.sender,
-  //      s.liquidationFeeNumerator,
-  //      s.liquidationFeeDenominator,
-  //      reserve,
-  //      stackAtLiquidation
-
-  //uint256 collateralId;
-  //    uint56 maxDuration;
-  //    address liquidator;
-  //    uint256 reserve;
-  //    bytes32 stackHash;
 
   struct ListUnderlyingForSaleParams {
     ILienToken.Stack[] stack;
@@ -665,7 +654,6 @@ contract CollateralToken is
     CollateralStorage storage s = _loadCollateralSlot();
     uint256 collateralId = msg.sender.computeId(tokenId_);
 
-    //TODO set these up as clones
     if (s.clearingHouse[collateralId] == address(0)) {
       address clearingHouse = ClonesWithImmutableArgs.clone(
         s.CLEARING_HOUSE_IMPLEMENTATION,

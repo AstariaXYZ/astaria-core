@@ -41,7 +41,6 @@ interface ICollateralToken is IERC721 {
     address CLEARING_HOUSE_IMPLEMENTATION;
     address CONDUIT;
     bytes32 CONDUIT_KEY;
-    //    mapping(address => bool) validatorAssetEnabled;
     mapping(uint256 => bool) collateralIdToAuction;
     mapping(uint256 => uint256) collateralIdAuctionReservePrice;
     mapping(bytes32 => bool) orderSigned;
@@ -100,10 +99,7 @@ interface ICollateralToken is IERC721 {
 
   function settleAuction(uint256 collateralId) external;
 
-  //  function isValidatorAssetOperator(address validatorAsset, address operator)
-  //    external
-  //    view
-  //    returns (bool);
+  function SEAPORT() external view returns (ConsiderationInterface);
 
   /**
    * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.

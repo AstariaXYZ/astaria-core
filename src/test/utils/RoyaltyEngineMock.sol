@@ -29,11 +29,12 @@ contract RoyaltyEngineMock is IRoyaltyEngine {
     external
     returns (address payable[] memory recipients, uint256[] memory amounts)
   {
-    tokenAddress;
-    recipients = new address payable[](1);
-    amounts = new uint256[](1);
-    recipients[0] = payable(address(tx.origin));
-    amounts[0] = value.mulDivDown(250, 10000);
+    if (tokenId == uint256(99)) {
+      recipients = new address payable[](1);
+      amounts = new uint256[](1);
+      recipients[0] = payable(address(tx.origin));
+      amounts[0] = value.mulDivDown(250, 10000);
+    }
   }
 
   /**
@@ -54,9 +55,11 @@ contract RoyaltyEngineMock is IRoyaltyEngine {
     view
     returns (address payable[] memory recipients, uint256[] memory amounts)
   {
-    //    recipients = new address payable[](1);
-    //    amounts = new uint256[](1);
-    //    recipients[0] = payable(address(tx.origin));
-    //    amounts[0] = value.mulDivDown(250, 10000);
+    if (tokenId == uint256(99)) {
+      recipients = new address payable[](1);
+      amounts = new uint256[](1);
+      recipients[0] = payable(address(tx.origin));
+      amounts[0] = value.mulDivDown(250, 10000);
+    }
   }
 }
