@@ -38,6 +38,7 @@ import {WithdrawProxy} from "core/WithdrawProxy.sol";
 import {BeaconProxy} from "core/BeaconProxy.sol";
 import {ValidatorAsset} from "core/ValidatorAsset.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
+import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {
   ConsiderationInterface
 } from "seaport/interfaces/ConsiderationInterface.sol";
@@ -127,12 +128,17 @@ contract Deploy is Script {
       address(LIEN_TOKEN)
     );
     ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
+    address royaltyRegistry = address(
+      0x0385603ab55642cb4Dd5De3aE9e306809991804f
+    );
+    IRoyaltyEngine ROYALTY_REGISTRY = IRoyaltyEngine(address(royaltyRegistry));
     COLLATERAL_TOKEN = new CollateralToken(
       MRA,
       TRANSFER_PROXY,
       ILienToken(address(LIEN_TOKEN)),
       ConsiderationInterface(SEAPORT),
-      address(CLEARING_HOUSE_IMPL)
+      address(CLEARING_HOUSE_IMPL),
+      ROYALTY_REGISTRY
     );
     emit Deployed(address(COLLATERAL_TOKEN));
 

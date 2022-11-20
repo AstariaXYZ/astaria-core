@@ -52,6 +52,7 @@ interface ILienToken is IERC721 {
     uint256 rate; //rate per second
     uint256 duration;
     uint256 maxPotentialDebt;
+    uint256 liquidationInitialAsk;
   }
 
   struct Lien {
@@ -243,10 +244,8 @@ interface ILienToken is IERC721 {
     view
     returns (uint256);
 
-  function payDebtViaClearingHouseAsHolder(
-    uint256 collateralId,
-    uint256 payment
-  ) external;
+  function payLiquidatedDebtAsHolder(uint256 collateralId, uint256 payment)
+    external;
 
   /**
    * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.

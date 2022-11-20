@@ -456,10 +456,9 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   event log_named_uint(string, uint256);
 
-  function payDebtViaClearingHouseAsHolder(
-    uint256 collateralId,
-    uint256 payment
-  ) external {
+  function payLiquidatedDebtAsHolder(uint256 collateralId, uint256 payment)
+    external
+  {
     LienStorage storage s = _loadLienStorageSlot();
     require(msg.sender == address(s.COLLATERAL_TOKEN));
     _payDebt(

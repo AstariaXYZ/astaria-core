@@ -24,6 +24,7 @@ import {
 import {IERC1155} from "core/interfaces/IERC1155.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
+import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 
 interface ICollateralToken is IERC721 {
   struct Asset {
@@ -35,6 +36,7 @@ interface ICollateralToken is IERC721 {
     ILienToken LIEN_TOKEN;
     IAstariaRouter ASTARIA_ROUTER;
     ConsiderationInterface SEAPORT;
+    IRoyaltyEngine ROYALTY_ENGINE;
     ConduitControllerInterface CONDUIT_CONTROLLER;
     address CLEARING_HOUSE_IMPLEMENTATION;
     address CONDUIT;
@@ -88,6 +90,8 @@ interface ICollateralToken is IERC721 {
     uint256 collateralId;
     uint256 maxDuration;
     uint256 reserve;
+    uint256 startingPrice;
+    uint256 endingPrice;
   }
 
   function auctionVault(AuctionVaultParams calldata params)

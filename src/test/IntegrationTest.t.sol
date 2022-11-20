@@ -50,7 +50,8 @@ contract IntegrationTest is TestHelpers {
       maxAmount: 50 ether,
       rate: uint256(1e16).mulDivDown(150, 1).mulDivDown(1, 365 days),
       duration: 14 days,
-      maxPotentialDebt: 0 ether
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
     });
 
     // deploy a new PublicVault
@@ -150,7 +151,8 @@ contract IntegrationTest is TestHelpers {
         maxAmount: 50 ether,
         rate: uint256(1e16).mulDivDown(150, 1).mulDivDown(1, 365 days),
         duration: (dayCount * 1 days),
-        maxPotentialDebt: i * 20 ether
+        maxPotentialDebt: i * 20 ether,
+        liquidationInitialAsk: 500 ether
       });
     }
 

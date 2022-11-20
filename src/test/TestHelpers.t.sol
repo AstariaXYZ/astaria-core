@@ -29,7 +29,7 @@ import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IERC20} from "core/interfaces/IERC20.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
-
+import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {
   ConduitControllerInterface
@@ -79,6 +79,7 @@ import {
   FulfillmentComponent
 } from "seaport/lib/ConsiderationStructs.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
+import {RoyaltyEngineMock} from "./utils/RoyaltyEngineMock.sol";
 string constant weth9Artifact = "src/test/WETH9.json";
 
 interface IWETH9 is IERC20 {
@@ -123,14 +124,16 @@ contract TestHelpers is BaseOrderTest {
       maxAmount: 150 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 10 days,
-      maxPotentialDebt: 0 ether
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
     });
   ILienToken.Details public standardLienDetails =
     ILienToken.Details({
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 10 days,
-      maxPotentialDebt: 0 ether
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
     });
 
   ILienToken.Details public refinanceLienDetails =
@@ -138,14 +141,16 @@ contract TestHelpers is BaseOrderTest {
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 25 days,
-      maxPotentialDebt: 53 ether
+      maxPotentialDebt: 53 ether,
+      liquidationInitialAsk: 500 ether
     });
   ILienToken.Details public refinanceLienDetails2 =
     ILienToken.Details({
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 25 days,
-      maxPotentialDebt: 52 ether
+      maxPotentialDebt: 52 ether,
+      liquidationInitialAsk: 500 ether
     });
 
   ILienToken.Details public refinanceLienDetails3 =
@@ -153,7 +158,8 @@ contract TestHelpers is BaseOrderTest {
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 25 days,
-      maxPotentialDebt: 51 ether
+      maxPotentialDebt: 51 ether,
+      liquidationInitialAsk: 500 ether
     });
 
   ILienToken.Details public refinanceLienDetails4 =
@@ -161,7 +167,8 @@ contract TestHelpers is BaseOrderTest {
       maxAmount: 50 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 25 days,
-      maxPotentialDebt: 55 ether
+      maxPotentialDebt: 55 ether,
+      liquidationInitialAsk: 500 ether
     });
 
   enum UserRoles {
@@ -224,6 +231,9 @@ contract TestHelpers is BaseOrderTest {
     //assumes mainnet forking
     SEAPORT = ConsiderationInterface(address(consideration));
 
+    RoyaltyEngineMock royaltyEngine = new RoyaltyEngineMock();
+    IRoyaltyEngine ROYALTY_REGISTRY = IRoyaltyEngine(address(royaltyEngine));
+
     //    AUCTION_VALIDATOR = new ValidatorAsset(MRA, address(LIEN_TOKEN));
 
     ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
@@ -232,7 +242,8 @@ contract TestHelpers is BaseOrderTest {
       TRANSFER_PROXY,
       ILienToken(address(LIEN_TOKEN)),
       SEAPORT,
-      address(CLEARING_HOUSE_IMPL)
+      address(CLEARING_HOUSE_IMPL),
+      ROYALTY_REGISTRY
     );
     vm.label(address(COLLATERAL_TOKEN), "COLLATERAL_TOKEN");
 

@@ -346,8 +346,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
     }
-
-    uint256 strategyLength = 5;
     uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
     if (s.strategyValidators[nlrType] == address(0)) {
       revert InvalidStrategy(nlrType);
@@ -529,7 +527,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         settlementToken: address(s.WETH),
         collateralId: stack[position].lien.collateralId,
         maxDuration: uint256(s.auctionWindow + s.auctionWindowBuffer),
-        reserve: reserve
+        reserve: reserve,
+        startingPrice: stack[0].lien.details.liquidationInitialAsk,
+        endingPrice: 1000 wei
       })
     );
   }

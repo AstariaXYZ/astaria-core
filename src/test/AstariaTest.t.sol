@@ -651,6 +651,7 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
+    //    vm.expectRevert("Evmerror: revert");
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
       .liquidate(stack, uint8(0));
     _bid(Bidder(bidder, bidderPK), listedOrder, 10 ether);

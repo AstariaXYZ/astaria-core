@@ -54,6 +54,7 @@ import {
 
 import {Consideration} from "seaport/lib/Consideration.sol";
 import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
+import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 
 contract CollateralToken is
   Auth,
@@ -73,7 +74,8 @@ contract CollateralToken is
     ITransferProxy TRANSFER_PROXY_,
     ILienToken LIEN_TOKEN_,
     ConsiderationInterface SEAPORT_,
-    address CLEARING_HOUSE_IMPLEMENTATION_
+    address CLEARING_HOUSE_IMPLEMENTATION_,
+    IRoyaltyEngine ROYALTY_REGISTRY_
   )
     Auth(msg.sender, Authority(AUTHORITY_))
     ERC721("Astaria Collateral Token", "ACT")
@@ -81,8 +83,9 @@ contract CollateralToken is
     CollateralStorage storage s = _loadCollateralSlot();
     s.TRANSFER_PROXY = TRANSFER_PROXY_;
     s.LIEN_TOKEN = LIEN_TOKEN_;
-    s.CLEARING_HOUSE_IMPLEMENTATION = CLEARING_HOUSE_IMPLEMENTATION_;
     s.SEAPORT = SEAPORT_;
+    s.CLEARING_HOUSE_IMPLEMENTATION = CLEARING_HOUSE_IMPLEMENTATION_;
+    s.ROYALTY_ENGINE = ROYALTY_REGISTRY_;
     (, , address conduitController) = s.SEAPORT.information();
     bytes32 CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
     s.CONDUIT_KEY = CONDUIT_KEY;
@@ -416,7 +419,7 @@ contract CollateralToken is
     );
     CollateralStorage storage s = _loadCollateralSlot();
     uint256 reserve = s.collateralIdAuctionReservePrice[collateralId];
-    s.LIEN_TOKEN.payDebtViaClearingHouseAsHolder(collateralId, reserve);
+    s.LIEN_TOKEN.payLiquidatedDebtAsHolder(collateralId, reserve);
     OrderComponents[] memory orderComponents = new OrderComponents[](1);
     orderComponents[0] = OrderComponents(
       params.offerer,
@@ -435,6 +438,9 @@ contract CollateralToken is
     _settleAuction(s, collateralId);
     _releaseToAddress(s, collateralId, ownerOf(collateralId));
   }
+
+  event log_address_array(address payable[] recipients);
+  event log_named_uint(string name, uint256 value);
 
   function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
     external
@@ -494,14 +500,38 @@ contract CollateralToken is
       1
     );
 
-    //TODO: compute listing fee for opensea
-    //compute royalty fee for the asset if it exists
-    //seaport royalty registry
+    uint8 considerationLength = 2;
+    address payable[] memory recipients;
+    uint256[] memory royaltyStartingAmounts;
+    uint256[] memory royaltyEndingAmounts;
 
-    uint256 listingFee = startingPrice; // TODO make good and compute fee for seaport
-
-    ConsiderationItem[] memory considerationItems = new ConsiderationItem[](3);
-
+    try
+      s.ROYALTY_ENGINE.getRoyaltyView(
+        underlying.tokenContract,
+        underlying.tokenId,
+        startingPrice
+      )
+    returns (
+      address payable[] memory foundRecipients,
+      uint256[] memory foundAmounts
+    ) {
+      emit log_address_array(foundRecipients);
+      if (foundRecipients.length > 0) {
+        considerationLength++;
+        recipients = foundRecipients;
+        royaltyStartingAmounts = foundAmounts;
+        (, royaltyEndingAmounts) = s.ROYALTY_ENGINE.getRoyaltyView(
+          underlying.tokenContract,
+          underlying.tokenId,
+          endingPrice
+        );
+      }
+    } catch {
+      //do nothing
+    }
+    ConsiderationItem[] memory considerationItems = new ConsiderationItem[](
+      considerationLength
+    );
     considerationItems[0] = ConsiderationItem(
       ItemType.NATIVE,
       address(0),
@@ -516,25 +546,17 @@ contract CollateralToken is
       uint256(0),
       startingPrice.mulDivDown(uint256(250), 10000),
       endingPrice.mulDivDown(uint256(250), 10000),
-      payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //opensea fees
+      payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //TODO: set this to an updaable value should opensea change their payout address
     );
 
-    if (true) {
-      uint256 royaltyRateNumerator = uint256(800);
-      uint256 royaltyRateDenomerator = uint256(10000);
+    if (considerationLength == uint8(3)) {
       considerationItems[2] = ConsiderationItem(
         ItemType.NATIVE,
         address(0),
         uint256(0),
-        startingPrice.mulDivDown(
-          uint256(royaltyRateNumerator),
-          royaltyRateDenomerator
-        ),
-        endingPrice.mulDivDown(
-          uint256(royaltyRateNumerator),
-          royaltyRateDenomerator
-        ),
-        payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //opensea fees
+        royaltyStartingAmounts[0],
+        royaltyEndingAmounts[0],
+        payable(recipients[0]) // royalties
       );
     }
     //put in royalty considerationItems
