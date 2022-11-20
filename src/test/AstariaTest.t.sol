@@ -587,44 +587,6 @@ contract AstariaTest is TestHelpers {
     });
   }
 
-  function testCancelAuction() public {
-    address alice = address(1);
-    address bob = address(2);
-    TestNFT nft = new TestNFT(6);
-    uint256 tokenId = uint256(5);
-    address tokenContract = address(nft);
-    address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 14 days
-    });
-
-    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: blueChipDetails,
-      amount: 100 ether,
-      isFirstLien: true
-    });
-
-    uint256 collateralId = tokenContract.computeId(tokenId);
-    vm.warp(block.timestamp + 11 days);
-
-    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(stack, uint8(0));
-    _cancelAuction(listedOrder, address(this));
-
-    assertEq(
-      address(this),
-      ERC721(tokenContract).ownerOf(tokenId),
-      "the owner of the NFT should be the previous owner of the collateral token"
-    );
-  }
-
   function testAuctionEnd() public {
     address alice = address(1);
     address bob = address(2);
@@ -694,22 +656,6 @@ contract AstariaTest is TestHelpers {
       address(this),
       "the owner is not the bidder"
     );
-  }
-
-  function _cancelAuction(OrderParameters memory params, address sender)
-    internal
-  {
-    uint256 reserve = COLLATERAL_TOKEN.getCollateralAuctionReservePrice(
-      params.offer[0].token.computeId(params.offer[0].identifierOrCriteria)
-    );
-    vm.label(sender, "sender");
-    vm.label(address(this), "harness");
-    vm.deal(sender, reserve * 2);
-    vm.startPrank(sender, sender);
-    WETH9.deposit{value: reserve * 2}();
-    WETH9.approve(address(ASTARIA_ROUTER.TRANSFER_PROXY()), reserve * 2);
-    COLLATERAL_TOKEN.cancelAuction(params);
-    vm.stopPrank();
   }
 
   uint8 FUZZ_SIZE = uint8(10);

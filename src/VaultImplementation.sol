@@ -42,8 +42,8 @@ abstract contract VaultImplementation is
 
   function symbol() public view virtual override returns (string memory);
 
-  bytes32 constant VI_SLOT =
-    keccak256("xyz.astaria.VaultImplementation.storage.location");
+  uint256 constant VI_SLOT =
+    0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
 
   function getStrategistNonce() external view returns (uint32) {
     return _loadVISlot().strategistNonce;
@@ -62,14 +62,14 @@ abstract contract VaultImplementation is
    * @notice modify the deposit cap for the vault
    * @param newCap The deposit cap.
    */
-  function modifyDepositCap(uint256 newCap) public onlyOwner {
+  function modifyDepositCap(uint256 newCap) public {
+    require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().depositCap = newCap.safeCastTo88();
   }
 
   function _loadVISlot() internal pure returns (VIData storage vi) {
-    bytes32 slot = VI_SLOT;
     assembly {
-      vi.slot := slot
+      vi.slot := VI_SLOT
     }
   }
 
@@ -78,25 +78,24 @@ abstract contract VaultImplementation is
    * @param depositor the depositor to modify
    * @param enabled the status of the depositor
    */
-  function modifyAllowList(address depositor, bool enabled)
-    external
-    virtual
-    onlyOwner
-  {
+  function modifyAllowList(address depositor, bool enabled) external virtual {
+    require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowList[depositor] = enabled;
   }
 
   /**
    * @notice disable the allowlist for the vault
    */
-  function disableAllowList() external virtual onlyOwner {
+  function disableAllowList() external virtual {
+    require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowListEnabled = false;
   }
 
   /**
    * @notice enable the allowl ist for the vault
    */
-  function enableAllowList() external virtual onlyOwner {
+  function enableAllowList() external virtual {
+    require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowListEnabled = true;
   }
 
@@ -127,7 +126,8 @@ abstract contract VaultImplementation is
     return _loadVISlot().isShutdown;
   }
 
-  function shutdown() external onlyOwner {
+  function shutdown() external {
+    require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().isShutdown = true;
     emit VaultShutdown();
   }
@@ -191,12 +191,8 @@ abstract contract VaultImplementation is
     }
   }
 
-  modifier onlyOwner() {
+  function setDelegate(address delegate_) external {
     require(msg.sender == owner()); //owner is "strategist"
-    _;
-  }
-
-  function setDelegate(address delegate_) external onlyOwner {
     VIData storage s = _loadVISlot();
     s.allowList[s.delegate] = false;
     s.allowList[delegate_] = true;

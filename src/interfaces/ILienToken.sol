@@ -244,9 +244,6 @@ interface ILienToken is IERC721 {
     view
     returns (uint256);
 
-  function payLiquidatedDebtAsHolder(uint256 collateralId, uint256 payment)
-    external;
-
   /**
    * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.
    * @param lienId The ID of the Lien.

@@ -51,8 +51,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
-  bytes32 constant ROUTER_SLOT =
-    keccak256("xyz.astaria.AstariaRouter.storage.location");
+  uint256 constant ROUTER_SLOT =
+    0xb5d37468eefb1c75507259f9212a7d55dca0c7d08d9ef7be1cda5c5103eaa88e;
 
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
@@ -128,9 +128,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   }
 
   function _loadRouterSlot() internal pure returns (RouterStorage storage rs) {
-    bytes32 slot = ROUTER_SLOT;
     assembly {
-      rs.slot := slot
+      rs.slot := ROUTER_SLOT
     }
   }
 
@@ -396,19 +395,21 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   {
     RouterStorage storage s = _loadRouterSlot();
 
-    uint256 totalBorrowed = 0;
+    uint256 totalBorrowed;
     lienIds = new uint256[](commitments.length);
     _transferAndDepositAssetIfAble(
       s,
       commitments[0].tokenContract,
       commitments[0].tokenId
     );
-    for (uint256 i = 0; i < commitments.length; ++i) {
-      if (i != 0) {
-        commitments[i].lienRequest.stack = stack;
+    unchecked {
+      for (uint256 i; i < commitments.length; ++i) {
+        if (i != 0) {
+          commitments[i].lienRequest.stack = stack;
+        }
+        (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
+        totalBorrowed += commitments[i].lienRequest.amount;
       }
-      (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
-      totalBorrowed += commitments[i].lienRequest.amount;
     }
     s.WETH.safeApprove(address(s.TRANSFER_PROXY), totalBorrowed);
 
@@ -505,11 +506,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       auctionWindowMax,
       stack,
       msg.sender
-    );
-
-    reserve += reserve.mulDivDown(
-      s.liquidationFeeNumerator,
-      s.liquidationFeeDenominator
     );
 
     uint256[] memory fees = new uint256[](2);
@@ -706,7 +702,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   ) internal {
     ERC721 token = ERC721(tokenContract);
     if (token.ownerOf(tokenId) == address(msg.sender)) {
-      ERC721(tokenContract).safeTransferFrom(
+      token.safeTransferFrom(
         address(msg.sender),
         address(s.COLLATERAL_TOKEN),
         tokenId,

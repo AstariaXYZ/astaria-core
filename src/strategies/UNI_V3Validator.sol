@@ -43,15 +43,19 @@ contract UNI_V3Validator is IUNI_V3Validator {
   IV3PositionManager V3_NFT_POSITION_MGR =
     IV3PositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
-  function assembleLeaf(
-    IUNI_V3Validator.Details memory details
-  ) public pure returns (bytes memory) {
+  function assembleLeaf(IUNI_V3Validator.Details memory details)
+    public
+    pure
+    returns (bytes memory)
+  {
     return abi.encode(details);
   }
 
-  function getLeafDetails(
-    bytes memory nlrDetails
-  ) public pure returns (IUNI_V3Validator.Details memory) {
+  function getLeafDetails(bytes memory nlrDetails)
+    public
+    pure
+    returns (IUNI_V3Validator.Details memory)
+  {
     return abi.decode(nlrDetails, (IUNI_V3Validator.Details));
   }
 
@@ -115,7 +119,7 @@ contract UNI_V3Validator is IUNI_V3Validator {
 
     require(details.minLiquidity <= liquidity, "insufficient liquidity");
 
-    leaf = keccak256(assembleLeaf(details));
+    leaf = keccak256(params.nlrDetails);
     ld = details.lien;
   }
 }

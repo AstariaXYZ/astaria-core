@@ -446,21 +446,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     s.COLLATERAL_TOKEN.settleAuction(collateralId);
   }
 
-  event log_named_uint(string, uint256);
-
-  function payLiquidatedDebtAsHolder(uint256 collateralId, uint256 payment)
-    external
-  {
-    LienStorage storage s = _loadLienStorageSlot();
-    require(msg.sender == address(s.COLLATERAL_TOKEN));
-    _payDebt(
-      s,
-      collateralId,
-      payment,
-      s.COLLATERAL_TOKEN.ownerOf(collateralId)
-    );
-  }
-
   function _payDebt(
     LienStorage storage s,
     uint256 collateralId,

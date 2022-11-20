@@ -66,8 +66,8 @@ contract CollateralToken is
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
-  bytes32 constant COLLATERAL_TOKEN_SLOT =
-    keccak256("xyz.astaria.collateral.token.storage.location");
+  uint256 constant COLLATERAL_TOKEN_SLOT =
+    0xd6569137fd08fe949c286f37fb9bd830d1299d041edc1069ea252b26b4db9551;
 
   constructor(
     Authority AUTHORITY_,
@@ -129,9 +129,8 @@ contract CollateralToken is
     pure
     returns (CollateralStorage storage s)
   {
-    bytes32 position = COLLATERAL_TOKEN_SLOT;
     assembly {
-      s.slot := position
+      s.slot := COLLATERAL_TOKEN_SLOT
     }
   }
 
@@ -397,40 +396,6 @@ contract CollateralToken is
     return s.collateralIdAuctionReservePrice[collateralId];
   }
 
-  function cancelAuction(OrderParameters memory params)
-    external
-    onlyOwner(
-      params.offer[0].token.computeId(params.offer[0].identifierOrCriteria)
-    )
-  {
-    uint256 collateralId = params.offer[0].token.computeId(
-      params.offer[0].identifierOrCriteria
-    );
-    CollateralStorage storage s = _loadCollateralSlot();
-    uint256 reserve = s.collateralIdAuctionReservePrice[collateralId];
-    s.LIEN_TOKEN.payLiquidatedDebtAsHolder(collateralId, reserve);
-    OrderComponents[] memory orderComponents = new OrderComponents[](1);
-    orderComponents[0] = OrderComponents(
-      params.offerer,
-      params.zone,
-      params.offer,
-      params.consideration,
-      params.orderType,
-      params.startTime,
-      params.endTime,
-      params.zoneHash,
-      params.salt,
-      params.conduitKey,
-      s.SEAPORT.getCounter(address(this))
-    );
-    s.SEAPORT.cancel(orderComponents);
-    _settleAuction(s, collateralId);
-    _releaseToAddress(s, collateralId, ownerOf(collateralId));
-  }
-
-  event log_address_array(address payable[] recipients);
-  event log_named_uint(string name, uint256 value);
-
   function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
     external
     onlyOwner(params.stack[0].lien.collateralId)
@@ -504,7 +469,6 @@ contract CollateralToken is
       address payable[] memory foundRecipients,
       uint256[] memory foundAmounts
     ) {
-      emit log_address_array(foundRecipients);
       if (foundRecipients.length > 0) {
         considerationLength++;
         recipients = foundRecipients;
