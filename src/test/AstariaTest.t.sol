@@ -751,45 +751,4 @@ contract AstariaTest is TestHelpers {
     }
     _;
   }
-   function testFinalAuctionEnd() public {
-    TestNFT nft = new TestNFT(3);
-    address tokenContract = address(nft);
-    uint256 tokenId = uint256(1);
-
-    address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 14 days
-    });
-
-    _lendToVault(
-      Lender({addr: address(1), amountToLend: 50 ether}),
-      publicVault
-    );
-
-    ILienToken.Details memory lienDetails = standardLienDetails;
-    lienDetails.duration = 14 days;
-
-    uint256 collateralId = tokenContract.computeId(tokenId);
-
-   (, ILienToken.Stack[] memory stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: lienDetails,
-      amount: 10 ether,
-      isFirstLien: true
-    });
-
-    vm.warp(block.timestamp + 14 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-
-    address withdrawProxy = address(PublicVault(publicVault).getWithdrawProxy(0));
-    assertTrue(withdrawProxy != address(0), "WithdrawProxy not deployed inside 3 days window from epoch end");
-    uint256 actual = WithdrawProxy(withdrawProxy).getFinalAuctionEnd();
-    assertEq(actual, block.timestamp + 3 days, "Auction time is not being set correctly");
-  }
-
 }
