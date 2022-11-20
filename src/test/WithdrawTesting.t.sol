@@ -862,12 +862,6 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).processEpoch();
 
     vm.warp(block.timestamp + 4 days);
-    //    AUCTION_HOUSE.endAuction(collateralId);
-    //    assertEq(
-    //      address(this),
-    //      COLLATERAL_TOKEN.ownerOf(collateralId),
-    //      "liquidator did not receive NFT"
-    //    );
 
     withdrawProxy.claim();
 
