@@ -463,6 +463,140 @@ contract AstariaTest is TestHelpers {
     );
   }
 
+  function testBuyoutLienDifferentCollateral() public {
+    TestNFT nft = new TestNFT(2);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack2) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: uint256(1),
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    vm.warp(block.timestamp + 3 days);
+
+    uint256 accruedInterest = uint256(LIEN_TOKEN.getOwed(stack[0]));
+    uint256 tenthOfRemaining = (uint256(
+      LIEN_TOKEN.getOwed(stack[0], block.timestamp + 7 days)
+    ) - accruedInterest).mulDivDown(1, 10);
+
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: uint256(1),
+      lienDetails: refinanceLienDetails,
+      amount: 10 ether,
+      stack: stack
+    });
+
+    _lendToVault(
+      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      privateVault
+    );
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.COLLATERAL_MISMATCH
+      )
+    );
+    VaultImplementation(privateVault).buyoutLien(
+      tokenContract.computeId(tokenId),
+      uint8(0),
+      refinanceTerms,
+      stack
+    );
+  }
+
+  function testTwoLoansDiffCollateralSameStack() public {
+    TestNFT nft = new TestNFT(2);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: uint256(1),
+      lienDetails: rogueBuyoutLien,
+      amount: 10 ether,
+      isFirstLien: false,
+      stack: stack,
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.COLLATERAL_MISMATCH
+      )
+    });
+  }
+
   function testReleaseToAddress() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
@@ -507,6 +641,49 @@ contract AstariaTest is TestHelpers {
     COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
 
     assertEq(ERC721(tokenContract).ownerOf(tokenId), address(this));
+  }
+
+  function testMakeTwoPayments() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    ILienToken.Stack[] memory newStack = _repay(
+      stack,
+      0,
+      5 ether,
+      address(this)
+    );
+
+    skip(1 days);
+    _repay(newStack, 0, 6 ether, address(this));
   }
 
   function testCollateralTokenFileSetup() public {
