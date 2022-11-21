@@ -130,7 +130,7 @@ interface ICollateralToken is IERC721 {
 
   function SEAPORT() external view returns (ConsiderationInterface);
 
-  function getOpenSeeData()
+  function getOpenSeaData()
     external
     view
     returns (
