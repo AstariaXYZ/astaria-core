@@ -202,22 +202,36 @@ contract CollateralToken is
     } else if (what == FileType.FlashEnabled) {
       (address target, bool enabled) = abi.decode(data, (address, bool));
       s.flashEnabled[target] = enabled;
-    } else if (what == FileType.Seaport) {
-      (address target, address feePayee, uint16[] memory feeData) = abi.decode(
+    } else if (what == FileType.OpenSeaFees) {
+      (address target, uint16 numerator, uint16 denominator) = abi.decode(
         data,
-        (address, address, uint16[])
+        (address, uint16, uint16)
       );
-      //setup seaport conduit
-      s.OS_FEE_PAYEE = feePayee;
-      s.osFeeNumerator = feeData[0];
-      s.osFeeDenominator = feeData[1];
-      s.SEAPORT = ConsiderationInterface(target);
+      s.osFeeNumerator = numerator;
+      s.osFeeDenominator = denominator;
+      s.OS_FEE_PAYEE = target;
+    } else if (what == FileType.Seaport) {
+      s.SEAPORT = ConsiderationInterface(abi.decode(data, (address)));
       (, , address conduitController) = s.SEAPORT.information();
-      s.CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
+      if (s.CONDUIT_KEY == bytes32(0)) {
+        s.CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
+      }
       s.CONDUIT_CONTROLLER = ConduitControllerInterface(conduitController);
-      s.CONDUIT = s.CONDUIT_CONTROLLER.createConduit(
-        s.CONDUIT_KEY,
-        address(this)
+      (address conduit, bool exists) = s.CONDUIT_CONTROLLER.getConduit(
+        s.CONDUIT_KEY
+      );
+      if (!exists) {
+        s.CONDUIT = s.CONDUIT_CONTROLLER.createConduit(
+          s.CONDUIT_KEY,
+          address(this)
+        );
+      } else {
+        s.CONDUIT = conduit;
+      }
+      s.CONDUIT_CONTROLLER.updateChannel(
+        address(s.CONDUIT),
+        address(s.SEAPORT),
+        true
       );
     } else {
       revert UnsupportedFile();
