@@ -3,12 +3,22 @@ pragma solidity ^0.8.17;
 import {IFlashAction} from "core/interfaces/IFlashAction.sol";
 import {IV3PositionManager} from "core/interfaces/IV3PositionManager.sol";
 import {ERC721} from "gpl/ERC721.sol";
+import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 
-contract ClaimFees is IFlashAction {
+contract ClaimFees is IFlashAction, IERC721Receiver {
   address public immutable positionManager;
 
   constructor(address positionManager_) {
     positionManager = positionManager_;
+  }
+
+  function onERC721Received(
+    address,
+    address,
+    uint256,
+    bytes calldata
+  ) external override returns (bytes4) {
+    return this.onERC721Received.selector;
   }
 
   function onFlashAction(
@@ -24,11 +34,7 @@ contract ClaimFees is IFlashAction {
         type(uint128).max
       )
     );
-    ERC721(asset.token).safeTransferFrom(
-      address(this),
-      msg.sender,
-      asset.tokenId
-    );
+    ERC721(asset.token).transferFrom(address(this), msg.sender, asset.tokenId);
     return keccak256("FlashAction.onFlashAction");
   }
 }

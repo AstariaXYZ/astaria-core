@@ -84,6 +84,9 @@ contract CollateralToken is
     s.TRANSFER_PROXY = TRANSFER_PROXY_;
     s.LIEN_TOKEN = LIEN_TOKEN_;
     s.SEAPORT = SEAPORT_;
+    s.OS_FEE_PAYEE = address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90);
+    s.osFeeNumerator = uint16(250);
+    s.osFeeDenominator = uint16(10000);
     s.CLEARING_HOUSE_IMPLEMENTATION = CLEARING_HOUSE_IMPLEMENTATION_;
     s.ROYALTY_ENGINE = ROYALTY_REGISTRY_;
     (, , address conduitController) = s.SEAPORT.information();
@@ -205,8 +208,14 @@ contract CollateralToken is
       address target = abi.decode(data, (address));
       s.CLEARING_HOUSE_IMPLEMENTATION = target;
     } else if (what == FileType.Seaport) {
-      address target = abi.decode(data, (address));
+      (address target, address feePayee, uint16[] memory feeData) = abi.decode(
+        data,
+        (address, address, uint16[])
+      );
       //setup seaport conduit
+      s.OS_FEE_PAYEE = feePayee;
+      s.osFeeNumerator = feeData[0];
+      s.osFeeDenominator = feeData[1];
       s.SEAPORT = ConsiderationInterface(target);
       (, , address conduitController) = s.SEAPORT.information();
       s.CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
@@ -448,7 +457,6 @@ contract CollateralToken is
       1
     );
 
-    uint8 considerationLength = 2;
     address payable[] memory recipients;
     uint256[] memory royaltyStartingAmounts;
     uint256[] memory royaltyEndingAmounts;
@@ -464,7 +472,6 @@ contract CollateralToken is
       uint256[] memory foundAmounts
     ) {
       if (foundRecipients.length > 0) {
-        considerationLength++;
         recipients = foundRecipients;
         royaltyStartingAmounts = foundAmounts;
         (, royaltyEndingAmounts) = s.ROYALTY_ENGINE.getRoyaltyView(
@@ -477,7 +484,7 @@ contract CollateralToken is
       //do nothing
     }
     ConsiderationItem[] memory considerationItems = new ConsiderationItem[](
-      considerationLength
+      recipients.length > 0 ? 3 : 2
     );
     considerationItems[0] = ConsiderationItem(
       ItemType.NATIVE,
@@ -491,12 +498,12 @@ contract CollateralToken is
       ItemType.NATIVE,
       address(0),
       uint256(0),
-      startingPrice.mulDivDown(uint256(250), 10000),
-      endingPrice.mulDivDown(uint256(250), 10000),
-      payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //TODO: set this to an updaable value should opensea change their payout address
+      startingPrice.mulDivDown(uint256(s.osFeeNumerator), s.osFeeDenominator),
+      endingPrice.mulDivDown(uint256(s.osFeeNumerator), s.osFeeDenominator),
+      payable(s.OS_FEE_PAYEE)
     );
 
-    if (considerationLength == uint8(3)) {
+    if (recipients.length > 0) {
       considerationItems[2] = ConsiderationItem(
         ItemType.NATIVE,
         address(0),

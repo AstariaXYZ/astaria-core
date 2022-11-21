@@ -41,6 +41,9 @@ interface ICollateralToken is IERC721 {
     ConduitControllerInterface CONDUIT_CONTROLLER;
     address CLEARING_HOUSE_IMPLEMENTATION;
     address CONDUIT;
+    address OS_FEE_PAYEE;
+    uint16 osFeeNumerator;
+    uint16 osFeeDenominator;
     bytes32 CONDUIT_KEY;
     mapping(uint256 => bool) collateralIdToAuction;
     mapping(uint256 => uint256) collateralIdAuctionReservePrice;
@@ -156,7 +159,8 @@ interface ICollateralToken is IERC721 {
    * @notice Lists a liquidated CollateralToken as a Seaport auction.
    * @param params The liquidation information (Lien data, listing price, and maximum auction duration).
    */
-  function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params) external;
+  function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
+    external;
 
   event Deposit721(
     address indexed tokenContract,
