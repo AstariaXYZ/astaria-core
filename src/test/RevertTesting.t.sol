@@ -338,7 +338,7 @@ contract RevertTesting is TestHelpers {
       isFirstLien: true
     });
   }
-  function testFailLiquidationInitialAskExceedsAmountBorrowed() public {
+  function testCannotLiquidationInitialAskExceedsAmountBorrowed() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -361,6 +361,7 @@ contract RevertTesting is TestHelpers {
     ILienToken.Details memory standardLien = standardLienDetails;
     standardLien.liquidationInitialAsk = 5 ether;
     standardLien.maxAmount = 10  ether;
+    
     // borrow amount over liquidation initial ask
     (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
@@ -370,10 +371,15 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: standardLien,
       amount: 7.5 ether,
-      isFirstLien: true
+      isFirstLien: true,
+      stack: new ILienToken.Stack[](0),
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+      )
     });
   }
-  function testFailLiquidationInitialAsk0() public {
+  function testCannotLiquidationInitialAsk0() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -405,7 +411,12 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: zeroInitAsk,
       amount: 10 ether,
-      isFirstLien: true
+      isFirstLien: true,
+      stack: new ILienToken.Stack[](0),
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+      )
     });
   }
 
