@@ -153,7 +153,7 @@ contract CollateralToken is Auth, ERC721, IERC721Receiver, ICollateralToken {
     }
     // transfer the NFT to the destination optimistically
 
-    nft.transferFrom(address(this), address(receiver), tokenId);
+    nft.safeTransferFrom(address(this), address(receiver), tokenId);
     // invoke the call passed by the msg.sender
 
     if (
