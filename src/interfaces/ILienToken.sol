@@ -309,7 +309,8 @@ interface ILienToken is IERC721 {
     LIEN_NO_DEBT,
     EXPIRED_LIEN,
     DEBT_LIMIT,
-    MAX_LIENS
+    MAX_LIENS, 
+    INVALID_LIQUIDATION_INITIAL_ASK
   }
 
   error InvalidState(InvalidStates);
