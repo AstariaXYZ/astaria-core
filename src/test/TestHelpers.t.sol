@@ -1167,9 +1167,10 @@ contract TestHelpers is ConsiderationTester {
       emit log_named_uint("currentAmount fee", currentAmountFee);
       emit log_fills(fulfillments);
       emit log_named_uint("length", fulfillments.length);
-      consideration.matchOrders{
-        value: (currentAmount + currentAmountFee) + 100 ether
-      }(orders, fulfillments);
+      consideration.matchOrders{value: bidAmount + 5 ether}(
+        orders,
+        fulfillments
+      );
     } else {
       consideration.fulfillOrder{value: bidAmount * 2}(
         orders[0],
