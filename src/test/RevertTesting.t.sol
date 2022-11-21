@@ -374,4 +374,54 @@ contract RevertTesting is TestHelpers {
 
     _repay(stack[0], 0, 10 ether, address(this));
   }
+
+  function testFailCommitToLienPotentialDebtExceedsLiquidationInitialAsk() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+    strategist: strategistOne,
+    delegate: strategistTwo,
+    epochLength: 30 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 500 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory details1 = standardLienDetails;
+    details1.duration = 14 days;
+    details1.liquidationInitialAsk = 100 ether;
+
+    _commitToLien({
+    vault: publicVault,
+    strategist: strategistOne,
+    strategistPK: strategistOnePK,
+    tokenContract: tokenContract,
+    tokenId: tokenId,
+    lienDetails: details1,
+    amount: 50 ether,
+    isFirstLien: true
+    });
+
+    ILienToken.Details memory details2 = standardLienDetails;
+    details2.duration = 25 days;
+    details2.liquidationInitialAsk = 100 ether;
+
+    _commitToLien({
+    vault: publicVault,
+    strategist: strategistOne,
+    strategistPK: strategistOnePK,
+    tokenContract: tokenContract,
+    tokenId: tokenId,
+    lienDetails: details2,
+    amount: 50 ether,
+    isFirstLien: false
+    });
+  }
 }
