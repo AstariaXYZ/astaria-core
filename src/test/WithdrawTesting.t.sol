@@ -319,7 +319,7 @@ contract WithdrawTest is TestHelpers {
       "Second lien not pointing to second WithdrawProxy"
     );
 
-    _bid(Bidder(bidderTwo, bidderTwoPK), listedOrder2, 1000 ether);
+    _bid(Bidder(bidderTwo, bidderTwoPK), listedOrder2, 200 ether);
 
     PublicVault(publicVault).transferWithdrawReserve();
 

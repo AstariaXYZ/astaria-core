@@ -76,6 +76,7 @@ import {
   OfferItem,
   ConsiderationItem,
   OrderType,
+  Fulfillment,
   FulfillmentComponent
 } from "seaport/lib/ConsiderationStructs.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
@@ -1147,17 +1148,39 @@ contract TestHelpers is ConsiderationTester {
       emit log_named_uint("start", params.consideration[0].startAmount);
       emit log_named_uint("amount", bidAmount);
       emit log_named_uint("warping", warp);
-      skip(warp); //TODO: figure this slope thing out
-      consideration.matchOrders{value: (bidAmount * 2)}(orders, fulfillments);
+      skip(warp + 1000); //TODO: figure this slope thing out
+      uint256 currentAmount = _locateCurrentAmount(
+        orders[0].parameters.consideration[0].startAmount,
+        orders[0].parameters.consideration[0].endAmount,
+        orders[0].parameters.startTime,
+        orders[0].parameters.endTime,
+        false
+      );
+      emit log_named_uint("currentAmount asset", currentAmount);
+      uint256 currentAmountFee = _locateCurrentAmount(
+        orders[0].parameters.consideration[1].startAmount,
+        orders[0].parameters.consideration[1].endAmount,
+        orders[0].parameters.startTime,
+        orders[0].parameters.endTime,
+        false
+      );
+      emit log_named_uint("currentAmount fee", currentAmountFee);
+      emit log_fills(fulfillments);
+      emit log_named_uint("length", fulfillments.length);
+      consideration.matchOrders{
+        value: (currentAmount + currentAmountFee) + 100 ether
+      }(orders, fulfillments);
     } else {
       consideration.fulfillOrder{value: bidAmount * 2}(
         orders[0],
         bidderConduits[incomingBidder.bidder].conduitKey
       );
     }
-
+    delete fulfillments;
     vm.stopPrank();
   }
+
+  event log_fills(Fulfillment[] fulfillments);
 
   function _computeWarp(
     uint256 currentPrice,
