@@ -700,4 +700,90 @@ contract AstariaTest is TestHelpers {
     }
     _;
   }
+
+  function testFinalAuctionEnd() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory lienDetails = standardLienDetails;
+    lienDetails.duration = 14 days;
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    vm.warp(block.timestamp + 14 days);
+    ASTARIA_ROUTER.liquidate(stack, uint8(0));
+
+    address withdrawProxy = address(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+    assertTrue(
+      withdrawProxy != address(0),
+      "WithdrawProxy not deployed inside 3 days window from epoch end"
+    );
+    assertEq(
+      WithdrawProxy(withdrawProxy).getFinalAuctionEnd(),
+      block.timestamp + 3 days,
+      "Auction time is not being set correctly"
+    );
+  }
+
+  function testNewLienExceeds2XEpoch() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory lienDetails = standardLienDetails;
+    lienDetails.duration = 30 days;
+
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    assertEq(
+      stack[0].lien.details.duration,
+      4 weeks,
+      "Incorrect lien duration"
+    );
+  }
 }

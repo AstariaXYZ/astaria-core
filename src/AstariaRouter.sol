@@ -97,7 +97,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
     s.minEpochLength = uint32(7 days);
     s.maxEpochLength = uint32(45 days);
-    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88(); //63419583966; // 200% apy / second
+    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88();
+    //63419583966; // 200% apy / second
     s.strategistFeeNumerator = uint32(200);
     s.strategistFeeDenominator = uint32(1000);
     s.buyoutFeeNumerator = uint32(100);
@@ -266,7 +267,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   function fileGuardian(File[] calldata file) external {
     RouterStorage storage s = _loadRouterSlot();
-    require(address(msg.sender) == address(s.guardian)); //only the guardian can call this
+    require(address(msg.sender) == address(s.guardian));
+    //only the guardian can call this
     for (uint256 i = 0; i < file.length; i++) {
       FileType what = file[i].what;
       bytes memory data = file[i].data;
@@ -323,17 +325,18 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return x;
   }
 
-  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
-    external
-    view
-    returns (ILienToken.Lien memory lien)
-  {
-    return _validateCommitment(_loadRouterSlot(), commitment);
+  function validateCommitment(
+    IAstariaRouter.Commitment calldata commitment,
+    uint256 timeToSecondEpochEnd
+  ) public view returns (ILienToken.Lien memory lien) {
+    return
+      _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
   }
 
   function _validateCommitment(
     RouterStorage storage s,
-    IAstariaRouter.Commitment calldata commitment
+    IAstariaRouter.Commitment calldata commitment,
+    uint256 timeToSecondEpochEnd
   ) internal view returns (ILienToken.Lien memory lien) {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
@@ -371,6 +374,10 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       revert InvalidCommitmentState(CommitmentState.INVALID);
     }
 
+    if (timeToSecondEpochEnd > 0 && details.duration > timeToSecondEpochEnd) {
+      details.duration = timeToSecondEpochEnd;
+    }
+
     lien = ILienToken.Lien({
       details: details,
       strategyRoot: commitment.lienRequest.merkle.root,
@@ -382,7 +389,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
   function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
-    external
+    public
     whenNotPaused
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory stack)
   {
@@ -431,7 +438,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     bool allowListEnabled,
     address[] calldata allowList,
     uint256 depositCap
-  ) external whenNotPaused returns (address) {
+  ) public whenNotPaused returns (address) {
     return
       _newVault(
         epochLength,
@@ -462,7 +469,15 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       s.LIEN_TOKEN.createLien(
         ILienToken.LienActionEncumber({
           collateralId: params.tokenContract.computeId(params.tokenId),
-          lien: _validateCommitment(s, params),
+          lien: _validateCommitment({
+            s: s,
+            commitment: params,
+            timeToSecondEpochEnd: IPublicVault(msg.sender).supportsInterface(
+              type(IPublicVault).interfaceId
+            )
+              ? IPublicVault(msg.sender).timeToSecondEpochEnd()
+              : 0
+          }),
           amount: params.lienRequest.amount,
           stack: params.lienRequest.stack,
           receiver: receiver
@@ -481,7 +496,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   }
 
   function liquidate(ILienToken.Stack[] memory stack, uint8 position)
-    external
+    public
     returns (uint256 reserve, OrderParameters memory listedOrder)
   {
     if (!canLiquidate(stack[position])) {
@@ -556,7 +571,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       );
   }
 
-  function isValidVault(address vault) external view returns (bool) {
+  /**
+   * @notice Returns whether a given address is that of a Vault.
+   * @param vault The Vault address.
+   * @return A boolean representing whether the address exists as a Vault.
+   */
+  function isValidVault(address vault) public view returns (bool) {
     return _loadRouterSlot().vaults[vault] != address(0);
   }
 
@@ -564,17 +584,18 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     ILienToken.Lien calldata newLien,
     uint8 position,
     ILienToken.Stack[] calldata stack
-  ) external view returns (bool) {
+  ) public view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
-    uint256 minNewRate = uint256(stack[position].lien.details.rate) -
+    uint256 maxNewRate = uint256(stack[position].lien.details.rate) -
       s.minInterestBPS;
 
     return
-      !((newLien.details.rate < minNewRate) ||
-        (block.timestamp +
-          newLien.details.duration -
-          stack[position].point.end <
-          s.minDurationIncrease));
+      (newLien.details.rate < maxNewRate &&
+        newLien.details.duration + block.timestamp >=
+        stack[position].point.end) ||
+      (block.timestamp + newLien.details.duration - stack[position].point.end >=
+        s.minDurationIncrease &&
+        newLien.details.rate <= stack[position].lien.details.rate);
   }
 
   /**

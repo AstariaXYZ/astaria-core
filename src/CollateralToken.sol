@@ -287,7 +287,7 @@ contract CollateralToken is
     }
     // transfer the NFT to the destination optimistically
 
-    nft.transferFrom(address(this), address(receiver), tokenId);
+    nft.safeTransferFrom(address(this), address(receiver), tokenId);
     // invoke the call passed by the msg.sender
 
     if (

@@ -136,16 +136,6 @@ interface ILienToken is IERC721 {
 
   /**
    * @notice Removes all liens for a given CollateralToken.
-   * @param collateralId The ID for the underlying CollateralToken.
-   * @param remainingLiens The IDs for the unpaid liens
-   */
-  function removeLiens(
-    uint256 collateralId,
-    AuctionStack[] memory remainingLiens
-  ) external;
-
-  /**
-   * @notice Removes all liens for a given CollateralToken.
    * @param stack The Lien stack
    * @return the amount owed in uint192 at the current block.timestamp
    */
@@ -257,10 +247,10 @@ interface ILienToken is IERC721 {
    * @param stack The stack data for active liens against the CollateralToken.
    * @param end The timestamp to accrue potential debt until.
    */
-  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory stack, uint256 end)
-    external
-    view
-    returns (uint256);
+  function getMaxPotentialDebtForCollateral(
+    ILienToken.Stack[] memory stack,
+    uint256 end
+  ) external view returns (uint256);
 
   /**
    * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.
