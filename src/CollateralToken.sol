@@ -373,12 +373,6 @@ contract CollateralToken is
     return _loadCollateralSlot().securityHooks[target];
   }
 
-  struct ListUnderlyingForSaleParams {
-    ILienToken.Stack[] stack;
-    uint256 listPrice;
-    uint56 maxDuration;
-  }
-
   function getClearingHouse(uint256 collateralId)
     external
     view
@@ -417,7 +411,7 @@ contract CollateralToken is
       );
 
     if (maxPossibleDebtAtMaxDuration > params.listPrice) {
-      //      revert ListPriceTooLow();
+      revert ListPriceTooLow();
     }
 
     OrderParameters memory orderParameters = _generateValidOrderParameters(
@@ -564,10 +558,10 @@ contract CollateralToken is
     //get total Debt and ensure its being sold for more than that
 
     if (listingOrder.parameters.conduitKey != s.CONDUIT_KEY) {
-      //      revert InvalidConduitKey();
+      revert InvalidConduitKey();
     }
     if (listingOrder.parameters.zone != address(this)) {
-      //      revert InvalidZone();
+      revert InvalidZone();
     }
 
     IERC721(listingOrder.parameters.offer[0].token).approve(

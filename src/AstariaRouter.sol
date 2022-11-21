@@ -573,12 +573,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
           s.minDurationIncrease));
   }
 
-  //INTERNAL FUNCS
-
   /**
-   * @dev Deploys a new PublicVault.
-   * @param epochLength The length of each epoch for the new PublicVault.
-   * @return vaultAddr The address for the new PublicVault.
+   * @dev Deploys a new Vault.
+   * @param epochLength The length of each epoch for a new PublicVault. If 0, deploys a PrivateVault.
+   * @param delegate The address of the Vault delegate.
+   * @param allowListEnabled Whether or not the Vault has an LP whitelist.
+   * @return vaultAddr The address for the new Vault.
    */
   function _newVault(
     uint256 epochLength,
@@ -631,11 +631,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return vaultAddr;
   }
 
-  /**
-   * @dev validates msg sender is owner
-   * @param c The commitment Data
-   * @return the amount borrowed
-   */
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment memory c

@@ -31,6 +31,7 @@ interface ICollateralToken is IERC721 {
     address tokenContract;
     uint256 tokenId;
   }
+
   struct CollateralStorage {
     ITransferProxy TRANSFER_PROXY;
     ILienToken LIEN_TOKEN;
@@ -51,6 +52,13 @@ interface ICollateralToken is IERC721 {
     mapping(address => address) securityHooks;
     mapping(uint256 => address) clearingHouse;
   }
+
+  struct ListUnderlyingForSaleParams {
+    ILienToken.Stack[] stack;
+    uint256 listPrice;
+    uint56 maxDuration;
+  }
+
   enum FileType {
     NotSupported,
     AstariaRouter,
@@ -67,6 +75,18 @@ interface ICollateralToken is IERC721 {
   }
 
   event FileUpdated(FileType what, bytes data);
+
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param files Structs to file.
+   */
+  function fileBatch(File[] calldata files) external;
+
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param incoming The incoming File.
+   */
+  function file(File calldata incoming) external;
 
   /**
    * @notice Executes a FlashAction using locked collateral. A valid FlashAction performs a specified action with the collateral within a single transaction and must end with the collateral being returned to the Vault it was locked in.
@@ -132,6 +152,12 @@ interface ICollateralToken is IERC721 {
    */
   function liquidatorNFTClaim(OrderParameters memory params) external;
 
+  /**
+   * @notice Lists a liquidated CollateralToken as a Seaport auction.
+   * @param params The liquidation information (Lien data, listing price, and maximum auction duration).
+   */
+  function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params) external;
+
   event Deposit721(
     address indexed tokenContract,
     uint256 indexed tokenId,
@@ -149,6 +175,9 @@ interface ICollateralToken is IERC721 {
   error InvalidSender();
   error InvalidCollateralState(InvalidCollateralStates);
   error ProtocolPaused();
+  error ListPriceTooLow();
+  error InvalidConduitKey();
+  error InvalidZone();
 
   enum InvalidCollateralStates {
     NO_AUTHORITY,
