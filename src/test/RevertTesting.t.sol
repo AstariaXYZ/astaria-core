@@ -24,9 +24,7 @@ import {
 } from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
@@ -356,7 +354,6 @@ contract RevertTesting is TestHelpers {
       publicVault
     );
 
-    // uint256[][] memory liens = new uint256[][](1);
     ILienToken.Stack[][] memory stack = new ILienToken.Stack[][](1);
     (, stack[0]) = _commitToLien({
       vault: publicVault,
@@ -373,7 +370,7 @@ contract RevertTesting is TestHelpers {
 
     vm.warp(block.timestamp + 14 days);
 
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack[0]);
+    ASTARIA_ROUTER.liquidate(stack[0], uint8(0));
 
     _repay(stack[0], 0, 10 ether, address(this));
   }

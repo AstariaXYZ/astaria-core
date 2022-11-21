@@ -55,8 +55,8 @@ contract PublicVault is
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
 
-  bytes32 constant PUBLIC_VAULT_SLOT =
-    keccak256("xyz.astaria.PublicVault.storage.location");
+  uint256 constant PUBLIC_VAULT_SLOT =
+    0xc8b9e850684c861cb4124c86f9eebbd425d1f899eefe14aef183cd9cd8e16ef0;
 
   function asset()
     public
@@ -152,39 +152,27 @@ contract PublicVault is
   }
 
   function getWithdrawProxy(uint64 epoch) public view returns (WithdrawProxy) {
-    VaultData storage s = _loadStorageSlot();
-
-    return WithdrawProxy(s.epochData[epoch].withdrawProxy);
+    return WithdrawProxy(_loadStorageSlot().epochData[epoch].withdrawProxy);
   }
 
   function getCurrentEpoch() public view returns (uint64) {
-    VaultData storage s = _loadStorageSlot();
-
-    return s.currentEpoch;
+    return _loadStorageSlot().currentEpoch;
   }
 
   function getSlope() public view returns (uint256) {
-    VaultData storage s = _loadStorageSlot();
-
-    return uint256(s.slope);
+    return uint256(_loadStorageSlot().slope);
   }
 
   function getWithdrawReserve() public view returns (uint256) {
-    VaultData storage s = _loadStorageSlot();
-
-    return uint256(s.withdrawReserve);
+    return uint256(_loadStorageSlot().withdrawReserve);
   }
 
   function getLiquidationWithdrawRatio() public view returns (uint256) {
-    VaultData storage s = _loadStorageSlot();
-
-    return s.liquidationWithdrawRatio;
+    return _loadStorageSlot().liquidationWithdrawRatio;
   }
 
   function getYIntercept() public view returns (uint256) {
-    VaultData storage s = _loadStorageSlot();
-
-    return s.yIntercept;
+    return _loadStorageSlot().yIntercept;
   }
 
   function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
@@ -418,9 +406,8 @@ contract PublicVault is
   }
 
   function _loadStorageSlot() internal pure returns (VaultData storage s) {
-    bytes32 slot = PUBLIC_VAULT_SLOT;
     assembly {
-      s.slot := slot
+      s.slot := PUBLIC_VAULT_SLOT
     }
   }
 
@@ -496,7 +483,8 @@ contract PublicVault is
       _loadStorageSlot().strategistUnclaimedShares;
   }
 
-  function claim() external onlyOwner {
+  function claim() external {
+    require(msg.sender == owner()); //owner is "strategist"
     VaultData storage s = _loadStorageSlot();
     uint256 unclaimed = s.strategistUnclaimedShares;
     s.strategistUnclaimedShares = 0;
@@ -517,8 +505,7 @@ contract PublicVault is
     require(
       msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN())
     );
-    VaultData storage s = _loadStorageSlot();
-    _decreaseEpochLienCount(s, epoch);
+    _decreaseEpochLienCount(_loadStorageSlot(), epoch);
   }
 
   function _decreaseEpochLienCount(VaultData storage s, uint64 epoch) internal {
@@ -544,10 +531,9 @@ contract PublicVault is
   }
 
   function afterPayment(uint256 computedSlope) public {
-    VaultData storage s = _loadStorageSlot();
     require(msg.sender == address(LIEN_TOKEN()));
     unchecked {
-      s.slope += computedSlope.safeCastTo48();
+      _loadStorageSlot().slope += computedSlope.safeCastTo48();
     }
   }
 
@@ -603,9 +589,18 @@ contract PublicVault is
       s.last = block.timestamp.safeCastTo40();
     }
 
-    uint64 lienEpoch = getLienEpoch(params.lienEnd.safeCastTo64());
-    _decreaseEpochLienCount(s, lienEpoch);
+    _decreaseEpochLienCount(s, getLienEpoch(params.lienEnd.safeCastTo64()));
     emit YInterceptChanged(s.yIntercept);
+  }
+
+  function updateAfterLiquidationPayment(
+    LiquidationPaymentParams calldata params
+  ) external {
+    require(msg.sender == address(LIEN_TOKEN()));
+    _decreaseEpochLienCount(
+      _loadStorageSlot(),
+      getLienEpoch(params.lienEnd.safeCastTo64())
+    );
   }
 
   /**
@@ -668,8 +663,7 @@ contract PublicVault is
   }
 
   function timeToEpochEnd() public view returns (uint256) {
-    VaultData storage s = _loadStorageSlot();
-    return timeToEpochEnd(s.currentEpoch);
+    return timeToEpochEnd(_loadStorageSlot().currentEpoch);
   }
 
   function timeToEpochEnd(uint256 epoch) public view returns (uint256) {

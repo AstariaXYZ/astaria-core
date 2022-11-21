@@ -48,6 +48,14 @@ interface IPublicVault is IVaultImplementation {
     uint40 lienEnd;
   }
 
+  struct LiquidationPaymentParams {
+    uint256 lienEnd;
+  }
+
+  function updateAfterLiquidationPayment(
+    LiquidationPaymentParams calldata params
+  ) external;
+
   /**
    * @notice Signal a withdrawal of funds (redeeming for underlying asset) in an arbitrary future epoch.
    * @param shares The number of VaultToken shares to redeem.
@@ -110,10 +118,23 @@ interface IPublicVault is IVaultImplementation {
    */
   function processEpoch() external;
 
+  /**
+   * @notice Decrease the PublicVault YIntercept.
+   * @param amount The amount to decrement by.
+   */
   function decreaseYIntercept(uint256 amount) external;
 
+  /**
+   * Hook to update the PublicVault's slope, YIntercept, and last timestamp on a LienToken buyout.
+   * @param params The lien buyout parameters (lienSlope, lienEnd, and increaseYIntercept)
+   */
   function handleBuyoutLien(BuyoutLienParams calldata params) external;
 
+  /**
+   * Hook to update the PublicVault owner of a LienToken when it is sent to liquidation.
+   * @param auctionWindow The auction duration.
+   * @param params Liquidation data (lienSlope amount to deduct from the PublicVault slope, newAmount, and lienEnd timestamp)
+   */
   function updateVaultAfterLiquidation(
     uint256 auctionWindow,
     AfterLiquidationParams calldata params

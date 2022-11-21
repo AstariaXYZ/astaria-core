@@ -16,11 +16,11 @@ import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {IPausable} from "core/utils/Pausable.sol";
 import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {IERC4626RouterBase} from "gpl/interfaces/IERC4626RouterBase.sol";
+import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
   enum FileType {
@@ -68,7 +68,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     ICollateralToken COLLATERAL_TOKEN; //20
     ILienToken LIEN_TOKEN; //20
     ITransferProxy TRANSFER_PROXY; //20
-    IAuctionHouse AUCTION_HOUSE; //20
     address feeTo; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
     uint88 maxInterestRate; //6
@@ -89,7 +88,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   enum ImplementationType {
     PrivateVault,
     PublicVault,
-    WithdrawProxy
+    WithdrawProxy,
+    ClearingHouse
   }
 
   enum LienRequestType {
@@ -128,9 +128,9 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   /**
-   * @notice Validates the incoming commitment
+   * @notice Validates the incoming loan commitment.
    * @param commitment The commitment proofs and requested loan data for each loan.
-   * @return lien the new Lien data
+   * @return lien the new Lien data.
    */
   function validateCommitment(IAstariaRouter.Commitment calldata commitment, uint256 timeToSecondEpochEnd)
     external
@@ -161,6 +161,9 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function newVault(address delegate) external returns (address);
 
+  /**
+   * @notice Retrieves the address that collects protocol-level fees.
+   */
   function feeTo() external returns (address);
 
   /**
@@ -188,9 +191,9 @@ interface IAstariaRouter is IPausable, IBeacon {
       uint256
     );
 
-  function LIEN_TOKEN() external view returns (ILienToken);
+  function WETH() external view returns (ERC20);
 
-  function AUCTION_HOUSE() external view returns (IAuctionHouse);
+  function LIEN_TOKEN() external view returns (ILienToken);
 
   function TRANSFER_PROXY() external view returns (ITransferProxy);
 
@@ -200,51 +203,97 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function maxInterestRate() external view returns (uint256);
 
+  /**
+   * @notice Returns the current auction duration.
+   * @param includeBuffer Adds the current auctionWindowBuffer if true.
+   */
   function getAuctionWindow(bool includeBuffer) external view returns (uint256);
 
+  /**
+   * @notice Computes the fee PublicVault strategists earn on loan origination from the strategistFee numerator and denominator.
+   */
   function getStrategistFee(uint256) external view returns (uint256);
 
+  /**
+   * @notice Computes the fee the protocol earns on loan origination from the protocolFee numerator and denominator.
+   */
   function getProtocolFee(uint256) external view returns (uint256);
 
+  /**
+   * @notice Computes the fee Vaults earn when a Lien is bought out using the buyoutFee numerator and denominator.
+   */
   function getBuyoutFee(uint256) external view returns (uint256);
 
+  /**
+   * @notice Computes the fee the users earn on liquidating an expired lien from the liquidationFee numerator and denominator.
+   */
   function getLiquidatorFee(uint256) external view returns (uint256);
 
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
-   * @param collateralId The ID of the CollateralToken.
+   * @param stack the stack being liquidated
    * @param position The position of the defaulted lien.
    * @return reserve The amount owed on all liens for against the collateral being liquidated, including accrued interest.
    */
-  function liquidate(
-    uint256 collateralId,
-    uint8 position,
-    ILienToken.Stack[] calldata stack
-  ) external returns (uint256 reserve);
+  function liquidate(ILienToken.Stack[] calldata stack, uint8 position)
+    external
+    returns (uint256, OrderParameters memory);
 
+  /**
+   * @notice Returns whether a specified lien can be liquidated.
+   */
   function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 
-  function isValidVault(address) external view returns (bool);
+  /**
+   * @notice Returns whether a given address is that of a Vault.
+   * @param vault The Vault address.
+   * @return A boolean representing whether the address exists as a Vault.
+   */
+  function isValidVault(address vault) external view returns (bool);
 
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param files Structs to file.
+   */
+  function fileBatch(File[] calldata files) external;
+
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param incoming The incoming File.
+   */
   function file(File calldata incoming) external;
 
+  /**
+   * @notice Updates the guardian address.
+   * @param _guardian The new guardian.
+   */
+  function setNewGuardian(address _guardian) external;
+
+  /**
+   * @notice Specially guarded file().
+   * @param file The incoming data to file.
+   */
+  function fileGuardian(File[] calldata file) external;
+
+  /**
+   * @notice Returns the address for the current implementation of a contract from the ImplementationType enum.
+   * @return impl The address of the clone implementation.
+   */
+  function getImpl(uint8 implType) external view returns (address impl);
+
+  /**
+   * @notice Returns whether a new lien offers more favorable terms over an old lien.
+   * A new lien must have a rate less than or equal to maxNewRate,
+   * or a duration lower by minDurationIncrease, provided the other parameter does not get any worse.
+   * @param newLien The new Lien for the proposed refinance.
+   * @param position The Lien position against the CollateralToken.
+   * @param stack The Stack of existing Liens against the CollateralToken.
+   */
   function isValidRefinance(
     ILienToken.Lien calldata newLien,
     uint8 position,
     ILienToken.Stack[] calldata stack
   ) external view returns (bool);
-
-  /**
-   * @notice Cancels the auction for a CollateralToken and returns the NFT to the borrower.
-   * @param tokenId The ID of the CollateralToken to cancel the auction for.
-   */
-  function cancelAuction(uint256 tokenId) external;
-
-  /**
-   * @notice Ends the auction for a CollateralToken.
-   * @param tokenId The ID of the CollateralToken to stop the auction for.
-   */
-  function endAuction(uint256 tokenId) external;
 
   event Liquidation(
     uint256 collateralId,

@@ -18,10 +18,6 @@ library CollateralLookup {
     view
     returns (uint256)
   {
-    require(
-      IERC721(token).ownerOf(tokenId) != address(0),
-      "must be a valid token id"
-    );
     return uint256(keccak256(abi.encodePacked(token, tokenId)));
   }
 }

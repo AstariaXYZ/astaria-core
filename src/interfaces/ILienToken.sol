@@ -14,7 +14,6 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 
 interface ILienToken is IERC721 {
@@ -36,16 +35,16 @@ interface ILienToken is IERC721 {
     uint8 maxLiens;
     address WETH;
     ITransferProxy TRANSFER_PROXY;
-    IAuctionHouse AUCTION_HOUSE;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
     mapping(uint256 => bytes32) collateralStateHash;
+    mapping(uint256 => AuctionData) auctionData;
     mapping(uint256 => LienMeta) lienMeta;
   }
 
   struct LienMeta {
     address payee;
-    uint88 amountAtLiquidation;
+    bool atLiquidation;
   }
 
   struct Details {
@@ -53,6 +52,7 @@ interface ILienToken is IERC721 {
     uint256 rate; //rate per second
     uint256 duration;
     uint256 maxPotentialDebt;
+    uint256 liquidationInitialAsk;
   }
 
   struct Lien {
@@ -92,15 +92,13 @@ interface ILienToken is IERC721 {
 
   /**
    * @notice Removes all liens for a given CollateralToken.
-   * @param lien The Lien
-   * @return lienId the lienId if valid otherwise reverts
+   * @param lien The Lien.
+   * @return lienId The lienId of the requested Lien, if valid (otherwise, reverts).
    */
   function validateLien(Lien calldata lien)
     external
     view
     returns (uint256 lienId);
-
-  function AUCTION_HOUSE() external view returns (IAuctionHouse);
 
   function ASTARIA_ROUTER() external view returns (IAstariaRouter);
 
@@ -122,8 +120,9 @@ interface ILienToken is IERC721 {
   function stopLiens(
     uint256 collateralId,
     uint256 auctionWindow,
-    ILienToken.Stack[] memory stack
-  ) external returns (uint256 reserve, AuctionStack[] memory);
+    Stack[] calldata stack,
+    address liquidator
+  ) external returns (uint256 reserve);
 
   /**
    * @notice Computes and returns the buyout amount for a Lien.
@@ -134,16 +133,6 @@ interface ILienToken is IERC721 {
     external
     view
     returns (uint256, uint256);
-
-  /**
-   * @notice Removes all liens for a given CollateralToken.
-   * @param collateralId The ID for the underlying CollateralToken.
-   * @param remainingLiens The IDs for the unpaid liens
-   */
-  function removeLiens(
-    uint256 collateralId,
-    AuctionStack[] memory remainingLiens
-  ) external;
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -188,15 +177,6 @@ interface ILienToken is IERC721 {
     returns (uint256);
 
   /**
-   * @notice Retrieves a specific point by its lienId.
-   * @param lienId the ID to get the point for
-   */
-  function getAmountOwingAtLiquidation(uint256 lienId)
-    external
-    view
-    returns (uint256);
-
-  /**
    * @notice Creates a new lien against a CollateralToken.
    * @param params LienActionEncumber data containing CollateralToken information and lien parameters (rate, duration, and amount, rate, and debt caps).
    */
@@ -217,6 +197,14 @@ interface ILienToken is IERC721 {
     returns (Stack[] memory, Stack memory);
 
   /**
+   * @notice Called by the ClearingHouse (through Seaport) to pay back debt with auction funds.
+   * @param collateralId The CollateralId of the liquidated NFT.
+   * @param payment The payment amount.
+   */
+  function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
+    external;
+
+  /**
    * @notice Make a payment for the debt against a CollateralToken.
    * @param stack the stack to pay against
    * @param amount The amount to pay against the debt.
@@ -227,28 +215,42 @@ interface ILienToken is IERC721 {
 
   struct AuctionStack {
     uint256 lienId;
+    uint88 amountOwed;
     uint40 end;
   }
 
-  /**
-   * @notice Make a payment for the debt against a CollateralToken for a specific lien.
-   * @param stack the stack to repay
-   * @param collateralId the Lien to make a payment towards
-   * @param paymentAmount The amount to pay against the debt.
-   * @param payer the account paying
-   * @return the amount of the payment that was applied to the lien
-   */
-  function makePaymentAuctionHouse(
-    AuctionStack[] memory stack,
-    uint256 collateralId,
-    uint256 paymentAmount,
-    address payer
-  ) external returns (ILienToken.AuctionStack[] memory, uint256);
+  struct AuctionData {
+    address liquidator;
+    AuctionStack[] stack;
+  }
 
-  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory)
+  /**
+   * @notice Retrieves the AuctionData for a CollateralToken (The liquidator address and the AuctionStack).
+   * @param collateralId The ID of the CollateralToken.
+   */
+  function getAuctionData(uint256 collateralId)
+    external
+    view
+    returns (AuctionData memory);
+
+  /**
+   * Calculates the debt accrued by all liens against a CollateralToken, assuming no payments are made until the end timestamp in the stack.
+   * @param stack The stack data for active liens against the CollateralToken.
+   */
+  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory stack)
     external
     view
     returns (uint256);
+
+  /**
+   * Calculates the debt accrued by all liens against a CollateralToken, assuming no payments are made until the provided timestamp.
+   * @param stack The stack data for active liens against the CollateralToken.
+   * @param end The timestamp to accrue potential debt until.
+   */
+  function getMaxPotentialDebtForCollateral(
+    ILienToken.Stack[] memory stack,
+    uint256 end
+  ) external view returns (uint256);
 
   /**
    * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.
@@ -259,14 +261,14 @@ interface ILienToken is IERC721 {
 
   /**
    * @notice Change the payee for a specified Lien.
-   * @param lien the lienevent
+   * @param lien the Lien to change the payee for.
    * @param newPayee The new Lien payee.
    */
   function setPayee(Lien calldata lien, address newPayee) external;
 
   /**
    * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
-   * @param file The incoming file to handle
+   * @param file The incoming file to handle.
    */
   function file(File calldata file) external;
 
@@ -299,6 +301,8 @@ interface ILienToken is IERC721 {
   error InvalidRefinance();
   error InvalidLoanState();
   enum InvalidStates {
+    NO_AUTHORITY,
+    NOT_ENOUGH_FUNDS,
     INVALID_LIEN_ID,
     COLLATERAL_AUCTION,
     COLLATERAL_NOT_DEPOSITED,

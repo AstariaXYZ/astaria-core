@@ -15,12 +15,14 @@ if (detailsType === 0) {
     "uint256",
     "uint256",
     "uint256",
+    "uint256",
   ];
 } else if (detailsType === 1) {
   mapping = [
     "uint8",
     "address",
     "address",
+    "uint256",
     "uint256",
     "uint256",
     "uint256",
@@ -37,6 +39,7 @@ if (detailsType === 0) {
     "int24",
     "int24",
     "uint128",
+    "uint256",
     "uint256",
     "uint256",
     "uint256",

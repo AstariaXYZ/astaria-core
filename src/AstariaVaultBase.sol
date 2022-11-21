@@ -4,7 +4,6 @@ import {Clone} from "clones-with-immutable-args/Clone.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 
 abstract contract AstariaVaultBase is Clone, IAstariaVaultBase {
@@ -38,10 +37,6 @@ abstract contract AstariaVaultBase is Clone, IAstariaVaultBase {
 
   function VAULT_FEE() public pure returns (uint256) {
     return _getArgUint256(125);
-  }
-
-  function AUCTION_HOUSE() public view returns (IAuctionHouse) {
-    return ROUTER().AUCTION_HOUSE();
   }
 
   function COLLATERAL_TOKEN() public view returns (ICollateralToken) {

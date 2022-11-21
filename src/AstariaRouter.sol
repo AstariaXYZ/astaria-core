@@ -24,7 +24,6 @@ import {
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
@@ -40,6 +39,7 @@ import {ERC4626Router} from "gpl/ERC4626Router.sol";
 import {ERC4626RouterBase} from "gpl/ERC4626RouterBase.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
 /**
  * @title AstariaRouter
@@ -51,8 +51,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
-  bytes32 constant ROUTER_SLOT =
-    keccak256("xyz.astaria.AstariaRouter.storage.location");
+  uint256 constant ROUTER_SLOT =
+    0xb5d37468eefb1c75507259f9212a7d55dca0c7d08d9ef7be1cda5c5103eaa88e;
 
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
@@ -73,7 +73,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     address _VAULT_IMPL,
     address _SOLO_IMPL,
     address _WITHDRAW_IMPL,
-    address _BEACON_PROXY_IMPL
+    address _BEACON_PROXY_IMPL,
+    address _CLEARING_HOUSE_IMPL
   ) Auth(address(msg.sender), _AUTHORITY) {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -84,6 +85,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.implementations[uint8(ImplementationType.PrivateVault)] = _SOLO_IMPL;
     s.implementations[uint8(ImplementationType.PublicVault)] = _VAULT_IMPL;
     s.implementations[uint8(ImplementationType.WithdrawProxy)] = _WITHDRAW_IMPL;
+    s.implementations[
+      uint8(ImplementationType.ClearingHouse)
+    ] = _CLEARING_HOUSE_IMPL;
     s.BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
     s.auctionWindow = uint32(2 days);
     s.auctionWindowBuffer = uint32(1 days);
@@ -129,9 +133,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   }
 
   function _loadRouterSlot() internal pure returns (RouterStorage storage rs) {
-    bytes32 slot = ROUTER_SLOT;
     assembly {
-      rs.slot := slot
+      rs.slot := ROUTER_SLOT
     }
   }
 
@@ -148,11 +151,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function LIEN_TOKEN() public view returns (ILienToken) {
     RouterStorage storage s = _loadRouterSlot();
     return s.LIEN_TOKEN;
-  }
-
-  function AUCTION_HOUSE() public view returns (IAuctionHouse) {
-    RouterStorage storage s = _loadRouterSlot();
-    return s.AUCTION_HOUSE;
   }
 
   function TRANSFER_PROXY() public view returns (ITransferProxy) {
@@ -189,20 +187,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     _unpause();
   }
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param files structs to file
-   */
   function fileBatch(File[] calldata files) external requiresAuth {
     for (uint256 i = 0; i < files.length; i++) {
       file(files[i]);
     }
   }
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param incoming incoming files
-   */
   function file(File calldata incoming) public requiresAuth {
     RouterStorage storage s = _loadRouterSlot();
     FileType what = incoming.what;
@@ -275,9 +265,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.guardian = _guardian;
   }
 
-  /* @notice specially guarded file
-   * @param file incoming data to file
-   */
   function fileGuardian(File[] calldata file) external {
     RouterStorage storage s = _loadRouterSlot();
     require(address(msg.sender) == address(s.guardian));
@@ -288,9 +275,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       if (what == FileType.Implementation) {
         (uint8 implType, address addr) = abi.decode(data, (uint8, address));
         s.implementations[implType] = addr;
-      } else if (what == FileType.AuctionHouse) {
-        address addr = abi.decode(data, (address));
-        s.AUCTION_HOUSE = IAuctionHouse(addr);
       } else if (what == FileType.CollateralToken) {
         address addr = abi.decode(data, (address));
         s.COLLATERAL_TOKEN = ICollateralToken(addr);
@@ -344,7 +328,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function validateCommitment(
     IAstariaRouter.Commitment calldata commitment,
     uint256 timeToSecondEpochEnd
-  ) external view returns (ILienToken.Lien memory lien) {
+  ) public view returns (ILienToken.Lien memory lien) {
     return
       _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
   }
@@ -357,8 +341,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     if (block.timestamp > commitment.lienRequest.strategy.deadline) {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
     }
-
-    uint256 strategyLength = 5;
     uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
     if (s.strategyValidators[nlrType] == address(0)) {
       revert InvalidStrategy(nlrType);
@@ -407,25 +389,28 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
   function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
-    external
+    public
     whenNotPaused
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory stack)
   {
     RouterStorage storage s = _loadRouterSlot();
 
-    uint256 totalBorrowed = 0;
+    uint256 totalBorrowed;
     lienIds = new uint256[](commitments.length);
     _transferAndDepositAssetIfAble(
       s,
       commitments[0].tokenContract,
       commitments[0].tokenId
     );
-    for (uint256 i = 0; i < commitments.length; ++i) {
+    for (uint256 i; i < commitments.length; ) {
       if (i != 0) {
         commitments[i].lienRequest.stack = stack;
       }
       (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
       totalBorrowed += commitments[i].lienRequest.amount;
+      unchecked {
+        ++i;
+      }
     }
     s.WETH.safeApprove(address(s.TRANSFER_PROXY), totalBorrowed);
 
@@ -453,7 +438,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     bool allowListEnabled,
     address[] calldata allowList,
     uint256 depositCap
-  ) external whenNotPaused returns (address) {
+  ) public whenNotPaused returns (address) {
     return
       _newVault(
         epochLength,
@@ -500,10 +485,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       );
   }
 
-  /**
-   * @notice Returns whether a specific lien can be liquidated.
-   * @return A boolean value indicating whether the specified lien can be liquidated.
-   */
   function canLiquidate(ILienToken.Stack memory stack)
     public
     view
@@ -514,82 +495,52 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       msg.sender == s.COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId));
   }
 
-  function liquidate(
-    uint256 collateralId,
-    uint8 position,
-    ILienToken.Stack[] memory stack
-  ) external returns (uint256 reserve) {
+  function liquidate(ILienToken.Stack[] memory stack, uint8 position)
+    public
+    returns (uint256 reserve, OrderParameters memory listedOrder)
+  {
     if (!canLiquidate(stack[position])) {
       revert InvalidLienState(LienState.HEALTHY);
     }
 
     RouterStorage storage s = _loadRouterSlot();
     uint256 auctionWindowMax = s.auctionWindow + s.auctionWindowBuffer;
-    ILienToken.AuctionStack[]
-      memory stackAtLiquidation = new ILienToken.AuctionStack[](stack.length);
-    (reserve, stackAtLiquidation) = s.LIEN_TOKEN.stopLiens(
-      collateralId,
-      auctionWindowMax,
-      stack
-    );
 
-    reserve += reserve.mulDivDown(
-      s.liquidationFeeNumerator,
-      s.liquidationFeeDenominator
-    );
-
-    s.AUCTION_HOUSE.createAuction(
-      collateralId,
-      s.auctionWindow,
+    reserve = s.LIEN_TOKEN.stopLiens(
+      stack[position].lien.collateralId,
       auctionWindowMax,
-      msg.sender,
-      s.liquidationFeeNumerator,
-      s.liquidationFeeDenominator,
-      reserve,
-      stackAtLiquidation
+      stack,
+      msg.sender
     );
 
     uint256[] memory fees = new uint256[](2);
     fees[0] = s.liquidationFeeNumerator;
     fees[1] = s.liquidationFeeDenominator;
 
-    emit Liquidation(collateralId, position, reserve, fees);
+    emit Liquidation(
+      stack[position].lien.collateralId,
+      position,
+      reserve,
+      fees
+    );
+    listedOrder = s.COLLATERAL_TOKEN.auctionVault(
+      ICollateralToken.AuctionVaultParams({
+        settlementToken: address(s.WETH),
+        collateralId: stack[position].lien.collateralId,
+        maxDuration: uint256(s.auctionWindow + s.auctionWindowBuffer),
+        reserve: reserve,
+        startingPrice: stack[0].lien.details.liquidationInitialAsk,
+        endingPrice: 1_000 wei
+      })
+    );
   }
 
-  function cancelAuction(uint256 collateralId) external {
-    RouterStorage storage s = _loadRouterSlot();
-
-    require(msg.sender == s.COLLATERAL_TOKEN.ownerOf(collateralId));
-
-    s.AUCTION_HOUSE.cancelAuction(collateralId, msg.sender);
-    s.COLLATERAL_TOKEN.releaseToAddress(collateralId, msg.sender);
-  }
-
-  function endAuction(uint256 collateralId) external {
-    RouterStorage storage s = _loadRouterSlot();
-
-    if (!s.AUCTION_HOUSE.auctionExists(collateralId)) {
-      revert InvalidCollateralState(CollateralStates.NO_AUCTION);
-    }
-
-    address winner = s.AUCTION_HOUSE.endAuction(collateralId);
-    s.COLLATERAL_TOKEN.releaseToAddress(collateralId, winner);
-  }
-
-  /**
-   * @notice Retrieves the fee PublicVault strategists earn on loan origination.
-   * @return The numerator and denominator used to compute the percentage fee strategists earn by receiving minted vault shares.
-   */
   function getStrategistFee(uint256 amountIn) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
     return
       amountIn.mulDivDown(s.strategistFeeNumerator, s.strategistFeeDenominator);
   }
 
-  /**
-   * @notice Retrieves the fee the protocol earns on loan origination.
-   * @return The numerator and denominator used to compute the percentage fee taken by the protocol
-   */
   function getProtocolFee(uint256 amountIn) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -597,10 +548,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       amountIn.mulDivDown(s.protocolFeeNumerator, s.protocolFeeDenominator);
   }
 
-  /**
-   * @notice Retrieves the fee the liquidator earns for processing auctions
-   * @return The numerator and denominator used to compute the percentage fee taken by the liquidator
-   */
   function getLiquidatorFee(uint256 amountIn) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -610,11 +557,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         s.liquidationFeeDenominator
       );
   }
-
-  /**
-   * @notice Retrieves the fee the protocol earns on loan origination.
-   * @return The numerator and denominator used to compute the percentage fee taken by the protocol
-   */
 
   function getBuyoutFee(uint256 remainingInterestIn)
     external
@@ -638,35 +580,30 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return _loadRouterSlot().vaults[vault] != address(0);
   }
 
-  /**
-   * @notice Determines whether a potential refinance meets the minimum requirements for replacing a lien.
-   * @param newLien The new Lien to replace the existing one.
-   * @param newLien The new Lien to replace the existing one.
-   * @return A boolean representing whether the potential refinance is valid.
-   */
   function isValidRefinance(
     ILienToken.Lien calldata newLien,
     uint8 position,
     ILienToken.Stack[] calldata stack
-  ) external view returns (bool) {
+  ) public view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
     uint256 maxNewRate = uint256(stack[position].lien.details.rate) -
       s.minInterestBPS;
 
     return
       (newLien.details.rate < maxNewRate &&
-        newLien.details.duration + block.timestamp >= stack[position].point.end) ||
+        newLien.details.duration + block.timestamp >=
+        stack[position].point.end) ||
       (block.timestamp + newLien.details.duration - stack[position].point.end >=
         s.minDurationIncrease &&
         newLien.details.rate <= stack[position].lien.details.rate);
   }
 
-  //INTERNAL FUNCS
-
   /**
-   * @dev Deploys a new PublicVault.
-   * @param epochLength The length of each epoch for the new PublicVault.
-   * @return vaultAddr The address for the new PublicVault.
+   * @dev Deploys a new Vault.
+   * @param epochLength The length of each epoch for a new PublicVault. If 0, deploys a PrivateVault.
+   * @param delegate The address of the Vault delegate.
+   * @param allowListEnabled Whether or not the Vault has an LP whitelist.
+   * @return vaultAddr The address for the new Vault.
    */
   function _newVault(
     uint256 epochLength,
@@ -719,11 +656,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return vaultAddr;
   }
 
-  /**
-   * @dev validates msg sender is owner
-   * @param c The commitment Data
-   * @return the amount borrowed
-   */
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment memory c
@@ -748,7 +680,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   ) internal {
     ERC721 token = ERC721(tokenContract);
     if (token.ownerOf(tokenId) == address(msg.sender)) {
-      ERC721(tokenContract).safeTransferFrom(
+      token.safeTransferFrom(
         address(msg.sender),
         address(s.COLLATERAL_TOKEN),
         tokenId,

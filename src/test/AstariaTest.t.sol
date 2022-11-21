@@ -19,9 +19,7 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
@@ -33,6 +31,7 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
+import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
 contract AstariaTest is TestHelpers {
   using FixedPointMathLib for uint256;
@@ -198,6 +197,7 @@ contract AstariaTest is TestHelpers {
 
   function testLiquidationAtBoundary() public {
     TestNFT nft = new TestNFT(3);
+    vm.label(address(nft), "nft");
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
     address publicVault = _createPublicVault({
@@ -326,10 +326,10 @@ contract AstariaTest is TestHelpers {
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
     skip(14 days); // end of loan
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(stack, uint8(0));
 
-    _bid(address(2), collateralId, 33 ether);
-
+    _bid(Bidder(bidder, bidderPK), listedOrder, 50 ether);
     skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd()); // epoch boundary
 
     PublicVault(publicVault).processEpoch();
@@ -521,12 +521,6 @@ contract AstariaTest is TestHelpers {
   }
 
   function testLienTokenFileSetup() public {
-    bytes memory auctionHouseAddr = abi.encode(address(0));
-    LIEN_TOKEN.file(
-      ILienToken.File(ILienToken.FileType.AuctionHouse, auctionHouseAddr)
-    );
-    assert(LIEN_TOKEN.AUCTION_HOUSE() == IAuctionHouse(address(0)));
-
     bytes memory collateralIdAddr = abi.encode(address(0));
     LIEN_TOKEN.file(
       ILienToken.File(ILienToken.FileType.CollateralToken, collateralIdAddr)
@@ -593,42 +587,6 @@ contract AstariaTest is TestHelpers {
     });
   }
 
-  function testCancelAuction() public {
-    address alice = address(1);
-    address bob = address(2);
-    TestNFT nft = new TestNFT(6);
-    uint256 tokenId = uint256(5);
-    address tokenContract = address(nft);
-    address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 14 days
-    });
-
-    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: blueChipDetails,
-      amount: 100 ether,
-      isFirstLien: true
-    });
-
-    uint256 collateralId = tokenContract.computeId(tokenId);
-    vm.warp(block.timestamp + 11 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-    _bid(address(2), collateralId, 10 ether);
-    _cancelAuction(collateralId, address(this));
-    assertEq(
-      address(this),
-      ERC721(tokenContract).ownerOf(tokenId),
-      "liquidator did not receive NFT"
-    );
-  }
-
   function testAuctionEnd() public {
     address alice = address(1);
     address bob = address(2);
@@ -655,11 +613,11 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-    _bid(address(2), collateralId, 10 ether);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(stack, uint8(0));
+    _bid(Bidder(bidder, bidderPK), listedOrder, 10 ether);
     skip(4 days);
-    ASTARIA_ROUTER.endAuction(collateralId);
-    assertEq(nft.ownerOf(tokenId), address(2), "the owner is not the bidder");
+    assertEq(nft.ownerOf(tokenId), bidder, "the owner is not the bidder");
   }
 
   function testAuctionEndNoBids() public {
@@ -688,25 +646,16 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
+      .liquidate(stack, uint8(0));
     skip(4 days);
-    ASTARIA_ROUTER.endAuction(collateralId);
+    COLLATERAL_TOKEN.liquidatorNFTClaim(listedOrder);
     PublicVault(publicVault).processEpoch();
     assertEq(
       nft.ownerOf(tokenId),
       address(this),
       "the owner is not the bidder"
     );
-  }
-
-  function _cancelAuction(uint256 auctionId, address sender) internal {
-    (, , , uint256 reserve, ) = AUCTION_HOUSE.getAuctionData(auctionId);
-    vm.deal(sender, reserve);
-    vm.startPrank(sender);
-    WETH9.deposit{value: reserve}();
-    WETH9.approve(address(TRANSFER_PROXY), reserve);
-    ASTARIA_ROUTER.cancelAuction(auctionId);
-    vm.stopPrank();
   }
 
   uint8 FUZZ_SIZE = uint8(10);
@@ -751,7 +700,7 @@ contract AstariaTest is TestHelpers {
     }
     _;
   }
-  
+
   function testFinalAuctionEnd() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
@@ -773,7 +722,7 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
-   (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -785,12 +734,20 @@ contract AstariaTest is TestHelpers {
     });
 
     vm.warp(block.timestamp + 14 days);
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
+    ASTARIA_ROUTER.liquidate(stack, uint8(0));
 
-    address withdrawProxy = address(PublicVault(publicVault).getWithdrawProxy(0));
-    assertTrue(withdrawProxy != address(0), "WithdrawProxy not deployed inside 3 days window from epoch end");
-    uint256 actual = WithdrawProxy(withdrawProxy).getFinalAuctionEnd();
-    assertEq(actual, block.timestamp + 3 days, "Auction time is not being set correctly");
+    address withdrawProxy = address(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+    assertTrue(
+      withdrawProxy != address(0),
+      "WithdrawProxy not deployed inside 3 days window from epoch end"
+    );
+    assertEq(
+      WithdrawProxy(withdrawProxy).getFinalAuctionEnd(),
+      block.timestamp + 3 days,
+      "Auction time is not being set correctly"
+    );
   }
 
   function testNewLienExceeds2XEpoch() public {
@@ -813,16 +770,20 @@ contract AstariaTest is TestHelpers {
     lienDetails.duration = 30 days;
 
     (, ILienToken.Stack[] memory stack) = _commitToLien({
-    vault: publicVault,
-    strategist: strategistOne,
-    strategistPK: strategistOnePK,
-    tokenContract: tokenContract,
-    tokenId: tokenId,
-    lienDetails: lienDetails,
-    amount: 10 ether,
-    isFirstLien: true
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lienDetails,
+      amount: 10 ether,
+      isFirstLien: true
     });
 
-    assertEq(stack[0].lien.details.duration, 4 weeks, "Incorrect lien duration");
+    assertEq(
+      stack[0].lien.details.duration,
+      4 weeks,
+      "Incorrect lien duration"
+    );
   }
 }

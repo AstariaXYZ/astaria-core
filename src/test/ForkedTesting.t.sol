@@ -24,9 +24,7 @@ import {
 } from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IV3PositionManager} from "core/interfaces/IV3PositionManager.sol";
 
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
@@ -45,6 +43,7 @@ import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
 import {ClaimFees} from "../actions/UNIV3/ClaimFees.sol";
+import {ValidatorAsset} from "core/ValidatorAsset.sol";
 
 contract ForkedTesting is TestHelpers {
   using FixedPointMathLib for uint256;
@@ -140,4 +139,141 @@ contract ForkedTesting is TestHelpers {
     assert(IERC20(assets[0]).balanceOf(address(this)) > balance0Before);
     assert(IERC20(assets[1]).balanceOf(address(this)) > balance1Before);
   }
+
+  //    function testSeaportAuction() public {
+  //      TestNFT loanTest = new TestNFT();
+  //      address tokenContract = address(loanTest);
+  //      uint256 tokenId = uint256(1);
+  //
+  //      uint256 listingPrice = uint256(5 ether);
+  //      uint256 listingFee = ((listingPrice * 2e5) / 100e5);
+  //      uint256 minListingPrice = listingPrice + (listingFee * 2);
+  //
+  //      OfferItem[] memory offer = new OfferItem[](1);
+  //      offer[0] = OfferItem(
+  //        ItemType.ERC721,
+  //        tokenContract,
+  //        tokenId,
+  //        minListingPrice,
+  //        minListingPrice
+  //      );
+  //      ConsiderationItem[] memory considerationItems = new ConsiderationItem[](3);
+  //
+  //      //setup validator asset
+  //      ValidatorAsset validator = new ValidatorAsset(address(COLLATERAL_TOKEN));
+  //
+  //      //ItemType itemType;
+  //      //    address token;
+  //      //    uint256 identifierOrCriteria;
+  //      //    uint256 startAmount;
+  //      //    uint256 endAmount;
+  //      //    address payable recipient;
+  //
+  //      //TODO: compute listing fee for opensea
+  //      //compute royalty fee for the asset if it exists
+  //      //validator
+  //      considerationItems[0] = ConsiderationItem(
+  //        ItemType.ERC20,
+  //        address(WETH9),
+  //        uint256(0),
+  //        listingFee,
+  //        listingFee,
+  //        payable(address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90)) //opensea fees
+  //      );
+  //      considerationItems[1] = ConsiderationItem(
+  //        ItemType.ERC20,
+  //        address(WETH9),
+  //        uint256(0),
+  //        minListingPrice,
+  //        minListingPrice,
+  //        payable(address(COLLATERAL_TOKEN))
+  //      );
+  //      considerationItems[1] = ConsiderationItem(
+  //        ItemType.ERC1155,
+  //        address(validator),
+  //        collateralId,
+  //        minListingPrice,
+  //        minListingPrice,
+  //        payable(address(COLLATERAL_TOKEN))
+  //      );
+  //
+  //      emit Dummy();
+  //
+  //      // OrderParameters(
+  //      //         offerer,
+  //      //         address(0),
+  //      //         offerItems,
+  //      //         considerationItems,
+  //      //         orderType,
+  //      //         block.timestamp,
+  //      //         block.timestamp + 1,
+  //      //         bytes32(0),
+  //      //         globalSalt++,
+  //      //         bytes32(0),
+  //      //         considerationItems.length
+  //      //     );
+  //
+  //      // old andrew
+  //      //     OrderParameters({
+  //      //             offerer: address(COLLATERAL_TOKEN),
+  //      //             zone: address(COLLATERAL_TOKEN), // 0x20
+  //      //             offer: offer,
+  //      //             consideration: considerationItems,
+  //      //             orderType: OrderType.FULL_OPEN,
+  //      //             startTime: uint256(block.timestamp),
+  //      //             endTime: uint256(block.timestamp + 10 minutes),
+  //      //             zoneHash: bytes32(0),
+  //      //             salt: uint256(blockhash(block.number)),
+  //      //             conduitKey: Bytes32AddressLib.fillLast12Bytes(address(COLLATERAL_TOKEN)), // 0x120
+  //      //             totalOriginalConsiderationItems: uint256(3)
+  //      // }),
+  //
+  //      Consideration consideration = new Consideration(address(COLLATERAL_TOKEN));
+  //
+  //      OrderParameters memory orderParameters = OrderParameters({
+  //        offerer: address(COLLATERAL_TOKEN),
+  //        zone: address(0), // 0x20
+  //        offer: offer,
+  //        consideration: considerationItems,
+  //        orderType: OrderType.FULL_OPEN,
+  //        startTime: uint256(block.timestamp),
+  //        endTime: uint256(block.timestamp + 10 minutes),
+  //        zoneHash: bytes32(0),
+  //        salt: uint256(blockhash(block.number)),
+  //        conduitKey: bytes32(0), // 0x120
+  //        totalOriginalConsiderationItems: uint256(3)
+  //      });
+  //
+  //      uint256 nonce = consideration.getCounter(address(COLLATERAL_TOKEN));
+  //      OrderComponents memory orderComponents = OrderComponents(
+  //        orderParameters.offerer,
+  //        orderParameters.zone,
+  //        orderParameters.offer,
+  //        orderParameters.consideration,
+  //        orderParameters.orderType,
+  //        orderParameters.startTime,
+  //        orderParameters.endTime,
+  //        orderParameters.zoneHash,
+  //        orderParameters.salt,
+  //        orderParameters.conduitKey,
+  //        nonce
+  //      );
+  //
+  //      bytes32 orderHash = consideration.getOrderHash(orderComponents);
+  //
+  //      bytes memory signature = signOrder(
+  //        consideration,
+  //        appraiserTwoPK,
+  //        orderHash
+  //      );
+  //
+  //      // signOrder(consideration, alicePk, orderHash);
+  //
+  //      Order memory listingOffer = Order(orderParameters, signature);
+  //
+  //      // (Order memory listingOffer, , ) = _prepareOrder(tokenId, uint256(3));
+  //
+  //      COLLATERAL_TOKEN.listUnderlyingOnSeaport(collateralId, listingOffer);
+  //  //  }
+  //}
 }
