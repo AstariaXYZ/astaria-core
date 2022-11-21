@@ -15,7 +15,7 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 library CollateralLookup {
   function computeId(address token, uint256 tokenId)
     internal
-    view
+    pure
     returns (uint256)
   {
     return uint256(keccak256(abi.encodePacked(token, tokenId)));

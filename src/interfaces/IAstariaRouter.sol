@@ -307,6 +307,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);
   error InvalidRefinanceDuration(uint256);
+  error InvalidRefinanceCollateral(uint256);
   error InvalidVaultState(VaultState);
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);

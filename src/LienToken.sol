@@ -30,7 +30,6 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
-import {IERC1155Receiver} from "core/interfaces/IERC1155Receiver.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
@@ -378,6 +377,12 @@ contract LienToken is ERC721, ILienToken, Auth {
       revert InvalidState(InvalidStates.DEBT_LIMIT);
     }
 
+    if (params.stack.length > 0) {
+      if (params.lien.collateralId != params.stack[0].lien.collateralId) {
+        revert InvalidState(InvalidStates.COLLATERAL_MISMATCH);
+      }
+    }
+
     unchecked {
       newLienId = uint256(keccak256(abi.encode(params.lien)));
     }
@@ -527,13 +532,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint8 position,
     uint256 amount
   ) external validateStack(stack) returns (Stack[] memory newStack) {
-    (newStack, ) = _payment(
-      _loadLienStorageSlot(),
-      stack,
-      position,
-      amount,
-      address(msg.sender)
-    );
+    LienStorage storage s = _loadLienStorageSlot();
+    (newStack, ) = _payment(s, stack, position, amount, address(msg.sender));
+    _updateCollateralStateHash(s, stack[0].lien.collateralId, newStack);
   }
 
   function _paymentAH(
@@ -598,6 +599,19 @@ contract LienToken is ERC721, ILienToken, Auth {
       unchecked {
         ++i;
       }
+    }
+    _updateCollateralStateHash(s, stack[0].lien.collateralId, newStack);
+  }
+
+  function _updateCollateralStateHash(
+    LienStorage storage s,
+    uint256 collateralId,
+    Stack[] memory stack
+  ) internal {
+    if (stack.length == 0) {
+      delete s.collateralStateHash[collateralId];
+    } else {
+      s.collateralStateHash[collateralId] = keccak256(abi.encode(stack));
     }
   }
 
@@ -752,13 +766,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       delete s.lienMeta[lienId]; //full delete of point data for the lien
       _burn(lienId);
       activeStack = _removeStackPosition(activeStack, position);
-    }
-    if (activeStack.length == 0) {
-      delete s.collateralStateHash[stack.lien.collateralId];
-    } else {
-      s.collateralStateHash[stack.lien.collateralId] = keccak256(
-        abi.encode(activeStack)
-      );
     }
 
     s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, amount);

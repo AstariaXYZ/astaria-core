@@ -578,6 +578,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     uint256 maxNewRate = uint256(stack[position].lien.details.rate) -
       s.minInterestBPS;
 
+    if (newLien.collateralId != stack[0].lien.collateralId) {
+      revert InvalidRefinanceCollateral(newLien.collateralId);
+    }
     return
       (newLien.details.rate < maxNewRate &&
         newLien.details.duration + block.timestamp >=
