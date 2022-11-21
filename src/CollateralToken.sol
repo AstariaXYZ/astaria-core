@@ -552,7 +552,7 @@ contract CollateralToken is
     );
   }
 
-  function getOpenSeeData()
+  function getOpenSeaData()
     external
     view
     returns (
