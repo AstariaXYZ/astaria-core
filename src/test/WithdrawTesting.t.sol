@@ -855,7 +855,7 @@ contract WithdrawTest is TestHelpers {
     (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
       .liquidate(stack, uint8(0));
 
-    _bid(Bidder(bidder, bidderPK), listedOrder, 5 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 6.96 ether);
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
     vm.warp(withdrawProxy.getFinalAuctionEnd());
@@ -867,17 +867,17 @@ contract WithdrawTest is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVault),
-      44350000000000000862,
+      44378530092592593454,
       "Incorrect PublicVault balance"
     );
     assertEq(
       PublicVault(publicVault).getYIntercept(),
-      44350000000000000862,
+      44378530092592593454,
       "Incorrect PublicVault YIntercept"
     );
     assertEq(
       PublicVault(publicVault).totalAssets(),
-      44350000000000000862,
+      44378530092592593454,
       "Incorrect PublicVault totalAssets()"
     );
     assertEq(
