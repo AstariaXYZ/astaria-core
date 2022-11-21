@@ -22,6 +22,7 @@ import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {LienToken} from "core/LienToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
@@ -349,11 +350,18 @@ abstract contract VaultImplementation is
             collateralId: collateralId,
             amount: incomingTerms.lienRequest.amount,
             receiver: recipient(),
-            lien: ROUTER().validateCommitment(incomingTerms),
+            lien: ROUTER().validateCommitment({
+              commitment: incomingTerms,
+              timeToSecondEpochEnd: _timeToSecondEndIfPublic()
+            }),
             stack: stack
           })
         })
       );
+  }
+
+  function _timeToSecondEndIfPublic() internal view virtual returns (uint256 timeToSecondEpochEnd) {
+    return 0;
   }
 
   /**
