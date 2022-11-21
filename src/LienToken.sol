@@ -81,7 +81,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (what == FileType.AuctionHouse) {
       s.AUCTION_HOUSE = IAuctionHouse(abi.decode(data, (address)));
     } else if (what == FileType.CollateralToken) {
-      s.COLLATERAL_TOKEN = ICollateralToken(abi.decode(data, (address));
+      s.COLLATERAL_TOKEN = ICollateralToken(abi.decode(data, (address)));
     } else if (what == FileType.AstariaRouter) {
       s.ASTARIA_ROUTER = IAstariaRouter(abi.decode(data, (address)));
     } else {
