@@ -193,16 +193,10 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 oldLienId,
     uint256 newLienId
   ) internal returns (ILienToken.Stack[] memory newStack) {
-    newStack = new ILienToken.Stack[](stack.length);
-    for (uint256 i = 0; i < stack.length; i++) {
-      if (i == position) {
-        newStack[i] = newLien;
-        _burn(oldLienId);
-        delete s.lienMeta[oldLienId];
-      } else {
-        newStack[i] = stack[i];
-      }
-    }
+    newStack = stack;
+    newStack[position] = newLien;
+    _burn(oldLienId);
+    delete s.lienMeta[oldLienId];
   }
 
   function getInterest(Stack calldata stack) public view returns (uint256) {
