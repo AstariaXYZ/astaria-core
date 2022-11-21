@@ -402,16 +402,25 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     Stack[] memory stack,
     Stack memory newSlot
-  ) internal view returns (Stack[] memory newStack) {
+  ) internal returns (Stack[] memory newStack) {
     newStack = new Stack[](stack.length + 1);
-    for (uint256 i = 0; i < stack.length; ++i) {
-      if (block.timestamp > stack[i].point.end) {
+    newStack[stack.length] = newSlot;
+
+    uint256 endTimestamp = block.timestamp + newSlot.lien.details.duration;
+    uint256 potentialDebt = _getOwed(newSlot, endTimestamp);
+    for (uint256 i = stack.length; i > 0; --i) {
+      uint256 j = i - 1;
+      newStack[j] = stack[j];
+      if (block.timestamp > newStack[j].point.end) {
         revert InvalidState(InvalidStates.EXPIRED_LIEN);
       }
-      newStack[i] = stack[i];
+      potentialDebt += _getOwed(newStack[j], endTimestamp);
+      if (potentialDebt > newStack[j].lien.details.liquidationInitialAsk) {
+        revert InvalidState(InvalidStates.INITIAL_ASK_EXCEEDED);
+      }
     }
-    newStack[stack.length] = newSlot;
   }
+
 
   function removeLiens(
     uint256 collateralId,

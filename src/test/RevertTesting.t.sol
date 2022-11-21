@@ -391,7 +391,8 @@ contract RevertTesting is TestHelpers {
     _repay(stack[0], 0, 10 ether, address(this));
   }
 
-  function testCommitToLienPotentialDebtExceedsLiquidationInitialAsk() public {
+  // TODO expect revert ILienToken.InvalidStates(10)
+  function testFailCommitToLienPotentialDebtExceedsLiquidationInitialAsk() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);

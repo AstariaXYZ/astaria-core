@@ -320,7 +320,8 @@ interface ILienToken is IERC721 {
     EXPIRED_LIEN,
     DEBT_LIMIT,
     MAX_LIENS,
-    INVALID_HASH
+    INVALID_HASH,
+    INITIAL_ASK_EXCEEDED
   }
 
   error InvalidState(InvalidStates);
