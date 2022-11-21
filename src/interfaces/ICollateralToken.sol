@@ -46,7 +46,6 @@ interface ICollateralToken is IERC721 {
     uint16 osFeeDenominator;
     bytes32 CONDUIT_KEY;
     mapping(uint256 => bool) collateralIdToAuction;
-    mapping(uint256 => uint256) collateralIdAuctionReservePrice;
     mapping(bytes32 => bool) orderSigned;
     mapping(address => bool) flashEnabled;
     //mapping of the collateralToken ID and its underlying asset
@@ -111,7 +110,6 @@ interface ICollateralToken is IERC721 {
     address settlementToken;
     uint256 collateralId;
     uint256 maxDuration;
-    uint256 reserve;
     uint256 startingPrice;
     uint256 endingPrice;
   }

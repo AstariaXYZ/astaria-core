@@ -399,15 +399,6 @@ contract CollateralToken is
     return (_loadCollateralSlot().clearingHouse[collateralId]);
   }
 
-  function getCollateralAuctionReservePrice(uint256 collateralId)
-    public
-    view
-    returns (uint256)
-  {
-    CollateralStorage storage s = _loadCollateralSlot();
-    return s.collateralIdAuctionReservePrice[collateralId];
-  }
-
   function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
     external
     onlyOwner(params.stack[0].lien.collateralId)
@@ -545,7 +536,6 @@ contract CollateralToken is
     returns (OrderParameters memory orderParameters)
   {
     CollateralStorage storage s = _loadCollateralSlot();
-    s.collateralIdAuctionReservePrice[params.collateralId] = params.reserve;
 
     orderParameters = _generateValidOrderParameters(
       s,

@@ -122,7 +122,7 @@ interface ILienToken is IERC721 {
     uint256 auctionWindow,
     Stack[] calldata stack,
     address liquidator
-  ) external returns (uint256 reserve);
+  ) external;
 
   /**
    * @notice Computes and returns the buyout amount for a Lien.

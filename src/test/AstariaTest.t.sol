@@ -326,8 +326,10 @@ contract AstariaTest is TestHelpers {
     assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
 
     skip(14 days); // end of loan
-    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(stack, uint8(0));
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
 
     _bid(Bidder(bidder, bidderPK), listedOrder, 50 ether);
     skip(WithdrawProxy(withdrawProxy).getFinalAuctionEnd()); // epoch boundary
@@ -613,8 +615,10 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(stack, uint8(0));
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
     _bid(Bidder(bidder, bidderPK), listedOrder, 10 ether);
     skip(4 days);
     assertEq(nft.ownerOf(tokenId), bidder, "the owner is not the bidder");
@@ -646,8 +650,10 @@ contract AstariaTest is TestHelpers {
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    (uint256 reserve, OrderParameters memory listedOrder) = ASTARIA_ROUTER
-      .liquidate(stack, uint8(0));
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
     skip(4 days);
     COLLATERAL_TOKEN.liquidatorNFTClaim(listedOrder);
     PublicVault(publicVault).processEpoch();
