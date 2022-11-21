@@ -442,6 +442,47 @@ contract TestHelpers is ConsiderationTester {
       (rate * amount * duration).mulDivDown(1, 365 days).mulDivDown(1, 1e18);
   }
 
+  function setupLiquidation(address borrower) public returns(address publicVault, ILienToken.Stack[] memory stack) {
+    TestNFT nft = new TestNFT(0);
+    _mintNoDepositApproveRouterSpecific(borrower, address(nft), 99);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(99);
+
+    // create a PublicVault with a 14-day epoch
+    publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    _signalWithdraw(address(1), publicVault);
+
+    ILienToken.Details memory lien = standardLienDetails;
+    lien.duration = 14 days;
+
+    // borrow 10 eth against the dummy NFT
+    vm.startPrank(borrower);
+    (, stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien,
+      amount: 50 ether,
+      isFirstLien: true
+    });
+    vm.stopPrank();
+
+    vm.warp(block.timestamp + lien.duration);
+  }
+
   function getFeesForLiquidation(
     uint256 bid,
     uint256 openseaPercentage,
@@ -449,14 +490,15 @@ contract TestHelpers is ConsiderationTester {
     uint256 liquidatorPercentage,
     uint256 lenderAmountOwed
   ) public returns (Fees memory fees) {
-    uint256 remainder = bid.mulDivDown(
-      1e18,
-      openseaPercentage + royaltyPercentage + 1e18
-    );
+    // uint256 remainder = bid.mulDivDown(
+    //   1e18,
+    //   openseaPercentage + royaltyPercentage + 1e18
+    // );
+    uint256 remainder = bid;
     fees = Fees({
-      opensea: remainder.mulDivDown(openseaPercentage, 1e18),
-      royalties: remainder.mulDivDown(royaltyPercentage, 1e18),
-      liquidator: remainder.mulDivDown(liquidatorPercentage, 1e18),
+      opensea: bid.mulDivDown(openseaPercentage, 1e18),
+      royalties: bid.mulDivDown(royaltyPercentage, 1e18),
+      liquidator: bid.mulDivDown(liquidatorPercentage, 1e18),
       lender: 0,
       borrower: 0
     });
@@ -510,6 +552,15 @@ contract TestHelpers is ConsiderationTester {
   {
     TestNFT(tokenContract).mint(address(this), tokenId);
     TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);
+  }
+
+  function _mintNoDepositApproveRouterSpecific(address mintTo, address tokenContract, uint256 tokenId)
+    internal
+  {
+    TestNFT(tokenContract).mint(mintTo, tokenId);
+    vm.startPrank(mintTo);
+    TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);
+    vm.stopPrank();
   }
 
   function _mintAndDeposit(address tokenContract, uint256 tokenId) internal {

@@ -259,14 +259,6 @@ contract PublicVault is
       s.epochData[s.currentEpoch].withdrawProxy
     );
 
-    if (address(currentWithdrawProxy) != address(0)) {
-      if (currentWithdrawProxy.getFinalAuctionEnd() > block.timestamp) {
-        revert InvalidState(
-          InvalidStates.LIQUIDATION_ACCOUNTANT_FINAL_AUCTION_OPEN
-        );
-      }
-    }
-
     // split funds from previous WithdrawProxy with PublicVault if hasn't been already
     if (s.currentEpoch != 0) {
       WithdrawProxy previousWithdrawProxy = WithdrawProxy(

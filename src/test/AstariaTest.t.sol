@@ -969,4 +969,171 @@ contract AstariaTest is TestHelpers {
       "Incorrect lien duration"
     );
   }
+
+  function testLiquidationNftTransfer() public {
+    address borrower = address(69);
+    address liquidator = address(7);
+    TestNFT nft = new TestNFT(0);
+    _mintNoDepositApproveRouterSpecific(borrower, address(nft), 99);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(99);
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    _signalWithdraw(address(1), publicVault);
+
+    ILienToken.Details memory lien = standardLienDetails;
+    lien.duration = 14 days;
+
+    // borrow 10 eth against the dummy NFT
+    vm.startPrank(borrower);
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien,
+      amount: 50 ether,
+      isFirstLien: true
+    });
+    vm.stopPrank();
+
+    vm.warp(block.timestamp + lien.duration);
+
+    vm.startPrank(liquidator);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    vm.stopPrank();
+    uint256 bid = 100 ether;
+    _bid(Bidder(bidder, bidderPK), listedOrder, bid);
+
+    // assert the bidder received the NFT
+    assertEq(
+      nft.ownerOf(tokenId),
+      bidder,
+      "Bidder did not receive NFT"
+    );
+  }
+
+  function testLiquidationPaymentsOverbid () public {
+    address borrower = address(69);
+    address liquidator = address(7);
+    (address publicVault, ILienToken.Stack[] memory stack) = setupLiquidation(borrower);
+
+    vm.startPrank(liquidator);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    vm.stopPrank();
+
+    PublicVault(publicVault).processEpoch();
+    uint256 bid = 1000 ether;
+    uint256 amountOwedToLender = getAmountOwedToLender(15e17, 50e18, 14 days);
+
+    uint256 actualPrice = 500 ether;
+    Fees memory fees = getFeesForLiquidation(
+      500 ether,
+      25e15,
+      25e15,
+      13e16,
+      amountOwedToLender
+    );
+
+    (address opensea, , ) = COLLATERAL_TOKEN.getOpenSeaData();
+
+    Fees memory balances = Fees({
+      opensea: opensea.balance,
+      royalties: tx.origin.balance, 
+      liquidator: WETH9.balanceOf(liquidator),
+      lender: amountOwedToLender,
+      borrower: WETH9.balanceOf(borrower)
+    });
+
+    uint256 bidderBalance = bidder.balance;
+    _bid(Bidder(bidder, bidderPK), listedOrder, bid);
+
+    EVMGarbage memory garbage = EVMGarbage({
+      fees: fees,
+      balances: balances,
+      borrower: borrower,
+      liquidator: liquidator,
+      actualPrice: actualPrice,
+      bidderBalance: bidderBalance,
+      opensea: opensea,
+      bid: bid,
+      publicVault: publicVault,
+      amountOwedToLender: amountOwedToLender
+    });
+    assertBecauseEVMIsGarbage(garbage);
+  }
+
+  struct EVMGarbage {
+    Fees fees;
+    Fees balances;
+    address borrower;
+    address liquidator;
+    uint256 actualPrice;
+    uint256 bidderBalance;
+    address opensea;
+    uint256 bid;
+    address publicVault;
+    uint256 amountOwedToLender;
+  }
+
+  function assertBecauseEVMIsGarbage(EVMGarbage memory garbage) internal {
+    // assert the bidder balance is reduced
+    assertEq(
+      bidder.balance,
+      garbage.bidderBalance + (garbage.bid * 3) - garbage.actualPrice - garbage.fees.opensea - garbage.fees.royalties,
+      "Bidder balance not reduced"
+    );
+    // assert opensea eth balance
+    assertEq(
+      garbage.opensea.balance - garbage.balances.opensea,
+      garbage.fees.opensea,
+      "Opensea balance not increased"
+    );
+
+    // assert royalty eth balance
+    assertEq(
+      tx.origin.balance - garbage.balances.royalties,
+      garbage.fees.royalties,
+      "Royalty balance not increased"
+    );
+
+    // assert withdrawProxy weth balance
+    WithdrawProxy withdrawProxy = PublicVault(garbage.publicVault).getWithdrawProxy(0);
+    assertEq(
+      WETH9.balanceOf(address(withdrawProxy)),
+      52876712328728000000,
+      "WithdrawProxy balance not correct"
+    );
+    // assert the liquidator weth balance
+    assertEq(
+      WETH9.balanceOf(garbage.liquidator),
+      garbage.fees.liquidator,
+      "Liquidator balance not correct"
+    );
+    // assert the borrower weth balance
+    assertEq(
+      WETH9.balanceOf(garbage.borrower) - garbage.balances.borrower,
+      382123287671272000000,
+      "Borrower balance not correct"
+    );
+  }
 }
