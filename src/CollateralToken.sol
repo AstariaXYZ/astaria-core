@@ -74,7 +74,6 @@ contract CollateralToken is
     ITransferProxy TRANSFER_PROXY_,
     ILienToken LIEN_TOKEN_,
     ConsiderationInterface SEAPORT_,
-    address CLEARING_HOUSE_IMPLEMENTATION_,
     IRoyaltyEngine ROYALTY_REGISTRY_
   )
     Auth(msg.sender, Authority(AUTHORITY_))
@@ -87,7 +86,6 @@ contract CollateralToken is
     s.OS_FEE_PAYEE = address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90);
     s.osFeeNumerator = uint16(250);
     s.osFeeDenominator = uint16(10000);
-    s.CLEARING_HOUSE_IMPLEMENTATION = CLEARING_HOUSE_IMPLEMENTATION_;
     s.ROYALTY_ENGINE = ROYALTY_REGISTRY_;
     (, , address conduitController) = s.SEAPORT.information();
     bytes32 CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
@@ -204,9 +202,6 @@ contract CollateralToken is
     } else if (what == FileType.FlashEnabled) {
       (address target, bool enabled) = abi.decode(data, (address, bool));
       s.flashEnabled[target] = enabled;
-    } else if (what == FileType.ClearingHouseImplementation) {
-      address target = abi.decode(data, (address));
-      s.CLEARING_HOUSE_IMPLEMENTATION = target;
     } else if (what == FileType.Seaport) {
       (address target, address feePayee, uint16[] memory feeData) = abi.decode(
         data,
@@ -619,8 +614,12 @@ contract CollateralToken is
 
     if (s.clearingHouse[collateralId] == address(0)) {
       address clearingHouse = ClonesWithImmutableArgs.clone(
-        s.CLEARING_HOUSE_IMPLEMENTATION,
-        abi.encodePacked(address(s.ASTARIA_ROUTER), collateralId)
+        s.ASTARIA_ROUTER.BEACON_PROXY_IMPLEMENTATION(),
+        abi.encodePacked(
+          address(s.ASTARIA_ROUTER),
+          uint8(IAstariaRouter.ImplementationType.ClearingHouse),
+          collateralId
+        )
       );
 
       s.clearingHouse[collateralId] = clearingHouse;

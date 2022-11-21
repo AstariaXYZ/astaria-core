@@ -88,7 +88,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   enum ImplementationType {
     PrivateVault,
     PublicVault,
-    WithdrawProxy
+    WithdrawProxy,
+    ClearingHouse
   }
 
   enum LienRequestType {

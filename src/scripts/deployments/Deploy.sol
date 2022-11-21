@@ -137,7 +137,6 @@ contract Deploy is Script {
       TRANSFER_PROXY,
       ILienToken(address(LIEN_TOKEN)),
       ConsiderationInterface(SEAPORT),
-      address(CLEARING_HOUSE_IMPL),
       ROYALTY_REGISTRY
     );
     emit Deployed(address(COLLATERAL_TOKEN));
@@ -194,7 +193,8 @@ contract Deploy is Script {
       address(VAULT_IMPLEMENTATION),
       address(SOLO_IMPLEMENTATION),
       address(WITHDRAW_PROXY),
-      address(BEACON_PROXY)
+      address(BEACON_PROXY),
+      address(CLEARING_HOUSE_IMPL)
     );
     emit Deployed(address(ASTARIA_ROUTER));
     vm.writeLine(

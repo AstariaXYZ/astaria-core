@@ -73,7 +73,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     address _VAULT_IMPL,
     address _SOLO_IMPL,
     address _WITHDRAW_IMPL,
-    address _BEACON_PROXY_IMPL
+    address _BEACON_PROXY_IMPL,
+    address _CLEARING_HOUSE_IMPL
   ) Auth(address(msg.sender), _AUTHORITY) {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -84,6 +85,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.implementations[uint8(ImplementationType.PrivateVault)] = _SOLO_IMPL;
     s.implementations[uint8(ImplementationType.PublicVault)] = _VAULT_IMPL;
     s.implementations[uint8(ImplementationType.WithdrawProxy)] = _WITHDRAW_IMPL;
+    s.implementations[
+      uint8(ImplementationType.ClearingHouse)
+    ] = _CLEARING_HOUSE_IMPL;
     s.BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
     s.auctionWindow = uint32(2 days);
     s.auctionWindowBuffer = uint32(1 days);

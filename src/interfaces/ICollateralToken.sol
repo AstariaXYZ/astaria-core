@@ -68,8 +68,7 @@ interface ICollateralToken is IERC721 {
     AuctionHouse,
     SecurityHook,
     FlashEnabled,
-    Seaport,
-    ClearingHouseImplementation
+    Seaport
   }
 
   struct File {

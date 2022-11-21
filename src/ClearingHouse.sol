@@ -30,7 +30,7 @@ contract ClearingHouse is Clone {
       payment
     );
     ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
-      _getArgUint256(20),
+      _getArgUint256(21),
       payment
     );
   }

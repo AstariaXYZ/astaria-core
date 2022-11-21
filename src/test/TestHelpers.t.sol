@@ -317,7 +317,6 @@ contract TestHelpers is ConsiderationTester {
       TRANSFER_PROXY,
       ILienToken(address(LIEN_TOKEN)),
       SEAPORT,
-      address(CLEARING_HOUSE_IMPL),
       ROYALTY_REGISTRY
     );
     vm.label(address(COLLATERAL_TOKEN), "COLLATERAL_TOKEN");
@@ -338,7 +337,8 @@ contract TestHelpers is ConsiderationTester {
       address(PUBLIC_VAULT),
       address(SOLO_VAULT),
       address(WITHDRAW_PROXY),
-      address(BEACON_PROXY)
+      address(BEACON_PROXY),
+      address(CLEARING_HOUSE_IMPL)
     );
 
     vm.label(address(ASTARIA_ROUTER), "ASTARIA_ROUTER");
