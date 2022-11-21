@@ -650,15 +650,15 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     ILienToken.Stack[] calldata stack
   ) external view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
-    uint256 minNewRate = uint256(stack[position].lien.details.rate) -
+    uint256 maxNewRate = uint256(stack[position].lien.details.rate) -
       s.minInterestBPS;
 
     return
-      !((newLien.details.rate < minNewRate) ||
-        (block.timestamp +
-          newLien.details.duration -
-          stack[position].point.end <
-          s.minDurationIncrease));
+      (newLien.details.rate < maxNewRate &&
+        newLien.details.duration + block.timestamp >= stack[position].point.end) ||
+      (block.timestamp + newLien.details.duration - stack[position].point.end >=
+        s.minDurationIncrease &&
+        newLien.details.rate <= stack[position].lien.details.rate);
   }
 
   //INTERNAL FUNCS
