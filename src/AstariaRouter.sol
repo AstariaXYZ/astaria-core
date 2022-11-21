@@ -511,7 +511,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         maxDuration: uint256(s.auctionWindow + s.auctionWindowBuffer),
         reserve: reserve,
         startingPrice: stack[0].lien.details.liquidationInitialAsk,
-        endingPrice: 1000 wei
+        endingPrice: 1_000 wei
       })
     );
   }

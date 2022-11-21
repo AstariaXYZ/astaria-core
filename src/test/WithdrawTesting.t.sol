@@ -299,7 +299,7 @@ contract WithdrawTest is TestHelpers {
       "First lien not pointing to first WithdrawProxy"
     );
 
-    _bid(Bidder(bidder, bidderPK), listedOrder1, 500 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder1, 200 ether);
 
     vm.warp(withdrawProxy1.getFinalAuctionEnd());
     PublicVault(publicVault).processEpoch(); // epoch 0 processing
@@ -319,7 +319,7 @@ contract WithdrawTest is TestHelpers {
       "Second lien not pointing to second WithdrawProxy"
     );
 
-    _bid(Bidder(bidder, bidderPK), listedOrder2, 200 ether);
+    _bid(Bidder(bidderTwo, bidderTwoPK), listedOrder2, 1000 ether);
 
     PublicVault(publicVault).transferWithdrawReserve();
 

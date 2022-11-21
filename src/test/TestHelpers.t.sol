@@ -180,9 +180,10 @@ contract TestHelpers is ConsiderationTester {
 
   address borrower = vm.addr(0x1341);
   uint256 bidderPK = uint256(2566);
+  uint256 bidderTwoPK = uint256(2567);
   address bidder = vm.addr(bidderPK);
   address bidderOne = vm.addr(0x1342);
-  address bidderTwo = vm.addr(0x1343);
+  address bidderTwo = vm.addr(bidderTwoPK);
 
   string private checkpointLabel;
   uint256 private checkpointGasLeft = 1; // Start the slot warm.
@@ -459,26 +460,37 @@ contract TestHelpers is ConsiderationTester {
     );
     MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
   }
-  
-  function getAmountOwedToLender(uint256 rate, uint256 amount, uint256 duration)
-    public
-    pure
-    returns (uint256)
-  {
-    return amount + (rate * amount * duration).mulDivDown(1, 365 days).mulDivDown(1, 1e18);
+
+  function getAmountOwedToLender(
+    uint256 rate,
+    uint256 amount,
+    uint256 duration
+  ) public pure returns (uint256) {
+    return
+      amount +
+      (rate * amount * duration).mulDivDown(1, 365 days).mulDivDown(1, 1e18);
   }
 
-  function getFeesForLiquidation (uint256 bid, uint256 openseaPercentage, uint256 royaltyPercentage, uint256 liquidatorPercentage, uint256 lenderAmountOwed) public returns (Fees memory fees) {
-    uint256 remainder = bid.mulDivDown(1e18, openseaPercentage + royaltyPercentage + 1e18);
+  function getFeesForLiquidation(
+    uint256 bid,
+    uint256 openseaPercentage,
+    uint256 royaltyPercentage,
+    uint256 liquidatorPercentage,
+    uint256 lenderAmountOwed
+  ) public returns (Fees memory fees) {
+    uint256 remainder = bid.mulDivDown(
+      1e18,
+      openseaPercentage + royaltyPercentage + 1e18
+    );
     fees = Fees({
-        opensea: remainder.mulDivDown(openseaPercentage, 1e18),
-        royalties: remainder.mulDivDown(royaltyPercentage, 1e18),
-        liquidator: remainder.mulDivDown(liquidatorPercentage, 1e18),
-        lender: 0,
-        borrower: 0
-      });
+      opensea: remainder.mulDivDown(openseaPercentage, 1e18),
+      royalties: remainder.mulDivDown(royaltyPercentage, 1e18),
+      liquidator: remainder.mulDivDown(liquidatorPercentage, 1e18),
+      lender: 0,
+      borrower: 0
+    });
     remainder -= fees.liquidator;
-    if(remainder <= lenderAmountOwed) {
+    if (remainder <= lenderAmountOwed) {
       fees.lender = remainder;
     } else {
       fees.lender = lenderAmountOwed;
@@ -488,9 +500,16 @@ contract TestHelpers is ConsiderationTester {
   }
 
   event FeesCalculated(Fees fees);
+
   function testFeesExample() public {
     uint256 amountOwedToLender = getAmountOwedToLender(15e17, 10e18, 14 days);
-    Fees memory fees = getFeesForLiquidation(20e18, 25e15, 10e16, 13e16, amountOwedToLender);
+    Fees memory fees = getFeesForLiquidation(
+      20e18,
+      25e15,
+      10e16,
+      13e16,
+      amountOwedToLender
+    );
     emit FeesCalculated(fees);
   }
 
@@ -977,7 +996,7 @@ contract TestHelpers is ConsiderationTester {
     OrderParameters memory params,
     uint256 bidAmount
   ) internal {
-    vm.deal(incomingBidder.bidder, bidAmount * 2); // TODO check amount multiplier, was 1.5 in old testhelpers
+    vm.deal(incomingBidder.bidder, bidAmount * 3); // TODO check amount multiplier, was 1.5 in old testhelpers
     vm.startPrank(incomingBidder.bidder);
 
     if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
@@ -1007,6 +1026,16 @@ contract TestHelpers is ConsiderationTester {
       payable(incomingBidder.bidder),
       params.zone,
       bidderConduits[incomingBidder.bidder].conduitKey
+    );
+    mirror.offer[0].startAmount = bidAmount + 1 ether;
+    mirror.offer[0].endAmount = bidAmount + 1 ether;
+    mirror.offer[1].startAmount = (bidAmount + 1 ether + 200 wei).mulDivDown(
+      25,
+      1000
+    );
+    mirror.offer[1].endAmount = (bidAmount + 1 ether + 200 wei).mulDivDown(
+      25,
+      1000
     );
 
     Order[] memory orders = new Order[](2);
@@ -1119,9 +1148,9 @@ contract TestHelpers is ConsiderationTester {
       emit log_named_uint("amount", bidAmount);
       emit log_named_uint("warping", warp);
       skip(warp); //TODO: figure this slope thing out
-      consideration.matchOrders{value: bidAmount * 2}(orders, fulfillments);
+      consideration.matchOrders{value: (bidAmount * 2)}(orders, fulfillments);
     } else {
-      consideration.fulfillOrder{value: bidAmount + bidAmount / 2}(
+      consideration.fulfillOrder{value: bidAmount * 2}(
         orders[0],
         bidderConduits[incomingBidder.bidder].conduitKey
       );
