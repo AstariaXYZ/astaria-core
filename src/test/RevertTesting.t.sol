@@ -413,10 +413,12 @@ contract RevertTesting is TestHelpers {
     ILienToken.Details memory details1 = standardLienDetails;
     details1.duration = 14 days;
     details1.liquidationInitialAsk = 100 ether;
+    details1.maxPotentialDebt = 1000 ether;
 
     ILienToken.Details memory details2 = standardLienDetails;
     details2.duration = 25 days;
     details2.liquidationInitialAsk = 100 ether;
+    details2.maxPotentialDebt = 1000 ether;
 
     IAstariaRouter.Commitment[]
     memory commitments = new IAstariaRouter.Commitment[](2);

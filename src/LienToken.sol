@@ -225,8 +225,8 @@ contract LienToken is ERC721, ILienToken, Auth {
   modifier validateStack(uint256 collateralId, Stack[] memory stack) {
     LienStorage storage s = _loadLienStorageSlot();
     bytes32 stateHash = s.collateralStateHash[collateralId];
-    if (stateHash != bytes32(0)) {
-      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
+    if (stateHash != bytes32(0) && keccak256(abi.encode(stack)) != stateHash) {
+      revert InvalidState(InvalidStates.INVALID_HASH);
     }
     _;
   }
