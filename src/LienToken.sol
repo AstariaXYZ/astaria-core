@@ -418,8 +418,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     AuctionStack[] memory remainingLiens
   ) external requiresAuth {}
 
-  event log_named_address(string, address);
-
   function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
     external
   {
