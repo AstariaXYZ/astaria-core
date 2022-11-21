@@ -552,6 +552,19 @@ contract CollateralToken is
     );
   }
 
+  function getOpenSeeData()
+    external
+    view
+    returns (
+      address,
+      uint16,
+      uint16
+    )
+  {
+    CollateralStorage storage s = _loadCollateralSlot();
+    return (s.OS_FEE_PAYEE, s.osFeeNumerator, s.osFeeDenominator);
+  }
+
   function _listUnderlyingOnSeaport(
     CollateralStorage storage s,
     uint256 collateralId,
