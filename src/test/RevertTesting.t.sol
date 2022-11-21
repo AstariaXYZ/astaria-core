@@ -46,11 +46,23 @@ contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
 
+  enum InvalidStates {
+    NO_AUTHORITY,
+    NOT_ENOUGH_FUNDS,
+    INVALID_LIEN_ID,
+    COLLATERAL_AUCTION,
+    COLLATERAL_NOT_DEPOSITED,
+    LIEN_NO_DEBT,
+    EXPIRED_LIEN,
+    DEBT_LIMIT,
+    MAX_LIENS
+  }
+
   function testFailRandomAccountIncrementNonce() public {
     address privateVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 10 days
+    strategist : strategistOne,
+    delegate : strategistTwo,
+    epochLength : 10 days
     });
 
     vm.expectRevert(abi.encodePacked("InvalidRequest(0)"));
@@ -207,38 +219,42 @@ contract RevertTesting is TestHelpers {
 
     // create a PublicVault with a 14-day epoch
     address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 14 days
+    strategist : strategistOne,
+    delegate : strategistTwo,
+    epochLength : 14 days
     });
 
     // lend 50 ether to the PublicVault as address(1)
     _lendToVault(
-      Lender({addr: address(1), amountToLend: 50 ether}),
+      Lender({addr : address(1), amountToLend : 50 ether}),
       publicVault
     );
 
+    ILienToken.Stack[] memory stack;
+
     // borrow 10 eth against the dummy NFT
-    _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+    (, stack) = _commitToLien({
+    vault : publicVault,
+    strategist : strategistOne,
+    strategistPK : strategistOnePK,
+    tokenContract : tokenContract,
+    tokenId : tokenId,
+    lienDetails : standardLienDetails,
+    amount : 10 ether,
+    isFirstLien : true,
+    stack : stack
     });
 
     _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: false
+    vault : publicVault,
+    strategist : strategistOne,
+    strategistPK : strategistOnePK,
+    tokenContract : tokenContract,
+    tokenId : tokenId,
+    lienDetails : standardLienDetails,
+    amount : 10 ether,
+    isFirstLien : false,
+    stack : stack
     });
   }
 
@@ -375,7 +391,7 @@ contract RevertTesting is TestHelpers {
     _repay(stack[0], 0, 10 ether, address(this));
   }
 
-  function testFailCommitToLienPotentialDebtExceedsLiquidationInitialAsk() public {
+  function testCommitToLienPotentialDebtExceedsLiquidationInitialAsk() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -384,13 +400,13 @@ contract RevertTesting is TestHelpers {
 
     // create a PublicVault with a 14-day epoch
     address publicVault = _createPublicVault({
-    strategist: strategistOne,
-    delegate: strategistTwo,
-    epochLength: 30 days
+    strategist : strategistOne,
+    delegate : strategistTwo,
+    epochLength : 30 days
     });
 
     _lendToVault(
-      Lender({addr: address(1), amountToLend: 500 ether}),
+      Lender({addr : address(1), amountToLend : 500 ether}),
       publicVault
     );
 
@@ -398,30 +414,37 @@ contract RevertTesting is TestHelpers {
     details1.duration = 14 days;
     details1.liquidationInitialAsk = 100 ether;
 
-    _commitToLien({
-    vault: publicVault,
-    strategist: strategistOne,
-    strategistPK: strategistOnePK,
-    tokenContract: tokenContract,
-    tokenId: tokenId,
-    lienDetails: details1,
-    amount: 50 ether,
-    isFirstLien: true
-    });
-
     ILienToken.Details memory details2 = standardLienDetails;
     details2.duration = 25 days;
     details2.liquidationInitialAsk = 100 ether;
 
+    IAstariaRouter.Commitment[]
+    memory commitments = new IAstariaRouter.Commitment[](2);
+    ILienToken.Stack[] memory stack;
+
+
+    (, stack) = _commitToLien({
+    vault : publicVault,
+    strategist : strategistOne,
+    strategistPK : strategistOnePK,
+    tokenContract : tokenContract,
+    tokenId : tokenId,
+    lienDetails : details1,
+    amount : 50 ether,
+    isFirstLien : true,
+    stack: stack
+    });
+
     _commitToLien({
-    vault: publicVault,
-    strategist: strategistOne,
-    strategistPK: strategistOnePK,
-    tokenContract: tokenContract,
-    tokenId: tokenId,
-    lienDetails: details2,
-    amount: 50 ether,
-    isFirstLien: false
+    vault : publicVault,
+    strategist : strategistOne,
+    strategistPK : strategistOnePK,
+    tokenContract : tokenContract,
+    tokenId : tokenId,
+    lienDetails : details2,
+    amount : 50 ether,
+    isFirstLien : false,
+    stack: stack
     });
   }
 }
