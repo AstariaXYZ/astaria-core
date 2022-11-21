@@ -102,16 +102,8 @@ contract TestNFT is MockERC721 {
 import {BaseOrderTest} from "lib/seaport/test/foundry/utils/BaseOrderTest.sol";
 
 contract ConsiderationTester is BaseOrderTest {
-  function _deployAndConfigurePrecompiledSimple() public {
-    conduitController = ConduitController(
-      deployCode("src/test/ConduitController.sol/ConduitController.json")
-    );
-    //    consideration = ConsiderationInterface(
-    //      deployCode(
-    //        "src/test/Consideration.sol/Consideration.json",
-    //        abi.encode(address(conduitController))
-    //      )
-    //    );
+  function _deployAndConfigureConsideration() public {
+    conduitController = new ConduitController();
     consideration = new Consideration(address(conduitController));
 
     //create conduit, update channel
@@ -125,43 +117,13 @@ contract ConsiderationTester is BaseOrderTest {
     );
   }
 
-  function _deployAndConfigurePrecompiledReferenceSimple() public {
-    referenceConduitController = ConduitController(
-      deployCode(
-        "src/test/ReferenceConduitController.sol/ReferenceConduitController.json"
-      )
-    );
-    referenceConsideration = ConsiderationInterface(
-      deployCode(
-        "src/test/ReferenceConsideration.sol/ReferenceConsideration.json",
-        abi.encode(address(referenceConduitController))
-      )
-    );
-
-    //create conduit, update channel
-    referenceConduit = Conduit(
-      referenceConduitController.createConduit(conduitKeyOne, address(this))
-    );
-    referenceConduitController.updateChannel(
-      address(referenceConduit),
-      address(referenceConsideration),
-      true
-    );
-  }
-
   function setUp() public virtual override(BaseOrderTest) {
     conduitKeyOne = bytes32(uint256(uint160(address(this))) << 96);
-    _deployAndConfigurePrecompiledSimple();
-
-    emit log("Deploying reference from precompiled source");
-    _deployAndConfigurePrecompiledReferenceSimple();
+    _deployAndConfigureConsideration();
 
     vm.label(address(conduitController), "conduitController");
     vm.label(address(consideration), "consideration");
     vm.label(address(conduit), "conduit");
-    vm.label(address(referenceConduitController), "referenceConduitController");
-    vm.label(address(referenceConsideration), "referenceConsideration");
-    vm.label(address(referenceConduit), "referenceConduit");
     vm.label(address(this), "testContract");
   }
 }
