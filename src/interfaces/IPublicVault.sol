@@ -98,6 +98,8 @@ interface IPublicVault is IVaultImplementation {
    */
   function timeToEpochEnd() external view returns (uint256);
 
+  function timeToSecondEpochEnd() external view returns (uint256);
+
   /**
    * @notice Transfers funds from the PublicVault to the WithdrawProxy.
    */
