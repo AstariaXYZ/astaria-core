@@ -370,9 +370,20 @@ contract LienToken is ERC721, ILienToken, Auth {
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-
     if (params.stack.length >= s.maxLiens) {
       revert InvalidState(InvalidStates.MAX_LIENS);
+    }
+    if (
+      params.lien.details.liquidationInitialAsk < params.amount ||
+      params.lien.details.liquidationInitialAsk == 0
+    ) {
+      revert InvalidState(InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK);
+    }
+
+    if (params.stack.length > 0) {
+      if (params.lien.collateralId != params.stack[0].lien.collateralId) {
+        revert InvalidState(InvalidStates.COLLATERAL_MISMATCH);
+      }
     }
 
     if (params.stack.length > 0) {

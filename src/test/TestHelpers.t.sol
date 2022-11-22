@@ -976,6 +976,7 @@ contract TestHelpers is ConsiderationTester {
     WETH9.deposit{value: amount * 2}();
     WETH9.approve(address(TRANSFER_PROXY), amount * 2);
     WETH9.approve(address(LIEN_TOKEN), amount * 2);
+
     newStack = LIEN_TOKEN.makePayment(
       stack[position].lien.collateralId,
       stack,
