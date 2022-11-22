@@ -62,8 +62,6 @@ import {BeaconProxy} from "../BeaconProxy.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 
 import {IERC4626} from "core/interfaces/IERC4626.sol";
-import {IERC1155} from "core/interfaces/IERC1155.sol";
-import {ValidatorAsset} from "core/ValidatorAsset.sol";
 import {
   ConsiderationInterface
 } from "seaport/interfaces/ConsiderationInterface.sol";
@@ -450,7 +448,10 @@ contract TestHelpers is ConsiderationTester {
       (rate * amount * duration).mulDivDown(1, 365 days).mulDivDown(1, 1e18);
   }
 
-  function setupLiquidation(address borrower) public returns(address publicVault, ILienToken.Stack[] memory stack) {
+  function setupLiquidation(address borrower)
+    public
+    returns (address publicVault, ILienToken.Stack[] memory stack)
+  {
     TestNFT nft = new TestNFT(0);
     _mintNoDepositApproveRouterSpecific(borrower, address(nft), 99);
     address tokenContract = address(nft);
@@ -562,9 +563,11 @@ contract TestHelpers is ConsiderationTester {
     TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);
   }
 
-  function _mintNoDepositApproveRouterSpecific(address mintTo, address tokenContract, uint256 tokenId)
-    internal
-  {
+  function _mintNoDepositApproveRouterSpecific(
+    address mintTo,
+    address tokenContract,
+    uint256 tokenId
+  ) internal {
     TestNFT(tokenContract).mint(mintTo, tokenId);
     vm.startPrank(mintTo);
     TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);

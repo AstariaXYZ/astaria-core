@@ -36,7 +36,6 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 import {BeaconProxy} from "core/BeaconProxy.sol";
-import {ValidatorAsset} from "core/ValidatorAsset.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
 import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {
