@@ -212,7 +212,7 @@ contract Deploy is Script {
   }
 
   function _setupRolesAndCapabilities() internal {
-    //TODO refactor deploly flow to use single set of contracts to deploy in test and prod
+    //TODO refactor deploy flow to use single set of contracts to deploy in test and prod
   }
 
   function _setOwner() internal {
