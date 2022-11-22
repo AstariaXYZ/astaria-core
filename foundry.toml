@@ -9,6 +9,7 @@ remappings = [
     'solmate/=lib/solmate/src/',
     'gpl/=lib/gpl/src/',
     'clones-with-immutable-args/=lib/clones-with-immutable-args/src/',
-    "core/=./src/"
+    'core/=./src/',
+    'seaport/=lib/seaport/contracts',
 ]
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

@@ -24,9 +24,7 @@ import {
 } from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {IV3PositionManager} from "core/interfaces/IV3PositionManager.sol";
 
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";

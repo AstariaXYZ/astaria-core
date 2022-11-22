@@ -1,36 +1,3 @@
-# Astaria contest details
-
-- 50,000 USDC main award pot
-- Join [Sherlock Discord](https://discord.gg/MABEWyASkp)
-- Submit findings using the issue page in your private contest repo (label issues as med or high)
-- [Read for more details](https://docs.sherlock.xyz/audits/watsons)
-- Starts October 20, 2022 15:00 UTC
-- Ends November 03, 2022 15:00 UTC
-
-# Resources
-
-TBD
-
-# Audit scope
-
-
-[astaria-gpl](https://github.com/AstariaXYZ/astaria-gpl)
-
-[astaria-core](https://github.com/sherlock-audit/2022-10-astaria)
-
-All contracts in these repos are in scope unless specified below
-
-Not in scope
-
-```
-
-libraries/Base64.sol
-libraries/CollateralLookup.sol
-scripts/deployments/strategies/*
-utils
-test
-```
-
 # Astaria Docs
 ```ml
  src

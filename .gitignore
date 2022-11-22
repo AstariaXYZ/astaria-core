@@ -14,6 +14,7 @@ out
 
 lcov.info
 
-scripts/loanProofGenerator.js
 
 .idea
+
+scripts/loanProofGenerator.js
