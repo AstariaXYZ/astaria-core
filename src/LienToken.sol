@@ -374,12 +374,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (params.stack.length >= s.maxLiens) {
       revert InvalidState(InvalidStates.MAX_LIENS);
     }
-    //    if (
-    //      _getMaxPotentialDebtForCollateral(params.stack) >
-    //      params.lien.details.maxPotentialDebt
-    //    ) {
-    //      revert InvalidState(InvalidStates.DEBT_LIMIT);
-    //    }
 
     if (params.stack.length > 0) {
       if (params.lien.collateralId != params.stack[0].lien.collateralId) {
