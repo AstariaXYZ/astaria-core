@@ -198,23 +198,6 @@ contract Deploy is Script {
         abi.encodePacked("ROUTER_ADDR=", vm.toString(address(ASTARIA_ROUTER)))
       )
     );
-    //    bytes32[] calldata what = new bytes32[](2);
-    //    bytes[] calldata data = new bytes[](2);
-    //    what[0] = bytes32("WITHDRAW_IMPLEMENTATION");
-    //    what[1] = bytes32("LIQUIDATION_IMPLEMENTATION");
-    //    data[0] = abi.encode(address(WITHDRAW_PROXY));
-    //    data[1] = abi.encode(address(LIQUIDATION_IMPLEMENTATION));
-
-    //    AstariaRouter.File[] memory files = new AstariaRouter.File[](2);
-    //    files[0] = AstariaRouter.File(
-    //      bytes32("WITHDRAW_IMPLEMENTATION"),
-    //      abi.encode(address(WITHDRAW_PROXY))
-    //    );
-    //    files[1] = AstariaRouter.File(
-    //      bytes32("LIQUIDATION_IMPLEMENTATION"),
-    //      abi.encode(address(LIQUIDATION_IMPLEMENTATION))
-    //    );
-    //    ASTARIA_ROUTER.fileBatch(files);
 
     ICollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
 
