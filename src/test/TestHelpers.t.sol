@@ -17,7 +17,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {MockERC721} from "solmate/test/utils/mocks/MockERC721.sol";
 import {
-  MultiRolesAuthority
+MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
@@ -32,19 +32,19 @@ import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {
-  ConduitControllerInterface
+ConduitControllerInterface
 } from "seaport/interfaces/ConduitControllerInterface.sol";
 import {
-  ICollectionValidator,
-  CollectionValidator
+ICollectionValidator,
+CollectionValidator
 } from "../strategies/CollectionValidator.sol";
 import {
-  UNI_V3Validator,
-  IUNI_V3Validator
+UNI_V3Validator,
+IUNI_V3Validator
 } from "../strategies/UNI_V3Validator.sol";
 import {
-  UniqueValidator,
-  IUniqueValidator
+UniqueValidator,
+IUniqueValidator
 } from "../strategies/UniqueValidator.sol";
 import {V3SecurityHook} from "../security/V3SecurityHook.sol";
 import {CollateralToken} from "../CollateralToken.sol";
@@ -65,19 +65,19 @@ import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IERC1155} from "core/interfaces/IERC1155.sol";
 import {ValidatorAsset} from "core/ValidatorAsset.sol";
 import {
-  ConsiderationInterface
+ConsiderationInterface
 } from "seaport/interfaces/ConsiderationInterface.sol";
 import {
-  OrderParameters,
-  OrderComponents,
-  Order,
-  CriteriaResolver,
-  AdvancedOrder,
-  OfferItem,
-  ConsiderationItem,
-  OrderType,
-  Fulfillment,
-  FulfillmentComponent
+OrderParameters,
+OrderComponents,
+Order,
+CriteriaResolver,
+AdvancedOrder,
+OfferItem,
+ConsiderationItem,
+OrderType,
+Fulfillment,
+FulfillmentComponent
 } from "seaport/lib/ConsiderationStructs.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
 import {RoyaltyEngineMock} from "./utils/RoyaltyEngineMock.sol";
@@ -152,56 +152,64 @@ contract TestHelpers is ConsiderationTester {
   uint256 private checkpointGasLeft = 1; // Start the slot warm.
 
   ILienToken.Details public blueChipDetails =
-    ILienToken.Details({
-      maxAmount: 150 ether,
-      rate: (uint256(1e16) * 150) / (365 days),
-      duration: 10 days,
-      maxPotentialDebt: 0 ether,
-      liquidationInitialAsk: 500 ether
-    });
+  ILienToken.Details({
+  maxAmount: 150 ether,
+  rate: (uint256(1e16) * 150) / (365 days),
+  duration: 10 days,
+  maxPotentialDebt: 0 ether,
+  liquidationInitialAsk: 500 ether
+  });
+  ILienToken.Details public rogueBuyoutLien =
+  ILienToken.Details({
+  maxAmount: 50 ether,
+  rate: (uint256(1e16) * 150) / (365 days),
+  duration: 10 days,
+  maxPotentialDebt: 50 ether,
+  liquidationInitialAsk: 500 ether
+  });
   ILienToken.Details public standardLienDetails =
-    ILienToken.Details({
-      maxAmount: 50 ether,
-      rate: (uint256(1e16) * 150) / (365 days),
-      duration: 10 days,
-      maxPotentialDebt: 0 ether,
-      liquidationInitialAsk: 500 ether
-    });
+  ILienToken.Details({
+  maxAmount: 50 ether,
+  rate: (uint256(1e16) * 150) / (365 days),
+  duration: 10 days,
+  maxPotentialDebt: 0 ether,
+  liquidationInitialAsk: 500 ether
+  });
 
   ILienToken.Details public refinanceLienDetails =
-    ILienToken.Details({
-      maxAmount: 50 ether,
-      rate: (uint256(1e16) * 150) / (365 days),
-      duration: 25 days,
-      maxPotentialDebt: 53 ether,
-      liquidationInitialAsk: 500 ether
-    });
+  ILienToken.Details({
+  maxAmount: 50 ether,
+  rate: (uint256(1e16) * 150) / (365 days),
+  duration: 25 days,
+  maxPotentialDebt: 53 ether,
+  liquidationInitialAsk: 500 ether
+  });
   ILienToken.Details public refinanceLienDetails2 =
-    ILienToken.Details({
-      maxAmount: 50 ether,
-      rate: (uint256(1e16) * 150) / (365 days),
-      duration: 25 days,
-      maxPotentialDebt: 52 ether,
-      liquidationInitialAsk: 500 ether
-    });
+  ILienToken.Details({
+  maxAmount: 50 ether,
+  rate: (uint256(1e16) * 150) / (365 days),
+  duration: 25 days,
+  maxPotentialDebt: 52 ether,
+  liquidationInitialAsk: 500 ether
+  });
 
   ILienToken.Details public refinanceLienDetails3 =
-    ILienToken.Details({
-      maxAmount: 50 ether,
-      rate: (uint256(1e16) * 150) / (365 days),
-      duration: 25 days,
-      maxPotentialDebt: 51 ether,
-      liquidationInitialAsk: 500 ether
-    });
+  ILienToken.Details({
+  maxAmount: 50 ether,
+  rate: (uint256(1e16) * 150) / (365 days),
+  duration: 25 days,
+  maxPotentialDebt: 51 ether,
+  liquidationInitialAsk: 500 ether
+  });
 
   ILienToken.Details public refinanceLienDetails4 =
-    ILienToken.Details({
-      maxAmount: 50 ether,
-      rate: (uint256(1e16) * 150) / (365 days),
-      duration: 25 days,
-      maxPotentialDebt: 55 ether,
-      liquidationInitialAsk: 500 ether
-    });
+  ILienToken.Details({
+  maxAmount: 50 ether,
+  rate: (uint256(1e16) * 150) / (365 days),
+  duration: 25 days,
+  maxPotentialDebt: 55 ether,
+  liquidationInitialAsk: 500 ether
+  });
 
   enum UserRoles {
     ADMIN,
@@ -312,14 +320,14 @@ contract TestHelpers is ConsiderationTester {
     CollateralToken.File[] memory ctfiles = new CollateralToken.File[](2);
 
     ctfiles[0] = ICollateralToken.File({
-      what: ICollateralToken.FileType.AstariaRouter,
-      data: abi.encode(address(ASTARIA_ROUTER))
+    what: ICollateralToken.FileType.AstariaRouter,
+    data: abi.encode(address(ASTARIA_ROUTER))
     });
 
     address UNI_V3_NFT = address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
     ctfiles[1] = ICollateralToken.File({
-      what: ICollateralToken.FileType.SecurityHook,
-      data: abi.encode(UNI_V3_NFT, address(V3_SECURITY_HOOK))
+    what: ICollateralToken.FileType.SecurityHook,
+    data: abi.encode(UNI_V3_NFT, address(V3_SECURITY_HOOK))
     });
 
     COLLATERAL_TOKEN.fileBatch(ctfiles);
@@ -430,8 +438,8 @@ contract TestHelpers is ConsiderationTester {
     uint256 duration
   ) public pure returns (uint256) {
     return
-      amount +
-      (rate * amount * duration).mulDivDown(1, 365 days).mulDivDown(1, 1e18);
+    amount +
+    (rate * amount * duration).mulDivDown(1, 365 days).mulDivDown(1, 1e18);
   }
 
   function getFeesForLiquidation(
@@ -446,11 +454,11 @@ contract TestHelpers is ConsiderationTester {
       openseaPercentage + royaltyPercentage + 1e18
     );
     fees = Fees({
-      opensea: remainder.mulDivDown(openseaPercentage, 1e18),
-      royalties: remainder.mulDivDown(royaltyPercentage, 1e18),
-      liquidator: remainder.mulDivDown(liquidatorPercentage, 1e18),
-      lender: 0,
-      borrower: 0
+    opensea: remainder.mulDivDown(openseaPercentage, 1e18),
+    royalties: remainder.mulDivDown(royaltyPercentage, 1e18),
+    liquidator: remainder.mulDivDown(liquidatorPercentage, 1e18),
+    lender: 0,
+    borrower: 0
     });
     remainder -= fees.liquidator;
     if (remainder <= lenderAmountOwed) {
@@ -490,7 +498,7 @@ contract TestHelpers is ConsiderationTester {
     //warps to the first second after the epoch end
     assertTrue(
       block.timestamp <
-        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
+      PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
     );
     vm.warp(
       PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
@@ -498,7 +506,7 @@ contract TestHelpers is ConsiderationTester {
   }
 
   function _mintNoDepositApproveRouter(address tokenContract, uint256 tokenId)
-    internal
+  internal
   {
     TestNFT(tokenContract).mint(address(this), tokenId);
     TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);
@@ -523,8 +531,8 @@ contract TestHelpers is ConsiderationTester {
   }
 
   function _createPrivateVault(address strategist, address delegate)
-    internal
-    returns (address privateVault)
+  internal
+  returns (address privateVault)
   {
     vm.startPrank(strategist);
     privateVault = ASTARIA_ROUTER.newVault(delegate);
@@ -597,24 +605,31 @@ contract TestHelpers is ConsiderationTester {
     bool isFirstLien
   ) internal returns (uint256[] memory, ILienToken.Stack[] memory stack) {
     return
-      _commitToLien({
-        vault: vault,
-        strategist: strategist,
-        strategistPK: strategistPK,
-        tokenContract: tokenContract,
-        tokenId: tokenId,
-        lienDetails: lienDetails,
-        amount: amount,
-        isFirstLien: isFirstLien,
-        stack: new ILienToken.Stack[](0)
-      });
+    _commitToLien({
+    vault: vault,
+    strategist: strategist,
+    strategistPK: strategistPK,
+    tokenContract: tokenContract,
+    tokenId: tokenId,
+    lienDetails: lienDetails,
+    amount: amount,
+    isFirstLien: isFirstLien,
+    stack: new ILienToken.Stack[](0),
+    revertMessage: new bytes(0)
+    });
   }
 
-  function _executeCommitments(IAstariaRouter.Commitment[] memory commitments)
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  function _executeCommitments(
+    IAstariaRouter.Commitment[] memory commitments,
+    bytes memory revertMessage
+  )
+  internal
+  returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    if (revertMessage.length > 0) {
+      vm.expectRevert(revertMessage);
+    }
     return ASTARIA_ROUTER.commitToLiens(commitments);
   }
 
@@ -641,14 +656,14 @@ contract TestHelpers is ConsiderationTester {
     ILienToken.Stack[] memory stack,
     bool isFirstLien
   )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  internal
+  returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
     IAstariaRouter.Commitment memory terms = _generateValidV3Terms({
-      params: params,
-      amount: amount,
-      vault: vault,
-      stack: stack
+    params: params,
+    amount: amount,
+    vault: vault,
+    stack: stack
     });
 
     if (isFirstLien) {
@@ -658,9 +673,13 @@ contract TestHelpers is ConsiderationTester {
       );
     }
     IAstariaRouter.Commitment[]
-      memory commitments = new IAstariaRouter.Commitment[](1);
+    memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
-    return _executeCommitments({commitments: commitments});
+    return
+    _executeCommitments({
+    commitments: commitments,
+    revertMessage: new bytes(0)
+    });
   }
 
   function _commitToLien(
@@ -674,27 +693,61 @@ contract TestHelpers is ConsiderationTester {
     bool isFirstLien,
     ILienToken.Stack[] memory stack
   )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  internal
+  returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
+    return
+    _commitToLien({
+    vault: vault,
+    strategist: strategist,
+    strategistPK: strategistPK,
+    tokenContract: tokenContract,
+    tokenId: tokenId,
+    lienDetails: lienDetails,
+    amount: amount,
+    isFirstLien: isFirstLien,
+    stack: stack,
+    revertMessage: new bytes(0)
+    });
+  }
+
+  function _commitToLien(
+    address vault, // address of deployed Vault
+    address strategist,
+    uint256 strategistPK,
+    address tokenContract, // original NFT address
+    uint256 tokenId, // original NFT id
+    ILienToken.Details memory lienDetails, // loan information
+    uint256 amount, // requested amount
+    bool isFirstLien,
+    ILienToken.Stack[] memory stack,
+    bytes memory revertMessage
+  )
+  internal
+  returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
-      vault: vault,
-      strategist: strategist,
-      strategistPK: strategistPK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: lienDetails,
-      amount: amount,
-      stack: stack
+    vault: vault,
+    strategist: strategist,
+    strategistPK: strategistPK,
+    tokenContract: tokenContract,
+    tokenId: tokenId,
+    lienDetails: lienDetails,
+    amount: amount,
+    stack: stack
     });
 
     if (isFirstLien) {
       ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
     }
     IAstariaRouter.Commitment[]
-      memory commitments = new IAstariaRouter.Commitment[](1);
+    memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
-    return _executeCommitments({commitments: commitments});
+    return
+    _executeCommitments({
+    commitments: commitments,
+    revertMessage: revertMessage
+    });
   }
 
   function _generateEncodedStrategyData(
@@ -711,12 +764,12 @@ contract TestHelpers is ConsiderationTester {
       )
     );
     return
-      abi.encodePacked(
-        bytes1(0x19),
-        bytes1(0x01),
-        VaultImplementation(vault).domainSeparator(),
-        hash
-      );
+    abi.encodePacked(
+      bytes1(0x19),
+      bytes1(0x01),
+      VaultImplementation(vault).domainSeparator(),
+      hash
+    );
   }
 
   function _generateValidV3Terms(
@@ -727,57 +780,57 @@ contract TestHelpers is ConsiderationTester {
   ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUNI_V3Validator.Details({
-        version: uint8(3),
-        lp: params.tokenContract,
-        token0: params.assets[0],
-        token1: params.assets[1],
-        fee: params.fee,
-        tickLower: params.tickLower,
-        tickUpper: params.tickUpper,
-        amount0Min: params.amount0Min,
-        amount1Min: params.amount1Min,
-        minLiquidity: params.liquidity,
-        borrower: params.borrower,
-        lien: params.details
-      })
+    version: uint8(3),
+    lp: params.tokenContract,
+    token0: params.assets[0],
+    token1: params.assets[1],
+    fee: params.fee,
+    tickLower: params.tickLower,
+    tickUpper: params.tickUpper,
+    amount0Min: params.amount0Min,
+    amount1Min: params.amount1Min,
+    minLiquidity: params.liquidity,
+    borrower: params.borrower,
+    lien: params.details
+    })
     );
 
     (
-      bytes32 rootHash,
-      bytes32[] memory merkleProof
+    bytes32 rootHash,
+    bytes32[] memory merkleProof
     ) = _generateLoanMerkleProof2({
-        requestType: IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY,
-        data: validatorDetails
-      });
+    requestType: IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY,
+    data: validatorDetails
+    });
 
     // setup 712 signature
 
     IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter
-      .StrategyDetails({
-        version: uint8(0),
-        deadline: block.timestamp + 10 days,
-        vault: vault
-      });
+    .StrategyDetails({
+    version: uint8(0),
+    deadline: block.timestamp + 10 days,
+    vault: vault
+    });
 
     bytes32 termHash = keccak256(
       _generateEncodedStrategyData(vault, strategyDetails.deadline, rootHash)
     );
     return
-      _generateTerms(
-        GenTerms({
-          nlrType: uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY),
-          tokenContract: params.tokenContract,
-          tokenId: params.tokenId,
-          termHash: termHash,
-          rootHash: rootHash,
-          pk: params.strategistPK,
-          strategyDetails: strategyDetails,
-          validatorDetails: validatorDetails,
-          amount: amount,
-          merkleProof: merkleProof,
-          stack: stack
-        })
-      );
+    _generateTerms(
+      GenTerms({
+    nlrType: uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY),
+    tokenContract: params.tokenContract,
+    tokenId: params.tokenId,
+    termHash: termHash,
+    rootHash: rootHash,
+    pk: params.strategistPK,
+    strategyDetails: strategyDetails,
+    validatorDetails: validatorDetails,
+    amount: amount,
+    merkleProof: merkleProof,
+    stack: stack
+    })
+    );
   }
 
   function _generateValidTerms(
@@ -792,50 +845,50 @@ contract TestHelpers is ConsiderationTester {
   ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
-        version: uint8(1),
-        token: tokenContract,
-        tokenId: tokenId,
-        borrower: address(0),
-        lien: lienDetails
-      })
+    version: uint8(1),
+    token: tokenContract,
+    tokenId: tokenId,
+    borrower: address(0),
+    lien: lienDetails
+    })
     );
 
     (
-      bytes32 rootHash,
-      bytes32[] memory merkleProof
+    bytes32 rootHash,
+    bytes32[] memory merkleProof
     ) = _generateLoanMerkleProof2({
-        requestType: IAstariaRouter.LienRequestType.UNIQUE,
-        data: validatorDetails
-      });
+    requestType: IAstariaRouter.LienRequestType.UNIQUE,
+    data: validatorDetails
+    });
 
     // setup 712 signature
 
     IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter
-      .StrategyDetails({
-        version: uint8(0),
-        deadline: block.timestamp + 10 days,
-        vault: vault
-      });
+    .StrategyDetails({
+    version: uint8(0),
+    deadline: block.timestamp + 10 days,
+    vault: vault
+    });
 
     bytes32 termHash = keccak256(
       _generateEncodedStrategyData(vault, strategyDetails.deadline, rootHash)
     );
     return
-      _generateTerms(
-        GenTerms({
-          tokenContract: tokenContract,
-          tokenId: tokenId,
-          termHash: termHash,
-          rootHash: rootHash,
-          pk: strategistPK,
-          strategyDetails: strategyDetails,
-          validatorDetails: validatorDetails,
-          nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE),
-          amount: amount,
-          merkleProof: merkleProof,
-          stack: stack
-        })
-      );
+    _generateTerms(
+      GenTerms({
+    tokenContract: tokenContract,
+    tokenId: tokenId,
+    termHash: termHash,
+    rootHash: rootHash,
+    pk: strategistPK,
+    strategyDetails: strategyDetails,
+    validatorDetails: validatorDetails,
+    nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE),
+    amount: amount,
+    merkleProof: merkleProof,
+    stack: stack
+    })
+    );
   }
 
   struct GenTerms {
@@ -853,29 +906,29 @@ contract TestHelpers is ConsiderationTester {
   }
 
   function _generateTerms(GenTerms memory params)
-    internal
-    returns (IAstariaRouter.Commitment memory terms)
+  internal
+  returns (IAstariaRouter.Commitment memory terms)
   {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(params.pk, params.termHash);
 
     return
-      IAstariaRouter.Commitment({
-        tokenContract: params.tokenContract,
-        tokenId: params.tokenId,
-        lienRequest: IAstariaRouter.NewLienRequest({
-          strategy: params.strategyDetails,
-          nlrDetails: params.validatorDetails,
-          merkle: IAstariaRouter.MerkleData({
-            root: params.rootHash,
-            proof: params.merkleProof
-          }),
-          stack: params.stack,
-          amount: params.amount,
-          v: v,
-          r: r,
-          s: s
-        })
-      });
+    IAstariaRouter.Commitment({
+    tokenContract: params.tokenContract,
+    tokenId: params.tokenId,
+    lienRequest: IAstariaRouter.NewLienRequest({
+    strategy: params.strategyDetails,
+    nlrDetails: params.validatorDetails,
+    merkle: IAstariaRouter.MerkleData({
+    root: params.rootHash,
+    proof: params.merkleProof
+    }),
+    stack: params.stack,
+    amount: params.amount,
+    v: v,
+    r: r,
+    s: s
+    })
+    });
   }
 
   struct Lender {
@@ -917,13 +970,13 @@ contract TestHelpers is ConsiderationTester {
     uint8 position,
     uint256 amount,
     address payer
-  ) internal {
+  ) internal returns (ILienToken.Stack[] memory newStack) {
     vm.deal(payer, amount * 3);
     vm.startPrank(payer);
     WETH9.deposit{value: amount * 2}();
     WETH9.approve(address(TRANSFER_PROXY), amount * 2);
     WETH9.approve(address(LIEN_TOKEN), amount * 2);
-    LIEN_TOKEN.makePayment(stack, position, amount * 2);
+    newStack = LIEN_TOKEN.makePayment(stack, position, amount);
     vm.stopPrank();
   }
 
@@ -965,10 +1018,10 @@ contract TestHelpers is ConsiderationTester {
     if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
       (, , address conduitController) = SEAPORT.information();
       bidderConduits[incomingBidder.bidder].conduitKey = Bytes32AddressLib
-        .fillLast12Bytes(address(incomingBidder.bidder));
+      .fillLast12Bytes(address(incomingBidder.bidder));
 
       bidderConduits[incomingBidder.bidder]
-        .conduit = ConduitControllerInterface(conduitController).createConduit(
+      .conduit = ConduitControllerInterface(conduitController).createConduit(
         bidderConduits[incomingBidder.bidder].conduitKey,
         address(incomingBidder.bidder)
       );
@@ -1156,7 +1209,7 @@ contract TestHelpers is ConsiderationTester {
     emit log_named_uint("startTime", startTime);
     emit log_named_uint("endTime", endTime);
     uint256 m = ((currentPrice - 1000 wei - 25 wei - 80 wei) /
-      (endTime - startTime));
+    (endTime - startTime));
     uint256 x = ((currentPrice - bidAmount) / m);
     emit log_named_uint("m", m);
     emit log_named_uint("x", x);
@@ -1194,9 +1247,9 @@ contract TestHelpers is ConsiderationTester {
   }
 
   function _toOfferItems(ConsiderationItem[] memory _considerationItems)
-    internal
-    pure
-    returns (OfferItem[] memory)
+  internal
+  pure
+  returns (OfferItem[] memory)
   {
     OfferItem[] memory _offerItems = new OfferItem[](
       _considerationItems.length
@@ -1236,10 +1289,10 @@ contract TestHelpers is ConsiderationTester {
     vm.startPrank(lender);
     ERC20(publicVault).safeApprove(address(TRANSFER_PROXY), vaultTokenBalance);
     ASTARIA_ROUTER.redeemFutureEpoch({
-      vault: IPublicVault(publicVault),
-      shares: vaultTokenBalance,
-      receiver: lender,
-      epoch: epoch
+    vault: IPublicVault(publicVault),
+    shares: vaultTokenBalance,
+    receiver: lender,
+    epoch: epoch
     });
 
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
@@ -1262,24 +1315,24 @@ contract TestHelpers is ConsiderationTester {
     uint256 tokenId, // original NFT id
     ILienToken.Details[] memory lienDetails // loan information
   )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  internal
+  returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
     require(vaults.length == lienDetails.length, "vaults not equal to liens");
 
     IAstariaRouter.Commitment[]
-      memory commitments = new IAstariaRouter.Commitment[](vaults.length);
+    memory commitments = new IAstariaRouter.Commitment[](vaults.length);
     ILienToken.Stack[] memory stack = new ILienToken.Stack[](0);
     for (uint256 i; i < vaults.length; i++) {
       commitments[i] = _generateValidTerms({
-        vault: vaults[i],
-        strategist: strategist,
-        strategistPK: strategistPK,
-        tokenContract: tokenContract,
-        tokenId: tokenId,
-        lienDetails: lienDetails[i],
-        amount: (i + 1) * 1 ether,
-        stack: stack
+      vault: vaults[i],
+      strategist: strategist,
+      strategistPK: strategistPK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lienDetails[i],
+      amount: (i + 1) * 1 ether,
+      stack: stack
       });
     }
 

@@ -110,7 +110,7 @@ contract AstariaTest is TestHelpers {
     // make sure the borrow was successful
     assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
 
-    vm.warp(block.timestamp + 10 days);
+    vm.warp(block.timestamp + 9 days);
 
     _repay(stack, 0, 10 ether, address(this));
   }
