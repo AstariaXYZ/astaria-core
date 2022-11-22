@@ -1194,15 +1194,7 @@ contract TestHelpers is ConsiderationTester {
     }
 
     delete fulfillmentComponents;
-    //    for (uint256 i = 0; i < params.consideration.length; i++) {
-    //      currentPrice += _locateCurrentAmount(
-    //        params.consideration[i].startAmount,
-    //        params.consideration[i].endAmount,
-    //        params.startTime,
-    //        params.endTime,
-    //        false
-    //      );
-    //    }
+
     uint256 currentPrice = _locateCurrentAmount(
       params.consideration[0].startAmount,
       params.consideration[0].endAmount,

@@ -85,8 +85,6 @@ contract WithdrawTest is TestHelpers {
     );
 
     vm.warp(block.timestamp + 2 days); // end of auction
-    //TODO: add in something here for ending auction to liquidator for no bids.
-    //    AUCTION_HOUSE.endAuction(0);
 
     _warpToEpochEnd(publicVault);
     PublicVault(publicVault).processEpoch();
@@ -172,7 +170,6 @@ contract WithdrawTest is TestHelpers {
     //TODO: figure out how to do multiple bids here properly
 
     _bid(Bidder(bidder, bidderPK), listedOrder2, 20 ether);
-    //    _bid(Bidder(bidder, bidderPK), listedOrder1, 5 ether);
     vm.warp(withdrawProxy.getFinalAuctionEnd());
     emit log_named_uint("finalAuctionEnd", block.timestamp);
     PublicVault(publicVault).processEpoch();
@@ -279,8 +276,6 @@ contract WithdrawTest is TestHelpers {
       amount: 10 ether,
       isFirstLien: true
     });
-    //    uint256 lienId1 = liens[0][0];
-    //    uint256 lienId2 = liens[1][0];
 
     _warpToEpochEnd(publicVault);
 
@@ -496,7 +491,7 @@ contract WithdrawTest is TestHelpers {
       PublicVault(publicVault).getWithdrawReserve(),
       0,
       "withdrawReserve should be 0 after transfer"
-    ); // TODO check
+    );
 
     assertEq(
       PublicVault(publicVault).getYIntercept(),
