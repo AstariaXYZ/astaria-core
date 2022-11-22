@@ -574,10 +574,6 @@ contract CollateralToken is
     uint256 collateralId,
     Order memory listingOrder
   ) internal {
-    if (
-      listingOrder.parameters.consideration[0].itemType != ItemType.NATIVE ||
-      listingOrder.parameters.consideration[1].itemType != ItemType.NATIVE
-    ) {}
     //get total Debt and ensure its being sold for more than that
 
     if (listingOrder.parameters.conduitKey != s.CONDUIT_KEY) {
