@@ -209,9 +209,18 @@ interface ILienToken is IERC721 {
    * @param stack the stack to pay against
    * @param amount The amount to pay against the debt.
    */
-  function makePayment(Stack[] memory stack, uint256 amount)
-    external
-    returns (Stack[] memory newStack);
+  function makePayment(
+    uint256 collateralId,
+    Stack[] memory stack,
+    uint256 amount
+  ) external returns (Stack[] memory newStack);
+
+  function makePayment(
+    uint256 collateralId,
+    Stack[] calldata stack,
+    uint8 position,
+    uint256 amount
+  ) external returns (Stack[] memory newStack);
 
   struct AuctionStack {
     uint256 lienId;
