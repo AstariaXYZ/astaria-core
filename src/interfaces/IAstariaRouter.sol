@@ -132,9 +132,10 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param commitment The commitment proofs and requested loan data for each loan.
    * @return lien the new Lien data.
    */
-  function validateCommitment(IAstariaRouter.Commitment calldata commitment)
-    external
-    returns (ILienToken.Lien memory lien);
+  function validateCommitment(
+    IAstariaRouter.Commitment calldata commitment,
+    uint256 timeToSecondEpochEnd
+  ) external returns (ILienToken.Lien memory lien);
 
   /**
    * @notice Deploys a new PublicVault.
@@ -237,7 +238,7 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function liquidate(ILienToken.Stack[] calldata stack, uint8 position)
     external
-    returns (uint256, OrderParameters memory);
+    returns (OrderParameters memory);
 
   /**
    * @notice Returns whether a specified lien can be liquidated.
@@ -295,12 +296,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     ILienToken.Stack[] calldata stack
   ) external view returns (bool);
 
-  event Liquidation(
-    uint256 collateralId,
-    uint256 position,
-    uint256 reserve,
-    uint256[] fee
-  );
+  event Liquidation(uint256 collateralId, uint256 position);
   event NewVault(
     address strategist,
     address delegate,
@@ -311,6 +307,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);
   error InvalidRefinanceDuration(uint256);
+  error InvalidRefinanceCollateral(uint256);
   error InvalidVaultState(VaultState);
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);

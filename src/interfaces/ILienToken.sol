@@ -122,7 +122,7 @@ interface ILienToken is IERC721 {
     uint256 auctionWindow,
     Stack[] calldata stack,
     address liquidator
-  ) external returns (uint256 reserve);
+  ) external;
 
   /**
    * @notice Computes and returns the buyout amount for a Lien.
@@ -133,16 +133,6 @@ interface ILienToken is IERC721 {
     external
     view
     returns (uint256, uint256);
-
-  /**
-   * @notice Removes all liens for a given CollateralToken.
-   * @param collateralId The ID for the underlying CollateralToken.
-   * @param remainingLiens The IDs for the unpaid liens
-   */
-  function removeLiens(
-    uint256 collateralId,
-    AuctionStack[] memory remainingLiens
-  ) external;
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -219,9 +209,18 @@ interface ILienToken is IERC721 {
    * @param stack the stack to pay against
    * @param amount The amount to pay against the debt.
    */
-  function makePayment(Stack[] memory stack, uint256 amount)
-    external
-    returns (Stack[] memory newStack);
+  function makePayment(
+    uint256 collateralId,
+    Stack[] memory stack,
+    uint256 amount
+  ) external returns (Stack[] memory newStack);
+
+  function makePayment(
+    uint256 collateralId,
+    Stack[] calldata stack,
+    uint8 position,
+    uint256 amount
+  ) external returns (Stack[] memory newStack);
 
   struct AuctionStack {
     uint256 lienId;
@@ -257,10 +256,10 @@ interface ILienToken is IERC721 {
    * @param stack The stack data for active liens against the CollateralToken.
    * @param end The timestamp to accrue potential debt until.
    */
-  function getMaxPotentialDebtForCollateral(ILienToken.Stack[] memory stack, uint256 end)
-    external
-    view
-    returns (uint256);
+  function getMaxPotentialDebtForCollateral(
+    ILienToken.Stack[] memory stack,
+    uint256 end
+  ) external view returns (uint256);
 
   /**
    * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.
@@ -312,6 +311,7 @@ interface ILienToken is IERC721 {
   error InvalidLoanState();
   enum InvalidStates {
     NO_AUTHORITY,
+    COLLATERAL_MISMATCH,
     NOT_ENOUGH_FUNDS,
     INVALID_LIEN_ID,
     COLLATERAL_AUCTION,

@@ -268,12 +268,16 @@ contract CollateralToken is
     CollateralStorage storage s = _loadCollateralSlot();
     (addr, tokenId) = getUnderlying(collateralId);
 
-    require(
-      s.flashEnabled[addr] &&
-        !(s.LIEN_TOKEN.getCollateralState(collateralId) ==
-          bytes32("ACTIVE_AUCTION")),
-      "can't flash if disabled or at auction"
-    );
+    if (!s.flashEnabled[addr]) {
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
+    }
+
+    if (
+      s.LIEN_TOKEN.getCollateralState(collateralId) == bytes32("ACTIVE_AUCTION")
+    ) {
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
+    }
+
     IERC721 nft = IERC721(addr);
 
     bytes memory preTransferState;
@@ -287,7 +291,7 @@ contract CollateralToken is
     }
     // transfer the NFT to the destination optimistically
 
-    nft.transferFrom(address(this), address(receiver), tokenId);
+    nft.safeTransferFrom(address(this), address(receiver), tokenId);
     // invoke the call passed by the msg.sender
 
     if (
@@ -397,15 +401,6 @@ contract CollateralToken is
     returns (address)
   {
     return (_loadCollateralSlot().clearingHouse[collateralId]);
-  }
-
-  function getCollateralAuctionReservePrice(uint256 collateralId)
-    public
-    view
-    returns (uint256)
-  {
-    CollateralStorage storage s = _loadCollateralSlot();
-    return s.collateralIdAuctionReservePrice[collateralId];
   }
 
   function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
@@ -545,7 +540,6 @@ contract CollateralToken is
     returns (OrderParameters memory orderParameters)
   {
     CollateralStorage storage s = _loadCollateralSlot();
-    s.collateralIdAuctionReservePrice[params.collateralId] = params.reserve;
 
     orderParameters = _generateValidOrderParameters(
       s,
@@ -560,6 +554,19 @@ contract CollateralToken is
       params.collateralId,
       Order(orderParameters, new bytes(0))
     );
+  }
+
+  function getOpenSeaData()
+    external
+    view
+    returns (
+      address,
+      uint16,
+      uint16
+    )
+  {
+    CollateralStorage storage s = _loadCollateralSlot();
+    return (s.OS_FEE_PAYEE, s.osFeeNumerator, s.osFeeDenominator);
   }
 
   function _listUnderlyingOnSeaport(

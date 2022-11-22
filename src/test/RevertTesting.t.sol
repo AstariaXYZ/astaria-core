@@ -60,12 +60,17 @@ contract RevertTesting is TestHelpers {
 
   function testCannotRandomAccountIncrementNonce() public {
     address privateVault = _createPublicVault({
-    strategist : strategistOne,
-    delegate : strategistTwo,
-    epochLength : 10 days
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 10 days
     });
 
-    vm.expectRevert(abi.encodeWithSelector(IVaultImplementation.InvalidRequest.selector, IVaultImplementation.InvalidRequestReason.NO_AUTHORITY));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IVaultImplementation.InvalidRequest.selector,
+        IVaultImplementation.InvalidRequestReason.NO_AUTHORITY
+      )
+    );
     VaultImplementation(privateVault).incrementNonce();
     assertEq(
       VaultImplementation(privateVault).getStrategistNonce(),
@@ -172,7 +177,10 @@ contract RevertTesting is TestHelpers {
       amount: 11 ether,
       isFirstLien: true,
       stack: stack,
-      revertMessage: abi.encodeWithSelector(IAstariaRouter.InvalidCommitmentState.selector, IAstariaRouter.CommitmentState.INVALID_AMOUNT)
+      revertMessage: abi.encodeWithSelector(
+        IAstariaRouter.InvalidCommitmentState.selector,
+        IAstariaRouter.CommitmentState.INVALID_AMOUNT
+      )
     });
   }
 
@@ -211,7 +219,12 @@ contract RevertTesting is TestHelpers {
 
     vm.warp(block.timestamp + 15 days);
 
-    vm.expectRevert(abi.encodeWithSelector(IPublicVault.InvalidState.selector, IPublicVault.InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IPublicVault.InvalidState.selector,
+        IPublicVault.InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
+      )
+    );
     PublicVault(publicVault).processEpoch();
   }
 
@@ -224,14 +237,14 @@ contract RevertTesting is TestHelpers {
 
     // create a PublicVault with a 14-day epoch
     address publicVault = _createPublicVault({
-    strategist : strategistOne,
-    delegate : strategistTwo,
-    epochLength : 14 days
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
     });
 
     // lend 50 ether to the PublicVault as address(1)
     _lendToVault(
-      Lender({addr : address(1), amountToLend : 50 ether}),
+      Lender({addr: address(1), amountToLend: 100 ether}),
       publicVault
     );
 
@@ -239,28 +252,31 @@ contract RevertTesting is TestHelpers {
 
     // borrow 10 eth against the dummy NFT
     (, stack) = _commitToLien({
-    vault : publicVault,
-    strategist : strategistOne,
-    strategistPK : strategistOnePK,
-    tokenContract : tokenContract,
-    tokenId : tokenId,
-    lienDetails : standardLienDetails,
-    amount : 10 ether,
-    isFirstLien : true,
-    stack : stack
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 50 ether,
+      isFirstLien: true,
+      stack: stack
     });
 
     _commitToLien({
-    vault : publicVault,
-    strategist : strategistOne,
-    strategistPK : strategistOnePK,
-    tokenContract : tokenContract,
-    tokenId : tokenId,
-    lienDetails : standardLienDetails,
-    amount : 10 ether,
-    isFirstLien : false,
-    stack : stack,
-    revertMessage : abi.encodeWithSelector(ILienToken.InvalidState.selector, ILienToken.InvalidStates.DEBT_LIMIT)
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails2,
+      amount: 10 ether,
+      isFirstLien: false,
+      stack: stack,
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.DEBT_LIMIT
+      )
     });
   }
 
@@ -360,7 +376,10 @@ contract RevertTesting is TestHelpers {
       amount: 10 ether,
       isFirstLien: true,
       stack: stack,
-      revertMessage: abi.encodeWithSelector(IAstariaRouter.InvalidCommitmentState.selector, IAstariaRouter.CommitmentState.INVALID_RATE)
+      revertMessage: abi.encodeWithSelector(
+        IAstariaRouter.InvalidCommitmentState.selector,
+        IAstariaRouter.CommitmentState.INVALID_RATE
+      )
     });
   }
 
@@ -380,14 +399,14 @@ contract RevertTesting is TestHelpers {
     );
 
     (, ILienToken.Stack[] memory stack) = _commitToLien({
-    vault: publicVault,
-    strategist: strategistOne,
-    strategistPK: strategistOnePK,
-    tokenContract: tokenContract,
-    tokenId: tokenId,
-    lienDetails: standardLienDetails,
-    amount: 10 ether,
-    isFirstLien: true
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
@@ -399,7 +418,9 @@ contract RevertTesting is TestHelpers {
     _repay(stack, 0, 10 ether, address(this));
   }
 
-  function testCannotCommitToLienPotentialDebtExceedsLiquidationInitialAsk() public {
+  function testCannotCommitToLienPotentialDebtExceedsLiquidationInitialAsk()
+    public
+  {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -408,13 +429,13 @@ contract RevertTesting is TestHelpers {
 
     // create a PublicVault with a 14-day epoch
     address publicVault = _createPublicVault({
-    strategist : strategistOne,
-    delegate : strategistTwo,
-    epochLength : 30 days
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 30 days
     });
 
     _lendToVault(
-      Lender({addr : address(1), amountToLend : 500 ether}),
+      Lender({addr: address(1), amountToLend: 500 ether}),
       publicVault
     );
 
@@ -429,33 +450,35 @@ contract RevertTesting is TestHelpers {
     details2.maxPotentialDebt = 1000 ether;
 
     IAstariaRouter.Commitment[]
-    memory commitments = new IAstariaRouter.Commitment[](2);
+      memory commitments = new IAstariaRouter.Commitment[](2);
     ILienToken.Stack[] memory stack;
 
-
     (, stack) = _commitToLien({
-    vault : publicVault,
-    strategist : strategistOne,
-    strategistPK : strategistOnePK,
-    tokenContract : tokenContract,
-    tokenId : tokenId,
-    lienDetails : details1,
-    amount : 50 ether,
-    isFirstLien : true,
-    stack: stack
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details1,
+      amount: 50 ether,
+      isFirstLien: true,
+      stack: stack
     });
 
     _commitToLien({
-    vault : publicVault,
-    strategist : strategistOne,
-    strategistPK : strategistOnePK,
-    tokenContract : tokenContract,
-    tokenId : tokenId,
-    lienDetails : details2,
-    amount : 50 ether,
-    isFirstLien : false,
-    stack: stack,
-    revertMessage: abi.encodeWithSelector(ILienToken.InvalidState.selector, ILienToken.InvalidStates.INITIAL_ASK_EXCEEDED)
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details2,
+      amount: 50 ether,
+      isFirstLien: false,
+      stack: stack,
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.INITIAL_ASK_EXCEEDED
+      )
     });
   }
 }

@@ -175,6 +175,14 @@ contract TestHelpers is ConsiderationTester {
       maxPotentialDebt: 0 ether,
       liquidationInitialAsk: 500 ether
     });
+  ILienToken.Details public standardLienDetails2 =
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 11 days,
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
+    });
 
   ILienToken.Details public refinanceLienDetails =
     ILienToken.Details({
@@ -976,7 +984,12 @@ contract TestHelpers is ConsiderationTester {
     WETH9.deposit{value: amount * 2}();
     WETH9.approve(address(TRANSFER_PROXY), amount * 2);
     WETH9.approve(address(LIEN_TOKEN), amount * 2);
-    newStack = LIEN_TOKEN.makePayment(stack, position, amount);
+    newStack = LIEN_TOKEN.makePayment(
+      stack[position].lien.collateralId,
+      stack,
+      position,
+      amount
+    );
     vm.stopPrank();
   }
 
@@ -991,7 +1004,12 @@ contract TestHelpers is ConsiderationTester {
     WETH9.deposit{value: amount}();
     WETH9.approve(address(TRANSFER_PROXY), amount);
     WETH9.approve(address(LIEN_TOKEN), amount);
-    newStack = LIEN_TOKEN.makePayment(stack, position, amount);
+    newStack = LIEN_TOKEN.makePayment(
+      stack[0].lien.collateralId,
+      stack,
+      position,
+      amount
+    );
     vm.stopPrank();
   }
 
