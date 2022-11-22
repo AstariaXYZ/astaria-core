@@ -15,5 +15,4 @@ contract AstariaStack is Script {
   address WITHDRAW_PROXY_ADDR = vm.envAddress("WITHDRAW_PROXY_ADDR");
   address LIQUIDATION_ACCOUNTANT_ADDR =
     vm.envAddress("LIQUIDATION_ACCOUNTANT_ADDR");
-  address AUCTION_HOUSE_ADDR = vm.envAddress("AUCTION_HOUSE_ADDR");
 }

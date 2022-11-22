@@ -19,9 +19,7 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
@@ -52,7 +50,8 @@ contract IntegrationTest is TestHelpers {
       maxAmount: 50 ether,
       rate: uint256(1e16).mulDivDown(150, 1).mulDivDown(1, 365 days),
       duration: 14 days,
-      maxPotentialDebt: 0 ether
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
     });
 
     // deploy a new PublicVault
@@ -152,7 +151,8 @@ contract IntegrationTest is TestHelpers {
         maxAmount: 50 ether,
         rate: uint256(1e16).mulDivDown(150, 1).mulDivDown(1, 365 days),
         duration: (dayCount * 1 days),
-        maxPotentialDebt: i * 20 ether
+        maxPotentialDebt: i * 20 ether,
+        liquidationInitialAsk: 500 ether
       });
     }
 
@@ -177,13 +177,16 @@ contract IntegrationTest is TestHelpers {
       "first lien payee before liq",
       LIEN_TOKEN.getPayee(stack[0].point.lienId)
     );
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(3), stack);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(3)
+    );
     emit log_named_address("vault", address(publicVaults[0]));
     emit log_named_address(
       "first lien payee",
       LIEN_TOKEN.getPayee(stack[0].point.lienId)
     );
-    _bid(address(2), collateralId, 200 ether);
+    _bid(Bidder(bidder, bidderPK), listedOrder, 200 ether);
 
     address[5] memory withdrawProxies;
     for (uint256 i = 0; i < lienSize; i++) {
@@ -238,50 +241,6 @@ contract IntegrationTest is TestHelpers {
       WETH9.balanceOf(publicVaults[4]),
       PublicVault(publicVaults[4]).totalAssets(),
       "vault 4 invalid"
-    );
-  }
-
-  function testBorrowerReservePriceCancellationTest() public {
-    TestNFT nft = new TestNFT(1);
-    address tokenContract = address(nft);
-    uint256 tokenId = uint256(0);
-
-    address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 14 days
-    });
-
-    _lendToVault(
-      Lender({addr: address(1), amountToLend: 50 ether}),
-      publicVault
-    );
-
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
-    });
-
-    vm.warp(block.timestamp + 14 days);
-
-    uint256 collateralId = tokenContract.computeId(tokenId);
-
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack);
-
-    _bid(address(3), collateralId, 5 ether);
-
-    vm.warp(block.timestamp + 4 days);
-    ASTARIA_ROUTER.endAuction(collateralId);
-    assertEq(
-      ERC721(tokenContract).ownerOf(tokenId),
-      address(3),
-      "Bidder address does not own NFT"
     );
   }
 }

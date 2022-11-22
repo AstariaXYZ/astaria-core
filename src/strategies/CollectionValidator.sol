@@ -68,7 +68,7 @@ contract CollectionValidator is ICollectionValidator {
     }
     require(cd.token == collateralTokenContract, "invalid token contract");
 
-    leaf = keccak256(assembleLeaf(cd));
+    leaf = keccak256(params.nlrDetails);
     ld = cd.lien;
   }
 }

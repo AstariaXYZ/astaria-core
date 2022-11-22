@@ -1,10 +1,8 @@
-auction-house/=lib/auction-house/src/
-auction/=lib/auction-house/src/
 clones-with-immutable-args/=lib/clones-with-immutable-args/src/
-contracts/=lib/seaport/contracts/
 forge-std/=lib/forge-std/src/
 eip4626/=lib/foundry_eip-4626/src/
 gpl/=lib/gpl/src/
 solmate/=lib/solmate/src/
+seaport/=lib/seaport/contracts/
 core/=./src/
 

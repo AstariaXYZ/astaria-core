@@ -36,8 +36,11 @@ library Math {
    * This differs from standard division with `/` in that it rounds up instead
    * of rounding down.
    */
-  function ceilDiv(uint256 a, uint256 b) internal pure returns (uint256) {
+  function ceilDiv(uint256 a, uint256 b) internal pure returns (uint256 ret) {
     // (a + b - 1) / b can overflow on addition, so we distribute.
-    return a / b + (a % b == 0 ? 0 : 1);
+     assembly {
+        if iszero(b) { revert(0, 0) }
+        ret := add(div(a, b), gt(mod(a, b), 0x0))
+      }
   }
 }

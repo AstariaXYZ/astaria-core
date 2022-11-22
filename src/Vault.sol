@@ -55,10 +55,11 @@ contract Vault is AstariaVaultBase, VaultImplementation {
       string(abi.encodePacked("AST-V", owner(), "-", ERC20(asset()).symbol()));
   }
 
-  function supportsInterface(bytes4 interfaceId)
+  function supportsInterface(bytes4)
     public
     pure
     virtual
+    override(IERC165)
     returns (bool)
   {
     return false;
@@ -93,7 +94,7 @@ contract Vault is AstariaVaultBase, VaultImplementation {
     revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
   }
 
-  function modifyAllowList(address depositor, bool enabled)
+  function modifyAllowList(address, bool)
     external
     pure
     override(VaultImplementation)

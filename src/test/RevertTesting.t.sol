@@ -24,9 +24,7 @@ import {
 } from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 
-import {AuctionHouse} from "gpl/AuctionHouse.sol";
 import {ERC721} from "gpl/ERC721.sol";
-import {IAuctionHouse} from "gpl/interfaces/IAuctionHouse.sol";
 
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
 import {ILienToken} from "../interfaces/ILienToken.sol";
@@ -48,14 +46,31 @@ contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
 
-  function testFailRandomAccountIncrementNonce() public {
+  enum InvalidStates {
+    NO_AUTHORITY,
+    NOT_ENOUGH_FUNDS,
+    INVALID_LIEN_ID,
+    COLLATERAL_AUCTION,
+    COLLATERAL_NOT_DEPOSITED,
+    LIEN_NO_DEBT,
+    EXPIRED_LIEN,
+    DEBT_LIMIT,
+    MAX_LIENS
+  }
+
+  function testCannotRandomAccountIncrementNonce() public {
     address privateVault = _createPublicVault({
       strategist: strategistOne,
       delegate: strategistTwo,
       epochLength: 10 days
     });
 
-    vm.expectRevert(abi.encodePacked("InvalidRequest(0)"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IVaultImplementation.InvalidRequest.selector,
+        IVaultImplementation.InvalidRequestReason.NO_AUTHORITY
+      )
+    );
     VaultImplementation(privateVault).incrementNonce();
     assertEq(
       VaultImplementation(privateVault).getStrategistNonce(),
@@ -127,7 +142,7 @@ contract RevertTesting is TestHelpers {
     );
   }
 
-  function testFailBorrowMoreThanMaxAmount() public {
+  function testCannotBorrowMoreThanMaxAmount() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -150,8 +165,9 @@ contract RevertTesting is TestHelpers {
     ILienToken.Details memory details = standardLienDetails;
     details.maxAmount = 10 ether;
 
+    ILienToken.Stack[] memory stack;
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -159,12 +175,17 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: details,
       amount: 11 ether,
-      isFirstLien: true
+      isFirstLien: true,
+      stack: stack,
+      revertMessage: abi.encodeWithSelector(
+        IAstariaRouter.InvalidCommitmentState.selector,
+        IAstariaRouter.CommitmentState.INVALID_AMOUNT
+      )
     });
   }
 
   // PublicVaults should not be able to progress to the next epoch unless all liens that are able to be liquidated have been liquidated
-  function testFailProcessEpochWithUnliquidatedLien() public {
+  function testCannotProcessEpochWithUnliquidatedLien() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
@@ -197,10 +218,17 @@ contract RevertTesting is TestHelpers {
     });
 
     vm.warp(block.timestamp + 15 days);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IPublicVault.InvalidState.selector,
+        IPublicVault.InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
+      )
+    );
     PublicVault(publicVault).processEpoch();
   }
 
-  function testFailBorrowMoreThanMaxPotentialDebt() public {
+  function testCannotBorrowMoreThanMaxPotentialDebt() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -216,20 +244,23 @@ contract RevertTesting is TestHelpers {
 
     // lend 50 ether to the PublicVault as address(1)
     _lendToVault(
-      Lender({addr: address(1), amountToLend: 50 ether}),
+      Lender({addr: address(1), amountToLend: 100 ether}),
       publicVault
     );
 
+    ILienToken.Stack[] memory stack;
+
     // borrow 10 eth against the dummy NFT
-    _commitToLien({
+    (, stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 50 ether,
+      isFirstLien: true,
+      stack: stack
     });
 
     _commitToLien({
@@ -238,13 +269,18 @@ contract RevertTesting is TestHelpers {
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
-      lienDetails: standardLienDetails,
+      lienDetails: standardLienDetails2,
       amount: 10 ether,
-      isFirstLien: false
+      isFirstLien: false,
+      stack: stack,
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.DEBT_LIMIT
+      )
     });
   }
 
-  function testFailMinMaxPublicVaultEpochLength() public {
+  function testCannotExceedMinMaxPublicVaultEpochLength() public {
     vm.expectRevert(
       abi.encodeWithSelector(
         IPublicVault.InvalidState.selector,
@@ -305,7 +341,7 @@ contract RevertTesting is TestHelpers {
     });
   }
 
-  function testFailLienRateZero() public {
+  function testCannotLienRateZero() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -328,8 +364,9 @@ contract RevertTesting is TestHelpers {
     ILienToken.Details memory zeroRate = standardLienDetails;
     zeroRate.rate = 0;
 
+    ILienToken.Stack[] memory stack;
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -337,14 +374,100 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: zeroRate,
       amount: 10 ether,
-      isFirstLien: true
+      isFirstLien: true,
+      stack: stack,
+      revertMessage: abi.encodeWithSelector(
+        IAstariaRouter.InvalidCommitmentState.selector,
+        IAstariaRouter.CommitmentState.INVALID_RATE
+      )
+    });
+  }
+  function testCannotLiquidationInitialAskExceedsAmountBorrowed() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory standardLien = standardLienDetails;
+    standardLien.liquidationInitialAsk = 5 ether;
+    standardLien.maxAmount = 10  ether;
+    
+    // borrow amount over liquidation initial ask
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLien,
+      amount: 7.5 ether,
+      isFirstLien: true,
+      stack: new ILienToken.Stack[](0),
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+      )
+    });
+  }
+  function testCannotLiquidationInitialAsk0() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory zeroInitAsk = standardLienDetails;
+    zeroInitAsk.liquidationInitialAsk = 0;
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: zeroInitAsk,
+      amount: 10 ether,
+      isFirstLien: true,
+      stack: new ILienToken.Stack[](0),
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+      )
     });
   }
 
   function testFailPayLienAfterLiquidate() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
-    uint256 tokenId = uint256(1);
+    uint256 tokenId = uint256(0);
     address publicVault = _createPublicVault({
       strategist: strategistOne,
       delegate: strategistTwo,
@@ -356,9 +479,7 @@ contract RevertTesting is TestHelpers {
       publicVault
     );
 
-    // uint256[][] memory liens = new uint256[][](1);
-    ILienToken.Stack[][] memory stack = new ILienToken.Stack[][](1);
-    (, stack[0]) = _commitToLien({
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -373,8 +494,72 @@ contract RevertTesting is TestHelpers {
 
     vm.warp(block.timestamp + 14 days);
 
-    ASTARIA_ROUTER.liquidate(collateralId, uint8(0), stack[0]);
+    ASTARIA_ROUTER.liquidate(stack, uint8(0));
 
-    _repay(stack[0], 0, 10 ether, address(this));
+    _repay(stack, 0, 10 ether, address(this));
+  }
+
+  function testCannotCommitToLienPotentialDebtExceedsLiquidationInitialAsk()
+    public
+  {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 30 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 500 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory details1 = standardLienDetails;
+    details1.duration = 14 days;
+    details1.liquidationInitialAsk = 100 ether;
+    details1.maxPotentialDebt = 1000 ether;
+
+    ILienToken.Details memory details2 = standardLienDetails;
+    details2.duration = 25 days;
+    details2.liquidationInitialAsk = 100 ether;
+    details2.maxPotentialDebt = 1000 ether;
+
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](2);
+    ILienToken.Stack[] memory stack;
+
+    (, stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details1,
+      amount: 50 ether,
+      isFirstLien: true,
+      stack: stack
+    });
+
+    _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details2,
+      amount: 50 ether,
+      isFirstLien: false,
+      stack: stack,
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.INITIAL_ASK_EXCEEDED
+      )
+    });
   }
 }
