@@ -426,9 +426,18 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     address[] memory allowList = new address[](2);
     allowList[0] = address(msg.sender);
     allowList[1] = delegate;
+    RouterStorage storage s = _loadRouterSlot();
 
     return
-      _newVault(uint256(0), delegate, uint256(0), true, allowList, uint256(0));
+      _newVault(
+        s,
+        uint256(0),
+        delegate,
+        uint256(0),
+        true,
+        allowList,
+        uint256(0)
+      );
   }
 
   function newPublicVault(
@@ -439,8 +448,20 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     address[] calldata allowList,
     uint256 depositCap
   ) public whenNotPaused returns (address) {
+    RouterStorage storage s = _loadRouterSlot();
+    if (s.minEpochLength > epochLength) {
+      revert IPublicVault.InvalidState(
+        IPublicVault.InvalidStates.EPOCH_TOO_LOW
+      );
+    }
+    if (s.maxEpochLength < epochLength) {
+      revert IPublicVault.InvalidState(
+        IPublicVault.InvalidStates.EPOCH_TOO_HIGH
+      );
+    }
     return
       _newVault(
+        s,
         epochLength,
         delegate,
         vaultFee,
@@ -598,6 +619,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    * @return vaultAddr The address for the new Vault.
    */
   function _newVault(
+    RouterStorage storage s,
     uint256 epochLength,
     address delegate,
     uint256 vaultFee,
@@ -607,11 +629,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   ) internal returns (address vaultAddr) {
     uint8 vaultType;
 
-    RouterStorage storage s = _loadRouterSlot();
     if (epochLength > uint256(0)) {
-      if (s.minEpochLength > epochLength || epochLength > s.maxEpochLength) {
-        revert InvalidEpochLength(epochLength);
-      }
       vaultType = uint8(ImplementationType.PublicVault);
     } else {
       vaultType = uint8(ImplementationType.PrivateVault);

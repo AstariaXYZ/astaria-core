@@ -225,8 +225,8 @@ contract LienToken is ERC721, ILienToken, Auth {
   modifier validateStack(uint256 collateralId, Stack[] memory stack) {
     LienStorage storage s = _loadLienStorageSlot();
     bytes32 stateHash = s.collateralStateHash[collateralId];
-    if (stateHash != bytes32(0)) {
-      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
+    if (stateHash != bytes32(0) && keccak256(abi.encode(stack)) != stateHash) {
+      revert InvalidState(InvalidStates.INVALID_HASH);
     }
     _;
   }
@@ -410,27 +410,36 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     Stack[] memory stack,
     Stack memory newSlot
-  ) internal view returns (Stack[] memory newStack) {
-    uint256 n = stack.length;
-    newStack = new Stack[](n + 1);
+  ) internal returns (Stack[] memory newStack) {
+    newStack = new Stack[](stack.length + 1);
+    newStack[stack.length] = newSlot;
 
-    uint256 maxPotentialDebt = 0;
-    for (uint256 i; i < n; ) {
-      if (block.timestamp > stack[i].point.end) {
+    uint256 potentialDebt = _getOwed(newSlot, newSlot.point.end);
+    for (uint256 i = stack.length; i > 0; ) {
+      uint256 j = i - 1;
+      newStack[j] = stack[j];
+      if (block.timestamp > newStack[j].point.end) {
         revert InvalidState(InvalidStates.EXPIRED_LIEN);
       }
-      newStack[i] = stack[i];
       unchecked {
-        maxPotentialDebt += _getOwed(stack[i], stack[i].point.end);
-        ++i;
+        potentialDebt += _getOwed(newStack[j], newStack[j].point.end);
+      }
+      if (potentialDebt > newStack[j].lien.details.liquidationInitialAsk) {
+        revert InvalidState(InvalidStates.INITIAL_ASK_EXCEEDED);
+      }
+
+      unchecked {
+        --i;
       }
     }
-
-    if (maxPotentialDebt > newSlot.lien.details.maxPotentialDebt) {
+    if (
+      stack.length > 0 && potentialDebt > newSlot.lien.details.maxPotentialDebt
+    ) {
       revert InvalidState(InvalidStates.DEBT_LIMIT);
     }
-    newStack[n] = newSlot;
   }
+
+  event log_named_uint(string name, uint256 value);
 
   function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
     external
