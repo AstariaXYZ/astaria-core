@@ -268,12 +268,16 @@ contract CollateralToken is
     CollateralStorage storage s = _loadCollateralSlot();
     (addr, tokenId) = getUnderlying(collateralId);
 
-    require(
-      s.flashEnabled[addr] &&
-        !(s.LIEN_TOKEN.getCollateralState(collateralId) ==
-          bytes32("ACTIVE_AUCTION")),
-      "can't flash if disabled or at auction"
-    );
+    if (!s.flashEnabled[addr]) {
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
+    }
+
+    if (
+      s.LIEN_TOKEN.getCollateralState(collateralId) == bytes32("ACTIVE_AUCTION")
+    ) {
+      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
+    }
+
     IERC721 nft = IERC721(addr);
 
     bytes memory preTransferState;

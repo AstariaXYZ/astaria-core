@@ -18,8 +18,6 @@ import {Clone} from "clones-with-immutable-args/Clone.sol";
 contract ClearingHouse is Clone {
   using SafeTransferLib for ERC20;
 
-  event log_named_uint(string name, uint256 value);
-
   fallback() external payable {
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
     require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN().SEAPORT()));

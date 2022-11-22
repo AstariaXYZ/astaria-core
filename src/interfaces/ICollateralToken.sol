@@ -193,6 +193,7 @@ interface ICollateralToken is IERC721 {
   enum InvalidCollateralStates {
     NO_AUTHORITY,
     NO_AUCTION,
+    FLASH_DISABLED,
     AUCTION_ACTIVE,
     ACTIVE_LIENS
   }

@@ -101,7 +101,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function buyoutLien(ILienToken.LienActionBuyout calldata params)
     external
-    validateStack(params.encumber.stack)
+    validateStack(params.encumber.collateralId, params.encumber.stack)
     returns (Stack[] memory, Stack memory newStack)
   {
     if (msg.sender != params.encumber.receiver) {
@@ -139,6 +139,13 @@ contract LienToken is ERC721, ILienToken, Auth {
       s,
       params.encumber.stack[params.position]
     );
+
+    if (
+      _getMaxPotentialDebtForCollateral(params.encumber.stack) >
+      params.encumber.lien.details.maxPotentialDebt
+    ) {
+      revert InvalidState(InvalidStates.DEBT_LIMIT);
+    }
 
     if (params.encumber.lien.details.maxAmount < owed) {
       revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
@@ -215,15 +222,12 @@ contract LienToken is ERC721, ILienToken, Auth {
       );
   }
 
-  modifier validateStack(Stack[] memory stack) {
-    if (stack.length > 0) {
-      LienStorage storage s = _loadLienStorageSlot();
-      bytes32 stateHash = s.collateralStateHash[stack[0].lien.collateralId];
-      if (stateHash != bytes32(0)) {
-        require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
-      }
+  modifier validateStack(uint256 collateralId, Stack[] memory stack) {
+    LienStorage storage s = _loadLienStorageSlot();
+    bytes32 stateHash = s.collateralStateHash[collateralId];
+    if (stateHash != bytes32(0)) {
+      require(keccak256(abi.encode(stack)) == stateHash, "invalid hash");
     }
-
     _;
   }
 
@@ -232,7 +236,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 auctionWindow,
     Stack[] calldata stack,
     address liquidator
-  ) external validateStack(stack) requiresAuth {
+  ) external validateStack(collateralId, stack) requiresAuth {
     return
       _stopLiens(
         _loadLienStorageSlot(),
@@ -323,7 +327,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function createLien(ILienToken.LienActionEncumber memory params)
     external
     requiresAuth
-    validateStack(params.stack)
+    validateStack(params.collateralId, params.stack)
     returns (
       uint256 lienId,
       Stack[] memory newStack,
@@ -370,12 +374,12 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (params.stack.length >= s.maxLiens) {
       revert InvalidState(InvalidStates.MAX_LIENS);
     }
-    if (
-      getMaxPotentialDebtForCollateral(params.stack) >
-      params.lien.details.maxPotentialDebt
-    ) {
-      revert InvalidState(InvalidStates.DEBT_LIMIT);
-    }
+    //    if (
+    //      _getMaxPotentialDebtForCollateral(params.stack) >
+    //      params.lien.details.maxPotentialDebt
+    //    ) {
+    //      revert InvalidState(InvalidStates.DEBT_LIMIT);
+    //    }
 
     if (params.stack.length > 0) {
       if (params.lien.collateralId != params.stack[0].lien.collateralId) {
@@ -405,14 +409,20 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 n = stack.length;
     newStack = new Stack[](n + 1);
 
+    uint256 maxPotentialDebt = 0;
     for (uint256 i; i < n; ) {
       if (block.timestamp > stack[i].point.end) {
         revert InvalidState(InvalidStates.EXPIRED_LIEN);
       }
       newStack[i] = stack[i];
       unchecked {
+        maxPotentialDebt += _getOwed(stack[i], stack[i].point.end);
         ++i;
       }
+    }
+
+    if (maxPotentialDebt > newSlot.lien.details.maxPotentialDebt) {
+      revert InvalidState(InvalidStates.DEBT_LIMIT);
     }
     newStack[n] = newSlot;
   }
@@ -519,22 +529,31 @@ contract LienToken is ERC721, ILienToken, Auth {
     return (owed, buyoutTotal);
   }
 
-  function makePayment(Stack[] calldata stack, uint256 amount)
+  function makePayment(
+    uint256 collateralId,
+    Stack[] calldata stack,
+    uint256 amount
+  )
     public
-    validateStack(stack)
+    validateStack(collateralId, stack)
     returns (Stack[] memory newStack)
   {
     (newStack, ) = _makePayment(_loadLienStorageSlot(), stack, amount);
   }
 
   function makePayment(
+    uint256 collateralId,
     Stack[] calldata stack,
     uint8 position,
     uint256 amount
-  ) external validateStack(stack) returns (Stack[] memory newStack) {
+  )
+    external
+    validateStack(collateralId, stack)
+    returns (Stack[] memory newStack)
+  {
     LienStorage storage s = _loadLienStorageSlot();
     (newStack, ) = _payment(s, stack, position, amount, address(msg.sender));
-    _updateCollateralStateHash(s, stack[0].lien.collateralId, newStack);
+    _updateCollateralStateHash(s, collateralId, newStack);
   }
 
   function _paymentAH(
@@ -627,7 +646,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function getMaxPotentialDebtForCollateral(Stack[] memory stack)
     public
     view
-    validateStack(stack)
+    validateStack(stack[0].lien.collateralId, stack)
     returns (uint256 maxPotentialDebt)
   {
     return _getMaxPotentialDebtForCollateral(stack);
@@ -650,7 +669,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function getMaxPotentialDebtForCollateral(Stack[] memory stack, uint256 end)
     public
     view
-    validateStack(stack)
+    validateStack(stack[0].lien.collateralId, stack)
     returns (uint256 maxPotentialDebt)
   {
     maxPotentialDebt = 0;
@@ -660,6 +679,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   }
 
   function getOwed(Stack memory stack) external view returns (uint192) {
+    validateLien(stack.lien);
     return _getOwed(stack, block.timestamp);
   }
 
