@@ -122,10 +122,6 @@ contract Deploy is Script {
 
     address SEAPORT = address(1);
 
-    ValidatorAsset AUCTION_VALIDATOR = new ValidatorAsset(
-      MRA,
-      address(LIEN_TOKEN)
-    );
     ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
     address royaltyRegistry = address(
       0x0385603ab55642cb4Dd5De3aE9e306809991804f

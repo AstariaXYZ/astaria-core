@@ -265,8 +265,6 @@ contract TestHelpers is ConsiderationTester {
   MultiRolesAuthority MRA;
   ConsiderationInterface SEAPORT;
 
-  ValidatorAsset AUCTION_VALIDATOR;
-
   address bidderConduit;
   bytes32 bidderConduitKey;
 
@@ -417,11 +415,6 @@ contract TestHelpers is ConsiderationTester {
     );
 
     // SEAPORT CAPABILITIES
-    MRA.setRoleCapability(
-      uint8(UserRoles.SEAPORT),
-      ValidatorAsset.safeTransferFrom.selector,
-      true
-    );
 
     MRA.setUserRole(
       address(ASTARIA_ROUTER),
@@ -430,11 +423,6 @@ contract TestHelpers is ConsiderationTester {
     );
     MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
     MRA.setUserRole(address(SEAPORT), uint8(UserRoles.SEAPORT), true);
-    MRA.setUserRole(
-      address(AUCTION_VALIDATOR),
-      uint8(UserRoles.AUCTION_VALIDATOR),
-      true
-    );
     MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
   }
 
