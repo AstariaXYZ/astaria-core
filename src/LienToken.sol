@@ -439,8 +439,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
   }
 
-  event log_named_uint(string name, uint256 value);
-
   function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
     external
   {

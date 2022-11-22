@@ -292,8 +292,8 @@ contract CollateralToken is
     // transfer the NFT to the destination optimistically
 
     nft.safeTransferFrom(address(this), address(receiver), tokenId);
-    // invoke the call passed by the msg.sender
 
+    //trigger the flash action on the receiver
     if (
       receiver.onFlashAction(IFlashAction.Underlying(addr, tokenId), data) !=
       keccak256("FlashAction.onFlashAction")
