@@ -487,10 +487,6 @@ contract TestHelpers is ConsiderationTester {
     uint256 liquidatorPercentage,
     uint256 lenderAmountOwed
   ) public returns (Fees memory fees) {
-    // uint256 remainder = bid.mulDivDown(
-    //   1e18,
-    //   openseaPercentage + royaltyPercentage + 1e18
-    // );
     uint256 remainder = bid;
     fees = Fees({
       opensea: bid.mulDivDown(openseaPercentage, 1e18),
