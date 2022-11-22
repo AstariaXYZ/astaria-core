@@ -382,6 +382,87 @@ contract RevertTesting is TestHelpers {
       )
     });
   }
+  function testCannotLiquidationInitialAskExceedsAmountBorrowed() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory standardLien = standardLienDetails;
+    standardLien.liquidationInitialAsk = 5 ether;
+    standardLien.maxAmount = 10  ether;
+    
+    // borrow amount over liquidation initial ask
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLien,
+      amount: 7.5 ether,
+      isFirstLien: true,
+      stack: new ILienToken.Stack[](0),
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+      )
+    });
+  }
+  function testCannotLiquidationInitialAsk0() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory zeroInitAsk = standardLienDetails;
+    zeroInitAsk.liquidationInitialAsk = 0;
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: zeroInitAsk,
+      amount: 10 ether,
+      isFirstLien: true,
+      stack: new ILienToken.Stack[](0),
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+      )
+    });
+  }
 
   function testFailPayLienAfterLiquidate() public {
     TestNFT nft = new TestNFT(1);
