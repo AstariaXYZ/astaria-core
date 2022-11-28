@@ -224,8 +224,7 @@ contract TestHelpers is ConsiderationTester {
     AUCTION_HOUSE,
     TRANSFER_PROXY,
     LIEN_TOKEN,
-    SEAPORT,
-    AUCTION_VALIDATOR
+    SEAPORT
   }
 
   enum StrategyTypes {
@@ -235,8 +234,6 @@ contract TestHelpers is ConsiderationTester {
   }
 
   struct Fees {
-    uint256 opensea;
-    uint256 royalties;
     uint256 liquidator;
     uint256 lender;
     uint256 borrower;
@@ -277,21 +274,17 @@ contract TestHelpers is ConsiderationTester {
     TRANSFER_PROXY = new TransferProxy(MRA);
     vm.label(address(TRANSFER_PROXY), "TRANSFER_PROXY");
 
-    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
+    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY);
     vm.label(address(LIEN_TOKEN), "LIEN_TOKEN");
 
     SEAPORT = ConsiderationInterface(address(consideration));
-
-    RoyaltyEngineMock royaltyEngine = new RoyaltyEngineMock();
-    IRoyaltyEngine ROYALTY_REGISTRY = IRoyaltyEngine(address(royaltyEngine));
 
     ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
     COLLATERAL_TOKEN = new CollateralToken(
       MRA,
       TRANSFER_PROXY,
       ILienToken(address(LIEN_TOKEN)),
-      SEAPORT,
-      ROYALTY_REGISTRY
+      SEAPORT
     );
     vm.label(address(COLLATERAL_TOKEN), "COLLATERAL_TOKEN");
 
@@ -304,7 +297,6 @@ contract TestHelpers is ConsiderationTester {
 
     ASTARIA_ROUTER = new AstariaRouter(
       MRA,
-      address(WETH9),
       ICollateralToken(address(COLLATERAL_TOKEN)),
       ILienToken(address(LIEN_TOKEN)),
       ITransferProxy(address(TRANSFER_PROXY)),
@@ -482,15 +474,12 @@ contract TestHelpers is ConsiderationTester {
 
   function getFeesForLiquidation(
     uint256 bid,
-    uint256 openseaPercentage,
     uint256 royaltyPercentage,
     uint256 liquidatorPercentage,
     uint256 lenderAmountOwed
   ) public returns (Fees memory fees) {
     uint256 remainder = bid;
     fees = Fees({
-      opensea: bid.mulDivDown(openseaPercentage, 1e18),
-      royalties: bid.mulDivDown(royaltyPercentage, 1e18),
       liquidator: bid.mulDivDown(liquidatorPercentage, 1e18),
       lender: 0,
       borrower: 0
@@ -511,7 +500,6 @@ contract TestHelpers is ConsiderationTester {
     uint256 amountOwedToLender = getAmountOwedToLender(15e17, 10e18, 14 days);
     Fees memory fees = getFeesForLiquidation(
       20e18,
-      25e15,
       10e16,
       13e16,
       amountOwedToLender
@@ -581,7 +569,7 @@ contract TestHelpers is ConsiderationTester {
     returns (address privateVault)
   {
     vm.startPrank(strategist);
-    privateVault = ASTARIA_ROUTER.newVault(delegate);
+    privateVault = ASTARIA_ROUTER.newVault(delegate, address(WETH9));
     vm.stopPrank();
   }
 
@@ -595,6 +583,7 @@ contract TestHelpers is ConsiderationTester {
     publicVault = ASTARIA_ROUTER.newPublicVault(
       epochLength,
       delegate,
+      address(WETH9),
       uint256(0),
       false,
       new address[](0),
@@ -1093,6 +1082,8 @@ contract TestHelpers is ConsiderationTester {
         "bidder conduit"
       );
     }
+    WETH9.deposit{value: bidAmount * 2}();
+    WETH9.approve(bidderConduits[incomingBidder.bidder].conduit, bidAmount * 2);
 
     OrderParameters memory mirror = _createMirrorOrderParameters(
       params,
@@ -1100,16 +1091,7 @@ contract TestHelpers is ConsiderationTester {
       params.zone,
       bidderConduits[incomingBidder.bidder].conduitKey
     );
-    mirror.offer[0].startAmount = bidAmount + 1 ether;
-    mirror.offer[0].endAmount = bidAmount + 1 ether;
-    mirror.offer[1].startAmount = (bidAmount + 1 ether + 200 wei).mulDivDown(
-      25,
-      1000
-    );
-    mirror.offer[1].endAmount = (bidAmount + 1 ether + 200 wei).mulDivDown(
-      25,
-      1000
-    );
+    emit log_order(mirror);
 
     Order[] memory orders = new Order[](2);
     orders[0] = Order(params, new bytes(0));
@@ -1231,14 +1213,14 @@ contract TestHelpers is ConsiderationTester {
       emit log_named_uint("currentAmount fee", currentAmountFee);
       emit log_fills(fulfillments);
       emit log_named_uint("length", fulfillments.length);
-      consideration.matchOrders{value: bidAmount + 5 ether}(
-        orders,
-        fulfillments
-      );
+
+      consideration.matchOrders(orders, fulfillments);
     } else {
-      consideration.fulfillOrder{value: bidAmount * 2}(
-        orders[0],
-        bidderConduits[incomingBidder.bidder].conduitKey
+      consideration.fulfillAdvancedOrder(
+        AdvancedOrder(orders[0].parameters, 1, 1, orders[0].signature, ""),
+        new CriteriaResolver[](0),
+        bidderConduits[incomingBidder.bidder].conduitKey,
+        address(0)
       );
     }
     delete fulfillments;
@@ -1278,6 +1260,8 @@ contract TestHelpers is ConsiderationTester {
       orderParameters.offer,
       offerer
     );
+    //    _considerationItems[1].startAmount -= 1;
+    //    _considerationItems[1].endAmount -= 1;
 
     OrderParameters memory _mirrorOrderParameters = OrderParameters(
       offerer,

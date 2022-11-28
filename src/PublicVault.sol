@@ -38,6 +38,7 @@ import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
 import {Math} from "core/utils/Math.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 
 /*
@@ -62,7 +63,7 @@ contract PublicVault is
     public
     pure
     virtual
-    override(AstariaVaultBase, ERC4626Cloned)
+    override(IAstariaVaultBase, AstariaVaultBase, ERC4626Cloned)
     returns (address)
   {
     return super.asset();

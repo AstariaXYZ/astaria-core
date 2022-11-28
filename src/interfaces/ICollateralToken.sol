@@ -37,13 +37,9 @@ interface ICollateralToken is IERC721 {
     ILienToken LIEN_TOKEN;
     IAstariaRouter ASTARIA_ROUTER;
     ConsiderationInterface SEAPORT;
-    IRoyaltyEngine ROYALTY_ENGINE;
     ConduitControllerInterface CONDUIT_CONTROLLER;
     address CLEARING_HOUSE_IMPLEMENTATION;
     address CONDUIT;
-    address OS_FEE_PAYEE;
-    uint16 osFeeNumerator;
-    uint16 osFeeDenominator;
     bytes32 CONDUIT_KEY;
     mapping(uint256 => bytes32) collateralIdToAuction;
     mapping(bytes32 => bool) orderSigned;
@@ -67,8 +63,7 @@ interface ICollateralToken is IERC721 {
     AuctionHouse,
     SecurityHook,
     FlashEnabled,
-    Seaport,
-    OpenSeaFees
+    Seaport
   }
 
   struct File {
@@ -104,7 +99,11 @@ interface ICollateralToken is IERC721 {
 
   function securityHooks(address) external view returns (address);
 
-  function getClearingHouse(uint256) external view returns (address);
+  function getConduit() external view returns (address);
+
+  function getConduitKey() external view returns (bytes32);
+
+  function getClearingHouse(uint256) external view returns (ClearingHouse);
 
   struct AuctionVaultParams {
     address settlementToken;
@@ -129,15 +128,6 @@ interface ICollateralToken is IERC721 {
   function settleAuction(uint256 collateralId) external;
 
   function SEAPORT() external view returns (ConsiderationInterface);
-
-  function getOpenSeaData()
-    external
-    view
-    returns (
-      address,
-      uint16,
-      uint16
-    );
 
   /**
    * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.

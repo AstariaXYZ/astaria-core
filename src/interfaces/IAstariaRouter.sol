@@ -141,6 +141,7 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @notice Deploys a new PublicVault.
    * @param epochLength The length of each epoch for the new PublicVault.
    * @param delegate The address of the delegate account.
+   * @param underlying The underlying deposit asset for the vault
    * @param vaultFee fee for the vault
    * @param allowListEnabled flag for the allowlist
    * @param allowList the starting allowList
@@ -149,6 +150,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   function newPublicVault(
     uint256 epochLength,
     address delegate,
+    address underlying,
     uint256 vaultFee,
     bool allowListEnabled,
     address[] calldata allowList,
@@ -158,9 +160,12 @@ interface IAstariaRouter is IPausable, IBeacon {
   /**
    * @notice Deploys a new PrivateVault.
    * @param delegate The address of the delegate account.
+   * @param underlying The address of the underlying token.
    * @return The address of the new PrivateVault.
    */
-  function newVault(address delegate) external returns (address);
+  function newVault(address delegate, address underlying)
+    external
+    returns (address);
 
   /**
    * @notice Retrieves the address that collects protocol-level fees.
@@ -191,8 +196,6 @@ interface IAstariaRouter is IPausable, IBeacon {
       ILienToken.Stack[] memory,
       uint256
     );
-
-  function WETH() external view returns (ERC20);
 
   function LIEN_TOKEN() external view returns (ILienToken);
 

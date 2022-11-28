@@ -1047,16 +1047,11 @@ contract AstariaTest is TestHelpers {
     Fees memory fees = getFeesForLiquidation(
       500 ether,
       25e15,
-      25e15,
       13e16,
       amountOwedToLender
     );
 
-    (address opensea, , ) = COLLATERAL_TOKEN.getOpenSeaData();
-
     Fees memory balances = Fees({
-      opensea: opensea.balance,
-      royalties: tx.origin.balance,
       liquidator: WETH9.balanceOf(liquidator),
       lender: amountOwedToLender,
       borrower: WETH9.balanceOf(borrower)
@@ -1072,7 +1067,6 @@ contract AstariaTest is TestHelpers {
       liquidator: liquidator,
       actualPrice: actualPrice,
       bidderBalance: bidderBalance,
-      opensea: opensea,
       bid: bid,
       publicVault: publicVault,
       amountOwedToLender: amountOwedToLender
@@ -1087,7 +1081,6 @@ contract AstariaTest is TestHelpers {
     address liquidator;
     uint256 actualPrice;
     uint256 bidderBalance;
-    address opensea;
     uint256 bid;
     address publicVault;
     uint256 amountOwedToLender;
@@ -1096,26 +1089,9 @@ contract AstariaTest is TestHelpers {
   function assertBecauseEVMIsGarbage(EVMGarbage memory garbage) internal {
     // assert the bidder balance is reduced
     assertEq(
-      bidder.balance,
-      garbage.bidderBalance +
-        (garbage.bid * 3) -
-        garbage.actualPrice -
-        garbage.fees.opensea -
-        garbage.fees.royalties,
+      WETH9.balanceOf(bidder),
+      garbage.bidderBalance + (garbage.bid * 2) - garbage.actualPrice,
       "Bidder balance not reduced"
-    );
-    // assert opensea eth balance
-    assertEq(
-      garbage.opensea.balance - garbage.balances.opensea,
-      garbage.fees.opensea,
-      "Opensea balance not increased"
-    );
-
-    // assert royalty eth balance
-    assertEq(
-      tx.origin.balance - garbage.balances.royalties,
-      garbage.fees.royalties,
-      "Royalty balance not increased"
     );
 
     // assert withdrawProxy weth balance
