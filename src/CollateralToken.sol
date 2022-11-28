@@ -55,6 +55,7 @@ import {
 import {Consideration} from "seaport/lib/Consideration.sol";
 import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
 import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
+import {ClearingHouse} from "core/ClearingHouse.sol";
 
 contract CollateralToken is
   Auth,
@@ -73,8 +74,7 @@ contract CollateralToken is
     Authority AUTHORITY_,
     ITransferProxy TRANSFER_PROXY_,
     ILienToken LIEN_TOKEN_,
-    ConsiderationInterface SEAPORT_,
-    IRoyaltyEngine ROYALTY_REGISTRY_
+    ConsiderationInterface SEAPORT_
   )
     Auth(msg.sender, Authority(AUTHORITY_))
     ERC721("Astaria Collateral Token", "ACT")
@@ -83,10 +83,6 @@ contract CollateralToken is
     s.TRANSFER_PROXY = TRANSFER_PROXY_;
     s.LIEN_TOKEN = LIEN_TOKEN_;
     s.SEAPORT = SEAPORT_;
-    s.OS_FEE_PAYEE = address(0x8De9C5A032463C561423387a9648c5C7BCC5BC90);
-    s.osFeeNumerator = uint16(250);
-    s.osFeeDenominator = uint16(10000);
-    s.ROYALTY_ENGINE = ROYALTY_REGISTRY_;
     (, , address conduitController) = s.SEAPORT.information();
     bytes32 CONDUIT_KEY = Bytes32AddressLib.fillLast12Bytes(address(this));
     s.CONDUIT_KEY = CONDUIT_KEY;
@@ -202,14 +198,6 @@ contract CollateralToken is
     } else if (what == FileType.FlashEnabled) {
       (address target, bool enabled) = abi.decode(data, (address, bool));
       s.flashEnabled[target] = enabled;
-    } else if (what == FileType.OpenSeaFees) {
-      (address target, uint16 numerator, uint16 denominator) = abi.decode(
-        data,
-        (address, uint16, uint16)
-      );
-      s.osFeeNumerator = numerator;
-      s.osFeeDenominator = denominator;
-      s.OS_FEE_PAYEE = target;
     } else if (what == FileType.Seaport) {
       s.SEAPORT = ConsiderationInterface(abi.decode(data, (address)));
       (, , address conduitController) = s.SEAPORT.information();
@@ -398,9 +386,10 @@ contract CollateralToken is
   function getClearingHouse(uint256 collateralId)
     external
     view
-    returns (address)
+    returns (ClearingHouse)
   {
-    return (_loadCollateralSlot().clearingHouse[collateralId]);
+    return
+      ClearingHouse(payable(_loadCollateralSlot().clearingHouse[collateralId]));
   }
 
   function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
@@ -427,11 +416,14 @@ contract CollateralToken is
       revert ListPriceTooLow();
     }
 
+    uint256[] memory prices = new uint256[](2);
+    prices[0] = params.listPrice;
+    prices[1] = params.listPrice;
     OrderParameters memory orderParameters = _generateValidOrderParameters(
       s,
+      params.stack[0].lien.token,
       params.stack[0].lien.collateralId,
-      params.listPrice,
-      params.listPrice,
+      prices,
       params.maxDuration
     );
 
@@ -444,9 +436,9 @@ contract CollateralToken is
 
   function _generateValidOrderParameters(
     CollateralStorage storage s,
+    address settlementToken,
     uint256 collateralId,
-    uint256 startingPrice,
-    uint256 endingPrice,
+    uint256[] memory prices,
     uint256 maxDuration
   ) internal returns (OrderParameters memory orderParameters) {
     OfferItem[] memory offer = new OfferItem[](1);
@@ -461,63 +453,23 @@ contract CollateralToken is
       1
     );
 
-    address payable[] memory recipients;
-    uint256[] memory royaltyStartingAmounts;
-    uint256[] memory royaltyEndingAmounts;
-
-    try
-      s.ROYALTY_ENGINE.getRoyaltyView(
-        underlying.tokenContract,
-        underlying.tokenId,
-        startingPrice
-      )
-    returns (
-      address payable[] memory foundRecipients,
-      uint256[] memory foundAmounts
-    ) {
-      if (foundRecipients.length > 0) {
-        recipients = foundRecipients;
-        royaltyStartingAmounts = foundAmounts;
-        (, royaltyEndingAmounts) = s.ROYALTY_ENGINE.getRoyaltyView(
-          underlying.tokenContract,
-          underlying.tokenId,
-          endingPrice
-        );
-      }
-    } catch {
-      //do nothing
-    }
-    ConsiderationItem[] memory considerationItems = new ConsiderationItem[](
-      recipients.length > 0 ? 3 : 2
-    );
+    ConsiderationItem[] memory considerationItems = new ConsiderationItem[](2);
     considerationItems[0] = ConsiderationItem(
-      ItemType.NATIVE,
-      address(0),
+      ItemType.ERC20,
+      settlementToken,
       uint256(0),
-      startingPrice,
-      endingPrice,
+      prices[0],
+      prices[1],
       payable(address(s.clearingHouse[collateralId]))
     );
     considerationItems[1] = ConsiderationItem(
-      ItemType.NATIVE,
-      address(0),
-      uint256(0),
-      startingPrice.mulDivDown(uint256(s.osFeeNumerator), s.osFeeDenominator),
-      endingPrice.mulDivDown(uint256(s.osFeeNumerator), s.osFeeDenominator),
-      payable(s.OS_FEE_PAYEE)
+      ItemType.ERC1155,
+      s.clearingHouse[collateralId],
+      uint256(uint160(settlementToken)),
+      prices[0],
+      prices[1],
+      payable(s.clearingHouse[collateralId])
     );
-
-    if (recipients.length > 0) {
-      considerationItems[2] = ConsiderationItem(
-        ItemType.NATIVE,
-        address(0),
-        uint256(0),
-        royaltyStartingAmounts[0],
-        royaltyEndingAmounts[0],
-        payable(recipients[0]) // royalties
-      );
-    }
-    //put in royalty considerationItems
 
     orderParameters = OrderParameters({
       offerer: address(this),
@@ -541,11 +493,14 @@ contract CollateralToken is
   {
     CollateralStorage storage s = _loadCollateralSlot();
 
+    uint256[] memory prices = new uint256[](2);
+    prices[0] = params.startingPrice;
+    prices[1] = params.endingPrice;
     orderParameters = _generateValidOrderParameters(
       s,
+      params.settlementToken,
       params.collateralId,
-      params.startingPrice,
-      params.endingPrice,
+      prices,
       params.maxDuration
     );
 
@@ -554,19 +509,6 @@ contract CollateralToken is
       params.collateralId,
       Order(orderParameters, new bytes(0))
     );
-  }
-
-  function getOpenSeaData()
-    external
-    view
-    returns (
-      address,
-      uint16,
-      uint16
-    )
-  {
-    CollateralStorage storage s = _loadCollateralSlot();
-    return (s.OS_FEE_PAYEE, s.osFeeNumerator, s.osFeeDenominator);
   }
 
   function _listUnderlyingOnSeaport(
@@ -597,11 +539,12 @@ contract CollateralToken is
 
   event ListedOnSeaport(uint256 collateralId, Order listingOrder);
 
-  function settleAuction(uint256 collateralId) public requiresAuth {
+  function settleAuction(uint256 collateralId) public {
     CollateralStorage storage s = _loadCollateralSlot();
     if (!s.collateralIdToAuction[collateralId]) {
       revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
     }
+    require(msg.sender == s.clearingHouse[collateralId]);
     _settleAuction(s, collateralId);
     delete s.idToUnderlying[collateralId];
     _burn(collateralId);
