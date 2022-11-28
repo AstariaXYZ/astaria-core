@@ -252,9 +252,9 @@ interface ILienToken is IERC721 {
    * @param collateralId The ID of the CollateralToken.
    */
   function getAuctionLiquidator(uint256 collateralId)
-  external
-  view
-  returns (address liquidator);
+    external
+    view
+    returns (address liquidator);
 
   /**
    * Calculates the debt accrued by all liens against a CollateralToken, assuming no payments are made until the end timestamp in the stack.
