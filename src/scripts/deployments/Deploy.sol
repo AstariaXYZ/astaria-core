@@ -110,7 +110,7 @@ contract Deploy is Script {
         )
       )
     );
-    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
+    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY);
     emit Deployed(address(LIEN_TOKEN));
 
     vm.writeLine(
@@ -126,13 +126,11 @@ contract Deploy is Script {
     address royaltyRegistry = address(
       0x0385603ab55642cb4Dd5De3aE9e306809991804f
     );
-    IRoyaltyEngine ROYALTY_REGISTRY = IRoyaltyEngine(address(royaltyRegistry));
     COLLATERAL_TOKEN = new CollateralToken(
       MRA,
       TRANSFER_PROXY,
       ILienToken(address(LIEN_TOKEN)),
-      ConsiderationInterface(SEAPORT),
-      ROYALTY_REGISTRY
+      ConsiderationInterface(SEAPORT)
     );
     emit Deployed(address(COLLATERAL_TOKEN));
 
@@ -181,7 +179,6 @@ contract Deploy is Script {
     BeaconProxy BEACON_PROXY = new BeaconProxy();
     ASTARIA_ROUTER = new AstariaRouter(
       MRA,
-      address(WETH9),
       ICollateralToken(address(COLLATERAL_TOKEN)),
       ILienToken(address(LIEN_TOKEN)),
       ITransferProxy(address(TRANSFER_PROXY)),

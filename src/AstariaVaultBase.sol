@@ -23,7 +23,13 @@ abstract contract AstariaVaultBase is Clone, IAstariaVaultBase {
     return _getArgAddress(21); //ends at 44
   }
 
-  function asset() public pure virtual returns (address) {
+  function asset()
+    public
+    pure
+    virtual
+    override(IAstariaVaultBase)
+    returns (address)
+  {
     return _getArgAddress(41); //ends at 64
   }
 
