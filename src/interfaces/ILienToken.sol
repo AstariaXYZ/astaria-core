@@ -56,10 +56,11 @@ interface ILienToken is IERC721 {
   }
 
   struct Lien {
+    uint8 collateralType;
     address token; //20
     address vault; //20
     bytes32 strategyRoot; //32
-    uint256 collateralId; //32
+    uint256 collateralId; //32 //contractAddres + tokenId
     Details details; //32 * 4
   }
 
@@ -201,8 +202,12 @@ interface ILienToken is IERC721 {
    * @param collateralId The CollateralId of the liquidated NFT.
    * @param payment The payment amount.
    */
-  function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
-    external;
+  function payDebtViaClearingHouse(
+    address token,
+    uint256 collateralId,
+    uint256 payment,
+    AuctionStack[] memory auctionStack
+  ) external;
 
   /**
    * @notice Make a payment for the debt against a CollateralToken.

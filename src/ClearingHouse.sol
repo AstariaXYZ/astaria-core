@@ -14,22 +14,167 @@ import {WETH} from "solmate/tokens/WETH.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {Clone} from "clones-with-immutable-args/Clone.sol";
+import {IERC1155} from "core/interfaces/IERC1155.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
+import {
+  ConduitControllerInterface
+} from "seaport/interfaces/ConduitControllerInterface.sol";
 
-contract ClearingHouse is Clone {
+contract ClearingHouse is Clone, IERC1155 {
+  using Bytes32AddressLib for bytes32;
   using SafeTransferLib for ERC20;
-
-  fallback() external payable {
-    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
-    require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN().SEAPORT()));
-    WETH(payable(address(ASTARIA_ROUTER.WETH()))).deposit{value: msg.value}();
-    uint256 payment = ASTARIA_ROUTER.WETH().balanceOf(address(this));
-    ASTARIA_ROUTER.WETH().safeApprove(
-      address(ASTARIA_ROUTER.TRANSFER_PROXY()),
-      payment
-    );
-    ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
-      _getArgUint256(21),
-      payment
-    );
+  struct ClearingHouseStorage {
+    ILienToken.AuctionData auctionStack;
   }
+
+  bytes32 constant CLEARING_HOUSE_STORAGE_SLOT =
+    0xfc8793c2139a57fdc041f52e5a6e70e2c8f6402d67cb75321c29bc8c4ab736ab;
+
+  //  fallback() external payable {
+  //    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
+  //    require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN().SEAPORT()));
+  //    WETH(payable(address(ASTARIA_ROUTER.WETH()))).deposit{value: msg.value}();
+  //    uint256 payment = ASTARIA_ROUTER.WETH().balanceOf(address(this));
+  //  }
+
+  function _getStorage()
+    internal
+    pure
+    returns (ClearingHouseStorage storage s)
+  {
+    assembly {
+      s.slot := CLEARING_HOUSE_STORAGE_SLOT
+    }
+  }
+
+  function setAuctionData(ILienToken.AuctionData calldata auctionData)
+    external
+  {
+    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
+
+    //only execute from the conduit
+    require(msg.sender == address(ASTARIA_ROUTER.LIEN_TOKEN()));
+
+    ClearingHouseStorage storage s = _getStorage();
+    s.auctionStack = auctionData;
+  }
+
+  function supportsInterface(bytes4 interfaceId) external view returns (bool) {
+    return interfaceId == type(IERC1155).interfaceId;
+  }
+
+  function balanceOf(address account, uint256 id)
+    external
+    view
+    returns (uint256)
+  {
+    return type(uint256).max;
+  }
+
+  function balanceOfBatch(address[] calldata accounts, uint256[] calldata ids)
+    external
+    view
+    returns (uint256[] memory output)
+  {
+    output = new uint256[](accounts.length);
+    for (uint256 i = 0; i < output.length; ++i) {
+      output[i] = type(uint256).max;
+    }
+  }
+
+  function setApprovalForAll(address operator, bool approved) external {}
+
+  function isApprovedForAll(address account, address operator)
+    external
+    view
+    returns (bool)
+  {
+    return true;
+  }
+
+  function _execute(
+    address tokenContract, // collateral token sending the fake nft
+    address to, // buyer
+    uint256 encodedMetaData, //retrieve token address from the encoded data
+    uint256 payment // encoded Amount, uint88 / whatever else we wanna stash in there
+  ) internal {
+    //only execute from the conduit
+    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
+    (, , address conduitController) = ASTARIA_ROUTER
+      .COLLATERAL_TOKEN()
+      .SEAPORT()
+      .information();
+
+    //enforces the sender is seaport conduit
+    ConduitControllerInterface(conduitController).ownerOf(msg.sender);
+
+    ClearingHouseStorage storage s = _getStorage();
+    address paymentToken = bytes32(encodedMetaData).fromLast20Bytes();
+
+    require(
+      ERC20(paymentToken).balanceOf(address(this)) >= payment,
+      "not enough funds received"
+    );
+
+    uint256 collateralId = _getArgUint256(21);
+
+    // pay liquidator fees here
+
+    ILienToken.AuctionStack[] storage stack = s.auctionStack.stack;
+
+    uint256 liquidatorPayment = ASTARIA_ROUTER.getLiquidatorFee(payment);
+
+    ERC20(paymentToken).safeTransfer(
+      s.auctionStack.liquidator,
+      liquidatorPayment
+    );
+
+    ERC20(paymentToken).safeApprove(
+      address(ASTARIA_ROUTER.TRANSFER_PROXY()),
+      payment - liquidatorPayment
+    );
+
+    ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
+      paymentToken,
+      collateralId,
+      payment - liquidatorPayment,
+      s.auctionStack.stack
+    );
+
+    if (ERC20(paymentToken).balanceOf(address(this)) > 0) {
+      ERC20(paymentToken).safeTransfer(
+        ASTARIA_ROUTER.COLLATERAL_TOKEN().ownerOf(collateralId),
+        ERC20(paymentToken).balanceOf(address(this))
+      );
+    }
+    ASTARIA_ROUTER.COLLATERAL_TOKEN().settleAuction(collateralId);
+  }
+
+  function safeTransferFrom(
+    address from, // collateral token is the sender in this case, not our conduit, but its "approved to the conduit"
+    address to,
+    uint256 identifier,
+    uint256 amount,
+    bytes calldata data //empty from seaport
+  ) public {
+    //data is empty and useless
+    _execute(from, to, identifier, amount);
+  }
+
+  event log_safe_transfer_params(
+    address tokenContract,
+    address to,
+    uint256 collateralId,
+    uint256 amountMinusFees,
+    bytes data
+  );
+
+  function safeBatchTransferFrom(
+    address from,
+    address to,
+    uint256[] calldata ids,
+    uint256[] calldata amounts,
+    bytes calldata data
+  ) public {}
 }
