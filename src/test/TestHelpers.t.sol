@@ -264,23 +264,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
     vm.label(COLLATERAL_TOKEN.getConduit(), "collateral conduit");
 
-    //    PUBLIC_VAULT = new PublicVault();
-    //    SOLO_VAULT = new Vault();
-    //    WITHDRAW_PROXY = new WithdrawProxy();
-    //    BeaconProxy BEACON_PROXY = new BeaconProxy();
-
-    //    ASTARIA_ROUTER = new AstariaRouter(
-    //      MRA,
-    //      ICollateralToken(address(COLLATERAL_TOKEN)),
-    //      ILienToken(address(LIEN_TOKEN)),
-    //      ITransferProxy(address(TRANSFER_PROXY)),
-    //      address(PUBLIC_VAULT),
-    //      address(SOLO_VAULT),
-    //      address(WITHDRAW_PROXY),
-    //      address(BEACON_PROXY),
-    //      address(CLEARING_HOUSE_IMPL)
-    //    );
-
     vm.label(address(ASTARIA_ROUTER), "ASTARIA_ROUTER");
 
     V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(
