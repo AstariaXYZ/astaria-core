@@ -317,6 +317,7 @@ interface ILienToken is IERC721 {
   enum InvalidStates {
     NO_AUTHORITY,
     COLLATERAL_MISMATCH,
+    ASSET_MISMATCH,
     NOT_ENOUGH_FUNDS,
     INVALID_LIEN_ID,
     COLLATERAL_AUCTION,
