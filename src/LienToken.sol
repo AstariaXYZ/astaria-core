@@ -146,7 +146,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
       revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
     }
 
-
     uint256 potentialDebt = 0;
     for (uint256 i = params.encumber.stack.length; i > 0; ) {
       uint256 j = i - 1;
@@ -305,8 +304,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
       auctionStack.lienId = stack[i].point.lienId;
       auctionStack.end = stack[i].point.end;
       uint88 owed = _getOwed(stack[i], block.timestamp);
-        auctionStack.amountOwed = owed;
-        s.lienMeta[auctionStack.lienId].atLiquidation = true;
+      auctionStack.amountOwed = owed;
+      s.lienMeta[auctionStack.lienId].atLiquidation = true;
       auctionData.stack[i] = auctionStack;
       address payee = _getPayee(s, auctionStack.lienId);
       if (_isPublicVault(s, payee)) {
@@ -442,7 +441,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
         revert InvalidState(InvalidStates.ASSET_MISMATCH);
       }
     }
-
 
     newLienId = uint256(keccak256(abi.encode(params.lien)));
     Point memory point = Point({
@@ -640,8 +638,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     if (payment > 0)
       s.TRANSFER_PROXY.tokenTransferFrom(token, payer, payee, payment);
 
-
-  delete s.lienMeta[lienId]; //full delete
+    delete s.lienMeta[lienId]; //full delete
     delete stack[position];
     _burn(lienId);
 
