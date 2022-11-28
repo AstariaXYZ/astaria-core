@@ -327,6 +327,14 @@ contract LienToken is ERC721, ILienToken, Auth {
       }
     }
     s.collateralStateHash[collateralId] = ACTIVE_AUCTION;
+    auctionData.startTime = block.timestamp.safeCastTo48();
+    auctionData.endTime = (block.timestamp + auctionWindow).safeCastTo48();
+    auctionData.startAmount = stack[0]
+      .lien
+      .details
+      .liquidationInitialAsk
+      .safeCastTo88();
+    auctionData.endAmount = uint88(1000 wei);
     s.COLLATERAL_TOKEN.getClearingHouse(collateralId).setAuctionData(
       auctionData
     );
