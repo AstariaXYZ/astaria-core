@@ -268,26 +268,29 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     uint256 encodedMetaData, //retrieve token address from the encoded data
     uint256 payment // encoded Amount, uint88 / whatever else we wanna stash in there
   ) internal {
-    //only execute from the conduit
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
-    (, , address conduitController) = ASTARIA_ROUTER
-      .COLLATERAL_TOKEN()
-      .SEAPORT()
-      .information();
-
-    //enforces the sender is seaport conduit
-    ConduitControllerInterface(conduitController).ownerOf(msg.sender);
-
+    // (, , address conduitController) = ASTARIA_ROUTER
+    //      .COLLATERAL_TOKEN()
+    //      .SEAPORT()
+    //      .information();
+    //
+    //    //enforces the sender is seaport conduit might not be needed
+    //    ConduitControllerInterface(conduitController).ownerOf(msg.sender);
     ClearingHouseStorage storage s = _getStorage();
     address paymentToken = bytes32(encodedMetaData).fromLast20Bytes();
 
-    require(
-      ERC20(paymentToken).balanceOf(address(this)) >= payment,
-      "not enough funds received"
-    );
+    uint256 currentOfferPrice = _locateCurrentAmount({
+      startAmount: s.auctionStack.startAmount,
+      endAmount: s.auctionStack.endAmount,
+      startTime: s.auctionStack.startTime,
+      endTime: s.auctionStack.endTime,
+      roundUp: true //we are a consideration we round up
+    });
+    uint256 payment = ERC20(paymentToken).balanceOf(address(this));
+
+    require(payment >= currentOfferPrice, "not enough funds received");
 
     uint256 collateralId = _getArgUint256(21);
-
     // pay liquidator fees here
 
     ILienToken.AuctionStack[] storage stack = s.auctionStack.stack;
@@ -321,7 +324,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   }
 
   function safeTransferFrom(
-    address from, // collateral token is the sender in this case, not our conduit, but its "approved to the conduit"
+    address from, // the from is the offerer
     address to,
     uint256 identifier,
     uint256 amount,
