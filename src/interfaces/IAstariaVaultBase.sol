@@ -7,6 +7,8 @@ import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 interface IAstariaVaultBase is IRouterBase {
   function owner() external view returns (address);
 
+  function asset() external view returns (address);
+
   function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
   function START() external view returns (uint256);
