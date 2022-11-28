@@ -233,6 +233,10 @@ interface ILienToken is IERC721 {
   }
 
   struct AuctionData {
+    uint88 startAmount;
+    uint88 endAmount;
+    uint48 startTime;
+    uint48 endTime;
     address liquidator;
     AuctionStack[] stack;
   }

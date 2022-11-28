@@ -20,8 +20,9 @@ import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {
   ConduitControllerInterface
 } from "seaport/interfaces/ConduitControllerInterface.sol";
+import {AmountDeriver} from "seaport/lib/AmountDeriver.sol";
 
-contract ClearingHouse is Clone, IERC1155 {
+contract ClearingHouse is AmountDeriver, Clone, IERC1155 {
   using Bytes32AddressLib for bytes32;
   using SafeTransferLib for ERC20;
   struct ClearingHouseStorage {
@@ -30,13 +31,6 @@ contract ClearingHouse is Clone, IERC1155 {
 
   bytes32 constant CLEARING_HOUSE_STORAGE_SLOT =
     0xfc8793c2139a57fdc041f52e5a6e70e2c8f6402d67cb75321c29bc8c4ab736ab;
-
-  //  fallback() external payable {
-  //    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
-  //    require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN().SEAPORT()));
-  //    WETH(payable(address(ASTARIA_ROUTER.WETH()))).deposit{value: msg.value}();
-  //    uint256 payment = ASTARIA_ROUTER.WETH().balanceOf(address(this));
-  //  }
 
   function _getStorage()
     internal
@@ -97,28 +91,31 @@ contract ClearingHouse is Clone, IERC1155 {
     address tokenContract, // collateral token sending the fake nft
     address to, // buyer
     uint256 encodedMetaData, //retrieve token address from the encoded data
-    uint256 payment // encoded Amount, uint88 / whatever else we wanna stash in there
+    uint256 // space to encode whatever is needed,
   ) internal {
-    //only execute from the conduit
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
-    (, , address conduitController) = ASTARIA_ROUTER
-      .COLLATERAL_TOKEN()
-      .SEAPORT()
-      .information();
-
-    //enforces the sender is seaport conduit
-    ConduitControllerInterface(conduitController).ownerOf(msg.sender);
-
+    // (, , address conduitController) = ASTARIA_ROUTER
+    //      .COLLATERAL_TOKEN()
+    //      .SEAPORT()
+    //      .information();
+    //
+    //    //enforces the sender is seaport conduit might not be needed
+    //    ConduitControllerInterface(conduitController).ownerOf(msg.sender);
     ClearingHouseStorage storage s = _getStorage();
     address paymentToken = bytes32(encodedMetaData).fromLast20Bytes();
 
-    require(
-      ERC20(paymentToken).balanceOf(address(this)) >= payment,
-      "not enough funds received"
-    );
+    uint256 currentOfferPrice = _locateCurrentAmount({
+      startAmount: s.auctionStack.startAmount,
+      endAmount: s.auctionStack.endAmount,
+      startTime: s.auctionStack.startTime,
+      endTime: s.auctionStack.endTime,
+      roundUp: true //we are a consideration we round up
+    });
+    uint256 payment = ERC20(paymentToken).balanceOf(address(this));
+
+    require(payment >= currentOfferPrice, "not enough funds received");
 
     uint256 collateralId = _getArgUint256(21);
-
     // pay liquidator fees here
 
     ILienToken.AuctionStack[] storage stack = s.auctionStack.stack;
@@ -152,7 +149,7 @@ contract ClearingHouse is Clone, IERC1155 {
   }
 
   function safeTransferFrom(
-    address from, // collateral token is the sender in this case, not our conduit, but its "approved to the conduit"
+    address from, // the from is the offerer
     address to,
     uint256 identifier,
     uint256 amount,
