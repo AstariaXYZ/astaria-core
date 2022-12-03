@@ -463,16 +463,6 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     _payDebt(s, token, collateralId, payment, msg.sender, auctionStack);
     delete s.collateralStateHash[collateralId];
-
-    //    if (spent < payment) {
-    //      s.TRANSFER_PROXY.tokenTransferFrom(
-    //        s.WETH,
-    //        msg.sender,
-    //        s.COLLATERAL_TOKEN.ownerOf(collateralId),
-    //        payment - spent
-    //      );
-    //    }
-    //    s.COLLATERAL_TOKEN.settleAuction(collateralId);
   }
 
   function _payDebt(
@@ -875,9 +865,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function setPayee(Lien calldata lien, address newPayee) public {
     LienStorage storage s = _loadLienStorageSlot();
     uint256 lienId = validateLien(lien);
-    require(
-      msg.sender == ownerOf(lienId) || msg.sender == address(s.ASTARIA_ROUTER)
-    );
+    require(msg.sender == ownerOf(lienId));
     if (s.lienMeta[lienId].atLiquidation) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }

@@ -12,6 +12,7 @@ pragma solidity ^0.8.17;
 
 interface IFlashAction {
   struct Underlying {
+    address returnTarget;
     address token;
     uint256 tokenId;
   }
