@@ -46,6 +46,7 @@ import {
   UniqueValidator,
   IUniqueValidator
 } from "../strategies/UniqueValidator.sol";
+import {Deploy} from "core/scripts/deployments/Deploy.sol";
 import {V3SecurityHook} from "../security/V3SecurityHook.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
@@ -83,12 +84,7 @@ import {ConduitController} from "seaport/conduit/ConduitController.sol";
 import {Conduit} from "seaport/conduit/Conduit.sol";
 import {Consideration} from "seaport/lib/Consideration.sol";
 string constant weth9Artifact = "src/test/WETH9.json";
-
-interface IWETH9 is IERC20 {
-  function deposit() external payable;
-
-  function withdraw(uint256) external;
-}
+import {WETH} from "solmate/tokens/WETH.sol";
 
 contract TestNFT is MockERC721 {
   constructor(uint256 size) MockERC721("TestNFT", "TestNFT") {
@@ -126,7 +122,7 @@ contract ConsiderationTester is BaseOrderTest {
   }
 }
 
-contract TestHelpers is ConsiderationTester {
+contract TestHelpers is Deploy, ConsiderationTester {
   using CollateralLookup for address;
   using Strings2 for bytes;
   using SafeCastLib for uint256;
@@ -217,16 +213,6 @@ contract TestHelpers is ConsiderationTester {
       liquidationInitialAsk: 500 ether
     });
 
-  enum UserRoles {
-    ADMIN,
-    ASTARIA_ROUTER,
-    WRAPPER,
-    AUCTION_HOUSE,
-    TRANSFER_PROXY,
-    LIEN_TOKEN,
-    SEAPORT
-  }
-
   enum StrategyTypes {
     STANDARD,
     COLLECTION,
@@ -249,63 +235,53 @@ contract TestHelpers is ConsiderationTester {
     uint256 expiration
   );
   event RedeemVault(bytes32 vault, uint256 amount, address indexed redeemer);
-  mapping(uint256 => OrderParameters) seaportOrders;
-
-  CollateralToken COLLATERAL_TOKEN;
-  LienToken LIEN_TOKEN;
-  AstariaRouter ASTARIA_ROUTER;
-  PublicVault PUBLIC_VAULT;
-  WithdrawProxy WITHDRAW_PROXY;
-  Vault SOLO_VAULT;
-  TransferProxy TRANSFER_PROXY;
-  IWETH9 WETH9;
-  MultiRolesAuthority MRA;
-  ConsiderationInterface SEAPORT;
 
   address bidderConduit;
   bytes32 bidderConduitKey;
 
   function setUp() public virtual override {
+    testModeDisabled = false;
     super.setUp();
-    WETH9 = IWETH9(deployCode(weth9Artifact));
+    SEAPORT = ConsiderationInterface(address(consideration));
+    deploy();
+
+    WETH9 = new WETH();
     vm.label(address(WETH9), "WETH9");
-    MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
+    //    MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
     vm.label(address(MRA), "MRA");
-    TRANSFER_PROXY = new TransferProxy(MRA);
+    //    TRANSFER_PROXY = new TransferProxy(MRA);
     vm.label(address(TRANSFER_PROXY), "TRANSFER_PROXY");
 
-    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY);
+    //    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY);
     vm.label(address(LIEN_TOKEN), "LIEN_TOKEN");
 
-    SEAPORT = ConsiderationInterface(address(consideration));
-
-    ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
-    COLLATERAL_TOKEN = new CollateralToken(
-      MRA,
-      TRANSFER_PROXY,
-      ILienToken(address(LIEN_TOKEN)),
-      SEAPORT
-    );
+    //    ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
+    //    COLLATERAL_TOKEN = new CollateralToken(
+    //      MRA,
+    //      TRANSFER_PROXY,
+    //      ILienToken(address(LIEN_TOKEN)),
+    //      SEAPORT
+    //    );
     vm.label(address(COLLATERAL_TOKEN), "COLLATERAL_TOKEN");
 
     vm.label(COLLATERAL_TOKEN.getConduit(), "collateral conduit");
 
-    PUBLIC_VAULT = new PublicVault();
-    SOLO_VAULT = new Vault();
-    WITHDRAW_PROXY = new WithdrawProxy();
-    BeaconProxy BEACON_PROXY = new BeaconProxy();
+    //    PUBLIC_VAULT = new PublicVault();
+    //    SOLO_VAULT = new Vault();
+    //    WITHDRAW_PROXY = new WithdrawProxy();
+    //    BeaconProxy BEACON_PROXY = new BeaconProxy();
 
-    ASTARIA_ROUTER = new AstariaRouter(
-      MRA,
-      ICollateralToken(address(COLLATERAL_TOKEN)),
-      ILienToken(address(LIEN_TOKEN)),
-      ITransferProxy(address(TRANSFER_PROXY)),
-      address(PUBLIC_VAULT),
-      address(SOLO_VAULT),
-      address(WITHDRAW_PROXY),
-      address(BEACON_PROXY),
-      address(CLEARING_HOUSE_IMPL)
-    );
+    //    ASTARIA_ROUTER = new AstariaRouter(
+    //      MRA,
+    //      ICollateralToken(address(COLLATERAL_TOKEN)),
+    //      ILienToken(address(LIEN_TOKEN)),
+    //      ITransferProxy(address(TRANSFER_PROXY)),
+    //      address(PUBLIC_VAULT),
+    //      address(SOLO_VAULT),
+    //      address(WITHDRAW_PROXY),
+    //      address(BEACON_PROXY),
+    //      address(CLEARING_HOUSE_IMPL)
+    //    );
 
     vm.label(address(ASTARIA_ROUTER), "ASTARIA_ROUTER");
 
@@ -366,56 +342,6 @@ contract TestHelpers is ConsiderationTester {
     );
 
     _setupRolesAndCapabilities();
-  }
-
-  function _setupRolesAndCapabilities() internal {
-    // ROUTER CAPABILITIES
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.createLien.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
-      true
-    );
-
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      CollateralToken.auctionVault.selector,
-      true
-    );
-
-    // LIEN TOKEN CAPABILITIES
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.stopLiens.selector,
-      true
-    );
-
-    MRA.setRoleCapability(
-      uint8(UserRoles.LIEN_TOKEN),
-      CollateralToken.settleAuction.selector,
-      true
-    );
-
-    MRA.setRoleCapability(
-      uint8(UserRoles.LIEN_TOKEN),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
-      true
-    );
-
-    // SEAPORT CAPABILITIES
-
-    MRA.setUserRole(
-      address(ASTARIA_ROUTER),
-      uint8(UserRoles.ASTARIA_ROUTER),
-      true
-    );
-    MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
-    MRA.setUserRole(address(SEAPORT), uint8(UserRoles.SEAPORT), true);
-    MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
   }
 
   function getAmountOwedToLender(

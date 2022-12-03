@@ -273,8 +273,6 @@ contract CollateralToken is
       revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
     }
 
-    IERC721 nft = IERC721(addr);
-
     bytes memory preTransferState;
     //look to see if we have a security handler for this asset
 
@@ -286,12 +284,18 @@ contract CollateralToken is
     }
     // transfer the NFT to the destination optimistically
 
-    nft.safeTransferFrom(address(this), address(receiver), tokenId);
+    ClearingHouse(s.clearingHouse[collateralId]).transferUnderlying(
+      addr,
+      tokenId,
+      address(receiver)
+    );
 
     //trigger the flash action on the receiver
     if (
-      receiver.onFlashAction(IFlashAction.Underlying(addr, tokenId), data) !=
-      keccak256("FlashAction.onFlashAction")
+      receiver.onFlashAction(
+        IFlashAction.Underlying(s.clearingHouse[collateralId], addr, tokenId),
+        data
+      ) != keccak256("FlashAction.onFlashAction")
     ) {
       revert FlashActionCallbackFailed();
     }
@@ -306,7 +310,9 @@ contract CollateralToken is
 
     // validate that the NFT returned after the call
 
-    if (nft.ownerOf(tokenId) != address(this)) {
+    if (
+      IERC721(addr).ownerOf(tokenId) != address(s.clearingHouse[collateralId])
+    ) {
       revert FlashActionNFTNotReturned();
     }
   }
@@ -335,11 +341,11 @@ contract CollateralToken is
     (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
     delete s.idToUnderlying[collateralId];
     _burn(collateralId);
-    IERC721(underlyingAsset).safeTransferFrom(
-      address(this),
-      releaseTo,
+
+    ClearingHouse(s.clearingHouse[collateralId]).transferUnderlying(
+      underlyingAsset,
       assetId,
-      ""
+      releaseTo
     );
     emit ReleaseTo(underlyingAsset, assetId, releaseTo);
   }
@@ -481,7 +487,7 @@ contract CollateralToken is
     );
 
     orderParameters = OrderParameters({
-      offerer: address(this),
+      offerer: s.clearingHouse[collateralId],
       zone: address(this), // 0x20
       offer: offer,
       consideration: considerationItems,
@@ -534,13 +540,7 @@ contract CollateralToken is
       revert InvalidZone();
     }
 
-    IERC721(listingOrder.parameters.offer[0].token).approve(
-      s.CONDUIT,
-      listingOrder.parameters.offer[0].identifierOrCriteria
-    );
-    Order[] memory listings = new Order[](1);
-    listings[0] = listingOrder;
-    s.SEAPORT.validate(listings);
+    ClearingHouse(s.clearingHouse[collateralId]).validateOrder(listingOrder);
     emit ListedOnSeaport(collateralId, listingOrder);
 
     s.collateralIdToAuction[
@@ -583,21 +583,27 @@ contract CollateralToken is
     CollateralStorage storage s = _loadCollateralSlot();
     uint256 collateralId = msg.sender.computeId(tokenId_);
 
-    if (s.clearingHouse[collateralId] == address(0)) {
-      address clearingHouse = ClonesWithImmutableArgs.clone(
-        s.ASTARIA_ROUTER.BEACON_PROXY_IMPLEMENTATION(),
-        abi.encodePacked(
-          address(s.ASTARIA_ROUTER),
-          uint8(IAstariaRouter.ImplementationType.ClearingHouse),
-          collateralId
-        )
-      );
-
-      s.clearingHouse[collateralId] = clearingHouse;
-    }
     Asset memory incomingAsset = s.idToUnderlying[collateralId];
     if (incomingAsset.tokenContract == address(0)) {
       require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
+
+      if (s.clearingHouse[collateralId] == address(0)) {
+        address clearingHouse = ClonesWithImmutableArgs.clone(
+          s.ASTARIA_ROUTER.BEACON_PROXY_IMPLEMENTATION(),
+          abi.encodePacked(
+            address(s.ASTARIA_ROUTER),
+            uint8(IAstariaRouter.ImplementationType.ClearingHouse),
+            collateralId
+          )
+        );
+
+        s.clearingHouse[collateralId] = clearingHouse;
+      }
+      ERC721(msg.sender).safeTransferFrom(
+        address(this),
+        s.clearingHouse[collateralId],
+        tokenId_
+      );
 
       if (msg.sender == address(this) || msg.sender == address(s.LIEN_TOKEN)) {
         revert InvalidCollateral();

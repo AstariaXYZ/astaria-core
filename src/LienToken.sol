@@ -463,16 +463,6 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     _payDebt(s, token, collateralId, payment, msg.sender, auctionStack);
     delete s.collateralStateHash[collateralId];
-
-    //    if (spent < payment) {
-    //      s.TRANSFER_PROXY.tokenTransferFrom(
-    //        s.WETH,
-    //        msg.sender,
-    //        s.COLLATERAL_TOKEN.ownerOf(collateralId),
-    //        payment - spent
-    //      );
-    //    }
-    //    s.COLLATERAL_TOKEN.settleAuction(collateralId);
   }
 
   function _payDebt(
