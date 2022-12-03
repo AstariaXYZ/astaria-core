@@ -247,12 +247,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
     WETH9 = new WETH();
     vm.label(address(WETH9), "WETH9");
-    //    MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
     vm.label(address(MRA), "MRA");
-    //    TRANSFER_PROXY = new TransferProxy(MRA);
     vm.label(address(TRANSFER_PROXY), "TRANSFER_PROXY");
 
-    //    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY);
     vm.label(address(LIEN_TOKEN), "LIEN_TOKEN");
 
     vm.label(address(COLLATERAL_TOKEN), "COLLATERAL_TOKEN");
