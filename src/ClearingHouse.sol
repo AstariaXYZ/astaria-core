@@ -342,6 +342,38 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     bytes calldata data
   ) public {}
 
+  function onERC721Received(
+    address operator_,
+    address from_,
+    uint256 tokenId_,
+    bytes calldata data_
+  ) external override returns (bytes4) {
+    return IERC721Receiver.onERC721Received.selector;
+  }
+
+  function validateOrder(Order memory order) external {
+    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
+    require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN()));
+    Order[] memory listings = new Order[](1);
+    listings[0] = order;
+
+    ERC721(order.parameters.offer[0].token).approve(
+      ASTARIA_ROUTER.COLLATERAL_TOKEN().getConduit(),
+      order.parameters.offer[0].identifierOrCriteria
+    );
+    ASTARIA_ROUTER.COLLATERAL_TOKEN().SEAPORT().validate(listings);
+  }
+
+  function transferUnderlying(
+    address tokenContract,
+    uint256 tokenId,
+    address target
+  ) external {
+    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
+    require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN()));
+    ERC721(tokenContract).safeTransferFrom(address(this), target, tokenId);
+  }
+
   function settleLiquidatorNFTClaim() external {
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
 
