@@ -36,7 +36,12 @@ contract ClaimFees is IFlashAction, IERC721Receiver {
         type(uint128).max
       )
     );
-    ERC721(asset.token).transferFrom(address(this), msg.sender, asset.tokenId);
+    ERC721(asset.token).transferFrom(
+      address(this),
+      asset.returnTarget,
+      asset.tokenId
+    );
     return FLASH_ACTION_MAGIC;
+
   }
 }
