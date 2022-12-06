@@ -592,7 +592,7 @@ contract AstariaTest is TestHelpers {
       stack: stack,
       revertMessage: abi.encodeWithSelector(
         ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.COLLATERAL_MISMATCH
+        ILienToken.InvalidStates.EMPTY_STATE
       )
     });
   }
