@@ -31,14 +31,13 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {Initializable} from "core/utils/Initializable.sol";
 import {AuthInitializable} from "gpl/AuthInitializable.sol";
 
 /**
  * @title LienToken
  * @notice This contract handles the creation, payments, buyouts, and liquidations of tokenized NFT-collateralized debt (liens). Vaults which originate loans against supported collateral are issued a LienToken representing the right to loan repayments and auctioned funds on liquidation.
  */
-contract LienToken is ERC721, ILienToken, AuthInitializable, Initializable {
+contract LienToken is ERC721, ILienToken, AuthInitializable {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
   using SafeCastLib for uint256;
