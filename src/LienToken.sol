@@ -480,7 +480,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     for (uint256 i = 0; i < stack.length; i++) {
       uint256 spent;
       unchecked {
-        spent = _paymentAH(s, collateralId, stack, i, payment, payer);
+        spent = _paymentAH(s, stack, i, payment, payer);
         totalSpent += spent;
         payment -= spent;
       }
@@ -570,7 +570,6 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function _paymentAH(
     LienStorage storage s,
-    uint256 collateralId,
     AuctionStack[] memory stack,
     uint256 position,
     uint256 payment,

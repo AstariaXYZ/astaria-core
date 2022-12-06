@@ -385,8 +385,7 @@ contract PublicVault is
   }
 
   function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
+    IAstariaRouter.Commitment calldata params
   ) internal virtual override(VaultImplementation) {
     VaultData storage s = _loadStorageSlot();
 
