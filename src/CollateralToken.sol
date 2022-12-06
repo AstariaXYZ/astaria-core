@@ -21,7 +21,7 @@ import {IFlashAction} from "core/interfaces/IFlashAction.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {ISecurityHook} from "core/interfaces/ISecurityHook.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-import {Auth, Authority} from "solmate/auth/Auth.sol";
+import {Authority} from "solmate/auth/Auth.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721} from "gpl/ERC721.sol";
@@ -56,13 +56,16 @@ import {Consideration} from "seaport/lib/Consideration.sol";
 import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
 import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
+import {AuthInitializable} from "gpl/AuthInitializable.sol";
+import {Initializable} from "core/utils/Initializable.sol";
 
 contract CollateralToken is
-  Auth,
   ERC721,
   IERC721Receiver,
   ICollateralToken,
-  ZoneInterface
+  ZoneInterface,
+  AuthInitializable,
+  Initializable
 {
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
@@ -70,15 +73,18 @@ contract CollateralToken is
   uint256 private constant COLLATERAL_TOKEN_SLOT =
     uint256(keccak256("xyz.astaria.CollateralToken.storage.location")) - 1;
 
-  constructor(
+  constructor() {
+    _disableInitializers();
+  }
+
+  function initialize(
     Authority AUTHORITY_,
     ITransferProxy TRANSFER_PROXY_,
     ILienToken LIEN_TOKEN_,
     ConsiderationInterface SEAPORT_
-  )
-    Auth(msg.sender, Authority(AUTHORITY_))
-    ERC721("Astaria Collateral Token", "ACT")
-  {
+  ) public initializer {
+    __initAuth(address(msg.sender), address(AUTHORITY_));
+    __initERC721("Astaria Collateral Token", "ACT");
     CollateralStorage storage s = _loadCollateralSlot();
     s.TRANSFER_PROXY = TRANSFER_PROXY_;
     s.LIEN_TOKEN = LIEN_TOKEN_;

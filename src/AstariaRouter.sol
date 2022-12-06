@@ -10,7 +10,7 @@
 
 pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
+import {Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -37,12 +37,20 @@ import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC4626Router} from "gpl/ERC4626Router.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
+import {AuthInitializable} from "gpl/AuthInitializable.sol";
+import {Initializable} from "./utils/Initializable.sol";
 
 /**
  * @title AstariaRouter
  * @notice This contract manages the deployment of Vaults and universal Astaria actions.
  */
-contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
+contract AstariaRouter is
+  AuthInitializable,
+  Initializable,
+  ERC4626Router,
+  Pausable,
+  IAstariaRouter
+{
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
   using CollateralLookup for address;
@@ -52,8 +60,13 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     0xb5d37468eefb1c75507259f9212a7d55dca0c7d08d9ef7be1cda5c5103eaa88e;
 
   // cast --to-bytes32 $(cast sig "OutOfBoundError()")
-  uint256 private constant OUTOFBOUND_ERROR_SELECTOR = 0x571e08d100000000000000000000000000000000000000000000000000000000;
+  uint256 private constant OUTOFBOUND_ERROR_SELECTOR =
+    0x571e08d100000000000000000000000000000000000000000000000000000000;
   uint256 private constant ONE_WORD = 0x20;
+
+  constructor() {
+    _disableInitializers();
+  }
 
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
@@ -64,7 +77,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    * @param _VAULT_IMPL The address of a base implementation of VaultImplementation for cloning.
    * @param _SOLO_IMPL The address of a base implementation of a PrivateVault for cloning.
    */
-  constructor(
+  function initialize(
     Authority _AUTHORITY,
     ICollateralToken _COLLATERAL_TOKEN,
     ILienToken _LIEN_TOKEN,
@@ -74,7 +87,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     address _WITHDRAW_IMPL,
     address _BEACON_PROXY_IMPL,
     address _CLEARING_HOUSE_IMPL
-  ) Auth(msg.sender, _AUTHORITY) {
+  ) external initializer {
+    __initAuth(msg.sender, address(_AUTHORITY));
     RouterStorage storage s = _loadRouterSlot();
 
     s.COLLATERAL_TOKEN = _COLLATERAL_TOKEN;
@@ -419,7 +433,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     assembly {
       let end := add(ONE_WORD, start)
 
-      if lt(length , end) {
+      if lt(length, end) {
         mstore(0, OUTOFBOUND_ERROR_SELECTOR)
         revert(0, ONE_WORD)
       }
