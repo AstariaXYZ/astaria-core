@@ -16,13 +16,17 @@ contract AstariaStack is Script {
   address WETH9_ADDR = vm.envAddress("WETH9_ADDR");
   address MRA_ADDR = vm.envAddress("MRA_ADDR");
   address TRANSFER_PROXY_ADDR = vm.envAddress("TRANSFER_PROXY_ADDR");
-  address LIEN_TOKEN_ADDR = vm.envAddress("LIEN_TOKEN_ADDR");
-  address COLLATERAL_TOKEN_ADDR = vm.envAddress("COLLATERAL_TOKEN_ADDR");
+  address LIEN_TOKEN_IMPL_ADDR = vm.envAddress("LIEN_TOKEN_IMPL_ADDR");
+  address LIEN_TOKEN_ADDR = vm.envAddress("LIEN_TOKEN_PROXY_ADDR");
+  address COLLATERAL_TOKEN_IMPL_ADDR =
+    vm.envAddress("COLLATERAL_TOKEN_IMPL_ADDR");
+  address COLLATERAL_TOKEN_ADDR = vm.envAddress("COLLATERAL_TOKEN_PROXY_ADDR");
   address SOLO_IMPLEMENTATION_ADDR = vm.envAddress("SOLO_IMPLEMENTATION_ADDR");
   address PUBLIC_VAULT_IMPLEMENTATION_ADDR =
     vm.envAddress("PUBLIC_VAULT_IMPLEMENTATION_ADDR");
   address WITHDRAW_PROXY_ADDR = vm.envAddress("WITHDRAW_PROXY_ADDR");
   address BEACON_PROXY_ADDR = vm.envAddress("BEACON_PROXY_ADDR");
   address CLEARING_HOUSE_IMPL_ADDR = vm.envAddress("CLEARING_HOUSE_IMPL_ADDR");
-  address ASTARIA_ROUTER_ADDR = vm.envAddress("ASTARIA_ROUTER_ADDR");
+  address ASTARIA_ROUTER_IMPL_ADDR = vm.envAddress("ASTARIA_ROUTER_IMPL_ADDR");
+  address ASTARIA_ROUTER_ADDR = vm.envAddress("ASTARIA_ROUTER_PROXY_ADDR");
 }
