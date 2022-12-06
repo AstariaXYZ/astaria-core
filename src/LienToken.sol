@@ -38,7 +38,7 @@ import {Initializable} from "./utils/Initializable.sol";
  * @title LienToken
  * @notice This contract handles the creation, payments, buyouts, and liquidations of tokenized NFT-collateralized debt (liens). Vaults which originate loans against supported collateral are issued a LienToken representing the right to loan repayments and auctioned funds on liquidation.
  */
-contract LienToken is ERC721, ILienToken, AuthInitializable, Initializable {
+contract LienToken is ERC721, ILienToken, AuthInitializable {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
   using SafeCastLib for uint256;
@@ -437,7 +437,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, Initializable {
         revert InvalidState(InvalidStates.COLLATERAL_MISMATCH);
       }
     }
-
 
     if (params.lien.token != params.stack[0].lien.token) {
       revert InvalidState(InvalidStates.ASSET_MISMATCH);
