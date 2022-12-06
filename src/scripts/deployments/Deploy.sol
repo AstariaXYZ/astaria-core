@@ -72,6 +72,7 @@ contract Deploy is Script {
   WETH WETH9;
   MultiRolesAuthority MRA;
   ConsiderationInterface SEAPORT;
+  ProxyAdmin PROXY_ADMIN;
 
   bool testModeDisabled = true;
 
@@ -96,14 +97,10 @@ contract Deploy is Script {
         revert("SEAPORT_ADDR not found");
       }
     }
-    //    try vm.removeFile(string(abi.encodePacked(".env"))) {} catch {
-    //        //doesn't delete
-    //      //      revert("Failed to remove .env");
-    //    }
+
     if (weth == address(0)) {
       WETH9 = new WETH();
       if (testModeDisabled) {
-        //        vm.setEnv("WETH9_ADDR", address(WETH9));
         vm.writeLine(
           string(".env"),
           string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
@@ -112,7 +109,6 @@ contract Deploy is Script {
     } else {
       WETH9 = WETH(payable(weth)); // mainnet weth
       if (testModeDisabled) {
-        //        vm.setEnv("WETH9_ADDR", address(WETH9));
         vm.writeLine(
           string(".env"),
           string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
@@ -122,7 +118,6 @@ contract Deploy is Script {
     address auth = testModeDisabled ? address(msg.sender) : address(this);
     MRA = new MultiRolesAuthority(auth, Authority(address(0)));
     if (testModeDisabled) {
-      //      vm.setEnv("MRA_ADDR", address(MRA));
       vm.writeLine(
         string(".env"),
         string(abi.encodePacked("MRA_ADDR=", vm.toString(address(MRA))))
@@ -143,17 +138,14 @@ contract Deploy is Script {
       );
     }
 
-    // deploy proxy admin from openzeppelin
-    // deploy TransparentUpgradeableProxy from openzeppelin
-    ProxyAdmin proxyAdmin = new ProxyAdmin();
+    PROXY_ADMIN = new ProxyAdmin();
     if (testModeDisabled) {
-      //      vm.setEnv("PROXY_ADMIN_ADDR", address(proxyAdmin));
       vm.writeLine(
         string(".env"),
         string(
           abi.encodePacked(
             "PROXY_ADMIN_ADDR=",
-            vm.toString(address(proxyAdmin))
+            vm.toString(address(PROXY_ADMIN))
           )
         )
       );
@@ -162,7 +154,6 @@ contract Deploy is Script {
     LienToken LT_IMPL = new LienToken();
 
     if (testModeDisabled) {
-      //      vm.setEnv("LIEN_TOKEN_ADDR", address(LIEN_TOKEN));
       vm.writeLine(
         string(".env"),
         string(
@@ -176,7 +167,7 @@ contract Deploy is Script {
     // LienToken proxy deployment/setup
     TransparentUpgradeableProxy lienTokenProxy = new TransparentUpgradeableProxy(
         address(LT_IMPL),
-        address(proxyAdmin),
+        address(PROXY_ADMIN),
         abi.encodeWithSelector(
           LIEN_TOKEN.initialize.selector,
           MRA,
@@ -228,7 +219,7 @@ contract Deploy is Script {
     {
       TransparentUpgradeableProxy collateralTokenProxy = new TransparentUpgradeableProxy(
           address(CT_IMPL),
-          address(proxyAdmin),
+          address(PROXY_ADMIN),
           abi.encodeWithSelector(
             COLLATERAL_TOKEN.initialize.selector,
             MRA,
@@ -255,7 +246,6 @@ contract Deploy is Script {
 
     SOLO_IMPLEMENTATION = new Vault();
     if (testModeDisabled) {
-      //      vm.setEnv("SOLO_IMPLEMENTATION_ADDR", address(SOLO_IMPLEMENTATION));
       vm.writeLine(
         string(".env"),
         string(
@@ -268,10 +258,6 @@ contract Deploy is Script {
     }
     PUBLIC_VAULT_IMPLEMENTATION = new PublicVault();
     if (testModeDisabled) {
-      //      vm.setEnv(
-      //        "PUBLIC_VAULT_IMPLEMENTATION_ADDR",
-      //        address(PUBLIC_VAULT_IMPLEMENTATION)
-      //      );
       vm.writeLine(
         string(".env"),
         string(
@@ -284,7 +270,6 @@ contract Deploy is Script {
     }
     WITHDRAW_PROXY = new WithdrawProxy();
     if (testModeDisabled) {
-      //      vm.setEnv("WITHDRAW_PROXY_ADDR", address(WITHDRAW_PROXY));
       vm.writeLine(
         string(".env"),
         string(
@@ -297,7 +282,6 @@ contract Deploy is Script {
     }
     BeaconProxy BEACON_PROXY = new BeaconProxy();
     if (testModeDisabled) {
-      //      vm.setEnv("BEACON_PROXY_ADDR", address(BEACON_PROXY));
       vm.writeLine(
         string(".env"),
         string(
@@ -312,7 +296,6 @@ contract Deploy is Script {
     {
       AstariaRouter AR_IMPL = new AstariaRouter();
       if (testModeDisabled) {
-        //      vm.setEnv("ASTARIA_ROUTER_ADDR", address(ASTARIA_ROUTER));
         vm.writeLine(
           string(".env"),
           string(
@@ -326,7 +309,7 @@ contract Deploy is Script {
 
       TransparentUpgradeableProxy astariaRouterProxy = new TransparentUpgradeableProxy(
           address(AR_IMPL),
-          address(proxyAdmin),
+          address(PROXY_ADMIN),
           abi.encodeWithSelector(
             AstariaRouter.initialize.selector,
             MRA,
@@ -343,7 +326,6 @@ contract Deploy is Script {
       ASTARIA_ROUTER = AstariaRouter(address(astariaRouterProxy));
 
       if (testModeDisabled) {
-        //      vm.setEnv("TRANSPARENT_UPGRADEABLE_PROXY_ADDR", address(transparentUpgradeableProxy));
         vm.writeLine(
           string(".env"),
           string(
@@ -365,10 +347,6 @@ contract Deploy is Script {
       COLLATERAL_TOKEN.fileBatch(ctfiles);
     }
     _setupRolesAndCapabilities();
-    //    address mraOwner = MRA.owner();
-    //    assert(
-    //      mraOwner == (testModeDisabled ? address(msg.sender) : address(this))
-    //    );
 
     LIEN_TOKEN.file(
       ILienToken.File(

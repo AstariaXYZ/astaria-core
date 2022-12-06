@@ -41,6 +41,17 @@ contract AstariaTest is TestHelpers {
   event NonceUpdated(uint32 nonce);
   event VaultShutdown();
 
+  function testFeesExample() public {
+    uint256 amountOwedToLender = getAmountOwedToLender(15e17, 10e18, 14 days);
+    Fees memory fees = getFeesForLiquidation(
+      20e18,
+      10e16,
+      13e16,
+      amountOwedToLender
+    );
+    emit FeesCalculated(fees);
+  }
+
   function testVaultShutdown() public {
     address publicVault = _createPublicVault({
       epochLength: 10 days, // 10 days
