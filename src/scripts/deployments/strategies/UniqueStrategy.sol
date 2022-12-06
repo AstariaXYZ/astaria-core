@@ -18,7 +18,7 @@ contract UniqueStrategy is AstariaStack {
   IAstariaRouter router;
 
   function run() external {
-    router = IAstariaRouter(ROUTER_ADDR);
+    router = IAstariaRouter(ASTARIA_ROUTER_ADDR);
     vm.startBroadcast(msg.sender);
 
     UniqueValidator validator = new UniqueValidator();
