@@ -57,15 +57,13 @@ import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
 import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
 import {AuthInitializable} from "gpl/AuthInitializable.sol";
-import {Initializable} from "core/utils/Initializable.sol";
 
 contract CollateralToken is
+  AuthInitializable,
   ERC721,
   IERC721Receiver,
   ICollateralToken,
-  ZoneInterface,
-  AuthInitializable,
-  Initializable
+  ZoneInterface
 {
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
