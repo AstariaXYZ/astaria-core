@@ -18,7 +18,7 @@ contract CollectionStrategy is AstariaStack {
   IAstariaRouter router;
 
   function run() external {
-    router = IAstariaRouter(ROUTER_ADDR);
+    router = IAstariaRouter(ASTARIA_ROUTER_ADDR);
     vm.startBroadcast(msg.sender);
 
     CollectionValidator validator = new CollectionValidator();
