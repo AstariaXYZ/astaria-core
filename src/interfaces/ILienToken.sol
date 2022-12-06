@@ -59,8 +59,8 @@ interface ILienToken is IERC721 {
     address token; //20
     address vault; //20
     bytes32 strategyRoot; //32
-    uint256 collateralId; //32 //contractAddres + tokenId
-    Details details; //32 * 4
+    uint256 collateralId; //32 //contractAddress + tokenId
+    Details details; //32 * 5
   }
 
   struct Point {
