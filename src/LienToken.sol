@@ -32,12 +32,14 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {Initializable} from "core/utils/Initializable.sol";
+import {AuthInitializable} from "gpl/AuthInitializable.sol";
 
 /**
  * @title LienToken
  * @notice This contract handles the creation, payments, buyouts, and liquidations of tokenized NFT-collateralized debt (liens). Vaults which originate loans against supported collateral are issued a LienToken representing the right to loan repayments and auctioned funds on liquidation.
  */
-contract LienToken is ERC721, ILienToken, Auth {
+contract LienToken is ERC721, ILienToken, AuthInitializable, Initializable {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
   using SafeCastLib for uint256;
@@ -47,15 +49,16 @@ contract LienToken is ERC721, ILienToken, Auth {
   bytes32 constant LIEN_SLOT =
     0x784074eabfd770c66f3ce9775f7de467d76c7082c00549d7c34362d167cafc4b;
 
-  /**
-   * @dev Setup transfer authority and initialize the buyoutNumerator and buyoutDenominator for the lien buyout premium.
-   * @param _AUTHORITY The authority manager.
-   * @param _TRANSFER_PROXY The TransferProxy for balance transfers.
-   */
-  constructor(Authority _AUTHORITY, ITransferProxy _TRANSFER_PROXY)
-    Auth(address(msg.sender), _AUTHORITY)
-    ERC721("Astaria Lien Token", "ALT")
+  constructor() {
+    _disableInitializers();
+  }
+
+  function initialize(Authority _AUTHORITY, ITransferProxy _TRANSFER_PROXY)
+    public
+    initializer
   {
+    __initAuth(address(msg.sender), address(_AUTHORITY));
+    __initERC721("Astaria Lien Token", "ALT");
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
     s.maxLiens = uint8(5);

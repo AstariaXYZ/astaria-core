@@ -145,6 +145,14 @@ contract TestHelpers is Deploy, ConsiderationTester {
   string private checkpointLabel;
   uint256 private checkpointGasLeft = 1; // Start the slot warm.
 
+  ILienToken.Details public shortNSweet =
+    ILienToken.Details({
+      maxAmount: 150 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 1 minutes,
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
+    });
   ILienToken.Details public blueChipDetails =
     ILienToken.Details({
       maxAmount: 150 ether,
@@ -327,19 +335,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
     );
 
     ASTARIA_ROUTER.fileBatch(files);
-
-    LIEN_TOKEN.file(
-      ILienToken.File(
-        ILienToken.FileType.CollateralToken,
-        abi.encode(address(COLLATERAL_TOKEN))
-      )
-    );
-    LIEN_TOKEN.file(
-      ILienToken.File(
-        ILienToken.FileType.AstariaRouter,
-        abi.encode(address(ASTARIA_ROUTER))
-      )
-    );
 
     _setupRolesAndCapabilities();
   }
@@ -576,22 +571,30 @@ contract TestHelpers is Deploy, ConsiderationTester {
         amount: amount,
         isFirstLien: isFirstLien,
         stack: new ILienToken.Stack[](0),
-        revertMessage: new bytes(0)
+        revertMessage: new bytes(0),
+        broadcast: false
       });
   }
 
   function _executeCommitments(
     IAstariaRouter.Commitment[] memory commitments,
-    bytes memory revertMessage
+    bytes memory revertMessage,
+    bool broadcast
   )
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
+    if (broadcast) {
+      vm.startBroadcast(msg.sender);
+    }
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
     if (revertMessage.length > 0) {
       vm.expectRevert(revertMessage);
     }
-    return ASTARIA_ROUTER.commitToLiens(commitments);
+    (lienIds, newStack) = ASTARIA_ROUTER.commitToLiens(commitments);
+    if (broadcast) {
+      vm.stopBroadcast();
+    }
   }
 
   struct V3LienParams {
@@ -615,7 +618,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address vault,
     uint256 amount,
     ILienToken.Stack[] memory stack,
-    bool isFirstLien
+    bool isFirstLien,
+    bool broadcast
   )
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
@@ -628,10 +632,16 @@ contract TestHelpers is Deploy, ConsiderationTester {
     });
 
     if (isFirstLien) {
+      if (broadcast) {
+        vm.startBroadcast(msg.sender);
+      }
       ERC721(params.tokenContract).setApprovalForAll(
         address(ASTARIA_ROUTER),
         true
       );
+      if (broadcast) {
+        vm.stopBroadcast();
+      }
     }
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
@@ -639,7 +649,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     return
       _executeCommitments({
         commitments: commitments,
-        revertMessage: new bytes(0)
+        revertMessage: new bytes(0),
+        broadcast: broadcast
       });
   }
 
@@ -668,7 +679,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
         amount: amount,
         isFirstLien: isFirstLien,
         stack: stack,
-        revertMessage: new bytes(0)
+        revertMessage: new bytes(0),
+        broadcast: false
       });
   }
 
@@ -687,6 +699,38 @@ contract TestHelpers is Deploy, ConsiderationTester {
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
+    return
+      _commitToLien({
+        vault: vault,
+        strategist: strategist,
+        strategistPK: strategistPK,
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        lienDetails: lienDetails,
+        amount: amount,
+        isFirstLien: isFirstLien,
+        stack: stack,
+        revertMessage: revertMessage,
+        broadcast: false
+      });
+  }
+
+  function _commitToLien(
+    address vault, // address of deployed Vault
+    address strategist,
+    uint256 strategistPK,
+    address tokenContract, // original NFT address
+    uint256 tokenId, // original NFT id
+    ILienToken.Details memory lienDetails, // loan information
+    uint256 amount, // requested amount
+    bool isFirstLien,
+    ILienToken.Stack[] memory stack,
+    bytes memory revertMessage,
+    bool broadcast
+  )
+    internal
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
       vault: vault,
       strategist: strategist,
@@ -699,7 +743,13 @@ contract TestHelpers is Deploy, ConsiderationTester {
     });
 
     if (isFirstLien) {
+      if (broadcast) {
+        vm.startBroadcast(msg.sender);
+      }
       ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+      if (broadcast) {
+        vm.stopBroadcast();
+      }
     }
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
@@ -707,7 +757,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     return
       _executeCommitments({
         commitments: commitments,
-        revertMessage: revertMessage
+        revertMessage: revertMessage,
+        broadcast: broadcast
       });
   }
 
