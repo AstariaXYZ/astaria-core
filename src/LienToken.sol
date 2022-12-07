@@ -116,9 +116,9 @@ contract LienToken is ERC721, ILienToken, Auth {
   function _buyoutLien(
     LienStorage storage s,
     ILienToken.LienActionBuyout calldata params
-  ) internal returns (Stack[] memory, Stack memory newStack) {
+  ) internal returns (Stack[] memory newStack, Stack memory newLien) {
     //the borrower shouldn't incur more debt from the buyout than they already owe
-    (, newStack) = _createLien(s, params.encumber);
+    (, newLien) = _createLien(s, params.encumber);
     if (
       !s.ASTARIA_ROUTER.isValidRefinance({
         newLien: params.encumber.lien,
@@ -173,17 +173,16 @@ contract LienToken is ERC721, ILienToken, Auth {
       );
     }
 
-    return (
-      _replaceStackAtPositionWithNewLien(
-        s,
-        params.encumber.stack,
-        params.position,
-        newStack,
-        params.encumber.stack[params.position].point.lienId,
-        newStack.point.lienId
-      ),
-      newStack
+    newStack = _replaceStackAtPositionWithNewLien(
+      s,
+      params.encumber.stack,
+      params.position,
+      newLien,
+      params.encumber.stack[params.position].point.lienId,
+      newLien.point.lienId
     );
+
+    s.collateralStateHash[collateralId] = keccak256(abi.encode(newStack));
   }
 
   function _replaceStackAtPositionWithNewLien(
@@ -366,7 +365,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
     if (
-      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
+      s.collateralStateHash[params.encumber.lien.collateralId] ==
+      bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
