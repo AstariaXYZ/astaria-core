@@ -146,7 +146,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     WPStorage storage s = _loadSlot();
     // If auction funds have been collected to the WithdrawProxy
     // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
-    if (s.finalAuctionEnd != 0) {
+    if (s.finalAuctionEnd != 0 || (ERC20(asset()).balanceOf(address(this)) == 0 && s.withdrawReserveReceived == 0)) {
       // if finalAuctionEnd is 0, no auctions were added
       revert InvalidState(InvalidStates.NOT_CLAIMED);
     }
@@ -169,7 +169,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     WPStorage storage s = _loadSlot();
     // If auction funds have been collected to the WithdrawProxy
     // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
-    if (s.finalAuctionEnd != 0) {
+    if (s.finalAuctionEnd != 0 || (ERC20(asset()).balanceOf(address(this)) == 0 && s.withdrawReserveReceived == 0)) {
       // if finalAuctionEnd is 0, no auctions were added
       revert InvalidState(InvalidStates.NOT_CLAIMED);
     }
