@@ -182,7 +182,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       newLien.point.lienId
     );
 
-    s.collateralStateHash[collateralId] = keccak256(abi.encode(newStack));
+    s.collateralStateHash[params.encumber.collateralId] = keccak256(abi.encode(newStack));
   }
 
   function _replaceStackAtPositionWithNewLien(
@@ -365,7 +365,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
     if (
-      s.collateralStateHash[params.encumber.lien.collateralId] ==
+      s.collateralStateHash[params.collateralId] ==
       bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
