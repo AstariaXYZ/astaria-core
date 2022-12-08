@@ -330,13 +330,6 @@ abstract contract VaultImplementation is
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
-    if (
-      recipient() != address(this) &&
-      !lienToken.isApprovedForAll(address(this), recipient())
-    ) {
-      lienToken.setApprovalForAll(recipient(), true);
-    }
-
     return
       lienToken.buyoutLien(
         ILienToken.LienActionBuyout({

@@ -106,11 +106,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     validateStack(params.encumber.lien.collateralId, params.encumber.stack)
     returns (Stack[] memory, Stack memory newStack)
   {
-    if (msg.sender != params.encumber.receiver) {
-      require(
-        _loadERC721Slot().isApprovedForAll[msg.sender][params.encumber.receiver]
-      );
-    }
     if (block.timestamp >= params.encumber.stack[params.position].point.end) {
       revert InvalidState(InvalidStates.EXPIRED_LIEN);
     }
