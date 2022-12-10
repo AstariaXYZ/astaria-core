@@ -140,7 +140,7 @@ contract PublicVault is
 
     // check for rounding error since we round down in previewRedeem.
 
-    ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
+    ERC20(address(this)).safeTransferFrom(owner, address(this), shares);
 
     // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
     _deployWithdrawProxyIfNotDeployed(s, epoch);
