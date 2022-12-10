@@ -99,7 +99,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     UNIV3_LIQUIDITY
   }
 
-  struct StrategyDetails {
+  struct StrategyDetailsParam {
     uint8 version;
     uint256 deadline;
     address vault;
@@ -111,7 +111,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   struct NewLienRequest {
-    StrategyDetails strategy;
+    StrategyDetailsParam strategy;
     ILienToken.Stack[] stack;
     bytes nlrDetails;
     MerkleData merkle;

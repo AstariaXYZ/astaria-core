@@ -38,7 +38,7 @@ contract AstariaTest is TestHelpers {
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
-  event NonceUpdated(uint32 nonce);
+  event NonceUpdated(uint256 nonce);
   event VaultShutdown();
 
   function testVaultShutdown() public {
@@ -1022,17 +1022,15 @@ contract AstariaTest is TestHelpers {
     _bid(Bidder(bidder, bidderPK), listedOrder, bid);
 
     // assert the bidder received the NFT
-    assertEq(
-      nft.ownerOf(tokenId),
-      bidder,
-      "Bidder did not receive NFT"
-    );
+    assertEq(nft.ownerOf(tokenId), bidder, "Bidder did not receive NFT");
   }
 
-  function testLiquidationPaymentsOverbid () public {
+  function testLiquidationPaymentsOverbid() public {
     address borrower = address(69);
     address liquidator = address(7);
-    (address publicVault, ILienToken.Stack[] memory stack) = setupLiquidation(borrower);
+    (address publicVault, ILienToken.Stack[] memory stack) = setupLiquidation(
+      borrower
+    );
 
     vm.startPrank(liquidator);
     OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
@@ -1058,7 +1056,7 @@ contract AstariaTest is TestHelpers {
 
     Fees memory balances = Fees({
       opensea: opensea.balance,
-      royalties: tx.origin.balance, 
+      royalties: tx.origin.balance,
       liquidator: WETH9.balanceOf(liquidator),
       lender: amountOwedToLender,
       borrower: WETH9.balanceOf(borrower)
@@ -1099,7 +1097,11 @@ contract AstariaTest is TestHelpers {
     // assert the bidder balance is reduced
     assertEq(
       bidder.balance,
-      garbage.bidderBalance + (garbage.bid * 3) - garbage.actualPrice - garbage.fees.opensea - garbage.fees.royalties,
+      garbage.bidderBalance +
+        (garbage.bid * 3) -
+        garbage.actualPrice -
+        garbage.fees.opensea -
+        garbage.fees.royalties,
       "Bidder balance not reduced"
     );
     // assert opensea eth balance
@@ -1117,7 +1119,8 @@ contract AstariaTest is TestHelpers {
     );
 
     // assert withdrawProxy weth balance
-    WithdrawProxy withdrawProxy = PublicVault(garbage.publicVault).getWithdrawProxy(0);
+    WithdrawProxy withdrawProxy = PublicVault(garbage.publicVault)
+      .getWithdrawProxy(0);
     assertEq(
       WETH9.balanceOf(address(withdrawProxy)),
       52876712328728000000,
