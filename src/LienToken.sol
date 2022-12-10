@@ -101,7 +101,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function buyoutLien(ILienToken.LienActionBuyout calldata params)
     external
-    validateStack(params.encumber.collateralId, params.encumber.stack)
+    validateStack(params.encumber.lien.collateralId, params.encumber.stack)
     returns (Stack[] memory, Stack memory newStack)
   {
     if (msg.sender != params.encumber.receiver) {
@@ -327,7 +327,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function createLien(ILienToken.LienActionEncumber memory params)
     external
     requiresAuth
-    validateStack(params.collateralId, params.stack)
+    validateStack(params.lien.collateralId, params.stack)
     returns (
       uint256 lienId,
       Stack[] memory newStack,
@@ -340,7 +340,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     (lienId, newStackSlot) = _createLien(s, params);
 
     newStack = _appendStack(s, params.stack, newStackSlot);
-    s.collateralStateHash[params.collateralId] = keccak256(
+    s.collateralStateHash[params.lien.collateralId] = keccak256(
       abi.encode(newStack)
     );
 
@@ -348,13 +348,13 @@ contract LienToken is ERC721, ILienToken, Auth {
       lienSlope = calculateSlope(newStackSlot);
     }
     emit AddLien(
-      params.collateralId,
+      params.lien.collateralId,
       newStackSlot.point.position,
       lienId,
       newStackSlot
     );
     emit LienStackUpdated(
-      params.collateralId,
+      params.lien.collateralId,
       newStackSlot.point.position,
       StackAction.ADD,
       uint8(newStack.length)
@@ -366,7 +366,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
     if (
-      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
+      s.collateralStateHash[params.lien.collateralId] ==
+      bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
