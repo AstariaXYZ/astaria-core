@@ -197,19 +197,17 @@ contract PublicVault is
     public
     override(ERC4626Cloned)
     whenNotPaused
-    returns (uint256)
+    returns (uint256 assets)
   {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
     }
 
-    uint256 assets = totalAssets();
+    uint256 assets = super.mint(shares, receiver);
     if (s.depositCap != 0 && assets >= s.depositCap) {
       revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
     }
-
-    return super.mint(shares, receiver);
   }
 
   /**
@@ -668,7 +666,12 @@ contract PublicVault is
     return epochEnd - block.timestamp;
   }
 
-  function _timeToSecondEndIfPublic() internal view override returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    override
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return timeToEpochEnd() + EPOCH_LENGTH();
   }
 
