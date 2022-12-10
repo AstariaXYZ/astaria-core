@@ -140,13 +140,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       params.encumber.stack[params.position]
     );
 
-    if (
-      _getMaxPotentialDebtForCollateral(params.encumber.stack) >
-      params.encumber.lien.details.maxPotentialDebt
-    ) {
-      revert InvalidState(InvalidStates.DEBT_LIMIT);
-    }
-
     if (params.encumber.lien.details.maxAmount < owed) {
       revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
     }
@@ -173,17 +166,23 @@ contract LienToken is ERC721, ILienToken, Auth {
       );
     }
 
-    return (
-      _replaceStackAtPositionWithNewLien(
-        s,
-        params.encumber.stack,
-        params.position,
-        newStack,
-        params.encumber.stack[params.position].point.lienId,
-        newStack.point.lienId
-      ),
-      newStack
+    Stack[] memory replacedStack = _replaceStackAtPositionWithNewLien(
+      s,
+      params.encumber.stack,
+      params.position,
+      newStack,
+      params.encumber.stack[params.position].point.lienId,
+      newStack.point.lienId
     );
+
+    if (
+      _getMaxPotentialDebtForCollateral(replacedStack) >
+      params.encumber.lien.details.maxPotentialDebt
+    ) {
+      revert InvalidState(InvalidStates.DEBT_LIMIT);
+    }
+
+    return (replacedStack, newStack);
   }
 
   function _replaceStackAtPositionWithNewLien(
