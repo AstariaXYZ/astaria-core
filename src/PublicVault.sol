@@ -204,7 +204,7 @@ contract PublicVault is
       require(s.allowList[receiver]);
     }
 
-    uint256 assets = super.mint(shares, receiver);
+    assets = super.mint(shares, receiver);
     if (s.depositCap != 0 && assets >= s.depositCap) {
       revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
     }
@@ -219,19 +219,18 @@ contract PublicVault is
     public
     override(ERC4626Cloned)
     whenNotPaused
-    returns (uint256)
+    returns (uint256 shares)
   {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
     }
 
+    shares = super.deposit(amount, receiver);
     uint256 assets = totalAssets();
     if (s.depositCap != 0 && assets >= s.depositCap) {
       revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
     }
-
-    return super.deposit(amount, receiver);
   }
 
   /**
