@@ -246,7 +246,8 @@ abstract contract VaultImplementation is
       params.lienRequest.s
     );
     if (
-      recovered != owner() && recovered != s.delegate && recovered != address(0)
+      (recovered != owner() && recovered != s.delegate) ||
+      recovered == address(0)
     ) {
       revert IVaultImplementation.InvalidRequest(
         InvalidRequestReason.INVALID_SIGNATURE
