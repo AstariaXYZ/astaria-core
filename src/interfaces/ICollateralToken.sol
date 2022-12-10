@@ -162,13 +162,6 @@ interface ICollateralToken is IERC721 {
    */
   function liquidatorNFTClaim(OrderParameters memory params) external;
 
-  /**
-   * @notice Lists a liquidated CollateralToken as a Seaport auction.
-   * @param params The liquidation information (Lien data, listing price, and maximum auction duration).
-   */
-  function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
-    external;
-
   event Deposit721(
     address indexed tokenContract,
     uint256 indexed tokenId,
