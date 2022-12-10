@@ -228,6 +228,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (stateHash != bytes32(0) && keccak256(abi.encode(stack)) != stateHash) {
       revert InvalidState(InvalidStates.INVALID_HASH);
     }
+    if (stateHash == bytes32(0) && stack.length != 0) {
+      revert InvalidState(InvalidStates.EMPTY_STATE);
+    }
     _;
   }
 
