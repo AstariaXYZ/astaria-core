@@ -224,13 +224,11 @@ abstract contract VaultImplementation is
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      !ROUTER().isValidVault(receiver)
+      !ROUTER().isValidVault(receiver) &&
+      !CT.isApprovedForAll(holder, receiver) &&
+      receiver != params.lienRequest.strategy.vault
     ) {
-      if (operator != address(0)) {
-        require(operator == receiver);
-      } else {
-        require(CT.isApprovedForAll(holder, receiver));
-      }
+      revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
     VIData storage s = _loadVISlot();
     address recovered = ecrecover(
@@ -354,7 +352,12 @@ abstract contract VaultImplementation is
       );
   }
 
-  function _timeToSecondEndIfPublic() internal view virtual returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    virtual
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return 0;
   }
 
