@@ -63,6 +63,16 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
   error InvalidState(InvalidStates);
 
+  function minDepositAmount()
+    public
+    view
+    virtual
+    override(ERC4626Cloned)
+    returns (uint256)
+  {
+    return 0;
+  }
+
   function decimals() public pure override returns (uint8) {
     return 18;
   }
