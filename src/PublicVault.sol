@@ -419,7 +419,8 @@ contract PublicVault is
     // increment slope for the new lien
     _accrue(s);
     unchecked {
-      s.slope += lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope + lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
     }
 
     uint64 epoch = getLienEpoch(lienEnd);
@@ -430,6 +431,8 @@ contract PublicVault is
     }
     emit LienOpen(lienId, epoch);
   }
+
+  event SlopeUpdated(uint48 newSlope);
 
   function accrue() public returns (uint256) {
     return _accrue(_loadStorageSlot());
@@ -487,10 +490,17 @@ contract PublicVault is
     require(msg.sender == address(LIEN_TOKEN()));
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
+
     unchecked {
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
     }
     _handleStrategistInterestReward(s, params.interestOwed, params.amount);
+  }
+
+  function _setSlope(VaultData storage s, uint48 newSlope) internal {
+    s.slope = newSlope;
+    emit SlopeUpdated(newSlope);
   }
 
   function decreaseEpochLienCount(uint64 epoch) public {
@@ -576,7 +586,8 @@ contract PublicVault is
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
       s.yIntercept += params.increaseYIntercept.safeCastTo88();
       s.last = block.timestamp.safeCastTo40();
     }
@@ -612,7 +623,8 @@ contract PublicVault is
       s.yIntercept += uint256(s.slope)
         .mulDivDown(block.timestamp - s.last, 1)
         .safeCastTo88();
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
       s.last = block.timestamp.safeCastTo40();
     }
 
