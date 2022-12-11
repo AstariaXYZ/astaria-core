@@ -588,20 +588,15 @@ contract LienToken is ERC721, ILienToken, Auth {
     } else {
       payment = owing;
     }
-    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
+    if (payment > 0)
+      s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
 
     delete s.lienMeta[lienId]; //full delete
     delete stack[position];
     _burn(lienId);
 
     if (_isPublicVault(s, payee)) {
-      if (owner == payee) {
-        IPublicVault(payee).updateAfterLiquidationPayment(
-          IPublicVault.LiquidationPaymentParams({lienEnd: end})
-        );
-      } else {
-        IPublicVault(payee).decreaseEpochLienCount(stack[position].end);
-      }
+      IPublicVault(payee).decreaseEpochLienCount(end.safeCastTo64());
     }
     emit Payment(lienId, payment);
     return payment;
