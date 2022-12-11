@@ -203,12 +203,6 @@ contract PublicVault is
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
     }
-
-    uint256 assets = totalAssets();
-    if (s.depositCap != 0 && assets >= s.depositCap) {
-      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
-    }
-
     return super.mint(shares, receiver);
   }
 
@@ -229,9 +223,6 @@ contract PublicVault is
     }
 
     uint256 assets = totalAssets();
-    if (s.depositCap != 0 && assets >= s.depositCap) {
-      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
-    }
 
     return super.deposit(amount, receiver);
   }
@@ -544,7 +535,10 @@ contract PublicVault is
     unchecked {
       s.yIntercept += assets.safeCastTo88();
     }
-
+    VIData storage v = _loadVISlot();
+    if (v.depositCap != 0 && totalAssets() >= v.depositCap) {
+      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+    }
     emit YInterceptChanged(s.yIntercept);
   }
 
