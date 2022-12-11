@@ -114,7 +114,7 @@ contract UNI_V3Validator is IUNI_V3Validator {
 
     ) = V3_NFT_POSITION_MGR.positions(collateralTokenId);
 
-    if (details.fee != uint24(0) && fee != details.fee) {
+    if (details.fee == uint24(0) || fee != details.fee) {
       revert InvalidFee();
     }
 
