@@ -111,6 +111,8 @@ contract PublicVault is
     address owner
   ) public virtual override(ERC4626Cloned) returns (uint256 assets) {
     VaultData storage s = _loadStorageSlot();
+    // Check for rounding error since we round down in previewRedeem.
+    require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     assets = redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
   }
 
@@ -137,7 +139,8 @@ contract PublicVault is
     if (epoch < s.currentEpoch) {
       revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
     }
-
+    // Check for rounding error since we round down in previewRedeem.
+    require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     // check for rounding error since we round down in previewRedeem.
 
     ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
