@@ -305,6 +305,7 @@ interface ILienToken is IERC721 {
   event PayeeChanged(uint256 indexed lienId, address indexed payee);
 
   error UnsupportedFile();
+  error InvalidSender();
   error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
   error InvalidTerms();
   error InvalidRefinance();

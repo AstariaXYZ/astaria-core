@@ -109,8 +109,11 @@ contract LienToken is ERC721, ILienToken, Auth {
         _loadERC721Slot().isApprovedForAll[msg.sender][params.encumber.receiver]
       );
     }
-
-    return _buyoutLien(_loadLienStorageSlot(), params);
+    LienStorage storage s = _loadLienStorageSlot();
+    if (!s.ASTARIA_ROUTER.isValidVault(msg.sender)) {
+      revert InvalidSender();
+    }
+    return _buyoutLien(s, params);
   }
 
   function _buyoutLien(
