@@ -248,8 +248,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.MaxInterestRate) {
       s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
-    } else if (what == FileType.MinInterestRate) {
-      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
       s.feeTo = addr;
