@@ -349,13 +349,13 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
     emit AddLien(
       params.collateralId,
-      newStackSlot.point.position,
+      uint8(params.stack.length),
       lienId,
       newStackSlot
     );
     emit LienStackUpdated(
       params.collateralId,
-      newStackSlot.point.position,
+      uint8(params.stack.length),
       StackAction.ADD,
       uint8(newStack.length)
     );
@@ -369,9 +369,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
-    }
-    if (params.stack.length >= s.maxLiens) {
-      revert InvalidState(InvalidStates.MAX_LIENS);
     }
     if (
       params.lien.details.liquidationInitialAsk < params.amount ||
@@ -399,7 +396,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       lienId: newLienId,
       amount: params.amount.safeCastTo88(),
       last: block.timestamp.safeCastTo40(),
-      position: uint8(params.stack.length),
       end: (block.timestamp + params.lien.details.duration).safeCastTo40()
     });
     _mint(params.receiver, newLienId);
@@ -411,6 +407,10 @@ contract LienToken is ERC721, ILienToken, Auth {
     Stack[] memory stack,
     Stack memory newSlot
   ) internal returns (Stack[] memory newStack) {
+    if (stack.length >= s.maxLiens) {
+      revert InvalidState(InvalidStates.MAX_LIENS);
+    }
+
     newStack = new Stack[](stack.length + 1);
     newStack[stack.length] = newSlot;
 
