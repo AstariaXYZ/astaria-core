@@ -312,6 +312,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);
   error InvalidCollateralState(CollateralStates);
+  error InvalidVault();
   enum LienState {
     HEALTHY,
     AUCTION

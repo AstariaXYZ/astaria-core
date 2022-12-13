@@ -184,7 +184,6 @@ contract PublicVault is
         abi.encodePacked(
           address(ROUTER()), // router is the beacon
           uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
-          address(this), // owner
           asset(), // token
           address(this), // vault
           epoch + 1 // claimable epoch
@@ -390,10 +389,11 @@ contract PublicVault is
   ) internal virtual override(VaultImplementation) {
     VaultData storage s = _loadStorageSlot();
 
+    if (s.withdrawReserve > uint256(0)) {
+      transferWithdrawReserve();
+    }
     if (timeToEpochEnd() == uint256(0)) {
       processEpoch();
-    } else if (s.withdrawReserve > uint256(0)) {
-      transferWithdrawReserve();
     }
   }
 
@@ -561,7 +561,7 @@ contract PublicVault is
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       unchecked {
-        uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //TODO: make const VAULT_FEE is a basis point
+        uint256 fee = x.mulDivDown(VAULT_FEE(), 10000); //TODO: make const VAULT_FEE is a basis point
         s.strategistUnclaimedShares += convertToShares(fee).safeCastTo88();
       }
     }
@@ -668,7 +668,12 @@ contract PublicVault is
     return epochEnd - block.timestamp;
   }
 
-  function _timeToSecondEndIfPublic() internal view override returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    override
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return timeToEpochEnd() + EPOCH_LENGTH();
   }
 
