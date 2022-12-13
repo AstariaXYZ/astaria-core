@@ -225,6 +225,9 @@ contract LienToken is ERC721, ILienToken, Auth {
   modifier validateStack(uint256 collateralId, Stack[] memory stack) {
     LienStorage storage s = _loadLienStorageSlot();
     bytes32 stateHash = s.collateralStateHash[collateralId];
+    if (stateHash == bytes32(0) && stack.length != 0) {
+      revert InvalidState(InvalidStates.EMPTY_STATE);
+    }
     if (stateHash != bytes32(0) && keccak256(abi.encode(stack)) != stateHash) {
       revert InvalidState(InvalidStates.INVALID_HASH);
     }
@@ -370,9 +373,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-    if (params.stack.length >= s.maxLiens) {
-      revert InvalidState(InvalidStates.MAX_LIENS);
-    }
     if (
       params.lien.details.liquidationInitialAsk < params.amount ||
       params.lien.details.liquidationInitialAsk == 0
@@ -410,6 +410,10 @@ contract LienToken is ERC721, ILienToken, Auth {
     Stack[] memory stack,
     Stack memory newSlot
   ) internal returns (Stack[] memory newStack) {
+    if (stack.length >= s.maxLiens) {
+      revert InvalidState(InvalidStates.MAX_LIENS);
+    }
+
     newStack = new Stack[](stack.length + 1);
     newStack[stack.length] = newSlot;
 
