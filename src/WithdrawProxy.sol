@@ -110,7 +110,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     returns (string memory)
   {
     return
-      string(abi.encodePacked("AST-W", owner(), "-", ERC20(asset()).symbol()));
+      string(abi.encodePacked("AST-W", VAULT(), "-", ERC20(asset()).symbol()));
   }
 
   /**
@@ -124,7 +124,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     override(ERC4626Cloned, IERC4626)
     returns (uint256 assets)
   {
-    require(msg.sender == owner(), "only owner can mint");
+    require(msg.sender == VAULT(), "only vault can mint");
     _mint(receiver, shares);
     return shares;
   }
