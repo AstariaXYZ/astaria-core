@@ -675,6 +675,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
       revert InvalidSenderForCollateral(msg.sender, collateralId);
     }
+    if (s.vaults[c.lienRequest.strategy.vault] == address(0)) {
+      revert InvalidVault();
+    }
     //router must be approved for the collateral to take a loan,
     return
       IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
