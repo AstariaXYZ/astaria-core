@@ -389,10 +389,11 @@ contract PublicVault is
   ) internal virtual override(VaultImplementation) {
     VaultData storage s = _loadStorageSlot();
 
+    if (s.withdrawReserve > uint256(0)) {
+      transferWithdrawReserve();
+    }
     if (timeToEpochEnd() == uint256(0)) {
       processEpoch();
-    } else if (s.withdrawReserve > uint256(0)) {
-      transferWithdrawReserve();
     }
   }
 
@@ -667,7 +668,12 @@ contract PublicVault is
     return epochEnd - block.timestamp;
   }
 
-  function _timeToSecondEndIfPublic() internal view override returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    override
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return timeToEpochEnd() + EPOCH_LENGTH();
   }
 
