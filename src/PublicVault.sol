@@ -501,9 +501,11 @@ contract PublicVault is
   }
 
   function _decreaseEpochLienCount(VaultData storage s, uint64 epoch) internal {
-    unchecked {
-      s.epochData[epoch].liensOpenForEpoch--;
-    }
+    s.epochData[epoch].liensOpenForEpoch--;
+    emit LiensOpenForEpochRemaining(
+      epoch,
+      s.epochData[epoch].liensOpenForEpoch
+    );
   }
 
   function getLienEpoch(uint64 end) public pure returns (uint64) {
@@ -591,10 +593,6 @@ contract PublicVault is
     require(msg.sender == address(LIEN_TOKEN()));
     VaultData storage s = _loadStorageSlot();
     if (params.remaining > 0) _decreaseYIntercept(s, params.remaining);
-    _decreaseEpochLienCount(
-      _loadStorageSlot(),
-      getLienEpoch(params.lienEnd.safeCastTo64())
-    );
   }
 
   /**

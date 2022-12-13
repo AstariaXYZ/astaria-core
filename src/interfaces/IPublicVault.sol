@@ -49,7 +49,6 @@ interface IPublicVault is IVaultImplementation {
   }
 
   struct LiquidationPaymentParams {
-    uint256 lienEnd;
     uint256 remaining;
   }
 
@@ -155,7 +154,7 @@ interface IPublicVault is IVaultImplementation {
     LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH,
     DEPOSIT_CAP_EXCEEDED
   }
-
+  event LiensOpenForEpochRemaining(uint64 epoch, uint256 liensOpenForEpoch);
   event YInterceptChanged(uint88 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
   event LienOpen(uint256 lienId, uint256 epoch);

@@ -601,10 +601,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     if (_isPublicVault(s, payee)) {
       IPublicVault(payee).updateAfterLiquidationPayment(
-        IPublicVault.LiquidationPaymentParams({
-          remaining: remaining,
-          lienEnd: end
-        })
+        IPublicVault.LiquidationPaymentParams({remaining: remaining})
       );
     }
     emit Payment(lienId, payment);
