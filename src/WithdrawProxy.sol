@@ -238,7 +238,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     if (balance < s.expected) {
       PublicVault(VAULT()).decreaseYIntercept(
         (s.expected - balance).mulWadDown(
-          10**ERC20(asset()).decimals() - s.withdrawRatio
+            1e18 - s.withdrawRatio
         )
       );
     }
