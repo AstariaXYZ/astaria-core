@@ -65,7 +65,6 @@ interface ILienToken is IERC721 {
 
   struct Point {
     uint88 amount; //11
-    uint8 position; //1
     uint40 last; //5
     uint40 end; //5
     uint256 lienId; //32
