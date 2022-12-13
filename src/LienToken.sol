@@ -632,7 +632,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     } else {
       payment = owing;
     }
-    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
+    if (payment > 0)
+      s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
 
     delete s.lienMeta[lienId]; //full delete
     delete stack[position];
@@ -640,10 +641,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     if (_isPublicVault(s, payee)) {
       IPublicVault(payee).updateAfterLiquidationPayment(
-        IPublicVault.LiquidationPaymentParams({
-          remaining: remaining,
-          lienEnd: end
-        })
+        IPublicVault.LiquidationPaymentParams({remaining: remaining})
       );
     }
     emit Payment(lienId, payment);
