@@ -219,13 +219,12 @@ abstract contract VaultImplementation is
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
     address operator = CT.getApproved(collateralId);
-
     if (
-      (msg.sender != holder &&
-        receiver != holder &&
-        receiver != operator &&
-        !ROUTER().isValidVault(receiver) &&
-        !CT.isApprovedForAll(holder, receiver)) ||
+      msg.sender != holder &&
+      receiver != holder &&
+      receiver != operator &&
+      !ROUTER().isValidVault(receiver) &&
+      !CT.isApprovedForAll(holder, receiver) &&
       receiver != params.lienRequest.strategy.vault
     ) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
