@@ -104,10 +104,10 @@ abstract contract VaultImplementation is
    * @notice receive hook for ERC721 tokens, nothing special done
    */
   function onERC721Received(
-    address operator_,
-    address from_,
-    uint256 tokenId_,
-    bytes calldata data_
+    address, // operator_
+    address, // from_
+    uint256, // tokenId_
+    bytes calldata // data_
   ) external pure override returns (bytes4) {
     return ERC721TokenReceiver.onERC721Received.selector;
   }
@@ -262,8 +262,7 @@ abstract contract VaultImplementation is
   ) internal virtual {}
 
   function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata,
-    address receiver
+    IAstariaRouter.Commitment calldata
   ) internal virtual {}
 
   /**
@@ -282,7 +281,7 @@ abstract contract VaultImplementation is
     whenNotPaused
     returns (uint256 lienId, ILienToken.Stack[] memory stack)
   {
-    _beforeCommitToLien(params, receiver);
+    _beforeCommitToLien(params);
     uint256 slopeAddition;
     (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(
       params,
