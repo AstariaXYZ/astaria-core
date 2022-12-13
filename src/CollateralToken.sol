@@ -55,6 +55,7 @@ import {
 import {Consideration} from "seaport/lib/Consideration.sol";
 import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
 import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
+import {ClearingHouse} from "core/ClearingHouse.sol";
 
 contract CollateralToken is
   Auth,
@@ -132,8 +133,12 @@ contract CollateralToken is
       revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
     }
 
-    _settleAuction(s, collateralId);
-    _releaseToAddress(s, collateralId, liquidator);
+    Asset storage underlying = s.idToUnderlying[collateralId];
+    address tokenContract = underlying.tokenContract;
+    uint256 tokenId = underlying.tokenId;
+    ClearingHouse CH = ClearingHouse(payable(s.clearingHouse[collateralId]));
+    CH.settleLiquidatorNFTClaim();
+    _releaseToAddress(tokenContract, tokenId, liquidator);
   }
 
   function _loadCollateralSlot()
@@ -340,17 +345,13 @@ contract CollateralToken is
 
   /**
    * @dev Transfers locked collateral to a specified address and deletes the reference to the CollateralToken for that NFT.
-   * @param collateralId The ID for the CollateralToken of the NFT to unlock.
    * @param releaseTo The address to send the NFT to.
    */
   function _releaseToAddress(
-    CollateralStorage storage s,
-    uint256 collateralId,
+    address underlyingAsset,
+    uint256 assetId,
     address releaseTo
   ) internal {
-    (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
-    delete s.idToUnderlying[collateralId];
-    _burn(collateralId);
     IERC721(underlyingAsset).safeTransferFrom(
       address(this),
       releaseTo,

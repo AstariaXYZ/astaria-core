@@ -45,4 +45,12 @@ contract ClearingHouse is Clone {
       payment
     );
   }
+
+  function settleLiquidatorNFTClaim() external {
+    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
+
+    require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN()));
+
+    ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(_getArgUint256(21), 0);
+  }
 }
