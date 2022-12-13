@@ -589,6 +589,8 @@ contract PublicVault is
     LiquidationPaymentParams calldata params
   ) external {
     require(msg.sender == address(LIEN_TOKEN()));
+    VaultData storage s = _loadStorageSlot();
+    if (params.remaining > 0) _decreaseYIntercept(s, params.remaining);
     _decreaseEpochLienCount(
       _loadStorageSlot(),
       getLienEpoch(params.lienEnd.safeCastTo64())
@@ -668,7 +670,12 @@ contract PublicVault is
     return epochEnd - block.timestamp;
   }
 
-  function _timeToSecondEndIfPublic() internal view override returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    override
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return timeToEpochEnd() + EPOCH_LENGTH();
   }
 

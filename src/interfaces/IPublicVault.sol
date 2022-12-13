@@ -50,6 +50,7 @@ interface IPublicVault is IVaultImplementation {
 
   struct LiquidationPaymentParams {
     uint256 lienEnd;
+    uint256 remaining;
   }
 
   function updateAfterLiquidationPayment(
