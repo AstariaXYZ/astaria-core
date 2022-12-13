@@ -601,7 +601,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return
       s.LIEN_TOKEN.createLien(
         ILienToken.LienActionEncumber({
-          collateralId: params.tokenContract.computeId(params.tokenId),
           lien: _validateCommitment({
             s: s,
             commitment: params,
