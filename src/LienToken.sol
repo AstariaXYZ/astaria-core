@@ -626,8 +626,10 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 owing = stack[position].amountOwed;
     //checks the lien exists
     address payee = _getPayee(s, lienId);
-
-    if (owing < payment.safeCastTo88()) {
+    uint256 remaining = 0;
+    if (owing > payment.safeCastTo88()) {
+      remaining = owing - payment;
+    } else {
       payment = owing;
     }
     s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
@@ -638,7 +640,10 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     if (_isPublicVault(s, payee)) {
       IPublicVault(payee).updateAfterLiquidationPayment(
-        IPublicVault.LiquidationPaymentParams({lienEnd: end})
+        IPublicVault.LiquidationPaymentParams({
+          remaining: remaining,
+          lienEnd: end
+        })
       );
     }
     emit Payment(lienId, payment);
