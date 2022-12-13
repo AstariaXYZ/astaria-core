@@ -615,17 +615,21 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 totalCapitalAvailable
   ) internal returns (Stack[] memory newStack, uint256 spent) {
     uint256 n = stack.length;
+    newStack = stack;
     for (uint256 i; i < n; ) {
+      uint256 oldLength = newStack.length;
       (newStack, spent) = _payment(
         s,
-        stack,
+        newStack,
         uint8(i),
         totalCapitalAvailable,
         address(msg.sender)
       );
       totalCapitalAvailable -= spent;
-      unchecked {
-        ++i;
+      if (newStack.length == oldLength) {
+        unchecked {
+          ++i;
+        }
       }
     }
     _updateCollateralStateHash(s, stack[0].lien.collateralId, newStack);
@@ -817,10 +821,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         ++i;
       }
     }
-    unchecked {
-      ++i;
-    }
-    for (i; i < length; ) {
+    for (i; i < length - 1; ) {
       unchecked {
         newStack[i] = stack[i + 1];
         ++i;
