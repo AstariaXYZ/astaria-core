@@ -184,7 +184,6 @@ contract PublicVault is
         abi.encodePacked(
           address(ROUTER()), // router is the beacon
           uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
-          address(this), // owner
           asset(), // token
           address(this), // vault
           epoch + 1 // claimable epoch
