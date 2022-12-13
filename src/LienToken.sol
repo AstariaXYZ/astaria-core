@@ -668,7 +668,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   }
 
   function _getMaxPotentialDebtForCollateral(Stack[] memory stack)
-    public
+    internal
     pure
     returns (uint256 maxPotentialDebt)
   {
