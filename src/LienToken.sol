@@ -348,13 +348,13 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
     emit AddLien(
       params.collateralId,
-      newStackSlot.point.position,
+      uint8(params.stack.length),
       lienId,
       newStackSlot
     );
     emit LienStackUpdated(
       params.collateralId,
-      newStackSlot.point.position,
+      uint8(params.stack.length),
       StackAction.ADD,
       uint8(newStack.length)
     );
@@ -398,7 +398,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       lienId: newLienId,
       amount: params.amount.safeCastTo88(),
       last: block.timestamp.safeCastTo40(),
-      position: uint8(params.stack.length),
       end: (block.timestamp + params.lien.details.duration).safeCastTo40()
     });
     _mint(params.receiver, newLienId);
