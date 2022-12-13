@@ -306,6 +306,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     if (s.lienMeta[id].atLiquidation) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
+    delete s.lienMeta[id].payee;
+    emit PayeeChanged(id, address(0));
     super.transferFrom(from, to, id);
   }
 
