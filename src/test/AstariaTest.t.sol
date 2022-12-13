@@ -412,10 +412,9 @@ contract AstariaTest is TestHelpers {
     );
 
     VaultImplementation(privateVault).buyoutLien(
-      tokenContract.computeId(tokenId),
+      stack,
       uint8(0),
-      refinanceTerms,
-      stack
+      refinanceTerms
     );
 
     assertEq(
@@ -537,14 +536,13 @@ contract AstariaTest is TestHelpers {
     vm.expectRevert(
       abi.encodeWithSelector(
         ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.COLLATERAL_MISMATCH
+        ILienToken.InvalidStates.INVALID_HASH
       )
     );
     VaultImplementation(privateVault).buyoutLien(
-      tokenContract.computeId(tokenId),
+      stack,
       uint8(0),
-      refinanceTerms,
-      stack
+      refinanceTerms
     );
   }
 

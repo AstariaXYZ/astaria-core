@@ -103,7 +103,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function buyoutLien(ILienToken.LienActionBuyout calldata params)
     external
-    validateStack(params.encumber.collateralId, params.encumber.stack)
+    validateStack(params.encumber.lien.collateralId, params.encumber.stack)
     returns (Stack[] memory, Stack memory newStack)
   {
     if (msg.sender != params.encumber.receiver) {
@@ -376,7 +376,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function createLien(ILienToken.LienActionEncumber memory params)
     external
     requiresAuth
-    validateStack(params.collateralId, params.stack)
+    validateStack(params.lien.collateralId, params.stack)
     returns (
       uint256 lienId,
       Stack[] memory newStack,
@@ -389,7 +389,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     (lienId, newStackSlot) = _createLien(s, params);
 
     newStack = _appendStack(s, params.stack, newStackSlot);
-    s.collateralStateHash[params.collateralId] = keccak256(
+    s.collateralStateHash[params.lien.collateralId] = keccak256(
       abi.encode(newStack)
     );
 
