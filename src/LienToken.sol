@@ -868,18 +868,6 @@ contract LienToken is ERC721, ILienToken, Auth {
         : ownerOf(lienId);
   }
 
-  function setPayee(Lien calldata lien, address newPayee) public {
-    LienStorage storage s = _loadLienStorageSlot();
-    uint256 lienId = validateLien(lien);
-    require(
-      msg.sender == ownerOf(lienId) || msg.sender == address(s.ASTARIA_ROUTER)
-    );
-    if (s.lienMeta[lienId].atLiquidation) {
-      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
-    }
-    _setPayee(s, lienId, newPayee);
-  }
-
   function _setPayee(
     LienStorage storage s,
     uint256 lienId,
