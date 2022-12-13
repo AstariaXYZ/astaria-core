@@ -534,9 +534,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   }
 
   function _decreaseEpochLienCount(VaultData storage s, uint64 epoch) internal {
-    unchecked {
-      s.epochData[epoch].liensOpenForEpoch--;
-    }
+    s.epochData[epoch].liensOpenForEpoch--;
+    emit LiensOpenForEpochRemaining(
+      epoch,
+      s.epochData[epoch].liensOpenForEpoch
+    );
   }
 
   function getLienEpoch(uint64 end) public pure returns (uint64) {
