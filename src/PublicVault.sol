@@ -561,7 +561,7 @@ contract PublicVault is
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       unchecked {
-        uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //TODO: make const VAULT_FEE is a basis point
+        uint256 fee = x.mulDivDown(VAULT_FEE(), 10000); //TODO: make const VAULT_FEE is a basis point
         s.strategistUnclaimedShares += convertToShares(fee).safeCastTo88();
       }
     }
