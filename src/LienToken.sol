@@ -176,7 +176,9 @@ contract LienToken is ERC721, ILienToken, Auth {
       newLien.point.lienId
     );
 
-    s.collateralStateHash[params.encumber.collateralId] = keccak256(abi.encode(newStack));
+    s.collateralStateHash[params.encumber.collateralId] = keccak256(
+      abi.encode(newStack)
+    );
   }
 
   function _replaceStackAtPositionWithNewLien(
@@ -302,6 +304,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 id
   ) public override(ERC721, IERC721) {
     LienStorage storage s = _loadLienStorageSlot();
+    if (_isPublicVault(s, to)) {
+      revert InvalidState(InvalidStates.PUBLIC_VAULT_RECIPIENT);
+    }
     if (s.lienMeta[id].atLiquidation) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -364,8 +369,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
     if (
-      s.collateralStateHash[params.collateralId] ==
-      bytes32("ACTIVE_AUCTION")
+      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -591,9 +595,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     _burn(lienId);
 
     if (_isPublicVault(s, payee)) {
-        IPublicVault(payee).updateAfterLiquidationPayment(
-          IPublicVault.LiquidationPaymentParams({lienEnd: end})
-        );
+      IPublicVault(payee).updateAfterLiquidationPayment(
+        IPublicVault.LiquidationPaymentParams({lienEnd: end})
+      );
     }
     emit Payment(lienId, payment);
     return payment;
