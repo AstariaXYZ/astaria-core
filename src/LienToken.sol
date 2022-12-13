@@ -568,7 +568,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function _paymentAH(
     LienStorage storage s,
     uint256 collateralId,
-    AuctionStack[] memory stack,
+    AuctionStack[] storage stack,
     uint256 position,
     uint256 payment,
     address payer
@@ -580,9 +580,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     address owner = ownerOf(lienId);
     address payee = _getPayee(s, lienId);
 
-    if (owing > payment.safeCastTo88()) {
-      stack[position].amountOwed -= payment.safeCastTo88();
-    } else {
+    if (owing < payment.safeCastTo88()) {
       payment = owing;
     }
     s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
@@ -592,13 +590,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     _burn(lienId);
 
     if (_isPublicVault(s, payee)) {
-      if (owner == payee) {
         IPublicVault(payee).updateAfterLiquidationPayment(
           IPublicVault.LiquidationPaymentParams({lienEnd: end})
         );
-      } else {
-        IPublicVault(payee).decreaseEpochLienCount(stack[position].end);
-      }
     }
     emit Payment(lienId, payment);
     return payment;
