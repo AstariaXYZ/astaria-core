@@ -246,7 +246,8 @@ abstract contract VaultImplementation is
       params.lienRequest.s
     );
     if (
-      recovered != owner() && recovered != s.delegate && recovered != address(0)
+      (recovered != owner() && recovered != s.delegate) ||
+      recovered == address(0)
     ) {
       revert IVaultImplementation.InvalidRequest(
         InvalidRequestReason.INVALID_SIGNATURE
@@ -298,15 +299,13 @@ abstract contract VaultImplementation is
 
   /**
    * @notice Buy optimized-out a lien to replace it with new terms.
-   * @param collateralId The ID of the underlying CollateralToken.
    * @param position The position of the specified lien.
    * @param incomingTerms The loan terms of the new lien.
    */
   function buyoutLien(
-    uint256 collateralId,
+    ILienToken.Stack[] calldata stack,
     uint8 position,
-    IAstariaRouter.Commitment calldata incomingTerms,
-    ILienToken.Stack[] calldata stack
+    IAstariaRouter.Commitment calldata incomingTerms
   )
     external
     whenNotPaused
@@ -341,7 +340,6 @@ abstract contract VaultImplementation is
           incoming: incomingTerms,
           position: position,
           encumber: ILienToken.LienActionEncumber({
-            collateralId: collateralId,
             amount: incomingTerms.lienRequest.amount,
             receiver: recipient(),
             lien: ROUTER().validateCommitment({
@@ -354,7 +352,12 @@ abstract contract VaultImplementation is
       );
   }
 
-  function _timeToSecondEndIfPublic() internal view virtual returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    virtual
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return 0;
   }
 
