@@ -174,21 +174,17 @@ contract CollateralToken is
       super.supportsInterface(interfaceId);
   }
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param files structs to file
-   */
   function fileBatch(File[] calldata files) external requiresAuth {
     for (uint256 i = 0; i < files.length; i++) {
-      file(files[i]);
+      _file(files[i]);
     }
   }
 
-  /**
-   * @notice Sets collateral token parameters or changes the addresses for deployed contracts.
-   * @param incoming the incoming files
-   */
   function file(File calldata incoming) public requiresAuth {
+    _file(incoming);
+  }
+
+  function _file(File calldata incoming) internal {
     CollateralStorage storage s = _loadCollateralSlot();
 
     FileType what = incoming.what;

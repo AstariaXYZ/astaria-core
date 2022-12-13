@@ -189,11 +189,15 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   function fileBatch(File[] calldata files) external requiresAuth {
     for (uint256 i = 0; i < files.length; i++) {
-      file(files[i]);
+      _file(files[i]);
     }
   }
 
   function file(File calldata incoming) public requiresAuth {
+    _file(incoming);
+  }
+
+  function _file(File calldata incoming) internal {
     RouterStorage storage s = _loadRouterSlot();
     FileType what = incoming.what;
     bytes memory data = incoming.data;
