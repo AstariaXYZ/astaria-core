@@ -48,7 +48,7 @@ contract CollectionValidator is ICollectionValidator {
     IAstariaRouter.NewLienRequest calldata params,
     address borrower,
     address collateralTokenContract,
-    uint256 collateralTokenId
+    uint256 // collateralTokenId
   )
     external
     pure

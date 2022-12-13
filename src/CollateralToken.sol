@@ -613,14 +613,14 @@ contract CollateralToken is
    * @dev Mints a new CollateralToken wrapping an NFT.
    * @param operator_ the approved sender that called safeTransferFrom
    * @param from_ the owner of the collateral deposited
-   * @param data_ calldata that is apart of the callback
+   * @param tokenId_ The NFT token ID
    * @return a static return of the receive signature
    */
   function onERC721Received(
     address operator_,
     address from_,
     uint256 tokenId_,
-    bytes calldata data_
+    bytes calldata // calldata data_
   ) external override whenNotPaused returns (bytes4) {
     CollateralStorage storage s = _loadCollateralSlot();
     uint256 collateralId = msg.sender.computeId(tokenId_);
