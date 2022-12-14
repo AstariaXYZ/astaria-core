@@ -16,7 +16,7 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.MY_REPO_PAT }}
-
+      - uses: c-hive/gha-yarn-cache@v2
       - uses: actions/setup-node@v2
       - run: yarn
       - uses: onbjerg/foundry-toolchain@v1
