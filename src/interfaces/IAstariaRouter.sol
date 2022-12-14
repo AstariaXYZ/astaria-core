@@ -324,7 +324,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     NO_DEPOSIT,
     NO_LIENS
   }
-  error InvalidVault(address);
   error InvalidCommitmentState(CommitmentState);
   error InvalidStrategy(uint16);
   enum CommitmentState {
