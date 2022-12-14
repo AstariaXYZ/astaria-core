@@ -275,7 +275,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       amount = balance;
     }
 
-    uint256 auctionFunds = balance - withdrawReserveReceived; // First we want to drain from auction funds, then withdrawReserve funds (sent from PublicVault)
+    uint256 auctionFunds = balance - s.withdrawReserveReceived; // First we want to drain from auction funds, then withdrawReserve funds (sent from PublicVault)
     if (amount > auctionFunds) {
       s.withdrawReserveReceived -= amount - (auctionFunds);
     }
