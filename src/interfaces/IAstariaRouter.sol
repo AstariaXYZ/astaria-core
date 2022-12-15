@@ -312,7 +312,9 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);
   error InvalidCollateralState(CollateralStates);
-  error InvalidVault();
+  error InvalidCommitmentState(CommitmentState);
+  error InvalidStrategy(uint16);
+  error InvalidVault(address);
   enum LienState {
     HEALTHY,
     AUCTION
@@ -324,9 +326,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     NO_DEPOSIT,
     NO_LIENS
   }
-  error InvalidVault(address);
-  error InvalidCommitmentState(CommitmentState);
-  error InvalidStrategy(uint16);
+
   enum CommitmentState {
     INVALID,
     INVALID_RATE,
