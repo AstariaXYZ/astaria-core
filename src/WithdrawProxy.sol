@@ -148,11 +148,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     revert NotSupported();
   }
 
-  function withdraw(
-    uint256 assets,
-    address receiver,
-    address owner
-  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 shares) {
+  modifier onlyWhenNoActiveAuction() {
     WPStorage storage s = _loadSlot();
     // If auction funds have been collected to the WithdrawProxy
     // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
@@ -160,7 +156,14 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       // if finalAuctionEnd is 0, no auctions were added
       revert InvalidState(InvalidStates.NOT_CLAIMED);
     }
+    _;
+  }
 
+  function withdraw(
+    uint256 assets,
+    address receiver,
+    address owner
+  ) public virtual override(ERC4626Cloned, IERC4626) onlyWhenNoActiveAuction returns (uint256 shares) {
     return super.withdraw(assets, receiver, owner);
   }
 
@@ -175,15 +178,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 shares,
     address receiver,
     address owner
-  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 assets) {
-    WPStorage storage s = _loadSlot();
-    // If auction funds have been collected to the WithdrawProxy
-    // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
-    if (s.finalAuctionEnd != 0) {
-      // if finalAuctionEnd is 0, no auctions were added
-      revert InvalidState(InvalidStates.NOT_CLAIMED);
-    }
-
+  ) public virtual override(ERC4626Cloned, IERC4626) onlyWhenNoActiveAuction returns (uint256 assets) {
     return super.redeem(shares, receiver, owner);
   }
 
