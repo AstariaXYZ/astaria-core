@@ -39,14 +39,12 @@ interface ICollateralToken is IERC721 {
     ConsiderationInterface SEAPORT;
     IRoyaltyEngine ROYALTY_ENGINE;
     ConduitControllerInterface CONDUIT_CONTROLLER;
-    address CLEARING_HOUSE_IMPLEMENTATION;
     address CONDUIT;
     address OS_FEE_PAYEE;
     uint16 osFeeNumerator;
     uint16 osFeeDenominator;
     bytes32 CONDUIT_KEY;
     mapping(uint256 => bytes32) collateralIdToAuction;
-    mapping(bytes32 => bool) orderSigned;
     mapping(address => bool) flashEnabled;
     //mapping of the collateralToken ID and its underlying asset
     mapping(uint256 => Asset) idToUnderlying;
@@ -64,7 +62,6 @@ interface ICollateralToken is IERC721 {
   enum FileType {
     NotSupported,
     AstariaRouter,
-    AuctionHouse,
     SecurityHook,
     FlashEnabled,
     Seaport,
