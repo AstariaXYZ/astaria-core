@@ -17,8 +17,9 @@ interface IPausable {
  * simply including this module, only once the modifiers are put in place.
  */
 abstract contract Pausable is IPausable {
-  bytes32 constant PAUSE_SLOT =
-    keccak256("xyz.astaria.AstariaRouter.Pausable.storage.location");
+  uint256 private constant PAUSE_SLOT =
+    uint256(keccak256("xyz.astaria.AstariaRouter.Pausable.storage.location")) -
+      1;
   /**
    * @dev Emitted when the pause is triggered by `account`.
    */
@@ -33,10 +34,11 @@ abstract contract Pausable is IPausable {
     bool _paused;
   }
 
-  function _loadPauseSlot() internal pure returns (PauseStorage storage ps) {
-    bytes32 loc = PAUSE_SLOT;
+  function _loadPauseSlot() internal pure returns (PauseStorage storage s) {
+    uint256 slot = PAUSE_SLOT;
+
     assembly {
-      ps.slot := loc
+      s.slot := slot
     }
   }
 
