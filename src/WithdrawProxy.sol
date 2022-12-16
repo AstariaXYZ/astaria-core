@@ -244,7 +244,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
 
     uint256 transferAmount = 0;
     uint256 balance = ERC20(asset()).balanceOf(address(this)) -
-      s.withdrawReserveReceived;
+      s.withdrawReserveReceived; // will never underflow because withdrawReserveReceived is always increased by the transfer amount from the PublicVault
 
     if (balance < s.expected) {
       PublicVault(VAULT()).decreaseYIntercept(
