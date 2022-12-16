@@ -46,6 +46,12 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
     mapping(address => bool) allowList;
   }
 
+  event AllowListUpdated(address, bool);
+
+  event AllowListEnabled(bool);
+
+  event DelegateUpdated(address);
+
   event NonceUpdated(uint256 nonce);
 
   event IncrementNonce(uint256 nonce);
