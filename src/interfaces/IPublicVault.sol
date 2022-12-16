@@ -27,7 +27,7 @@ interface IPublicVault is IVaultImplementation {
     uint88 withdrawReserve;
     uint88 liquidationWithdrawRatio;
     uint88 strategistUnclaimedShares;
-    mapping(uint256 => EpochData) epochData;
+    mapping(uint64 => EpochData) epochData;
   }
 
   struct BeforePaymentParams {
