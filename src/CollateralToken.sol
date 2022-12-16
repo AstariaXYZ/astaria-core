@@ -111,9 +111,20 @@ contract CollateralToken is
       params.offer[0].identifierOrCriteria
     );
     address liquidator = s.LIEN_TOKEN.getAuctionData(collateralId).liquidator;
-    if (!s.collateralIdToAuction[collateralId] || liquidator == address(0)) {
+    if (
+      s.collateralIdToAuction[collateralId] == bytes32(0) ||
+      liquidator == address(0)
+    ) {
       //revert no auction
       revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
+    }
+    if (
+      s.collateralIdToAuction[collateralId] != keccak256(abi.encode(params))
+    ) {
+      //revert auction params dont match
+      revert InvalidCollateralState(
+        InvalidCollateralStates.INVALID_AUCTION_PARAMS
+      );
     }
 
     if (block.timestamp < params.endTime) {
@@ -143,7 +154,7 @@ contract CollateralToken is
   ) external view returns (bytes4 validOrderMagicValue) {
     CollateralStorage storage s = _loadCollateralSlot();
     return
-      s.collateralIdToAuction[uint256(zoneHash)]
+      s.collateralIdToAuction[uint256(zoneHash)] == orderHash
         ? ZoneInterface.isValidOrder.selector
         : bytes4(0xffffffff);
   }
@@ -158,7 +169,7 @@ contract CollateralToken is
   ) external view returns (bytes4 validOrderMagicValue) {
     CollateralStorage storage s = _loadCollateralSlot();
     return
-      s.collateralIdToAuction[uint256(order.parameters.zoneHash)]
+      s.collateralIdToAuction[uint256(order.parameters.zoneHash)] == orderHash
         ? ZoneInterface.isValidOrder.selector
         : bytes4(0xffffffff);
   }
@@ -241,7 +252,7 @@ contract CollateralToken is
     if (s.LIEN_TOKEN.getCollateralState(collateralId) != bytes32(0)) {
       revert InvalidCollateralState(InvalidCollateralStates.ACTIVE_LIENS);
     }
-    if (s.collateralIdToAuction[collateralId]) {
+    if (s.collateralIdToAuction[collateralId] != bytes32(0)) {
       revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
     }
     _;
@@ -408,7 +419,9 @@ contract CollateralToken is
 
     //check the collateral isn't at auction
 
-    if (s.collateralIdToAuction[params.stack[0].lien.collateralId]) {
+    if (
+      s.collateralIdToAuction[params.stack[0].lien.collateralId] != bytes32(0)
+    ) {
       revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
     }
     //fetch the current total debt of the asset
@@ -588,14 +601,16 @@ contract CollateralToken is
     s.SEAPORT.validate(listings);
     emit ListedOnSeaport(collateralId, listingOrder);
 
-    s.collateralIdToAuction[uint256(listingOrder.parameters.zoneHash)] = true;
+    s.collateralIdToAuction[
+      uint256(listingOrder.parameters.zoneHash)
+    ] = keccak256(abi.encode(listingOrder.parameters));
   }
 
   event ListedOnSeaport(uint256 collateralId, Order listingOrder);
 
   function settleAuction(uint256 collateralId) public requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
-    if (!s.collateralIdToAuction[collateralId]) {
+    if (s.collateralIdToAuction[collateralId] == bytes32(0)) {
       revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
     }
     _settleAuction(s, collateralId);
