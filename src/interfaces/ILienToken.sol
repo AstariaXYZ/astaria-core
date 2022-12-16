@@ -19,7 +19,6 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 interface ILienToken is IERC721 {
   enum FileType {
     NotSupported,
-    AuctionHouse,
     CollateralToken,
     AstariaRouter
   }
