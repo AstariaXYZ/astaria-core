@@ -163,7 +163,13 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 assets,
     address receiver,
     address owner
-  ) public virtual override(ERC4626Cloned, IERC4626) onlyWhenNoActiveAuction returns (uint256 shares) {
+  )
+    public
+    virtual
+    override(ERC4626Cloned, IERC4626)
+    onlyWhenNoActiveAuction
+    returns (uint256 shares)
+  {
     return super.withdraw(assets, receiver, owner);
   }
 
@@ -178,7 +184,13 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 shares,
     address receiver,
     address owner
-  ) public virtual override(ERC4626Cloned, IERC4626) onlyWhenNoActiveAuction returns (uint256 assets) {
+  )
+    public
+    virtual
+    override(ERC4626Cloned, IERC4626)
+    onlyWhenNoActiveAuction
+    returns (uint256 assets)
+  {
     return super.redeem(shares, receiver, owner);
   }
 
@@ -214,8 +226,12 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     return s.expected;
   }
 
-  function increaseWithdrawReserveReceived(uint256 amount) public {
+  modifier onlyVault() {
     require(msg.sender == VAULT(), "only vault can call");
+    _;
+  }
+
+  function increaseWithdrawReserveReceived(uint256 amount) public onlyVault {
     WPStorage storage s = _loadSlot();
     s.withdrawReserveReceived += amount;
   }
@@ -274,9 +290,9 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
 
   function drain(uint256 amount, address withdrawProxy)
     public
+    onlyVault
     returns (uint256)
   {
-    require(msg.sender == VAULT());
     uint256 balance = ERC20(asset()).balanceOf(address(this));
     if (amount > balance) {
       amount = balance;
@@ -285,8 +301,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     return amount;
   }
 
-  function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
-    require(msg.sender == VAULT());
+  function setWithdrawRatio(uint256 liquidationWithdrawRatio) public onlyVault {
     unchecked {
       _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
     }
@@ -295,8 +310,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   function handleNewLiquidation(
     uint256 newLienExpectedValue,
     uint256 finalAuctionDelta
-  ) public {
-    require(msg.sender == VAULT());
+  ) public onlyVault {
     WPStorage storage s = _loadSlot();
 
     unchecked {
