@@ -79,7 +79,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 strategistFeeDenominator;
     uint32 strategistFeeNumerator; //4
     uint32 minDurationIncrease;
-    mapping(uint32 => address) strategyValidators;
+    mapping(uint8 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
     mapping(address => address) vaults;
