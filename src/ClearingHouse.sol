@@ -23,7 +23,7 @@ contract ClearingHouse is Clone {
   }
 
   function COLLATERAL_ID() public pure returns (uint256) {
-    return _getArgAddress(21);
+    return _getArgUint256(21);
   }
 
   function IMPL_TYPE() public pure returns (uint8) {
