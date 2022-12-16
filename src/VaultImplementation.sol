@@ -46,7 +46,7 @@ abstract contract VaultImplementation is
   uint256 constant VI_SLOT =
     0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
 
-  function getStrategistNonce() external view returns (uint32) {
+  function getStrategistNonce() external view returns (uint256) {
     return _loadVISlot().strategistNonce;
   }
 
@@ -148,7 +148,7 @@ abstract contract VaultImplementation is
   }
 
   bytes32 public constant STRATEGY_TYPEHASH =
-    0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
+    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
 
   /*
    * @notice encodes the data for a 712 signature
@@ -157,7 +157,7 @@ abstract contract VaultImplementation is
    * @param amount The amount of the token
    */
   function encodeStrategyData(
-    IAstariaRouter.StrategyDetails calldata strategy,
+    IAstariaRouter.StrategyDetailsParam calldata strategy,
     bytes32 root
   ) external view returns (bytes memory) {
     VIData storage s = _loadVISlot();
@@ -166,7 +166,7 @@ abstract contract VaultImplementation is
 
   function _encodeStrategyData(
     VIData storage s,
-    IAstariaRouter.StrategyDetails calldata strategy,
+    IAstariaRouter.StrategyDetailsParam calldata strategy,
     bytes32 root
   ) internal view returns (bytes memory) {
     bytes32 hash = keccak256(
@@ -353,7 +353,12 @@ abstract contract VaultImplementation is
       );
   }
 
-  function _timeToSecondEndIfPublic() internal view virtual returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    virtual
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return 0;
   }
 
