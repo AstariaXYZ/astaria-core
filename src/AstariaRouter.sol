@@ -213,6 +213,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.liquidationFeeNumerator = numerator.safeCastTo32();
       s.liquidationFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.StrategistFee) {
@@ -220,6 +221,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.strategistFeeNumerator = numerator.safeCastTo32();
       s.strategistFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.ProtocolFee) {
@@ -227,6 +229,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.protocolFeeNumerator = numerator.safeCastTo32();
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.BuyoutFee) {
@@ -234,6 +237,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.buyoutFeeNumerator = numerator.safeCastTo32();
       s.buyoutFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinInterestBPS) {
