@@ -341,7 +341,7 @@ abstract contract VaultImplementation is
           position: position,
           encumber: ILienToken.LienActionEncumber({
             collateralId: collateralId,
-            amount: incomingTerms.lienRequest.amount,
+            amount: owed,
             receiver: recipient(),
             lien: ROUTER().validateCommitment({
               commitment: incomingTerms,
