@@ -304,6 +304,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint8 vaultType
   );
 
+  error InvalidFileData();
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);
   error InvalidRefinanceDuration(uint256);
