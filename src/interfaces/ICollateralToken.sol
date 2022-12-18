@@ -22,11 +22,25 @@ import {
   ConduitControllerInterface
 } from "seaport/interfaces/ConduitControllerInterface.sol";
 import {IERC1155} from "core/interfaces/IERC1155.sol";
-import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
+import {Order, OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
 import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 
 interface ICollateralToken is IERC721 {
+  event ListedOnSeaport(uint256 collateralId, Order listingOrder);
+  event FileUpdated(FileType what, bytes data);
+  event Deposit721(
+    address indexed tokenContract,
+    uint256 indexed tokenId,
+    uint256 indexed collateralId,
+    address depositedFor
+  );
+  event ReleaseTo(
+    address indexed underlyingAsset,
+    uint256 assetId,
+    address indexed to
+  );
+
   struct Asset {
     address tokenContract;
     uint256 tokenId;
@@ -72,8 +86,6 @@ interface ICollateralToken is IERC721 {
     FileType what;
     bytes data;
   }
-
-  event FileUpdated(FileType what, bytes data);
 
   /**
    * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
