@@ -50,6 +50,10 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   uint256 constant ROUTER_SLOT =
     0xb5d37468eefb1c75507259f9212a7d55dca0c7d08d9ef7be1cda5c5103eaa88e;
 
+  // cast --to-bytes32 $(cast sig "OutOfBoundError()")
+  uint256 private constant OUTOFBOUND_ERROR_SELECTOR = 0x571e08d100000000000000000000000000000000000000000000000000000000;
+  uint256 private constant ONE_WORD = 0x20;
+
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
    * @param _AUTHORITY The authority manager.
@@ -415,14 +419,20 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function _sliceUint(bytes memory bs, uint256 start)
     internal
     pure
-    returns (uint256)
+    returns (uint256 x)
   {
-    require(bs.length >= start + 32);
-    uint256 x;
+    uint256 length = bs.length;
+
     assembly {
-      x := mload(add(bs, add(0x20, start)))
+      let end := add(ONE_WORD, start)
+
+      if lt(length , end) {
+        mstore(0, OUTOFBOUND_ERROR_SELECTOR)
+        revert(0, ONE_WORD)
+      }
+
+      x := mload(add(bs, end))
     }
-    return x;
   }
 
   function validateCommitment(
