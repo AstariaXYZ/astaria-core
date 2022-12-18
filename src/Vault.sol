@@ -71,10 +71,7 @@ contract Vault is AstariaVaultBase, VaultImplementation {
     returns (uint256)
   {
     VIData storage s = _loadVISlot();
-    require(
-      s.allowList[msg.sender] ||
-        (msg.sender == address(ROUTER()) && s.allowList[receiver])
-    );
+    require(s.allowList[msg.sender] && receiver == owner());
     ERC20(asset()).safeTransferFrom(address(msg.sender), address(this), amount);
     return amount;
   }
