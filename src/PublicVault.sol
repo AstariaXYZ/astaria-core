@@ -470,9 +470,6 @@ contract PublicVault is
     uint64 epoch = getLienEpoch(lienEnd);
 
     _increaseOpenLiens(s, epoch);
-    if (s.last == 0) {
-      s.last = block.timestamp.safeCastTo40();
-    }
     emit LienOpen(lienId, epoch);
   }
 
