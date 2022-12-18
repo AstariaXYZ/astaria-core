@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import "forge-std/Test.sol";
 
@@ -994,6 +994,17 @@ contract TestHelpers is ConsiderationTester {
       lender.amountToLend,
       uint256(0)
     );
+    vm.stopPrank();
+  }
+
+  function _lendToPrivateVault(Lender memory lender, address vault) internal {
+    vm.deal(lender.addr, lender.amountToLend);
+    vm.startPrank(lender.addr);
+    WETH9.deposit{value: lender.amountToLend}();
+    WETH9.approve(vault, lender.amountToLend);
+    //min slippage on the deposit
+    Vault(vault).deposit(lender.amountToLend, lender.addr);
+
     vm.stopPrank();
   }
 

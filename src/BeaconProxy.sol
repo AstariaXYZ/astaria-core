@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {Clone} from "clones-with-immutable-args/Clone.sol";

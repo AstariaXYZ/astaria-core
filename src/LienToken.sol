@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 pragma experimental ABIEncoderV2;
 
@@ -21,7 +21,6 @@ import {IERC165} from "core/interfaces/IERC165.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
-import {Base64} from "core/libraries/Base64.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
@@ -57,7 +56,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     Authority _AUTHORITY,
     ITransferProxy _TRANSFER_PROXY,
     address _WETH
-  ) Auth(address(msg.sender), _AUTHORITY) ERC721("Astaria Lien Token", "ALT") {
+  ) Auth(msg.sender, _AUTHORITY) ERC721("Astaria Lien Token", "ALT") {
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
     s.WETH = _WETH;
@@ -147,7 +146,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     s.TRANSFER_PROXY.tokenTransferFrom(
       s.WETH,
-      address(msg.sender),
+      msg.sender,
       _getPayee(s, params.encumber.stack[params.position].point.lienId),
       buyout
     );
@@ -176,7 +175,9 @@ contract LienToken is ERC721, ILienToken, Auth {
       newLien.point.lienId
     );
 
-    s.collateralStateHash[params.encumber.collateralId] = keccak256(abi.encode(newStack));
+    s.collateralStateHash[params.encumber.collateralId] = keccak256(
+      abi.encode(newStack)
+    );
   }
 
   function _replaceStackAtPositionWithNewLien(
@@ -233,14 +234,13 @@ contract LienToken is ERC721, ILienToken, Auth {
     Stack[] calldata stack,
     address liquidator
   ) external validateStack(collateralId, stack) requiresAuth {
-    return
-      _stopLiens(
-        _loadLienStorageSlot(),
-        collateralId,
-        auctionWindow,
-        stack,
-        liquidator
-      );
+    _stopLiens(
+      _loadLienStorageSlot(),
+      collateralId,
+      auctionWindow,
+      stack,
+      liquidator
+    );
   }
 
   function _stopLiens(
@@ -256,12 +256,9 @@ contract LienToken is ERC721, ILienToken, Auth {
 
       auctionStack.lienId = stack[i].point.lienId;
       auctionStack.end = stack[i].point.end;
-      uint88 owed;
-      unchecked {
-        owed = _getOwed(stack[i], block.timestamp);
-        auctionStack.amountOwed = owed;
-        s.lienMeta[auctionStack.lienId].atLiquidation = true;
-      }
+      uint88 owed = _getOwed(stack[i], block.timestamp);
+      auctionStack.amountOwed = owed;
+      s.lienMeta[auctionStack.lienId].atLiquidation = true;
       s.auctionData[collateralId].stack.push(auctionStack);
       address payee = _getPayee(s, auctionStack.lienId);
       if (_isPublicVault(s, payee)) {
@@ -289,10 +286,13 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function tokenURI(uint256 tokenId)
     public
-    pure
+    view
     override(ERC721, IERC721)
     returns (string memory)
   {
+    if (!_exists(tokenId)) {
+      revert InvalidTokenId(tokenId);
+    }
     return "";
   }
 
@@ -342,9 +342,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       abi.encode(newStack)
     );
 
-    unchecked {
-      lienSlope = calculateSlope(newStackSlot);
-    }
+    lienSlope = calculateSlope(newStackSlot);
     emit AddLien(
       params.collateralId,
       uint8(params.stack.length),
@@ -364,8 +362,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
     if (
-      s.collateralStateHash[params.collateralId] ==
-      bytes32("ACTIVE_AUCTION")
+      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -382,15 +379,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       }
     }
 
-    if (params.stack.length > 0) {
-      if (params.lien.collateralId != params.stack[0].lien.collateralId) {
-        revert InvalidState(InvalidStates.COLLATERAL_MISMATCH);
-      }
-    }
-
-    unchecked {
-      newLienId = uint256(keccak256(abi.encode(params.lien)));
-    }
+    newLienId = uint256(keccak256(abi.encode(params.lien)));
     Point memory point = Point({
       lienId: newLienId,
       amount: params.amount.safeCastTo88(),
@@ -563,7 +552,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     returns (Stack[] memory newStack)
   {
     LienStorage storage s = _loadLienStorageSlot();
-    (newStack, ) = _payment(s, stack, position, amount, address(msg.sender));
+    (newStack, ) = _payment(s, stack, position, amount, msg.sender);
     _updateCollateralStateHash(s, collateralId, newStack);
   }
 
@@ -591,9 +580,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     _burn(lienId);
 
     if (_isPublicVault(s, payee)) {
-        IPublicVault(payee).updateAfterLiquidationPayment(
-          IPublicVault.LiquidationPaymentParams({lienEnd: end})
-        );
+      IPublicVault(payee).updateAfterLiquidationPayment(
+        IPublicVault.LiquidationPaymentParams({lienEnd: end})
+      );
     }
     emit Payment(lienId, payment);
     return payment;
@@ -618,7 +607,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         newStack,
         uint8(i),
         totalCapitalAvailable,
-        address(msg.sender)
+        msg.sender
       );
       totalCapitalAvailable -= spent;
       if (newStack.length == oldLength) {

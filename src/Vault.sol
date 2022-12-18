@@ -8,37 +8,25 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {ERC4626} from "solmate/mixins/ERC4626.sol";
-import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
-import {ITokenBase} from "core/interfaces/ITokenBase.sol";
-import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
-
-import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
-import {ILienToken} from "core/interfaces/ILienToken.sol";
-
-import {LienToken} from "core/LienToken.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
-import {IERC4626} from "core/interfaces/IERC4626.sol";
 
 /**
  * @title Vault
  */
-contract Vault is AstariaVaultBase, VaultImplementation {
+contract Vault is VaultImplementation {
   using SafeTransferLib for ERC20;
 
   function name()
     public
     view
     virtual
-    override(AstariaVaultBase, VaultImplementation)
+    override(VaultImplementation)
     returns (string memory)
   {
     return string(abi.encodePacked("AST-Vault-", ERC20(asset()).symbol()));
@@ -48,7 +36,7 @@ contract Vault is AstariaVaultBase, VaultImplementation {
     public
     view
     virtual
-    override(AstariaVaultBase, VaultImplementation)
+    override(VaultImplementation)
     returns (string memory)
   {
     return
@@ -71,17 +59,14 @@ contract Vault is AstariaVaultBase, VaultImplementation {
     returns (uint256)
   {
     VIData storage s = _loadVISlot();
-    require(
-      s.allowList[msg.sender] ||
-        (msg.sender == address(ROUTER()) && s.allowList[receiver])
-    );
-    ERC20(asset()).safeTransferFrom(address(msg.sender), address(this), amount);
+    require(s.allowList[msg.sender] && receiver == owner());
+    ERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
     return amount;
   }
 
   function withdraw(uint256 amount) external {
     require(msg.sender == owner());
-    ERC20(asset()).safeTransferFrom(address(this), address(msg.sender), amount);
+    ERC20(asset()).safeTransferFrom(address(this), msg.sender, amount);
   }
 
   function disableAllowList() external pure override(VaultImplementation) {

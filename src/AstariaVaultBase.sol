@@ -1,4 +1,4 @@
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
 import {Clone} from "clones-with-immutable-args/Clone.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";

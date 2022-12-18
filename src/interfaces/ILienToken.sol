@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {IERC721} from "core/interfaces/IERC721.sol";
 
@@ -109,6 +109,7 @@ interface ILienToken is IERC721 {
    */
   function calculateSlope(Stack calldata stack)
     external
+    pure
     returns (uint256 slope);
 
   /**
@@ -296,6 +297,7 @@ interface ILienToken is IERC721 {
   event PayeeChanged(uint256 indexed lienId, address indexed payee);
 
   error UnsupportedFile();
+  error InvalidTokenId(uint256 tokenId);
   error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
   error InvalidTerms();
   error InvalidRefinance();

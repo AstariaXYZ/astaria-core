@@ -8,9 +8,8 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -18,7 +17,6 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {WithdrawVaultBase} from "core/WithdrawVaultBase.sol";
 import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
-import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {PublicVault} from "core/PublicVault.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
@@ -235,10 +233,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     if (PublicVault(VAULT()).getCurrentEpoch() < CLAIMABLE_EPOCH()) {
       revert InvalidState(InvalidStates.PROCESS_EPOCH_NOT_COMPLETE);
     }
-    if (
-      block.timestamp < s.finalAuctionEnd
-      // || s.finalAuctionEnd == uint256(0)
-    ) {
+    if (block.timestamp < s.finalAuctionEnd) {
       revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);
     }
 
@@ -287,9 +282,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public onlyVault {
-    unchecked {
-      _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
-    }
+    _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
   }
 
   function handleNewLiquidation(
