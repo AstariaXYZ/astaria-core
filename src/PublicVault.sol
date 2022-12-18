@@ -450,12 +450,10 @@ contract PublicVault is
   /**
    * @dev Hook for updating the slope of the PublicVault after a LienToken is issued.
    * @param lienId The ID of the lien.
-   * @param amount The amount of debt
    */
   function _afterCommitToLien(
     uint40 lienEnd,
     uint256 lienId,
-    uint256 amount,
     uint256 lienSlope
   ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
