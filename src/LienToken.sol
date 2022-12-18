@@ -250,7 +250,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 delta_t = timestamp - stack.point.last;
 
     return
-      (delta_t.mulDivDown * stack.lien.details.rate).mulWadDown(
+      (delta_t * stack.lien.details.rate).mulWadDown(
         stack.point.amount
       );
   }
@@ -767,7 +767,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     uint256 delta_t = stack.point.end - block.timestamp;
     return
-      (delta_t.mulDivDown * stack.lien.details.rate).mulWadDown(
+      (delta_t * stack.lien.details.rate).mulWadDown(
         stack.point.amount
       );
   }
