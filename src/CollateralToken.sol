@@ -259,8 +259,6 @@ contract CollateralToken is
   }
 
   modifier onlyOwner(uint256 collateralId) {
-    CollateralStorage storage s = _loadCollateralSlot();
-
     require(ownerOf(collateralId) == msg.sender);
     _;
   }
