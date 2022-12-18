@@ -36,7 +36,7 @@ contract ClearingHouse is Clone {
     WETH weth = WETH(payable(address(ASTARIA_ROUTER.WETH())));
     weth.deposit{value: msg.value}();
     uint256 payment = weth.balanceOf(address(this));
-    weth.safeApprove(
+    ASTARIA_ROUTER.WETH().safeApprove(
       address(ASTARIA_ROUTER.TRANSFER_PROXY()),
       payment
     );
