@@ -171,12 +171,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       s,
       params.encumber.stack[params.position].point.lienId
     );
-    s.TRANSFER_PROXY.tokenTransferFrom(
-      s.WETH,
-      msg.sender,
-      payee,
-      buyout
-    );
+    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, msg.sender, payee, buyout);
 
     if (_isPublicVault(s, payee)) {
       IPublicVault(payee).handleBuyoutLien(
@@ -574,20 +569,20 @@ contract LienToken is ERC721, ILienToken, Auth {
   function getBuyout(Stack calldata stack)
     public
     view
-    returns (uint256, uint256)
+    returns (uint256 buyout)
   {
-    return _getBuyout(_loadLienStorageSlot(), stack);
+    (, buyout) = _getBuyout(_loadLienStorageSlot(), stack);
   }
 
   function _getBuyout(LienStorage storage s, Stack calldata stack)
     internal
     view
-    returns (uint256, uint256)
+    returns (uint256 owed, uint256 buyout)
   {
-    uint256 owed = _getOwed(stack, block.timestamp);
-    uint256 buyoutTotal = owed +
+    owed = _getOwed(stack, block.timestamp);
+    buyout =
+      owed +
       s.ASTARIA_ROUTER.getBuyoutFee(_getRemainingInterest(s, stack));
-    return (owed, buyoutTotal);
   }
 
   function makePayment(
@@ -599,7 +594,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     validateStack(collateralId, stack)
     returns (Stack[] memory newStack)
   {
-    (newStack, ) = _makePayment(_loadLienStorageSlot(), stack, amount);
+    return _makePayment(_loadLienStorageSlot(), stack, amount);
   }
 
   function makePayment(
@@ -657,11 +652,12 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     Stack[] calldata stack,
     uint256 totalCapitalAvailable
-  ) internal returns (Stack[] memory newStack, uint256 spent) {
+  ) internal returns (Stack[] memory newStack) {
     uint256 n = stack.length;
     newStack = stack;
     for (uint256 i; i < n; ) {
       uint256 oldLength = newStack.length;
+      uint256 spent;
       (newStack, spent) = _payment(
         s,
         newStack,
