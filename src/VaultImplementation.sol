@@ -45,6 +45,12 @@ abstract contract VaultImplementation is
   bytes32 public constant STRATEGY_TYPEHASH =
     keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
 
+  bytes32 constant EIP_DOMAIN =
+    keccak256(
+      "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
+    );
+  bytes32 constant VERSION = keccak256("0");
+
   function name() external view virtual override returns (string memory);
 
   function symbol() external view virtual override returns (string memory);
@@ -143,10 +149,8 @@ abstract contract VaultImplementation is
     return
       keccak256(
         abi.encode(
-          keccak256(
-            "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
-          ),
-          keccak256("0"), //version
+          EIP_DOMAIN,
+          VERSION, //version
           block.chainid,
           address(this)
         )
