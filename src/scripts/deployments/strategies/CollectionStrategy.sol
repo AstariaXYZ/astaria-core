@@ -7,7 +7,7 @@
  *
  * Copyright (c) Astaria Labs, Inc
  */
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 import {Script} from "forge-std/Script.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 

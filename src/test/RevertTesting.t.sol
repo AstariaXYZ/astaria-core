@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import "forge-std/Test.sol";
 
@@ -382,6 +382,7 @@ contract RevertTesting is TestHelpers {
       )
     });
   }
+
   function testCannotLiquidationInitialAskExceedsAmountBorrowed() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
@@ -404,8 +405,8 @@ contract RevertTesting is TestHelpers {
 
     ILienToken.Details memory standardLien = standardLienDetails;
     standardLien.liquidationInitialAsk = 5 ether;
-    standardLien.maxAmount = 10  ether;
-    
+    standardLien.maxAmount = 10 ether;
+
     // borrow amount over liquidation initial ask
     (, ILienToken.Stack[] memory stack) = _commitToLien({
       vault: publicVault,
@@ -423,6 +424,7 @@ contract RevertTesting is TestHelpers {
       )
     });
   }
+
   function testCannotLiquidationInitialAsk0() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);

@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 pragma experimental ABIEncoderV2;
 
@@ -176,7 +176,9 @@ contract LienToken is ERC721, ILienToken, Auth {
       newLien.point.lienId
     );
 
-    s.collateralStateHash[params.encumber.collateralId] = keccak256(abi.encode(newStack));
+    s.collateralStateHash[params.encumber.collateralId] = keccak256(
+      abi.encode(newStack)
+    );
   }
 
   function _replaceStackAtPositionWithNewLien(
@@ -364,8 +366,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
     if (
-      s.collateralStateHash[params.collateralId] ==
-      bytes32("ACTIVE_AUCTION")
+      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -591,9 +592,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     _burn(lienId);
 
     if (_isPublicVault(s, payee)) {
-        IPublicVault(payee).updateAfterLiquidationPayment(
-          IPublicVault.LiquidationPaymentParams({lienEnd: end})
-        );
+      IPublicVault(payee).updateAfterLiquidationPayment(
+        IPublicVault.LiquidationPaymentParams({lienEnd: end})
+      );
     }
     emit Payment(lienId, payment);
     return payment;

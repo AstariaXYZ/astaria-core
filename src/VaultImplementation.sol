@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
@@ -261,9 +261,10 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata
-  ) internal virtual {}
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
+    internal
+    virtual
+  {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.
