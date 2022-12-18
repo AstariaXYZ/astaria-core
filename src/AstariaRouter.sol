@@ -184,8 +184,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   }
 
   function fileBatch(File[] calldata files) external requiresAuth {
-    for (uint256 i = 0; i < files.length; i++) {
+    uint256 i;
+    for (; i < files.length; ) {
       _file(files[i]);
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -266,8 +270,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function fileGuardian(File[] calldata file) external {
     RouterStorage storage s = _loadRouterSlot();
     require(msg.sender == address(s.guardian));
-    //only the guardian can call this
-    for (uint256 i = 0; i < file.length; i++) {
+
+    uint256 i;
+    for (; i < file.length; ) {
       FileType what = file[i].what;
       bytes memory data = file[i].data;
       if (what == FileType.Implementation) {
@@ -284,6 +289,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         s.TRANSFER_PROXY = ITransferProxy(addr);
       } else {
         revert UnsupportedFile();
+      }
+      unchecked {
+        ++i;
       }
     }
   }
@@ -400,7 +408,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       commitments[0].tokenContract,
       commitments[0].tokenId
     );
-    for (uint256 i; i < commitments.length; ) {
+
+    uint256 i;
+    for (; i < commitments.length; ) {
       if (i != 0) {
         commitments[i].lienRequest.stack = stack;
       }
