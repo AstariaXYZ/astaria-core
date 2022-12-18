@@ -46,6 +46,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   uint256 private constant LIEN_SLOT =
     uint256(keccak256("xyz.astaria.LienToken.storage.location")) - 1;
 
+  bytes32 constant ACTIVE_AUCTION = bytes32("ACTIVE_AUCTION");
   /**
    * @dev Setup transfer authority and initialize the buyoutNumerator and buyoutDenominator for the lien buyout premium.
    * @param _AUTHORITY The authority manager.
@@ -130,7 +131,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     if (
       s.collateralStateHash[params.encumber.lien.collateralId] ==
-      bytes32("ACTIVE_AUCTION")
+      ACTIVE_AUCTION
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -325,7 +326,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         ++i;
       }
     }
-    s.collateralStateHash[collateralId] = bytes32("ACTIVE_AUCTION");
+    s.collateralStateHash[collateralId] = ACTIVE_AUCTION;
   }
 
   function tokenURI(uint256 tokenId)
@@ -408,7 +409,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
     if (
-      s.collateralStateHash[params.collateralId] == bytes32("ACTIVE_AUCTION")
+      s.collateralStateHash[params.collateralId] == ACTIVE_AUCTION
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
