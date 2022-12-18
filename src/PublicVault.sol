@@ -10,7 +10,6 @@
 
 pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -19,12 +18,10 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
-import {ITokenBase} from "core/interfaces/ITokenBase.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IERC20} from "core/interfaces/IERC20.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {ERC20Cloned} from "gpl/ERC20-Cloned.sol";
-
 import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
@@ -32,7 +29,6 @@ import {
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {LienToken} from "core/LienToken.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
