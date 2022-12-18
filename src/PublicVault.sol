@@ -322,14 +322,8 @@ contract PublicVault is
           .safeCastTo88();
       }
 
-      if (address(currentWithdrawProxy) != address(0)) {
-        currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
-      }
-
-      uint256 expected = 0;
-      if (address(currentWithdrawProxy) != address(0)) {
-        expected = currentWithdrawProxy.getExpected();
-      }
+      currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
+      uint256 expected = currentWithdrawProxy.getExpected();
 
       unchecked {
         if (totalAssets() > expected) {
