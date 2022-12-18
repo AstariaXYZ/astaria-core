@@ -452,11 +452,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
     }
     uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
-    if (s.strategyValidators[nlrType] == address(0)) {
+    address strategyValidator = s.strategyValidators[nlrType];
+    if (strategyValidator == address(0)) {
       revert InvalidStrategy(nlrType);
     }
     (bytes32 leaf, ILienToken.Details memory details) = IStrategyValidator(
-      s.strategyValidators[nlrType]
+      strategyValidator
     ).validateAndParse(
         commitment.lienRequest,
         s.COLLATERAL_TOKEN.ownerOf(

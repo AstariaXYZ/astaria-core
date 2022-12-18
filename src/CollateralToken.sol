@@ -294,8 +294,9 @@ contract CollateralToken is
     bytes32 preTransferState;
     //look to see if we have a security handler for this asset
 
-    if (s.securityHooks[addr] != address(0)) {
-      preTransferState = ISecurityHook(s.securityHooks[addr]).getState(
+    address securityHook = s.securityHooks[addr];
+    if (securityHook != address(0)) {
+      preTransferState = ISecurityHook(securityHook).getState(
         addr,
         tokenId
       );
@@ -313,9 +314,9 @@ contract CollateralToken is
     }
 
     if (
-      s.securityHooks[addr] != address(0) &&
+      securityHook != address(0) &&
       preTransferState !=
-      ISecurityHook(s.securityHooks[addr]).getState(addr, tokenId)
+      ISecurityHook(securityHook).getState(addr, tokenId)
     ) {
       revert FlashActionSecurityCheckFailed();
     }
