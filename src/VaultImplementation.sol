@@ -315,9 +315,9 @@ abstract contract VaultImplementation is
     whenNotPaused
     returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
   {
-    uint256 buyout = IAstariaRouter(ROUTER())
-      .LIEN_TOKEN()
-      .getBuyout(stack[position]);
+    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
+
+    uint256 buyout = lienToken.getBuyout(stack[position]);
 
     if (buyout > ERC20(asset()).balanceOf(address(this))) {
       revert IVaultImplementation.InvalidRequest(
@@ -328,8 +328,6 @@ abstract contract VaultImplementation is
     _validateCommitment(incomingTerms, recipient());
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
-
-    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
     if (
       recipient() != address(this) &&
