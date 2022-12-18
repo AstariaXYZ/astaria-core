@@ -386,9 +386,11 @@ contract PublicVault is
     }
   }
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params
-  ) internal virtual override(VaultImplementation) {
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata params)
+    internal
+    virtual
+    override(VaultImplementation)
+  {
     VaultData storage s = _loadStorageSlot();
 
     if (s.withdrawReserve > uint256(0)) {
@@ -640,9 +642,7 @@ contract PublicVault is
     if (timeToEnd < maxAuctionWindow) {
       _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
       withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
-    }
 
-    if (withdrawProxyIfNearBoundary != address(0)) {
       WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
         params.newAmount,
         maxAuctionWindow
