@@ -311,7 +311,7 @@ abstract contract VaultImplementation is
     whenNotPaused
     returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
   {
-    (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
+    uint256 buyout = IAstariaRouter(ROUTER())
       .LIEN_TOKEN()
       .getBuyout(stack[position]);
 
