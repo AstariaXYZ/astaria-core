@@ -661,9 +661,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (timeToEnd < maxAuctionWindow) {
       _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
       withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
-    }
 
-    if (withdrawProxyIfNearBoundary != address(0)) {
       WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
         params.newAmount,
         maxAuctionWindow
