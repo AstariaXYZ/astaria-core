@@ -519,9 +519,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   }
 
   function newVault(address delegate) external whenNotPaused returns (address) {
-    address[] memory allowList = new address[](2);
+    address[] memory allowList = new address[](1);
     allowList[0] = address(msg.sender);
-    allowList[1] = delegate;
     RouterStorage storage s = _loadRouterSlot();
 
     return
