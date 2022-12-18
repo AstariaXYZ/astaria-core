@@ -75,7 +75,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     address _WITHDRAW_IMPL,
     address _BEACON_PROXY_IMPL,
     address _CLEARING_HOUSE_IMPL
-  ) Auth(address(msg.sender), _AUTHORITY) {
+  ) Auth(msg.sender, _AUTHORITY) {
     RouterStorage storage s = _loadRouterSlot();
 
     s.WETH = ERC20(_WETH);
@@ -104,7 +104,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.buyoutFeeNumerator = uint32(100);
     s.buyoutFeeDenominator = uint32(1000);
     s.minDurationIncrease = uint32(5 days);
-    s.guardian = address(msg.sender);
+    s.guardian = msg.sender;
   }
 
   function mint(
@@ -358,7 +358,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   function fileGuardian(File[] calldata file) external {
     RouterStorage storage s = _loadRouterSlot();
-    require(address(msg.sender) == address(s.guardian));
+    require(msg.sender == address(s.guardian));
     //only the guardian can call this
     for (uint256 i = 0; i < file.length; i++) {
       FileType what = file[i].what;
@@ -513,14 +513,14 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.TRANSFER_PROXY.tokenTransferFrom(
       address(s.WETH),
       address(this),
-      address(msg.sender),
+      msg.sender,
       totalBorrowed
     );
   }
 
   function newVault(address delegate) external whenNotPaused returns (address) {
     address[] memory allowList = new address[](1);
-    allowList[0] = address(msg.sender);
+    allowList[0] = msg.sender;
     RouterStorage storage s = _loadRouterSlot();
 
     return
@@ -736,7 +736,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       abi.encodePacked(
         address(this),
         vaultType,
-        address(msg.sender),
+        msg.sender,
         address(s.WETH),
         block.timestamp,
         epochLength,
@@ -787,9 +787,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     uint256 tokenId
   ) internal {
     ERC721 token = ERC721(tokenContract);
-    if (token.ownerOf(tokenId) == address(msg.sender)) {
+    if (token.ownerOf(tokenId) == msg.sender) {
       token.safeTransferFrom(
-        address(msg.sender),
+        msg.sender,
         address(s.COLLATERAL_TOKEN),
         tokenId,
         ""
