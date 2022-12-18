@@ -400,7 +400,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   // MODIFIERS
   modifier onlyVaults() {
-    if (_loadRouterSlot().vaults[msg.sender] == address(0)) {
+    if (!_loadRouterSlot().vaults[msg.sender]) {
       revert InvalidVaultState(VaultState.UNINITIALIZED);
     }
     _;
@@ -704,7 +704,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    * @return A boolean representing whether the address exists as a Vault.
    */
   function isValidVault(address vault) public view returns (bool) {
-    return _loadRouterSlot().vaults[vault] != address(0);
+    return _loadRouterSlot().vaults[vault];
   }
 
   function isValidRefinance(
@@ -776,7 +776,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       })
     );
 
-    s.vaults[vaultAddr] = msg.sender;
+    s.vaults[vaultAddr] = true;
 
     emit NewVault(msg.sender, delegate, vaultAddr, vaultType);
 
@@ -792,7 +792,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
       revert InvalidSenderForCollateral(msg.sender, collateralId);
     }
-    if (s.vaults[c.lienRequest.strategy.vault] == address(0)) {
+    if (!s.vaults[c.lienRequest.strategy.vault]) {
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
     //router must be approved for the collateral to take a loan,

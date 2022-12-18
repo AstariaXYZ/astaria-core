@@ -80,7 +80,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     mapping(uint8 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
-    mapping(address => address) vaults;
+    mapping(address => bool) vaults;
   }
 
   enum ImplementationType {
