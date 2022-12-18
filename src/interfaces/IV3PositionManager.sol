@@ -1,4 +1,4 @@
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 interface IV3PositionManager {
   /// @notice Emitted when liquidity is increased for a position NFT

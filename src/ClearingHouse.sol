@@ -7,7 +7,7 @@
  *
  * Copyright (c) Astaria Labs, Inc
  */
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {WETH} from "solmate/tokens/WETH.sol";

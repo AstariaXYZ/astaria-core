@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";

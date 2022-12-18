@@ -7,7 +7,7 @@
  *
  * Copyright (c) Astaria Labs, Inc
  */
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 import {IV3PositionManager} from "core/interfaces/IV3PositionManager.sol";
 import {ISecurityHook} from "core/interfaces/ISecurityHook.sol";
 
