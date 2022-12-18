@@ -551,10 +551,7 @@ contract PublicVault is
     emit SlopeUpdated(newSlope);
   }
 
-  function decreaseEpochLienCount(uint64 epoch) public {
-    require(
-      msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN())
-    );
+  function decreaseEpochLienCount(uint64 epoch) public onlyLienToken {
     _decreaseEpochLienCount(_loadStorageSlot(), epoch);
   }
 
