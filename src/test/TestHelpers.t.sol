@@ -997,6 +997,17 @@ contract TestHelpers is ConsiderationTester {
     vm.stopPrank();
   }
 
+  function _lendToPrivateVault(Lender memory lender, address vault) internal {
+    vm.deal(lender.addr, lender.amountToLend);
+    vm.startPrank(lender.addr);
+    WETH9.deposit{value: lender.amountToLend}();
+    WETH9.approve(vault, lender.amountToLend);
+    //min slippage on the deposit
+    Vault(vault).deposit(lender.amountToLend, lender.addr);
+
+    vm.stopPrank();
+  }
+
   struct Borrow {
     address borrower;
     uint256 amount; // TODO allow custom LienDetails too

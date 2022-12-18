@@ -127,7 +127,7 @@ contract AstariaTest is TestHelpers {
       delegate: strategistTwo
     });
 
-    _lendToVault(
+    _lendToPrivateVault(
       Lender({addr: strategistOne, amountToLend: 50 ether}),
       privateVault
     );
@@ -406,7 +406,7 @@ contract AstariaTest is TestHelpers {
       stack: stack
     });
 
-    _lendToVault(
+    _lendToPrivateVault(
       Lender({addr: strategistOne, amountToLend: 50 ether}),
       privateVault
     );
@@ -529,7 +529,7 @@ contract AstariaTest is TestHelpers {
       stack: stack
     });
 
-    _lendToVault(
+    _lendToPrivateVault(
       Lender({addr: strategistOne, amountToLend: 50 ether}),
       privateVault
     );
