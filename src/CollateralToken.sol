@@ -110,7 +110,7 @@ contract CollateralToken is
     uint256 collateralId = params.offer[0].token.computeId(
       params.offer[0].identifierOrCriteria
     );
-    address liquidator = s.LIEN_TOKEN.getAuctionData(collateralId).liquidator;
+    address liquidator = s.LIEN_TOKEN.getAuctionLiquidator(collateralId);
     if (
       s.collateralIdToAuction[collateralId] == bytes32(0) ||
       liquidator == address(0)
