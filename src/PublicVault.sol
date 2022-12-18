@@ -485,7 +485,7 @@ contract PublicVault is
     VaultData storage s = _loadStorageSlot();
     uint256 unclaimed = s.strategistUnclaimedShares;
     s.strategistUnclaimedShares = 0;
-    _mint(owner(), unclaimed);
+    _mint(msg.sender, unclaimed);
   }
 
   function beforePayment(BeforePaymentParams calldata params) public {
