@@ -692,12 +692,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   }
 
   function calculateSlope(Stack memory stack) public pure returns (uint256) {
-    uint256 owedAtEnd = _getOwed(stack, stack.point.end);
-    return
-      (owedAtEnd - stack.point.amount).mulDivDown(
-        1,
-        stack.point.end - stack.point.last
-      );
+    return stack.lien.details.rate.mulWadDown(stack.point.amount);
   }
 
   function getMaxPotentialDebtForCollateral(Stack[] memory stack)
