@@ -561,7 +561,7 @@ contract CollateralToken is
     emit ListedOnSeaport(collateralId, listingOrder);
 
     s.collateralIdToAuction[
-      uint256(listingOrder.parameters.zoneHash)
+      collateralId
     ] = keccak256(abi.encode(listingOrder.parameters));
   }
 
