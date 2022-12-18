@@ -33,9 +33,10 @@ contract ClearingHouse is Clone {
   fallback() external payable {
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(ROUTER());
     require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN().SEAPORT()));
-    WETH(payable(address(ASTARIA_ROUTER.WETH()))).deposit{value: msg.value}();
-    uint256 payment = ASTARIA_ROUTER.WETH().balanceOf(address(this));
-    ASTARIA_ROUTER.WETH().safeApprove(
+    WETH weth = WETH(payable(address(ASTARIA_ROUTER.WETH())));
+    weth.deposit{value: msg.value}();
+    uint256 payment = weth.balanceOf(address(this));
+    weth.safeApprove(
       address(ASTARIA_ROUTER.TRANSFER_PROXY()),
       payment
     );
