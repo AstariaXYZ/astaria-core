@@ -429,12 +429,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       }
     }
 
-    if (params.stack.length > 0) {
-      if (params.lien.collateralId != params.stack[0].lien.collateralId) {
-        revert InvalidState(InvalidStates.COLLATERAL_MISMATCH);
-      }
-    }
-
     unchecked {
       newLienId = uint256(keccak256(abi.encode(params.lien)));
     }
