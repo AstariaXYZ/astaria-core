@@ -109,6 +109,7 @@ interface ILienToken is IERC721 {
    */
   function calculateSlope(Stack calldata stack)
     external
+    pure
     returns (uint256 slope);
 
   /**
