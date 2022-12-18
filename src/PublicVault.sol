@@ -469,7 +469,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   }
 
   function beforePayment(BeforePaymentParams calldata params)
-    public
+    external
     onlyLienToken
   {
     VaultData storage s = _loadStorageSlot();
