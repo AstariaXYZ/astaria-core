@@ -350,8 +350,7 @@ contract CollateralToken is
     IERC721(underlyingAsset).safeTransferFrom(
       address(this),
       releaseTo,
-      assetId,
-      ""
+      assetId
     );
     emit ReleaseTo(underlyingAsset, assetId, releaseTo);
   }
