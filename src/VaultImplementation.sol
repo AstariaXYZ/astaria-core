@@ -190,8 +190,12 @@ abstract contract VaultImplementation is
     s.depositCap = params.depositCap.safeCastTo88();
     if (params.allowListEnabled) {
       s.allowListEnabled = true;
-      for (uint256 i = 0; i < params.allowList.length; i++) {
+      uint256 i;
+      for (; i < params.allowList.length; ) {
         s.allowList[params.allowList[i]] = true;
+        unchecked {
+          ++i;
+        }
       }
     }
   }
