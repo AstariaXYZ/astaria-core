@@ -251,7 +251,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     address liquidator
   ) internal {
     s.auctionData[collateralId].liquidator = liquidator;
-    for (uint256 i = 0; i < stack.length; ) {
+    uint256 i;
+    for (; i < stack.length; ) {
       AuctionStack memory auctionStack;
 
       auctionStack.lienId = stack[i].point.lienId;
@@ -476,13 +477,15 @@ contract LienToken is ERC721, ILienToken, Auth {
     );
     payment -= liquidatorPayment;
     totalSpent += liquidatorPayment;
-    for (uint256 i = 0; i < stack.length; i++) {
+    uint256 i;
+    for (; i < stack.length; ) {
       if (payment == 0) break;
       uint256 spent;
       unchecked {
         spent = _paymentAH(s, stack, i, payment, payer);
         totalSpent += spent;
         payment -= spent;
+        ++i;
       }
     }
   }
@@ -496,9 +499,9 @@ contract LienToken is ERC721, ILienToken, Auth {
   }
 
   function getAuctionLiquidator(uint256 collateralId)
-  external
-  view
-  returns (address liquidator)
+    external
+    view
+    returns (address liquidator)
   {
     liquidator = _loadLienStorageSlot().auctionData[collateralId].liquidator;
     if (liquidator == address(0)) {
@@ -692,8 +695,12 @@ contract LienToken is ERC721, ILienToken, Auth {
     validateStack(stack[0].lien.collateralId, stack)
     returns (uint256 maxPotentialDebt)
   {
-    for (uint256 i = 0; i < stack.length; ++i) {
+    uint256 i;
+    for (; i < stack.length; ) {
       maxPotentialDebt += _getOwed(stack[i], end);
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -821,13 +828,13 @@ contract LienToken is ERC721, ILienToken, Auth {
     require(position < length);
     newStack = new ILienToken.Stack[](length - 1);
     uint256 i;
-    for (i; i < position; ) {
+    for (; i < position; ) {
       newStack[i] = stack[i];
       unchecked {
         ++i;
       }
     }
-    for (i; i < length - 1; ) {
+    for (; i < length - 1; ) {
       unchecked {
         newStack[i] = stack[i + 1];
         ++i;
