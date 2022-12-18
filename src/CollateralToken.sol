@@ -188,8 +188,12 @@ contract CollateralToken is
   }
 
   function fileBatch(File[] calldata files) external requiresAuth {
-    for (uint256 i = 0; i < files.length; i++) {
+    uint256 i;
+    for (; i < files.length; ) {
       _file(files[i]);
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -311,7 +315,7 @@ contract CollateralToken is
     if (
       s.securityHooks[addr] != address(0) &&
       preTransferState !=
-        ISecurityHook(s.securityHooks[addr]).getState(addr, tokenId)
+      ISecurityHook(s.securityHooks[addr]).getState(addr, tokenId)
     ) {
       revert FlashActionSecurityCheckFailed();
     }
@@ -558,9 +562,9 @@ contract CollateralToken is
     s.SEAPORT.validate(listings);
     emit ListedOnSeaport(collateralId, listingOrder);
 
-    s.collateralIdToAuction[
-      collateralId
-    ] = keccak256(abi.encode(listingOrder.parameters));
+    s.collateralIdToAuction[collateralId] = keccak256(
+      abi.encode(listingOrder.parameters)
+    );
   }
 
   function settleAuction(uint256 collateralId) public requiresAuth {
