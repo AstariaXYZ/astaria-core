@@ -724,7 +724,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     validateStack(stack[0].lien.collateralId, stack)
     returns (uint256 maxPotentialDebt)
   {
-    maxPotentialDebt = 0;
     for (uint256 i = 0; i < stack.length; ++i) {
       maxPotentialDebt += _getOwed(stack[i], end);
     }
