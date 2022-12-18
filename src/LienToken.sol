@@ -167,17 +167,17 @@ contract LienToken is ERC721, ILienToken, Auth {
       }
     }
 
-    s.TRANSFER_PROXY.tokenTransferFrom(
-      s.WETH,
-      msg.sender,
-      _getPayee(s, params.encumber.stack[params.position].point.lienId),
-      buyout
-    );
-
     address payee = _getPayee(
       s,
       params.encumber.stack[params.position].point.lienId
     );
+    s.TRANSFER_PROXY.tokenTransferFrom(
+      s.WETH,
+      msg.sender,
+      payee,
+      buyout
+    );
+
     if (_isPublicVault(s, payee)) {
       IPublicVault(payee).handleBuyoutLien(
         IPublicVault.BuyoutLienParams({
