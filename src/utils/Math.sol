@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.5.0) (utils/math/Math.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity =0.8.17;
 
 /**
  * @dev Standard math utilities missing in the Solidity language.
@@ -38,9 +38,11 @@ library Math {
    */
   function ceilDiv(uint256 a, uint256 b) internal pure returns (uint256 ret) {
     // (a + b - 1) / b can overflow on addition, so we distribute.
-     assembly {
-        if iszero(b) { revert(0, 0) }
-        ret := add(div(a, b), gt(mod(a, b), 0x0))
+    assembly {
+      if iszero(b) {
+        revert(0, 0)
       }
+      ret := add(div(a, b), gt(mod(a, b), 0x0))
+    }
   }
 }

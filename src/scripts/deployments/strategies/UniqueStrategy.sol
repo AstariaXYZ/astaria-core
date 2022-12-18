@@ -7,7 +7,7 @@
  *
  * Copyright (c) Astaria Labs, Inc
  */
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {Script} from "forge-std/Script.sol";
 import {UniqueValidator} from "../../../strategies/UniqueValidator.sol";

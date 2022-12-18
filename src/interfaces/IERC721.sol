@@ -1,4 +1,4 @@
-pragma solidity >=0.8.0;
+pragma solidity =0.8.17;
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 
@@ -33,11 +33,11 @@ interface IERC721 is IERC165 {
     uint256 id
   ) external;
 
-    function safeTransferFrom(
-      address from,
-      address to,
-      uint256 id
-    ) external;
+  function safeTransferFrom(
+    address from,
+    address to,
+    uint256 id
+  ) external;
 
   function safeTransferFrom(
     address from,

@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
