@@ -7,9 +7,9 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 
 abstract contract AstariaVaultBase is Clone, IAstariaVaultBase {
-  function name() public view virtual returns (string memory);
+  function name() external view virtual returns (string memory);
 
-  function symbol() public view virtual returns (string memory);
+  function symbol() external view virtual returns (string memory);
 
   function ROUTER() public pure returns (IAstariaRouter) {
     return IAstariaRouter(_getArgAddress(0)); //ends at 20

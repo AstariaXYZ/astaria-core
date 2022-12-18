@@ -533,8 +533,10 @@ contract PublicVault is
     _mint(msg.sender, unclaimed);
   }
 
-  function beforePayment(BeforePaymentParams calldata params) public {
-    require(msg.sender == address(LIEN_TOKEN()));
+  function beforePayment(BeforePaymentParams calldata params)
+    external
+    onlyLienToken
+  {
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
