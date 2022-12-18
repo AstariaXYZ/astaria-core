@@ -246,10 +246,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     if (PublicVault(VAULT()).getCurrentEpoch() < CLAIMABLE_EPOCH()) {
       revert InvalidState(InvalidStates.PROCESS_EPOCH_NOT_COMPLETE);
     }
-    if (
-      block.timestamp < s.finalAuctionEnd
-      // || s.finalAuctionEnd == uint256(0)
-    ) {
+    if (block.timestamp < s.finalAuctionEnd) {
       revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);
     }
 
