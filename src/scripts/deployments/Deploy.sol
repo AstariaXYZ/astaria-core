@@ -92,7 +92,7 @@ contract Deploy is Script {
       WETH9 = IWETH9(weth); // mainnet weth
     }
     emit Deployed(address(WETH9));
-    MRA = new MultiRolesAuthority(address(msg.sender), Authority(address(0)));
+    MRA = new MultiRolesAuthority(msg.sender, Authority(address(0)));
     vm.writeLine(
       string(".env"),
       string(abi.encodePacked("MRA_ADDR=", vm.toString(address(MRA))))
@@ -216,9 +216,9 @@ contract Deploy is Script {
   }
 
   function _setOwner() internal {
-    MRA.transferOwnership(address(msg.sender));
-    ASTARIA_ROUTER.transferOwnership(address(msg.sender));
-    LIEN_TOKEN.transferOwnership(address(msg.sender));
-    COLLATERAL_TOKEN.transferOwnership(address(msg.sender));
+    MRA.transferOwnership(msg.sender);
+    ASTARIA_ROUTER.transferOwnership(msg.sender);
+    LIEN_TOKEN.transferOwnership(msg.sender);
+    COLLATERAL_TOKEN.transferOwnership(msg.sender);
   }
 }

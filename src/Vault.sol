@@ -71,13 +71,13 @@ contract Vault is VaultImplementation {
   {
     VIData storage s = _loadVISlot();
     require(s.allowList[msg.sender] && receiver == owner());
-    ERC20(asset()).safeTransferFrom(address(msg.sender), address(this), amount);
+    ERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
     return amount;
   }
 
   function withdraw(uint256 amount) external {
     require(msg.sender == owner());
-    ERC20(asset()).safeTransferFrom(address(this), address(msg.sender), amount);
+    ERC20(asset()).safeTransferFrom(address(this), msg.sender, amount);
   }
 
   function disableAllowList() external pure override(VaultImplementation) {
