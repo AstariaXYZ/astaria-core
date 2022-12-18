@@ -1,4 +1,4 @@
-pragma solidity ^0.8.16;
+pragma solidity =0.8.17;
 
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";

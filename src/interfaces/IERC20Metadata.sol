@@ -1,4 +1,4 @@
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 import {IERC20} from "core/interfaces/IERC20.sol";
 
 interface IERC20Metadata is IERC20 {
