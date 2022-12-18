@@ -328,11 +328,10 @@ contract CollateralToken is
   function releaseToAddress(uint256 collateralId, address releaseTo)
     public
     releaseCheck(collateralId)
+    onlyOwner(collateralId)
   {
     CollateralStorage storage s = _loadCollateralSlot();
-    if (msg.sender != ownerOf(collateralId)) {
-      revert InvalidSender();
-    }
+
     _releaseToAddress(s, collateralId, releaseTo);
   }
 
