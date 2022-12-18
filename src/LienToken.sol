@@ -300,12 +300,9 @@ contract LienToken is ERC721, ILienToken, Auth {
 
       auctionStack.lienId = stack[i].point.lienId;
       auctionStack.end = stack[i].point.end;
-      uint88 owed;
-      unchecked {
-        owed = _getOwed(stack[i], block.timestamp);
-        auctionStack.amountOwed = owed;
-        s.lienMeta[auctionStack.lienId].atLiquidation = true;
-      }
+      uint88 owed = _getOwed(stack[i], block.timestamp);
+      auctionStack.amountOwed = owed;
+      s.lienMeta[auctionStack.lienId].atLiquidation = true;
       s.auctionData[collateralId].stack.push(auctionStack);
       address payee = _getPayee(s, auctionStack.lienId);
       if (_isPublicVault(s, payee)) {
@@ -389,9 +386,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       abi.encode(newStack)
     );
 
-    unchecked {
-      lienSlope = calculateSlope(newStackSlot);
-    }
+    lienSlope = calculateSlope(newStackSlot);
     emit AddLien(
       params.collateralId,
       uint8(params.stack.length),
@@ -428,9 +423,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       }
     }
 
-    unchecked {
-      newLienId = uint256(keccak256(abi.encode(params.lien)));
-    }
+    newLienId = uint256(keccak256(abi.encode(params.lien)));
     Point memory point = Point({
       lienId: newLienId,
       amount: params.amount.safeCastTo88(),

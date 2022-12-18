@@ -299,9 +299,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public onlyVault {
-    unchecked {
-      _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
-    }
+    _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
   }
 
   function handleNewLiquidation(
