@@ -195,8 +195,6 @@ abstract contract VaultImplementation is
   function setDelegate(address delegate_) external {
     require(msg.sender == owner()); //owner is "strategist"
     VIData storage s = _loadVISlot();
-    s.allowList[s.delegate] = false;
-    s.allowList[delegate_] = true;
     s.delegate = delegate_;
   }
 
