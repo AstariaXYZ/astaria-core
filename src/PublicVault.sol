@@ -685,9 +685,7 @@ contract PublicVault is
     if (timeToEnd < maxAuctionWindow) {
       _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
       withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
-    }
 
-    if (withdrawProxyIfNearBoundary != address(0)) {
       WithdrawProxy(withdrawProxyIfNearBoundary).handleNewLiquidation(
         params.newAmount,
         maxAuctionWindow
