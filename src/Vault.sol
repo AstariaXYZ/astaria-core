@@ -10,22 +10,11 @@
 
 pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {ERC4626} from "solmate/mixins/ERC4626.sol";
-import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
-import {ITokenBase} from "core/interfaces/ITokenBase.sol";
-
-import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
-import {ILienToken} from "core/interfaces/ILienToken.sol";
-
-import {LienToken} from "core/LienToken.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
-import {IERC4626} from "core/interfaces/IERC4626.sol";
 
 /**
  * @title Vault
