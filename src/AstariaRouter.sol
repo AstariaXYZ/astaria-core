@@ -37,7 +37,7 @@ import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC4626Router} from "gpl/ERC4626Router.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
-import {AuthInitializable} from "gpl/AuthInitializable.sol";
+import {AuthInitializable} from "core/AuthInitializable.sol";
 import {Initializable} from "./utils/Initializable.sol";
 
 /**

@@ -32,8 +32,8 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     ILienToken.AuctionData auctionStack;
   }
 
-  bytes32 constant CLEARING_HOUSE_STORAGE_SLOT =
-    0xfc8793c2139a57fdc041f52e5a6e70e2c8f6402d67cb75321c29bc8c4ab736ab;
+  uint256 private constant CLEARING_HOUSE_STORAGE_SLOT =
+    uint256(keccak256("xyz.astaria.ClearingHouse.storage.location")) - 1;
 
   function ROUTER() public pure returns (IAstariaRouter) {
     return IAstariaRouter(_getArgAddress(0));
@@ -52,8 +52,9 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     pure
     returns (ClearingHouseStorage storage s)
   {
+    uint256 slot = CLEARING_HOUSE_STORAGE_SLOT;
     assembly {
-      s.slot := CLEARING_HOUSE_STORAGE_SLOT
+      s.slot := slot
     }
   }
 
