@@ -278,14 +278,13 @@ contract LienToken is ERC721, ILienToken, Auth {
     Stack[] calldata stack,
     address liquidator
   ) external validateStack(collateralId, stack) requiresAuth {
-    return
-      _stopLiens(
-        _loadLienStorageSlot(),
-        collateralId,
-        auctionWindow,
-        stack,
-        liquidator
-      );
+    _stopLiens(
+      _loadLienStorageSlot(),
+      collateralId,
+      auctionWindow,
+      stack,
+      liquidator
+    );
   }
 
   function _stopLiens(
