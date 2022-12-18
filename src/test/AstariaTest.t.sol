@@ -38,7 +38,7 @@ contract AstariaTest is TestHelpers {
   using CollateralLookup for address;
   using SafeCastLib for uint256;
 
-  event NonceUpdated(uint32 nonce);
+  event NonceUpdated(uint256 nonce);
   event VaultShutdown();
 
   function testFeesExample() public {
@@ -603,7 +603,7 @@ contract AstariaTest is TestHelpers {
       stack: stack,
       revertMessage: abi.encodeWithSelector(
         ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.COLLATERAL_MISMATCH
+        ILienToken.InvalidStates.EMPTY_STATE
       )
     });
   }

@@ -41,7 +41,7 @@ interface ICollateralToken is IERC721 {
     address CLEARING_HOUSE_IMPLEMENTATION;
     address CONDUIT;
     bytes32 CONDUIT_KEY;
-    mapping(uint256 => bool) collateralIdToAuction;
+    mapping(uint256 => bytes32) collateralIdToAuction;
     mapping(bytes32 => bool) orderSigned;
     mapping(address => bool) flashEnabled;
     //mapping of the collateralToken ID and its underlying asset
@@ -185,6 +185,7 @@ interface ICollateralToken is IERC721 {
     NO_AUCTION,
     FLASH_DISABLED,
     AUCTION_ACTIVE,
+    INVALID_AUCTION_PARAMS,
     ACTIVE_LIENS
   }
 

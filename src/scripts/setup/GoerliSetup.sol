@@ -24,8 +24,6 @@ import {
 } from "seaport/lib/ConsiderationStructs.sol";
 import {Consideration} from "seaport/lib/Consideration.sol";
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
-
 //contract SimpleSaleTest is Auth {
 //  constructor(address creator) Auth(creator, Authority(address(0))) {}
 //

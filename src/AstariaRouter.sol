@@ -41,7 +41,7 @@ import {ERC4626RouterBase} from "gpl/ERC4626RouterBase.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
-import {AuthInitializable} from "gpl/AuthInitializable.sol";
+import {AuthInitializable, Authority} from "core/AuthInitializable.sol";
 import {Initializable} from "./utils/Initializable.sol";
 
 /**
@@ -195,11 +195,15 @@ contract AstariaRouter is
 
   function fileBatch(File[] calldata files) external requiresAuth {
     for (uint256 i = 0; i < files.length; i++) {
-      file(files[i]);
+      _file(files[i]);
     }
   }
 
   function file(File calldata incoming) public requiresAuth {
+    _file(incoming);
+  }
+
+  function _file(File calldata incoming) internal {
     RouterStorage storage s = _loadRouterSlot();
     FileType what = incoming.what;
     bytes memory data = incoming.data;
@@ -249,8 +253,6 @@ contract AstariaRouter is
     } else if (what == FileType.MaxEpochLength) {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.MaxInterestRate) {
-      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
-    } else if (what == FileType.MinInterestRate) {
       s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
@@ -684,6 +686,9 @@ contract AstariaRouter is
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
       revert InvalidSenderForCollateral(msg.sender, collateralId);
+    }
+    if (s.vaults[c.lienRequest.strategy.vault] == address(0)) {
+      revert InvalidVault(c.lienRequest.strategy.vault);
     }
     //router must be approved for the collateral to take a loan,
     return

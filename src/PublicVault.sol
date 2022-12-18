@@ -10,7 +10,6 @@
 
 pragma solidity ^0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -112,6 +111,8 @@ contract PublicVault is
     address owner
   ) public virtual override(ERC4626Cloned) returns (uint256 assets) {
     VaultData storage s = _loadStorageSlot();
+    // Check for rounding error since we round down in previewRedeem.
+    require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     assets = redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
   }
 
@@ -138,7 +139,8 @@ contract PublicVault is
     if (epoch < s.currentEpoch) {
       revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
     }
-
+    // Check for rounding error since we round down in previewRedeem.
+    require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     // check for rounding error since we round down in previewRedeem.
 
     ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
@@ -185,7 +187,6 @@ contract PublicVault is
         abi.encodePacked(
           address(ROUTER()), // router is the beacon
           uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
-          address(this), // owner
           asset(), // token
           address(this), // vault
           epoch + 1 // claimable epoch
@@ -385,16 +386,18 @@ contract PublicVault is
     }
   }
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
-  ) internal virtual override(VaultImplementation) {
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata params)
+    internal
+    virtual
+    override(VaultImplementation)
+  {
     VaultData storage s = _loadStorageSlot();
 
+    if (s.withdrawReserve > uint256(0)) {
+      transferWithdrawReserve();
+    }
     if (timeToEpochEnd() == uint256(0)) {
       processEpoch();
-    } else if (s.withdrawReserve > uint256(0)) {
-      transferWithdrawReserve();
     }
   }
 
@@ -420,7 +423,8 @@ contract PublicVault is
     // increment slope for the new lien
     _accrue(s);
     unchecked {
-      s.slope += lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope + lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
     }
 
     uint64 epoch = getLienEpoch(lienEnd);
@@ -431,6 +435,8 @@ contract PublicVault is
     }
     emit LienOpen(lienId, epoch);
   }
+
+  event SlopeUpdated(uint48 newSlope);
 
   function accrue() public returns (uint256) {
     return _accrue(_loadStorageSlot());
@@ -488,10 +494,17 @@ contract PublicVault is
     require(msg.sender == address(LIEN_TOKEN()));
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
+
     unchecked {
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
     }
     _handleStrategistInterestReward(s, params.interestOwed, params.amount);
+  }
+
+  function _setSlope(VaultData storage s, uint48 newSlope) internal {
+    s.slope = newSlope;
+    emit SlopeUpdated(newSlope);
   }
 
   function decreaseEpochLienCount(uint64 epoch) public {
@@ -562,7 +575,7 @@ contract PublicVault is
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       unchecked {
-        uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //TODO: make const VAULT_FEE is a basis point
+        uint256 fee = x.mulDivDown(VAULT_FEE(), 10000); //TODO: make const VAULT_FEE is a basis point
         s.strategistUnclaimedShares += convertToShares(fee).safeCastTo88();
       }
     }
@@ -577,7 +590,8 @@ contract PublicVault is
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
       s.yIntercept += params.increaseYIntercept.safeCastTo88();
       s.last = block.timestamp.safeCastTo40();
     }
@@ -613,7 +627,8 @@ contract PublicVault is
       s.yIntercept += uint256(s.slope)
         .mulDivDown(block.timestamp - s.last, 1)
         .safeCastTo88();
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
       s.last = block.timestamp.safeCastTo40();
     }
 

@@ -99,7 +99,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     UNIV3_LIQUIDITY
   }
 
-  struct StrategyDetails {
+  struct StrategyDetailsParam {
     uint8 version;
     uint256 deadline;
     address vault;
@@ -111,7 +111,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   struct NewLienRequest {
-    StrategyDetails strategy;
+    StrategyDetailsParam strategy;
     ILienToken.Stack[] stack;
     bytes nlrDetails;
     MerkleData merkle;
@@ -315,6 +315,9 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);
   error InvalidCollateralState(CollateralStates);
+  error InvalidCommitmentState(CommitmentState);
+  error InvalidStrategy(uint16);
+  error InvalidVault(address);
   enum LienState {
     HEALTHY,
     AUCTION
@@ -326,8 +329,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     NO_DEPOSIT,
     NO_LIENS
   }
-  error InvalidCommitmentState(CommitmentState);
-  error InvalidStrategy(uint16);
+
   enum CommitmentState {
     INVALID,
     INVALID_RATE,
