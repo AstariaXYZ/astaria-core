@@ -670,6 +670,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         msg.sender
       );
       totalCapitalAvailable -= spent;
+      if (totalCapitalAvailable == 0) break;
       if (newStack.length == oldLength) {
         unchecked {
           ++i;
