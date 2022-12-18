@@ -639,7 +639,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       ICollateralToken.AuctionVaultParams({
         settlementToken: address(s.WETH),
         collateralId: stack[position].lien.collateralId,
-        maxDuration: uint256(s.auctionWindow + s.auctionWindowBuffer),
+        maxDuration: auctionWindowMax,
         startingPrice: stack[0].lien.details.liquidationInitialAsk,
         endingPrice: 1_000 wei
       })
