@@ -10,7 +10,6 @@
 
 pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -18,7 +17,6 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {WithdrawVaultBase} from "core/WithdrawVaultBase.sol";
 import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
-import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {PublicVault} from "core/PublicVault.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
