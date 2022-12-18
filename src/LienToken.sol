@@ -57,7 +57,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     Authority _AUTHORITY,
     ITransferProxy _TRANSFER_PROXY,
     address _WETH
-  ) Auth(address(msg.sender), _AUTHORITY) ERC721("Astaria Lien Token", "ALT") {
+  ) Auth(msg.sender, _AUTHORITY) ERC721("Astaria Lien Token", "ALT") {
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
     s.WETH = _WETH;
@@ -147,7 +147,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     s.TRANSFER_PROXY.tokenTransferFrom(
       s.WETH,
-      address(msg.sender),
+      msg.sender,
       _getPayee(s, params.encumber.stack[params.position].point.lienId),
       buyout
     );
@@ -557,7 +557,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     returns (Stack[] memory newStack)
   {
     LienStorage storage s = _loadLienStorageSlot();
-    (newStack, ) = _payment(s, stack, position, amount, address(msg.sender));
+    (newStack, ) = _payment(s, stack, position, amount, msg.sender);
     _updateCollateralStateHash(s, collateralId, newStack);
   }
 
@@ -612,7 +612,7 @@ contract LienToken is ERC721, ILienToken, Auth {
         newStack,
         uint8(i),
         totalCapitalAvailable,
-        address(msg.sender)
+        msg.sender
       );
       totalCapitalAvailable -= spent;
       if (newStack.length == oldLength) {
