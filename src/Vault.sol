@@ -19,7 +19,6 @@ import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {ITokenBase} from "core/interfaces/ITokenBase.sol";
-import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
@@ -31,14 +30,14 @@ import {IERC4626} from "core/interfaces/IERC4626.sol";
 /**
  * @title Vault
  */
-contract Vault is AstariaVaultBase, VaultImplementation {
+contract Vault is VaultImplementation {
   using SafeTransferLib for ERC20;
 
   function name()
     public
     view
     virtual
-    override(AstariaVaultBase, VaultImplementation)
+    override(VaultImplementation)
     returns (string memory)
   {
     return string(abi.encodePacked("AST-Vault-", ERC20(asset()).symbol()));
@@ -48,7 +47,7 @@ contract Vault is AstariaVaultBase, VaultImplementation {
     public
     view
     virtual
-    override(AstariaVaultBase, VaultImplementation)
+    override(VaultImplementation)
     returns (string memory)
   {
     return
