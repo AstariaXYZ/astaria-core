@@ -32,7 +32,7 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {AuthInitializable} from "gpl/AuthInitializable.sol";
+import {AuthInitializable} from "core/AuthInitializable.sol";
 
 /**
  * @title LienToken
@@ -463,7 +463,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
       msg.sender == address(s.COLLATERAL_TOKEN.getClearingHouse(collateralId))
     );
 
-    _payDebt(s, token, collateralId, payment, msg.sender, auctionStack);
+    _payDebt(s, token, payment, msg.sender, auctionStack);
     delete s.collateralStateHash[collateralId];
   }
 
