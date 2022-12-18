@@ -530,6 +530,17 @@ contract LienToken is ERC721, ILienToken, Auth {
     return _loadLienStorageSlot().auctionData[collateralId];
   }
 
+  function getAuctionLiquidator(uint256 collateralId)
+  external
+  view
+  returns (address liquidator)
+  {
+    liquidator = _loadLienStorageSlot().auctionData[collateralId].liquidator;
+    if (liquidator == address(0)) {
+      revert InvalidState(InvalidStates.COLLATERAL_NOT_LIQUIDATED);
+    }
+  }
+
   function getAmountOwingAtLiquidation(ILienToken.Stack calldata stack)
     public
     view
