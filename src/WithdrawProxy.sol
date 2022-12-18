@@ -229,7 +229,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     _;
   }
 
-  function increaseWithdrawReserveReceived(uint256 amount) public onlyVault {
+  function increaseWithdrawReserveReceived(uint256 amount) external onlyVault {
     WPStorage storage s = _loadSlot();
     s.withdrawReserveReceived += amount;
   }

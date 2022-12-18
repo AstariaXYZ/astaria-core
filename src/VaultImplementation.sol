@@ -43,7 +43,12 @@ abstract contract VaultImplementation is
 
   function name() public view virtual override returns (string memory);
 
-  function symbol() public view virtual override returns (string memory);
+  bytes32 public constant STRATEGY_TYPEHASH =
+    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
+
+  function name() external view virtual override returns (string memory);
+
+  function symbol() external view virtual override returns (string memory);
 
   uint256 private constant VI_SLOT =
     uint256(keccak256("xyz.astaria.VaultImplementation.storage.location")) - 1;
@@ -65,7 +70,7 @@ abstract contract VaultImplementation is
    * @notice modify the deposit cap for the vault
    * @param newCap The deposit cap.
    */
-  function modifyDepositCap(uint256 newCap) public {
+  function modifyDepositCap(uint256 newCap) external {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().depositCap = newCap.safeCastTo88();
   }
