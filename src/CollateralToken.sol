@@ -566,8 +566,6 @@ contract CollateralToken is
     ] = keccak256(abi.encode(listingOrder.parameters));
   }
 
-  event ListedOnSeaport(uint256 collateralId, Order listingOrder);
-
   function settleAuction(uint256 collateralId) public requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
     if (s.collateralIdToAuction[collateralId] == bytes32(0)) {

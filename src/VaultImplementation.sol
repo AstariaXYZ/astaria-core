@@ -39,6 +39,9 @@ abstract contract VaultImplementation is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
+  bytes32 public constant STRATEGY_TYPEHASH =
+    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
+
   function name() public view virtual override returns (string memory);
 
   function symbol() public view virtual override returns (string memory);
@@ -151,9 +154,6 @@ abstract contract VaultImplementation is
         )
       );
   }
-
-  bytes32 public constant STRATEGY_TYPEHASH =
-    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
 
   /*
    * @notice encodes the data for a 712 signature
