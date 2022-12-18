@@ -337,7 +337,6 @@ abstract contract VaultImplementation is
     return
       lienToken.buyoutLien(
         ILienToken.LienActionBuyout({
-          incoming: incomingTerms,
           position: position,
           encumber: ILienToken.LienActionEncumber({
             collateralId: collateralId,
