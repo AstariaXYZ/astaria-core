@@ -45,12 +45,7 @@ import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
  * @author androolloyd
  * @notice
  */
-contract PublicVault is
-  AstariaVaultBase,
-  VaultImplementation,
-  IPublicVault,
-  ERC4626Cloned
-{
+contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
@@ -82,7 +77,7 @@ contract PublicVault is
     public
     view
     virtual
-    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
+    override(IERC20Metadata, VaultImplementation)
     returns (string memory)
   {
     return string(abi.encodePacked("AST-Vault-", ERC20(asset()).symbol()));
@@ -92,7 +87,7 @@ contract PublicVault is
     public
     view
     virtual
-    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
+    override(IERC20Metadata, VaultImplementation)
     returns (string memory)
   {
     return string(abi.encodePacked("AST-V-", ERC20(asset()).symbol()));
