@@ -83,7 +83,6 @@ interface ILienToken is IERC721 {
   }
 
   struct LienActionBuyout {
-    IAstariaRouter.Commitment incoming;
     uint8 position;
     LienActionEncumber encumber;
   }
