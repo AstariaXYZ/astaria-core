@@ -255,7 +255,6 @@ abstract contract VaultImplementation is
   function _afterCommitToLien(
     uint40 end,
     uint256 lienId,
-    uint256 amount,
     uint256 slope
   ) internal virtual {}
 
@@ -289,7 +288,6 @@ abstract contract VaultImplementation is
     _afterCommitToLien(
       stack[stack.length - 1].point.end,
       lienId,
-      params.lienRequest.amount,
       slopeAddition
     );
   }
