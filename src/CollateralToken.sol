@@ -623,13 +623,12 @@ contract CollateralToken is
 
   /**
    * @dev Mints a new CollateralToken wrapping an NFT.
-   * @param operator_ the approved sender that called safeTransferFrom
    * @param from_ the owner of the collateral deposited
    * @param tokenId_ The NFT token ID
    * @return a static return of the receive signature
    */
   function onERC721Received(
-    address operator_,
+    address, /* operator_ */
     address from_,
     uint256 tokenId_,
     bytes calldata // calldata data_
@@ -657,20 +656,14 @@ contract CollateralToken is
         revert InvalidCollateral();
       }
 
-      address depositFor = operator_;
-
-      if (operator_ != from_) {
-        depositFor = from_;
-      }
-
-      _mint(depositFor, collateralId);
+      _mint(from_, collateralId);
 
       s.idToUnderlying[collateralId] = Asset({
         tokenContract: msg.sender,
         tokenId: tokenId_
       });
 
-      emit Deposit721(msg.sender, tokenId_, collateralId, depositFor);
+      emit Deposit721(msg.sender, tokenId_, collateralId, from_);
       return IERC721Receiver.onERC721Received.selector;
     } else {
       revert();
