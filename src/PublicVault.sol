@@ -8,9 +8,8 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -19,12 +18,10 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
-import {ITokenBase} from "core/interfaces/ITokenBase.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IERC20} from "core/interfaces/IERC20.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {ERC20Cloned} from "gpl/ERC20-Cloned.sol";
-
 import {
   ClonesWithImmutableArgs
 } from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
@@ -32,7 +29,6 @@ import {
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-import {LienToken} from "core/LienToken.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
@@ -45,12 +41,7 @@ import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
  * @author androolloyd
  * @notice
  */
-contract PublicVault is
-  AstariaVaultBase,
-  VaultImplementation,
-  IPublicVault,
-  ERC4626Cloned
-{
+contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   using FixedPointMathLib for uint256;
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
@@ -82,7 +73,7 @@ contract PublicVault is
     public
     view
     virtual
-    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
+    override(IERC20Metadata, VaultImplementation)
     returns (string memory)
   {
     return string(abi.encodePacked("AST-Vault-", ERC20(asset()).symbol()));
@@ -92,7 +83,7 @@ contract PublicVault is
     public
     view
     virtual
-    override(IERC20Metadata, AstariaVaultBase, VaultImplementation)
+    override(IERC20Metadata, VaultImplementation)
     returns (string memory)
   {
     return string(abi.encodePacked("AST-V-", ERC20(asset()).symbol()));
@@ -285,20 +276,12 @@ contract PublicVault is
     if ((address(currentWithdrawProxy) != address(0))) {
       uint256 proxySupply = currentWithdrawProxy.totalSupply();
 
-      unchecked {
-        s.liquidationWithdrawRatio = proxySupply
-          .mulDivDown(1e18, totalSupply())
-          .safeCastTo88();
-      }
+      s.liquidationWithdrawRatio = proxySupply
+        .mulDivDown(1e18, totalSupply())
+        .safeCastTo88();
 
-      if (address(currentWithdrawProxy) != address(0)) {
-        currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
-      }
-
-      uint256 expected = 0;
-      if (address(currentWithdrawProxy) != address(0)) {
-        expected = currentWithdrawProxy.getExpected();
-      }
+      currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
+      uint256 expected = currentWithdrawProxy.getExpected();
 
       unchecked {
         if (totalAssets() > expected) {
@@ -410,12 +393,10 @@ contract PublicVault is
   /**
    * @dev Hook for updating the slope of the PublicVault after a LienToken is issued.
    * @param lienId The ID of the lien.
-   * @param amount The amount of debt
    */
   function _afterCommitToLien(
     uint40 lienEnd,
     uint256 lienId,
-    uint256 amount,
     uint256 lienSlope
   ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
@@ -430,9 +411,6 @@ contract PublicVault is
     uint64 epoch = getLienEpoch(lienEnd);
 
     _increaseOpenLiens(s, epoch);
-    if (s.last == 0) {
-      s.last = block.timestamp.safeCastTo40();
-    }
     emit LienOpen(lienId, epoch);
   }
 
@@ -490,8 +468,10 @@ contract PublicVault is
     _mint(msg.sender, unclaimed);
   }
 
-  function beforePayment(BeforePaymentParams calldata params) public {
-    require(msg.sender == address(LIEN_TOKEN()));
+  function beforePayment(BeforePaymentParams calldata params)
+    public
+    onlyLienToken
+  {
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
@@ -507,10 +487,7 @@ contract PublicVault is
     emit SlopeUpdated(newSlope);
   }
 
-  function decreaseEpochLienCount(uint64 epoch) public {
-    require(
-      msg.sender == address(ROUTER()) || msg.sender == address(LIEN_TOKEN())
-    );
+  function decreaseEpochLienCount(uint64 epoch) public onlyLienToken {
     _decreaseEpochLienCount(_loadStorageSlot(), epoch);
   }
 
@@ -536,8 +513,7 @@ contract PublicVault is
     }
   }
 
-  function afterPayment(uint256 computedSlope) public {
-    require(msg.sender == address(LIEN_TOKEN()));
+  function afterPayment(uint256 computedSlope) public onlyLienToken {
     unchecked {
       _loadStorageSlot().slope += computedSlope.safeCastTo48();
     }
@@ -585,8 +561,10 @@ contract PublicVault is
     return ROUTER().LIEN_TOKEN();
   }
 
-  function handleBuyoutLien(BuyoutLienParams calldata params) public {
-    require(msg.sender == address(LIEN_TOKEN()));
+  function handleBuyoutLien(BuyoutLienParams calldata params)
+    public
+    onlyLienToken
+  {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
@@ -602,8 +580,7 @@ contract PublicVault is
 
   function updateAfterLiquidationPayment(
     LiquidationPaymentParams calldata params
-  ) external {
-    require(msg.sender == address(LIEN_TOKEN()));
+  ) external onlyLienToken {
     _decreaseEpochLienCount(
       _loadStorageSlot(),
       getLienEpoch(params.lienEnd.safeCastTo64())
@@ -619,8 +596,7 @@ contract PublicVault is
   function updateVaultAfterLiquidation(
     uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
-  ) public returns (address withdrawProxyIfNearBoundary) {
-    require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
+  ) public onlyLienToken returns (address withdrawProxyIfNearBoundary) {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
@@ -648,6 +624,11 @@ contract PublicVault is
         maxAuctionWindow
       );
     }
+  }
+
+  modifier onlyLienToken() {
+    require(msg.sender == address(LIEN_TOKEN()));
+    _;
   }
 
   function _decreaseYIntercept(VaultData storage s, uint256 amount) internal {

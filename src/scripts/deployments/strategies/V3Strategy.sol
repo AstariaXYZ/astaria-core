@@ -1,4 +1,4 @@
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {Script} from "forge-std/Script.sol";
 import {V3SecurityHook} from "core/security/V3SecurityHook.sol";

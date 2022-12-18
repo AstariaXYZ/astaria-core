@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {IERC721} from "core/interfaces/IERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
@@ -35,10 +35,8 @@ interface IAstariaRouter is IPausable, IBeacon {
     MaxInterestRate,
     BuyoutFee,
     MinDurationIncrease,
-    BuyoutInterestWindow,
     AuctionWindow,
     StrategyValidator,
-    AuctionHouse,
     Implementation,
     CollateralToken,
     LienToken,

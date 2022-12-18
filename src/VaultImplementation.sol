@@ -8,13 +8,12 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
@@ -39,12 +38,15 @@ abstract contract VaultImplementation is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
+  uint256 constant VI_SLOT =
+    0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
+
+  bytes32 public constant STRATEGY_TYPEHASH =
+    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
+
   function name() public view virtual override returns (string memory);
 
   function symbol() public view virtual override returns (string memory);
-
-  uint256 constant VI_SLOT =
-    0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
 
   function getStrategistNonce() external view returns (uint256) {
     return _loadVISlot().strategistNonce;
@@ -147,9 +149,6 @@ abstract contract VaultImplementation is
       );
   }
 
-  bytes32 public constant STRATEGY_TYPEHASH =
-    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
-
   /*
    * @notice encodes the data for a 712 signature
    * @param tokenContract The address of the token contract
@@ -195,8 +194,6 @@ abstract contract VaultImplementation is
   function setDelegate(address delegate_) external {
     require(msg.sender == owner()); //owner is "strategist"
     VIData storage s = _loadVISlot();
-    s.allowList[s.delegate] = false;
-    s.allowList[delegate_] = true;
     s.delegate = delegate_;
   }
 
@@ -257,13 +254,13 @@ abstract contract VaultImplementation is
   function _afterCommitToLien(
     uint40 end,
     uint256 lienId,
-    uint256 amount,
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata
-  ) internal virtual {}
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
+    internal
+    virtual
+  {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.
@@ -290,7 +287,6 @@ abstract contract VaultImplementation is
     _afterCommitToLien(
       stack[stack.length - 1].point.end,
       lienId,
-      params.lienRequest.amount,
       slopeAddition
     );
   }
