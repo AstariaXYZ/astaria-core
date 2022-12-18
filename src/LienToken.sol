@@ -48,6 +48,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     0x784074eabfd770c66f3ce9775f7de467d76c7082c00549d7c34362d167cafc4b;
 
   bytes32 constant ACTIVE_AUCTION = bytes32("ACTIVE_AUCTION");
+
   /**
    * @dev Setup transfer authority and initialize the buyoutNumerator and buyoutDenominator for the lien buyout premium.
    * @param _AUTHORITY The authority manager.
@@ -125,8 +126,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
 
     if (
-      s.collateralStateHash[params.encumber.lien.collateralId] ==
-      ACTIVE_AUCTION
+      s.collateralStateHash[params.encumber.lien.collateralId] == ACTIVE_AUCTION
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
@@ -206,7 +206,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 delta_t = timestamp - stack.point.last;
 
     return
-      delta_t.mulDivDown(stack.lien.details.rate, 1).mulWadDown(
+      (delta_t.mulDivDown * stack.lien.details.rate).mulWadDown(
         stack.point.amount
       );
   }
@@ -360,9 +360,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
-    if (
-      s.collateralStateHash[params.collateralId] == ACTIVE_AUCTION
-    ) {
+    if (s.collateralStateHash[params.collateralId] == ACTIVE_AUCTION) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
     if (
@@ -736,7 +734,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     uint256 delta_t = stack.point.end - block.timestamp;
     return
-      delta_t.mulDivDown(stack.lien.details.rate, 1).mulWadDown(
+      (delta_t.mulDivDown * stack.lien.details.rate).mulWadDown(
         stack.point.amount
       );
   }
