@@ -330,10 +330,13 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function tokenURI(uint256 tokenId)
     public
-    pure
+    view
     override(ERC721, IERC721)
     returns (string memory)
   {
+    if (!_exists(tokenId)) {
+      revert InvalidTokenId(tokenId);
+    }
     return "";
   }
 
