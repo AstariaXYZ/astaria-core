@@ -512,6 +512,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     payment -= liquidatorPayment;
     totalSpent += liquidatorPayment;
     for (uint256 i = 0; i < stack.length; i++) {
+      if (payment == 0) break;
       uint256 spent;
       unchecked {
         spent = _paymentAH(s, stack, i, payment, payer);
