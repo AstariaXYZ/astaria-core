@@ -39,12 +39,15 @@ abstract contract VaultImplementation is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
+  uint256 constant VI_SLOT =
+    0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
+
+  bytes32 public constant STRATEGY_TYPEHASH =
+    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
+
   function name() public view virtual override returns (string memory);
 
   function symbol() public view virtual override returns (string memory);
-
-  uint256 constant VI_SLOT =
-    0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
 
   function getStrategistNonce() external view returns (uint256) {
     return _loadVISlot().strategistNonce;
@@ -146,9 +149,6 @@ abstract contract VaultImplementation is
         )
       );
   }
-
-  bytes32 public constant STRATEGY_TYPEHASH =
-    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
 
   /*
    * @notice encodes the data for a 712 signature
