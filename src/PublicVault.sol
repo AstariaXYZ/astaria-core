@@ -355,16 +355,17 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   function transferWithdrawReserve() public {
     VaultData storage s = _loadStorageSlot();
 
-    if (s.currentEpoch > uint64(0)) {
-      // check the available balance to be withdrawn
+    if (s.currentEpoch == uint64(0)) {
+      return;
+    }
 
-      address currentWithdrawProxy = s
-        .epochData[s.currentEpoch - 1]
-        .withdrawProxy;
-      // prevents transfer to a non-existent WithdrawProxy
-      // withdrawProxies are indexed by the epoch where they're deployed
-      if (currentWithdrawProxy != address(0)) {
-        uint256 withdrawBalance = ERC20(asset()).balanceOf(address(this));
+    address currentWithdrawProxy = s
+      .epochData[s.currentEpoch - 1]
+      .withdrawProxy;
+    // prevents transfer to a non-existent WithdrawProxy
+    // withdrawProxies are indexed by the epoch where they're deployed
+    if (currentWithdrawProxy != address(0)) {
+      uint256 withdrawBalance = ERC20(asset()).balanceOf(address(this));
 
         // prevent transfer of more assets then are available
         if (s.withdrawReserve <= withdrawBalance) {
@@ -375,13 +376,13 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
             s.withdrawReserve -= withdrawBalance.safeCastTo88();
           }
         }
-
-        ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
-        WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
-          withdrawBalance
-        );
-        emit WithdrawReserveTransferred(withdrawBalance);
       }
+
+      ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+      WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
+        withdrawBalance
+      );
+      emit WithdrawReserveTransferred(withdrawBalance);
     }
 
     address withdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;

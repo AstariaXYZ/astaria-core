@@ -553,7 +553,7 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function validateLien(Lien memory lien) public view returns (uint256 lienId) {
     lienId = uint256(keccak256(abi.encode(lien)));
-    if (!_exists(uint256(keccak256(abi.encode(lien))))) {
+    if (!_exists(lienId)) {
       revert InvalidState(InvalidStates.INVALID_LIEN_ID);
     }
   }
