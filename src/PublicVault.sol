@@ -386,9 +386,11 @@ contract PublicVault is
     }
   }
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params
-  ) internal virtual override(VaultImplementation) {
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata params)
+    internal
+    virtual
+    override(VaultImplementation)
+  {
     VaultData storage s = _loadStorageSlot();
 
     if (s.withdrawReserve > uint256(0)) {
@@ -488,8 +490,10 @@ contract PublicVault is
     _mint(owner(), unclaimed);
   }
 
-  function beforePayment(BeforePaymentParams calldata params) public {
-    require(msg.sender == address(LIEN_TOKEN()));
+  function beforePayment(BeforePaymentParams calldata params)
+    public
+    onlyLienToken
+  {
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
@@ -534,8 +538,7 @@ contract PublicVault is
     }
   }
 
-  function afterPayment(uint256 computedSlope) public {
-    require(msg.sender == address(LIEN_TOKEN()));
+  function afterPayment(uint256 computedSlope) public onlyLienToken {
     unchecked {
       _loadStorageSlot().slope += computedSlope.safeCastTo48();
     }
@@ -583,8 +586,10 @@ contract PublicVault is
     return ROUTER().LIEN_TOKEN();
   }
 
-  function handleBuyoutLien(BuyoutLienParams calldata params) public {
-    require(msg.sender == address(LIEN_TOKEN()));
+  function handleBuyoutLien(BuyoutLienParams calldata params)
+    public
+    onlyLienToken
+  {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
@@ -600,8 +605,7 @@ contract PublicVault is
 
   function updateAfterLiquidationPayment(
     LiquidationPaymentParams calldata params
-  ) external {
-    require(msg.sender == address(LIEN_TOKEN()));
+  ) external onlyLienToken {
     _decreaseEpochLienCount(
       _loadStorageSlot(),
       getLienEpoch(params.lienEnd.safeCastTo64())
@@ -617,8 +621,7 @@ contract PublicVault is
   function updateVaultAfterLiquidation(
     uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
-  ) public returns (address withdrawProxyIfNearBoundary) {
-    require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
+  ) public onlyLienToken returns (address withdrawProxyIfNearBoundary) {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
@@ -648,6 +651,11 @@ contract PublicVault is
         maxAuctionWindow
       );
     }
+  }
+
+  modifier onlyLienToken() {
+    require(msg.sender == address(LIEN_TOKEN()));
+    _;
   }
 
   function _decreaseYIntercept(VaultData storage s, uint256 amount) internal {
