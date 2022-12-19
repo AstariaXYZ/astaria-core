@@ -168,13 +168,22 @@ contract LienToken is ERC721, ILienToken, Auth {
       params.encumber.stack[params.position].point.lienId
     );
 
-    if (
-      _getMaxPotentialDebtForCollateralUpToNPositions(
-        newStack,
-        params.position
-      ) > params.encumber.lien.details.maxPotentialDebt
-    ) {
-      revert InvalidState(InvalidStates.DEBT_LIMIT);
+    uint256 maxPotentialDebt;
+    uint256 n = newStack.length;
+    for (uint256 i; i < n; ) {
+      maxPotentialDebt += _getOwed(newStack[i], newStack[i].point.end);
+      if (i == params.position) {
+        if (maxPotentialDebt > params.encumber.lien.details.maxPotentialDebt) {
+          revert InvalidState(InvalidStates.DEBT_LIMIT);
+        }
+      } else if (i > params.position) {
+        if (maxPotentialDebt > newStack[i].lien.details.maxPotentialDebt) {
+          revert InvalidState(InvalidStates.DEBT_LIMIT);
+        }
+      }
+      unchecked {
+        ++i;
+      }
     }
 
     s.collateralStateHash[params.encumber.collateralId] = keccak256(
