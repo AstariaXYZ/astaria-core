@@ -851,8 +851,8 @@ contract TestHelpers is ConsiderationTester {
 
     // setup 712 signature
 
-    IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter
-      .StrategyDetails({
+    IAstariaRouter.StrategyDetailsParam memory strategyDetails = IAstariaRouter
+      .StrategyDetailsParam({
         version: uint8(0),
         deadline: block.timestamp + 10 days,
         vault: vault
@@ -909,8 +909,8 @@ contract TestHelpers is ConsiderationTester {
 
     // setup 712 signature
 
-    IAstariaRouter.StrategyDetails memory strategyDetails = IAstariaRouter
-      .StrategyDetails({
+    IAstariaRouter.StrategyDetailsParam memory strategyDetails = IAstariaRouter
+      .StrategyDetailsParam({
         version: uint8(0),
         deadline: block.timestamp + 10 days,
         vault: vault
@@ -943,7 +943,7 @@ contract TestHelpers is ConsiderationTester {
     bytes32 termHash;
     bytes32 rootHash;
     uint256 pk;
-    IAstariaRouter.StrategyDetails strategyDetails;
+    IAstariaRouter.StrategyDetailsParam strategyDetails;
     ILienToken.Stack[] stack;
     bytes validatorDetails;
     uint8 nlrType;
