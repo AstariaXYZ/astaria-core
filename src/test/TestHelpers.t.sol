@@ -1336,7 +1336,7 @@ contract TestHelpers is ConsiderationTester {
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
 
     vm.startPrank(lender);
-    ERC20(publicVault).safeApprove(address(TRANSFER_PROXY), vaultTokenBalance);
+    ERC20(publicVault).safeApprove(address(ASTARIA_ROUTER), vaultTokenBalance);
     ASTARIA_ROUTER.redeemFutureEpoch({
       vault: IPublicVault(publicVault),
       shares: vaultTokenBalance,
