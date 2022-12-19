@@ -138,7 +138,7 @@ interface ILienToken is IERC721 {
    * @param stack The Lien stack
    * @return the amount owed in uint192 at the current block.timestamp
    */
-  function getOwed(Stack calldata stack) external view returns (uint192);
+  function getOwed(Stack calldata stack) external view returns (uint88);
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -149,7 +149,7 @@ interface ILienToken is IERC721 {
   function getOwed(Stack calldata stack, uint256 timestamp)
     external
     view
-    returns (uint192);
+    returns (uint88);
 
   /**
    * @notice Public view function that computes the interest for a LienToken since its last payment.
