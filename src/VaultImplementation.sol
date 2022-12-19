@@ -219,18 +219,15 @@ abstract contract VaultImplementation is
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
     address operator = CT.getApproved(collateralId);
-
     if (
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      !ROUTER().isValidVault(receiver)
+      !ROUTER().isValidVault(receiver) &&
+      !CT.isApprovedForAll(holder, receiver) &&
+      receiver != params.lienRequest.strategy.vault
     ) {
-      if (operator != address(0)) {
-        require(operator == receiver);
-      } else {
-        require(CT.isApprovedForAll(holder, receiver));
-      }
+      revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
     VIData storage s = _loadVISlot();
     address recovered = ecrecover(
