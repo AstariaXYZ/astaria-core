@@ -111,9 +111,7 @@ contract PublicVault is
     address owner
   ) public virtual override(ERC4626Cloned) returns (uint256 assets) {
     VaultData storage s = _loadStorageSlot();
-    // Check for rounding error since we round down in previewRedeem.
-    require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
-    assets = redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
+    assets = _redeemFutureEpoch(s, shares, receiver, owner, s.currentEpoch);
   }
 
   function withdraw(
@@ -122,9 +120,10 @@ contract PublicVault is
     address owner
   ) public virtual override(ERC4626Cloned) returns (uint256 shares) {
     shares = previewWithdraw(assets);
+
     VaultData storage s = _loadStorageSlot();
 
-    redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
+    _redeemFutureEpoch(s, shares, receiver, owner, s.currentEpoch);
   }
 
   function redeemFutureEpoch(
@@ -133,18 +132,43 @@ contract PublicVault is
     address owner,
     uint64 epoch
   ) public virtual returns (uint256 assets) {
+    return
+      _redeemFutureEpoch(_loadStorageSlot(), shares, receiver, owner, epoch);
+  }
+
+  function _redeemFutureEpoch(
+    VaultData storage s,
+    uint256 shares,
+    address receiver,
+    address owner,
+    uint64 epoch
+  ) internal virtual returns (uint256 assets) {
     // check to ensure that the requested epoch is not in the past
-    VaultData storage s = _loadStorageSlot();
+
+    ERC20Data storage es = _loadERC20Slot();
+
+    if (msg.sender != owner) {
+      uint256 allowed = es.allowance[owner][msg.sender]; // Saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) {
+        es.allowance[owner][msg.sender] = allowed - shares;
+      }
+    }
 
     if (epoch < s.currentEpoch) {
       revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
     }
-    // Check for rounding error since we round down in previewRedeem.
-    require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
-    // check for rounding error since we round down in previewRedeem.
 
-    ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
+    //this will underflow if not enough balance
+    es.balanceOf[owner] -= shares;
 
+    // Cannot overflow because the sum of all user
+    // balances can't exceed the max uint256 value.
+    unchecked {
+      es.balanceOf[address(this)] += shares;
+    }
+
+    emit Transfer(owner, address(this), shares);
     // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
     _deployWithdrawProxyIfNotDeployed(s, epoch);
 
