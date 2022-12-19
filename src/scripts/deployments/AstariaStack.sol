@@ -4,7 +4,7 @@ import "forge-std/Script.sol";
 import {AstariaRouter} from "core/AstariaRouter.sol";
 import {
   MultiRolesAuthority
-} from "solmate/auth/Authorities/MultiRolesAuthority.sol";
+} from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {TransferProxy} from "core/TransferProxy.sol";
 import {CollateralToken} from "core/CollateralToken.sol";
 import {LienToken} from "core/LienToken.sol";
