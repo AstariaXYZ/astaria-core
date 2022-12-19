@@ -170,16 +170,20 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     uint256 maxPotentialDebt;
     uint256 n = newStack.length;
-    for (uint256 i; i < n; ) {
+    uint256 i;
+    for (i; i < n; ) {
       maxPotentialDebt += _getOwed(newStack[i], newStack[i].point.end);
+      //no need to check validity before the position we're buying
       if (i == params.position) {
         if (maxPotentialDebt > params.encumber.lien.details.maxPotentialDebt) {
           revert InvalidState(InvalidStates.DEBT_LIMIT);
         }
-      } else if (i > params.position) {
-        if (maxPotentialDebt > newStack[i].lien.details.maxPotentialDebt) {
-          revert InvalidState(InvalidStates.DEBT_LIMIT);
-        }
+      }
+      if (
+        i > params.position &&
+        (maxPotentialDebt > newStack[i].lien.details.maxPotentialDebt)
+      ) {
+        revert InvalidState(InvalidStates.DEBT_LIMIT);
       }
       unchecked {
         ++i;
