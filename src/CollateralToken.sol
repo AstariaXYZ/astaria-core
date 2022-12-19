@@ -410,47 +410,6 @@ contract CollateralToken is
     return (_loadCollateralSlot().clearingHouse[collateralId]);
   }
 
-  function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
-    external
-    onlyOwner(params.stack[0].lien.collateralId)
-  {
-    //check that the incoming listed price is above the max total debt the asset can occur by the time the listing expires
-    CollateralStorage storage s = _loadCollateralSlot();
-
-    //check the collateral isn't at auction
-
-    if (
-      s.collateralIdToAuction[params.stack[0].lien.collateralId] != bytes32(0)
-    ) {
-      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
-    }
-    //fetch the current total debt of the asset
-    uint256 maxPossibleDebtAtMaxDuration = s
-      .LIEN_TOKEN
-      .getMaxPotentialDebtForCollateral(
-        params.stack,
-        block.timestamp + params.maxDuration
-      );
-
-    if (maxPossibleDebtAtMaxDuration > params.listPrice) {
-      revert ListPriceTooLow();
-    }
-
-    OrderParameters memory orderParameters = _generateValidOrderParameters(
-      s,
-      params.stack[0].lien.collateralId,
-      params.listPrice,
-      params.listPrice,
-      params.maxDuration
-    );
-
-    _listUnderlyingOnSeaport(
-      s,
-      params.stack[0].lien.collateralId,
-      Order(orderParameters, new bytes(0))
-    );
-  }
-
   function _generateValidOrderParameters(
     CollateralStorage storage s,
     uint256 collateralId,
