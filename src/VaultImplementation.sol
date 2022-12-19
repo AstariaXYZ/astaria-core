@@ -223,9 +223,7 @@ abstract contract VaultImplementation is
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      !ROUTER().isValidVault(receiver) &&
-      !CT.isApprovedForAll(holder, receiver) &&
-      receiver != params.lienRequest.strategy.vault
+      !CT.isApprovedForAll(holder, receiver)
     ) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
@@ -258,9 +256,10 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata
-  ) internal virtual {}
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
+    internal
+    virtual
+  {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.
