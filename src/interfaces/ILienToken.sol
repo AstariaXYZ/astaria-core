@@ -315,7 +315,8 @@ interface ILienToken is IERC721 {
     INVALID_HASH,
     INVALID_LIQUIDATION_INITIAL_ASK,
     INITIAL_ASK_EXCEEDED,
-    EMPTY_STATE
+    EMPTY_STATE,
+    PUBLIC_VAULT_RECIPIENT
   }
 
   error InvalidState(InvalidStates);
