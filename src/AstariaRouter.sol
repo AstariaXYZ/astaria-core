@@ -262,7 +262,21 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function setNewGuardian(address _guardian) external {
     RouterStorage storage s = _loadRouterSlot();
     require(address(msg.sender) == s.guardian);
-    s.guardian = _guardian;
+    s.newGuardian = _guardian;
+  }
+
+  function __renounceGuardian() external {
+    RouterStorage storage s = _loadRouterSlot();
+    require(address(msg.sender) == s.guardian);
+    s.guardian = address(0);
+    s.newGuardian = address(0);
+  }
+
+  function __acceptGuardian() external {
+    RouterStorage storage s = _loadRouterSlot();
+    require(address(msg.sender) == s.newGuardian);
+    s.guardian = s.newGuardian;
+    delete s.newGuardian;
   }
 
   function fileGuardian(File[] calldata file) external {
