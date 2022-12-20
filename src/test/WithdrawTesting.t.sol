@@ -763,7 +763,11 @@ contract WithdrawTest is TestHelpers {
       isFirstLien: true
     });
 
-    _warpToEpochEnd(publicVault);
+    vm.warp(
+      PublicVault(publicVault).getEpochEnd(
+        PublicVault(publicVault).getCurrentEpoch()
+      ) - 1
+    );
 
     _repay(stacks[1], 0, 10575342465745600000, address(this)); // TODO update to precise val
     assertEq(
@@ -773,12 +777,12 @@ contract WithdrawTest is TestHelpers {
     );
     assertEq(
       PublicVault(publicVault).getYIntercept(),
-      50575342465745600000,
+      50575341514451840500,
       "incorrect PublicVault yIntercept calculation after lien 2 repayment"
     );
     assertEq(
       PublicVault(publicVault).totalAssets(),
-      50575342465745600000,
+      50575341514451840500,
       "incorrect PublicVault totalAssets() after lien 2 repayment"
     );
     assertEq(
@@ -792,11 +796,12 @@ contract WithdrawTest is TestHelpers {
       "PublicVault liquidationWithdrawRatio should be 0"
     );
 
+    _warpToEpochEnd(publicVault);
     PublicVault(publicVault).processEpoch();
 
     assertEq(
       PublicVault(publicVault).getWithdrawReserve(),
-      50575342465745600000,
+      50575341514451840500,
       "Incorrect PublicVault withdrawReserve calculation after epoch 1"
     );
     PublicVault(publicVault).transferWithdrawReserve();
@@ -808,7 +813,7 @@ contract WithdrawTest is TestHelpers {
     );
     assertEq(
       WETH9.balanceOf(address(2)),
-      50575342465745600000,
+      50575341514451840500,
       "LP 2 balance incorrect"
     );
     assertEq(
