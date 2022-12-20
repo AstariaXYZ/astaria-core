@@ -209,11 +209,11 @@ contract PublicVault is
   }
 
   function getLiquidationWithdrawRatio() public view returns (uint256) {
-    return _loadStorageSlot().liquidationWithdrawRatio;
+    return uint256(_loadStorageSlot().liquidationWithdrawRatio);
   }
 
   function getYIntercept() public view returns (uint256) {
-    return _loadStorageSlot().yIntercept;
+    return uint256(_loadStorageSlot().yIntercept);
   }
 
   function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
