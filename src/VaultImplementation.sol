@@ -82,6 +82,7 @@ abstract contract VaultImplementation is
   function modifyAllowList(address depositor, bool enabled) external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowList[depositor] = enabled;
+    emit AllowListUpdated(depositor, enabled);
   }
 
   /**
@@ -90,6 +91,7 @@ abstract contract VaultImplementation is
   function disableAllowList() external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowListEnabled = false;
+    emit AllowListEnabled(false);
   }
 
   /**
@@ -98,6 +100,7 @@ abstract contract VaultImplementation is
   function enableAllowList() external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowListEnabled = true;
+    emit AllowListEnabled(true);
   }
 
   /**
@@ -198,6 +201,8 @@ abstract contract VaultImplementation is
     s.allowList[s.delegate] = false;
     s.allowList[delegate_] = true;
     s.delegate = delegate_;
+    emit DelegateUpdated(delegate_);
+    emit AllowListUpdated(delegate_, true);
   }
 
   /**
@@ -258,9 +263,10 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata
-  ) internal virtual {}
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
+    internal
+    virtual
+  {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.

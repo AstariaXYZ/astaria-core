@@ -419,9 +419,11 @@ contract PublicVault is
     }
   }
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params
-  ) internal virtual override(VaultImplementation) {
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata params)
+    internal
+    virtual
+    override(VaultImplementation)
+  {
     VaultData storage s = _loadStorageSlot();
 
     if (s.withdrawReserve > uint256(0)) {
@@ -569,9 +571,11 @@ contract PublicVault is
 
   function afterPayment(uint256 computedSlope) public {
     require(msg.sender == address(LIEN_TOKEN()));
+    VaultData storage s = _loadStorageSlot();
     unchecked {
-      _loadStorageSlot().slope += computedSlope.safeCastTo48();
+      s.slope += computedSlope.safeCastTo48();
     }
+    emit SlopeUpdated(s.slope);
   }
 
   /**
@@ -608,10 +612,10 @@ contract PublicVault is
   ) internal virtual {
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
-      unchecked {
-        uint256 fee = x.mulDivDown(VAULT_FEE(), 10000); //TODO: make const VAULT_FEE is a basis point
-        s.strategistUnclaimedShares += convertToShares(fee).safeCastTo88();
-      }
+      uint256 fee = x.mulDivDown(VAULT_FEE(), 10000);
+      uint88 feeInShares = convertToShares(fee).safeCastTo88();
+      s.strategistUnclaimedShares += feeInShares;
+      emit StrategistFee(feeInShares);
     }
   }
 

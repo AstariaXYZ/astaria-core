@@ -161,6 +161,7 @@ interface IPublicVault is IVaultImplementation {
     DEPOSIT_CAP_EXCEEDED
   }
 
+  event StrategistFee(uint88 feeInShares);
   event YInterceptChanged(uint88 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
   event LienOpen(uint256 lienId, uint256 epoch);
