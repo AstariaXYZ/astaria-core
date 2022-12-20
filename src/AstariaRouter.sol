@@ -107,13 +107,84 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.guardian = address(msg.sender);
   }
 
+  function mint(
+    IERC4626 vault,
+    address to,
+    uint256 shares,
+    uint256 maxAmountIn
+  )
+    public
+    payable
+    virtual
+    override
+    validVault(address(vault))
+    returns (uint256 amountIn)
+  {
+    return super.mint(vault, to, shares, maxAmountIn);
+  }
+
+  function deposit(
+    IERC4626 vault,
+    address to,
+    uint256 amount,
+    uint256 minSharesOut
+  )
+    public
+    payable
+    virtual
+    override
+    validVault(address(vault))
+    returns (uint256 sharesOut)
+  {
+    return super.deposit(vault, to, amount, minSharesOut);
+  }
+
+  function withdraw(
+    IERC4626 vault,
+    address to,
+    uint256 amount,
+    uint256 maxSharesOut
+  )
+    public
+    payable
+    virtual
+    override
+    validVault(address(vault))
+    returns (uint256 sharesOut)
+  {
+    return super.withdraw(vault, to, amount, maxSharesOut);
+  }
+
+  function redeem(
+    IERC4626 vault,
+    address to,
+    uint256 shares,
+    uint256 minAmountOut
+  )
+    public
+    payable
+    virtual
+    override
+    validVault(address(vault))
+    returns (uint256 amountOut)
+  {
+    return super.redeem(vault, to, shares, minAmountOut);
+  }
+
   function redeemFutureEpoch(
     IPublicVault vault,
     uint256 shares,
     address receiver,
     uint64 epoch
-  ) public virtual returns (uint256 assets) {
+  ) public virtual validVault(address(vault)) returns (uint256 assets) {
     return vault.redeemFutureEpoch(shares, receiver, msg.sender, epoch);
+  }
+
+  modifier validVault(address targetVault) {
+    if (!isValidVault(targetVault)) {
+      revert InvalidVault(targetVault);
+    }
+    _;
   }
 
   function pullToken(
