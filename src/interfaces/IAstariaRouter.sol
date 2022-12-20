@@ -51,7 +51,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   event FileUpdated(FileType what, bytes data);
-  error UnsupportedFile();
 
   struct RouterStorage {
     //slot 1
@@ -74,12 +73,13 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 minInterestBPS; // was uint64
     //slot 3 +
     address guardian; //20
+    address newGuardian; //20
     uint32 buyoutFeeNumerator;
     uint32 buyoutFeeDenominator;
     uint32 strategistFeeDenominator;
     uint32 strategistFeeNumerator; //4
     uint32 minDurationIncrease;
-    mapping(uint32 => address) strategyValidators;
+    mapping(uint8 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
     mapping(address => address) vaults;
@@ -304,6 +304,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint8 vaultType
   );
 
+  error InvalidFileData();
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);
   error InvalidRefinanceDuration(uint256);
@@ -315,6 +316,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidCommitmentState(CommitmentState);
   error InvalidStrategy(uint16);
   error InvalidVault(address);
+  error UnsupportedFile();
+
   enum LienState {
     HEALTHY,
     AUCTION

@@ -43,8 +43,8 @@ abstract contract VaultImplementation is
 
   function symbol() public view virtual override returns (string memory);
 
-  uint256 constant VI_SLOT =
-    0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
+  uint256 private constant VI_SLOT =
+    uint256(keccak256("xyz.astaria.VaultImplementation.storage.location")) - 1;
 
   function getStrategistNonce() external view returns (uint256) {
     return _loadVISlot().strategistNonce;
@@ -68,9 +68,11 @@ abstract contract VaultImplementation is
     _loadVISlot().depositCap = newCap.safeCastTo88();
   }
 
-  function _loadVISlot() internal pure returns (VIData storage vi) {
+  function _loadVISlot() internal pure returns (VIData storage s) {
+    uint256 slot = VI_SLOT;
+
     assembly {
-      vi.slot := VI_SLOT
+      s.slot := slot
     }
   }
 
@@ -82,6 +84,7 @@ abstract contract VaultImplementation is
   function modifyAllowList(address depositor, bool enabled) external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowList[depositor] = enabled;
+    emit AllowListUpdated(depositor, enabled);
   }
 
   /**
@@ -90,6 +93,7 @@ abstract contract VaultImplementation is
   function disableAllowList() external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowListEnabled = false;
+    emit AllowListEnabled(false);
   }
 
   /**
@@ -98,6 +102,7 @@ abstract contract VaultImplementation is
   function enableAllowList() external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowListEnabled = true;
+    emit AllowListEnabled(true);
   }
 
   /**
@@ -198,6 +203,8 @@ abstract contract VaultImplementation is
     s.allowList[s.delegate] = false;
     s.allowList[delegate_] = true;
     s.delegate = delegate_;
+    emit DelegateUpdated(delegate_);
+    emit AllowListUpdated(delegate_, true);
   }
 
   /**
@@ -219,18 +226,15 @@ abstract contract VaultImplementation is
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
     address operator = CT.getApproved(collateralId);
-
     if (
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      !ROUTER().isValidVault(receiver)
+      !ROUTER().isValidVault(receiver) &&
+      !CT.isApprovedForAll(holder, receiver) &&
+      receiver != params.lienRequest.strategy.vault
     ) {
-      if (operator != address(0)) {
-        require(operator == receiver);
-      } else {
-        require(CT.isApprovedForAll(holder, receiver));
-      }
+      revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
     VIData storage s = _loadVISlot();
     address recovered = ecrecover(
@@ -261,9 +265,10 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata
-  ) internal virtual {}
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
+    internal
+    virtual
+  {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.

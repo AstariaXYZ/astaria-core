@@ -45,8 +45,8 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 publicVaultAmount
   );
 
-  bytes32 constant WITHDRAW_PROXY_SLOT =
-    keccak256("xyz.astaria.WithdrawProxy.storage.location");
+  uint256 private constant WITHDRAW_PROXY_SLOT =
+    uint256(keccak256("xyz.astaria.WithdrawProxy.storage.location")) - 1;
 
   struct WPStorage {
     uint88 withdrawRatio;
@@ -62,6 +62,16 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     CANT_CLAIM
   }
   error InvalidState(InvalidStates);
+
+  function minDepositAmount()
+    public
+    view
+    virtual
+    override(ERC4626Cloned)
+    returns (uint256)
+  {
+    return 0;
+  }
 
   function decimals() public pure override returns (uint8) {
     return 18;
@@ -187,7 +197,8 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   function _loadSlot() internal pure returns (WPStorage storage s) {
-    bytes32 slot = WITHDRAW_PROXY_SLOT;
+    uint256 slot = WITHDRAW_PROXY_SLOT;
+
     assembly {
       s.slot := slot
     }
@@ -237,9 +248,11 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
 
     if (balance < s.expected) {
       PublicVault(VAULT()).decreaseYIntercept(
-        (s.expected - balance).mulWadDown(
-            1e18 - s.withdrawRatio
-        )
+        (s.expected - balance).mulWadDown(1e18 - s.withdrawRatio)
+      );
+    } else {
+      PublicVault(VAULT()).increaseYIntercept(
+        (balance - s.expected).mulWadDown(1e18 - s.withdrawRatio)
       );
     }
 
