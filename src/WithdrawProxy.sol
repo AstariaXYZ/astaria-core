@@ -63,6 +63,16 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
   error InvalidState(InvalidStates);
 
+  function minDepositAmount()
+    public
+    view
+    virtual
+    override(ERC4626Cloned)
+    returns (uint256)
+  {
+    return 0;
+  }
+
   function decimals() public pure override returns (uint8) {
     return 18;
   }
@@ -290,9 +300,11 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   ) public {
     require(msg.sender == VAULT());
     WPStorage storage s = _loadSlot();
+
     unchecked {
       s.expected += newLienExpectedValue.safeCastTo88();
-      s.finalAuctionEnd = (block.timestamp + finalAuctionDelta).safeCastTo40();
+      uint40 auctionEnd = (block.timestamp + finalAuctionDelta).safeCastTo40();
+      if (auctionEnd > s.finalAuctionEnd) s.finalAuctionEnd = auctionEnd;
     }
   }
 }

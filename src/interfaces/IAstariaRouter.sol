@@ -51,6 +51,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   event FileUpdated(FileType what, bytes data);
+  error InvalidFileData();
   error UnsupportedFile();
 
   struct RouterStorage {
@@ -74,6 +75,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 minInterestBPS; // was uint64
     //slot 3 +
     address guardian; //20
+    address newGuardian; //20
     uint32 buyoutFeeNumerator;
     uint32 buyoutFeeDenominator;
     uint32 strategistFeeDenominator;
@@ -99,7 +101,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     UNIV3_LIQUIDITY
   }
 
-  struct StrategyDetails {
+  struct StrategyDetailsParam {
     uint8 version;
     uint256 deadline;
     address vault;
@@ -111,7 +113,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   struct NewLienRequest {
-    StrategyDetails strategy;
+    StrategyDetailsParam strategy;
     ILienToken.Stack[] stack;
     bytes nlrDetails;
     MerkleData merkle;
@@ -312,7 +314,9 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);
   error InvalidCollateralState(CollateralStates);
-  error InvalidVault();
+  error InvalidCommitmentState(CommitmentState);
+  error InvalidStrategy(uint16);
+  error InvalidVault(address);
   enum LienState {
     HEALTHY,
     AUCTION
@@ -324,8 +328,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     NO_DEPOSIT,
     NO_LIENS
   }
-  error InvalidCommitmentState(CommitmentState);
-  error InvalidStrategy(uint16);
+
   enum CommitmentState {
     INVALID,
     INVALID_RATE,
