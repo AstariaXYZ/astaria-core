@@ -124,9 +124,7 @@ contract AstariaRouter is
     address receiver,
     uint64 epoch
   ) public virtual returns (uint256 assets) {
-    pullToken(address(vault), shares, address(this));
-    ERC20(address(vault)).safeApprove(address(vault), shares);
-    vault.redeemFutureEpoch(shares, receiver, msg.sender, epoch);
+    return vault.redeemFutureEpoch(shares, receiver, msg.sender, epoch);
   }
 
   function pullToken(
