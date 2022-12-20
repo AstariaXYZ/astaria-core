@@ -693,7 +693,7 @@ contract PublicVault is
 
   function increaseYIntercept(uint256 amount) public {
     VaultData storage s = _loadStorageSlot();
-    uint256 currentEpoch = s.currentEpoch;
+    uint64 currentEpoch = s.currentEpoch;
     require(
       currentEpoch != 0 &&
         msg.sender == s.epochData[currentEpoch - 1].withdrawProxy
@@ -703,7 +703,7 @@ contract PublicVault is
 
   function decreaseYIntercept(uint256 amount) public {
     VaultData storage s = _loadStorageSlot();
-    uint256 currentEpoch = s.currentEpoch;
+    uint64 currentEpoch = s.currentEpoch;
     require(
       currentEpoch != 0 &&
         msg.sender == s.epochData[currentEpoch - 1].withdrawProxy
