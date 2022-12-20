@@ -105,6 +105,10 @@ contract LienToken is ERC721, ILienToken, Auth {
     validateStack(params.encumber.collateralId, params.encumber.stack)
     returns (Stack[] memory, Stack memory newStack)
   {
+    if (block.timestamp > params.encumber.stack[params.position].point.end) {
+      revert InvalidState(InvalidStates.EXPIRED_LIEN);
+    }
+
     return _buyoutLien(_loadLienStorageSlot(), params);
   }
 
@@ -147,9 +151,15 @@ contract LienToken is ERC721, ILienToken, Auth {
         revert InvalidState(InvalidStates.EXPIRED_LIEN);
       }
 
-      potentialDebt += _getOwed(params.encumber.stack[j], params.encumber.stack[j].point.end);
+      potentialDebt += _getOwed(
+        params.encumber.stack[j],
+        params.encumber.stack[j].point.end
+      );
 
-      if (potentialDebt > params.encumber.stack[j].lien.details.liquidationInitialAsk) {
+      if (
+        potentialDebt >
+        params.encumber.stack[j].lien.details.liquidationInitialAsk
+      ) {
         revert InvalidState(InvalidStates.INITIAL_ASK_EXCEEDED);
       }
 
@@ -187,7 +197,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       newLien,
       params.encumber.stack[params.position].point.lienId
     );
-
 
     uint256 maxPotentialDebt;
     uint256 n = newStack.length;
