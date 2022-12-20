@@ -686,6 +686,16 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _;
   }
 
+  function increaseYIntercept(uint256 amount) public {
+    VaultData storage s = _loadStorageSlot();
+    uint256 currentEpoch = s.currentEpoch;
+    require(
+      currentEpoch != 0 &&
+        msg.sender == s.epochData[currentEpoch - 1].withdrawProxy
+    );
+    _setYIntercept(s, s.yIntercept + amount);
+  }
+
   function decreaseYIntercept(uint256 amount) public {
     VaultData storage s = _loadStorageSlot();
     uint64 currentEpoch = s.currentEpoch;
