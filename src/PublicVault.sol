@@ -389,7 +389,7 @@ contract PublicVault is
           s.withdrawReserve = 0;
         } else {
           unchecked {
-            s.withdrawReserve -= uint88(withdrawBalance);
+            s.withdrawReserve -= withdrawBalance.safeCastTo88();
           }
         }
 
@@ -407,14 +407,21 @@ contract PublicVault is
       timeToEpochEnd() == 0 &&
       withdrawProxy != address(0)
     ) {
+      address currentWithdrawProxy = s
+        .epochData[s.currentEpoch - 1]
+        .withdrawProxy;
+      uint256 drainBalance = WithdrawProxy(withdrawProxy)
+        .drain(
+          s.withdrawReserve,
+          s.epochData[s.currentEpoch - 1].withdrawProxy
+        );
       unchecked {
-        s.withdrawReserve -= WithdrawProxy(withdrawProxy)
-          .drain(
-            s.withdrawReserve,
-            s.epochData[s.currentEpoch - 1].withdrawProxy
-          )
-          .safeCastTo88();
+
+        s.withdrawReserve -= drainBalance.safeCastTo88();
       }
+      WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
+          drainBalance
+        );
     }
   }
 
