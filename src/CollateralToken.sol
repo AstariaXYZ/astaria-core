@@ -66,8 +66,8 @@ contract CollateralToken is
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
-  uint256 constant COLLATERAL_TOKEN_SLOT =
-    0xd6569137fd08fe949c286f37fb9bd830d1299d041edc1069ea252b26b4db9551;
+  uint256 private constant COLLATERAL_TOKEN_SLOT =
+    uint256(keccak256("xyz.astaria.CollateralToken.storage.location")) - 1;
 
   constructor(
     Authority AUTHORITY_,
@@ -141,8 +141,10 @@ contract CollateralToken is
     pure
     returns (CollateralStorage storage s)
   {
+    uint256 slot = COLLATERAL_TOKEN_SLOT;
+
     assembly {
-      s.slot := COLLATERAL_TOKEN_SLOT
+      s.slot := slot
     }
   }
 
