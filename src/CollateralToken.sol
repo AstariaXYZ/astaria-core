@@ -276,7 +276,7 @@ contract CollateralToken is
     (addr, tokenId) = getUnderlying(collateralId);
 
     if (!s.flashEnabled[addr]) {
-      revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
+      revert InvalidCollateralState(InvalidCollateralStates.FLASH_DISABLED);
     }
 
     if (
