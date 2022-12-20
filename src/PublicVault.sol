@@ -175,7 +175,6 @@ contract PublicVault is
     require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     // check for rounding error since we round down in previewRedeem.
 
-
     //this will underflow if not enough balance
     es.balanceOf[owner] -= shares;
 
@@ -664,8 +663,8 @@ contract PublicVault is
     require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
     VaultData storage s = _loadStorageSlot();
 
+    _accrue(s);
     unchecked {
-      _accrue(s);
       _setSlope(s, s.slope - params.lienSlope.safeCastTo48());
     }
 
