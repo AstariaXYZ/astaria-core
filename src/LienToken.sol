@@ -32,6 +32,7 @@ import {VaultImplementation} from "./VaultImplementation.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
+import {Initializable} from "./utils/Initializable.sol";
 
 /**
  * @title LienToken
