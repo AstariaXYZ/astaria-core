@@ -175,7 +175,6 @@ contract PublicVault is
     require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     // check for rounding error since we round down in previewRedeem.
 
-
     //this will underflow if not enough balance
     es.balanceOf[owner] -= shares;
 
@@ -478,9 +477,7 @@ contract PublicVault is
 
   function _accrue(VaultData storage s) internal returns (uint256) {
     unchecked {
-      s.yIntercept += uint256(block.timestamp - s.last)
-        .mulDivDown(uint256(s.slope), 1)
-        .safeCastTo88();
+      s.yIntercept = (_totalAssets(s)).safeCastTo88();
       s.last = block.timestamp.safeCastTo40();
     }
     emit YInterceptChanged(s.yIntercept);
@@ -500,6 +497,10 @@ contract PublicVault is
     returns (uint256)
   {
     VaultData storage s = _loadStorageSlot();
+    return _totalAssets(s);
+  }
+
+  function _totalAssets(VaultData storage s) internal view returns (uint256) {
     uint256 delta_t = block.timestamp - s.last;
     return uint256(s.slope).mulDivDown(delta_t, 1) + uint256(s.yIntercept);
   }
@@ -662,13 +663,9 @@ contract PublicVault is
     require(msg.sender == address(LIEN_TOKEN())); // can only be called by router
     VaultData storage s = _loadStorageSlot();
 
+    _accrue(s);
     unchecked {
-      s.yIntercept += uint256(s.slope)
-        .mulDivDown(block.timestamp - s.last, 1)
-        .safeCastTo88();
-      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
-      _setSlope(s, newSlope);
-      s.last = block.timestamp.safeCastTo40();
+      _setSlope(s, s.slope - params.lienSlope.safeCastTo48());
     }
 
     if (s.currentEpoch != 0) {
