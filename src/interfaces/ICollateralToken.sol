@@ -45,7 +45,7 @@ interface ICollateralToken is IERC721 {
     uint16 osFeeNumerator;
     uint16 osFeeDenominator;
     bytes32 CONDUIT_KEY;
-    mapping(uint256 => bool) collateralIdToAuction;
+    mapping(uint256 => bytes32) collateralIdToAuction;
     mapping(bytes32 => bool) orderSigned;
     mapping(address => bool) flashEnabled;
     //mapping of the collateralToken ID and its underlying asset
@@ -162,13 +162,6 @@ interface ICollateralToken is IERC721 {
    */
   function liquidatorNFTClaim(OrderParameters memory params) external;
 
-  /**
-   * @notice Lists a liquidated CollateralToken as a Seaport auction.
-   * @param params The liquidation information (Lien data, listing price, and maximum auction duration).
-   */
-  function listForSaleOnSeaport(ListUnderlyingForSaleParams calldata params)
-    external;
-
   event Deposit721(
     address indexed tokenContract,
     uint256 indexed tokenId,
@@ -195,6 +188,7 @@ interface ICollateralToken is IERC721 {
     NO_AUCTION,
     FLASH_DISABLED,
     AUCTION_ACTIVE,
+    INVALID_AUCTION_PARAMS,
     ACTIVE_LIENS
   }
 

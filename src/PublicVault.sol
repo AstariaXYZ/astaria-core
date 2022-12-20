@@ -125,7 +125,7 @@ contract PublicVault is
     address owner
   ) public virtual override(ERC4626Cloned) returns (uint256 assets) {
     VaultData storage s = _loadStorageSlot();
-    assets = redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
+    assets = _redeemFutureEpoch(s, shares, receiver, owner, s.currentEpoch);
   }
 
   function withdraw(
@@ -134,9 +134,10 @@ contract PublicVault is
     address owner
   ) public virtual override(ERC4626Cloned) returns (uint256 shares) {
     shares = previewWithdraw(assets);
+
     VaultData storage s = _loadStorageSlot();
 
-    redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
+    _redeemFutureEpoch(s, shares, receiver, owner, s.currentEpoch);
   }
 
   function redeemFutureEpoch(
@@ -145,17 +146,43 @@ contract PublicVault is
     address owner,
     uint64 epoch
   ) public virtual returns (uint256 assets) {
+    return
+      _redeemFutureEpoch(_loadStorageSlot(), shares, receiver, owner, epoch);
+  }
+
+  function _redeemFutureEpoch(
+    VaultData storage s,
+    uint256 shares,
+    address receiver,
+    address owner,
+    uint64 epoch
+  ) internal virtual returns (uint256 assets) {
     // check to ensure that the requested epoch is not in the past
-    VaultData storage s = _loadStorageSlot();
+
+    ERC20Data storage es = _loadERC20Slot();
+
+    if (msg.sender != owner) {
+      uint256 allowed = es.allowance[owner][msg.sender]; // Saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) {
+        es.allowance[owner][msg.sender] = allowed - shares;
+      }
+    }
 
     if (epoch < s.currentEpoch) {
       revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
     }
 
-    // check for rounding error since we round down in previewRedeem.
+    //this will underflow if not enough balance
+    es.balanceOf[owner] -= shares;
 
-    ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
+    // Cannot overflow because the sum of all user
+    // balances can't exceed the max uint256 value.
+    unchecked {
+      es.balanceOf[address(this)] += shares;
+    }
 
+    emit Transfer(owner, address(this), shares);
     // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
     _deployWithdrawProxyIfNotDeployed(s, epoch);
 
@@ -198,7 +225,6 @@ contract PublicVault is
         abi.encodePacked(
           address(ROUTER()), // router is the beacon
           uint8(IAstariaRouter.ImplementationType.WithdrawProxy),
-          address(this), // owner
           asset(), // token
           address(this), // vault
           epoch + 1 // claimable epoch
@@ -217,12 +243,6 @@ contract PublicVault is
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
     }
-
-    uint256 assets = totalAssets();
-    if (s.depositCap != 0 && assets >= s.depositCap) {
-      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
-    }
-
     return super.mint(shares, receiver);
   }
 
@@ -243,9 +263,6 @@ contract PublicVault is
     }
 
     uint256 assets = totalAssets();
-    if (s.depositCap != 0 && assets >= s.depositCap) {
-      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
-    }
 
     return super.deposit(amount, receiver);
   }
@@ -399,15 +416,15 @@ contract PublicVault is
   }
 
   function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
+    IAstariaRouter.Commitment calldata params
   ) internal virtual override(VaultImplementation) {
     VaultData storage s = _loadStorageSlot();
 
+    if (s.withdrawReserve > uint256(0)) {
+      transferWithdrawReserve();
+    }
     if (timeToEpochEnd() == uint256(0)) {
       processEpoch();
-    } else if (s.withdrawReserve > uint256(0)) {
-      transferWithdrawReserve();
     }
   }
 
@@ -433,7 +450,8 @@ contract PublicVault is
     // increment slope for the new lien
     _accrue(s);
     unchecked {
-      s.slope += lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope + lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
     }
 
     uint64 epoch = getLienEpoch(lienEnd);
@@ -444,6 +462,8 @@ contract PublicVault is
     }
     emit LienOpen(lienId, epoch);
   }
+
+  event SlopeUpdated(uint48 newSlope);
 
   function accrue() public returns (uint256) {
     return _accrue(_loadStorageSlot());
@@ -501,10 +521,17 @@ contract PublicVault is
     require(msg.sender == address(LIEN_TOKEN()));
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
+
     unchecked {
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
     }
     _handleStrategistInterestReward(s, params.interestOwed, params.amount);
+  }
+
+  function _setSlope(VaultData storage s, uint48 newSlope) internal {
+    s.slope = newSlope;
+    emit SlopeUpdated(newSlope);
   }
 
   function decreaseEpochLienCount(uint64 epoch) public {
@@ -558,7 +585,10 @@ contract PublicVault is
     unchecked {
       s.yIntercept += assets.safeCastTo88();
     }
-
+    VIData storage v = _loadVISlot();
+    if (v.depositCap != 0 && totalAssets() >= v.depositCap) {
+      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+    }
     emit YInterceptChanged(s.yIntercept);
   }
 
@@ -575,7 +605,7 @@ contract PublicVault is
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       unchecked {
-        uint256 fee = x.mulDivDown(VAULT_FEE(), 1000); //TODO: make const VAULT_FEE is a basis point
+        uint256 fee = x.mulDivDown(VAULT_FEE(), 10000); //TODO: make const VAULT_FEE is a basis point
         s.strategistUnclaimedShares += convertToShares(fee).safeCastTo88();
       }
     }
@@ -590,7 +620,8 @@ contract PublicVault is
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
       s.yIntercept += params.increaseYIntercept.safeCastTo88();
       s.last = block.timestamp.safeCastTo40();
     }
@@ -626,7 +657,8 @@ contract PublicVault is
       s.yIntercept += uint256(s.slope)
         .mulDivDown(block.timestamp - s.last, 1)
         .safeCastTo88();
-      s.slope -= params.lienSlope.safeCastTo48();
+      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
       s.last = block.timestamp.safeCastTo40();
     }
 
@@ -682,7 +714,12 @@ contract PublicVault is
     return epochEnd - block.timestamp;
   }
 
-  function _timeToSecondEndIfPublic() internal view override returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    override
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return timeToEpochEnd() + EPOCH_LENGTH();
   }
 

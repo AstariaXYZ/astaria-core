@@ -38,17 +38,17 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   }
 
   struct VIData {
-    uint32 strategistNonce;
     uint88 depositCap;
     address delegate;
     bool allowListEnabled;
     bool isShutdown;
+    uint256 strategistNonce;
     mapping(address => bool) allowList;
   }
 
-  event NonceUpdated(uint32 nonce);
+  event NonceUpdated(uint256 nonce);
 
-  event IncrementNonce(uint32 nonce);
+  event IncrementNonce(uint256 nonce);
 
   event VaultShutdown();
 
@@ -77,7 +77,7 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function init(InitParams calldata params) external;
 
   function encodeStrategyData(
-    IAstariaRouter.StrategyDetails calldata strategy,
+    IAstariaRouter.StrategyDetailsParam calldata strategy,
     bytes32 root
   ) external view returns (bytes memory);
 
@@ -85,7 +85,7 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
 
   function modifyDepositCap(uint256 newCap) external;
 
-  function getStrategistNonce() external view returns (uint32);
+  function getStrategistNonce() external view returns (uint256);
 
   function STRATEGY_TYPEHASH() external view returns (bytes32);
 }

@@ -120,7 +120,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     returns (string memory)
   {
     return
-      string(abi.encodePacked("AST-W", owner(), "-", ERC20(asset()).symbol()));
+      string(abi.encodePacked("AST-W", VAULT(), "-", ERC20(asset()).symbol()));
   }
 
   /**
@@ -134,7 +134,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     override(ERC4626Cloned, IERC4626)
     returns (uint256 assets)
   {
-    require(msg.sender == owner(), "only owner can mint");
+    require(msg.sender == VAULT(), "only vault can mint");
     _mint(receiver, shares);
     return shares;
   }
@@ -248,7 +248,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     if (balance < s.expected) {
       PublicVault(VAULT()).decreaseYIntercept(
         (s.expected - balance).mulWadDown(
-          10**ERC20(asset()).decimals() - s.withdrawRatio
+            1e18 - s.withdrawRatio
         )
       );
     }
@@ -300,9 +300,11 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   ) public {
     require(msg.sender == VAULT());
     WPStorage storage s = _loadSlot();
+
     unchecked {
       s.expected += newLienExpectedValue.safeCastTo88();
-      s.finalAuctionEnd = (block.timestamp + finalAuctionDelta).safeCastTo40();
+      uint40 auctionEnd = (block.timestamp + finalAuctionDelta).safeCastTo40();
+      if (auctionEnd > s.finalAuctionEnd) s.finalAuctionEnd = auctionEnd;
     }
   }
 }
