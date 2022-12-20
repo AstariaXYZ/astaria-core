@@ -698,7 +698,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
   }
 
-  function getOwed(Stack memory stack) external view returns (uint192) {
+  function getOwed(Stack memory stack) external view returns (uint88) {
     validateLien(stack.lien);
     return _getOwed(stack, block.timestamp);
   }
@@ -706,7 +706,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   function getOwed(Stack memory stack, uint256 timestamp)
     external
     view
-    returns (uint192)
+    returns (uint88)
   {
     validateLien(stack.lien);
     return _getOwed(stack, timestamp);
