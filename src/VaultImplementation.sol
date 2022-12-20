@@ -43,8 +43,8 @@ abstract contract VaultImplementation is
 
   function symbol() public view virtual override returns (string memory);
 
-  uint256 constant VI_SLOT =
-    0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
+  uint256 private constant VI_SLOT =
+    uint256(keccak256("xyz.astaria.VaultImplementation.storage.location")) - 1;
 
   function getStrategistNonce() external view returns (uint256) {
     return _loadVISlot().strategistNonce;
@@ -68,9 +68,11 @@ abstract contract VaultImplementation is
     _loadVISlot().depositCap = newCap.safeCastTo88();
   }
 
-  function _loadVISlot() internal pure returns (VIData storage vi) {
+  function _loadVISlot() internal pure returns (VIData storage s) {
+    uint256 slot = VI_SLOT;
+
     assembly {
-      vi.slot := VI_SLOT
+      s.slot := slot
     }
   }
 

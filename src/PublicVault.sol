@@ -55,8 +55,8 @@ contract PublicVault is
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
 
-  uint256 constant PUBLIC_VAULT_SLOT =
-    0xc8b9e850684c861cb4124c86f9eebbd425d1f899eefe14aef183cd9cd8e16ef0;
+  uint256 private constant PUBLIC_VAULT_SLOT =
+    uint256(keccak256("xyz.astaria.PublicVault.storage.location")) - 1;
 
   function asset()
     public
@@ -435,8 +435,9 @@ contract PublicVault is
   }
 
   function _loadStorageSlot() internal pure returns (VaultData storage s) {
+    uint256 slot = PUBLIC_VAULT_SLOT;
     assembly {
-      s.slot := PUBLIC_VAULT_SLOT
+      s.slot := slot
     }
   }
 

@@ -45,8 +45,8 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 publicVaultAmount
   );
 
-  bytes32 constant WITHDRAW_PROXY_SLOT =
-    keccak256("xyz.astaria.WithdrawProxy.storage.location");
+  uint256 private constant WITHDRAW_PROXY_SLOT =
+    uint256(keccak256("xyz.astaria.WithdrawProxy.storage.location")) - 1;
 
   struct WPStorage {
     uint88 withdrawRatio;
@@ -197,7 +197,8 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   function _loadSlot() internal pure returns (WPStorage storage s) {
-    bytes32 slot = WITHDRAW_PROXY_SLOT;
+    uint256 slot = WITHDRAW_PROXY_SLOT;
+
     assembly {
       s.slot := slot
     }

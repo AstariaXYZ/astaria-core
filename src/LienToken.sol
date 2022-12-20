@@ -43,9 +43,8 @@ contract LienToken is ERC721, ILienToken, Auth {
   using SafeCastLib for uint256;
   using SafeTransferLib for ERC20;
 
-  //keccak256("xyz.astaria.lien.storage.location");
-  bytes32 constant LIEN_SLOT =
-    0x784074eabfd770c66f3ce9775f7de467d76c7082c00549d7c34362d167cafc4b;
+  uint256 private constant LIEN_SLOT =
+    uint256(keccak256("xyz.astaria.LienToken.storage.location")) - 1;
 
   /**
    * @dev Setup transfer authority and initialize the buyoutNumerator and buyoutDenominator for the lien buyout premium.
@@ -69,8 +68,10 @@ contract LienToken is ERC721, ILienToken, Auth {
     pure
     returns (LienStorage storage s)
   {
+    uint256 slot = LIEN_SLOT;
+
     assembly {
-      s.slot := LIEN_SLOT
+      s.slot := slot
     }
   }
 
