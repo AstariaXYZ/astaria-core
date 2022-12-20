@@ -608,7 +608,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     returns (bool)
   {
     RouterStorage storage s = _loadRouterSlot();
-    return (stack.point.end <= block.timestamp ||
+    return (block.timestamp >= stack.point.end ||
       msg.sender == s.COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId));
   }
 

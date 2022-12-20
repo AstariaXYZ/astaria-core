@@ -768,8 +768,8 @@ contract LienToken is ERC721, ILienToken, Auth {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
     uint64 end = stack.point.end;
-    // Blocking off payments for a lien that has exceeded the lien.end to prevent repayment unless the msg.sender() is the AuctionHouse
-    if (block.timestamp > end) {
+
+    if (block.timestamp >= end) {
       revert InvalidLoanState();
     }
     uint256 owed = _getOwed(stack, block.timestamp);
