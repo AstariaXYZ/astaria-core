@@ -328,23 +328,15 @@ library Address {
  * ====
  */
 abstract contract Initializable {
-  bytes32 constant INITIALIZER_SLOT =
-    keccak256("core.astaria.xyz.initializer.storage.location");
+  uint256 private constant INITIALIZER_SLOT =
+    uint256(
+      uint256(keccak256("core.astaria.xyz.initializer.storage.location")) - 1
+    );
 
   struct InitializerState {
     uint8 _initialized;
     bool _initializing;
   }
-  //  /**
-  //   * @dev Indicates that the contract has been initialized.
-  //   * @custom:oz-retyped-from bool
-  //   */
-  //  uint8 private _initialized;
-  //
-  //  /**
-  //   * @dev Indicates that the contract is in the process of being initialized.
-  //   */
-  //  bool private _initializing;
 
   /**
    * @dev Triggered when the contract has been initialized or reinitialized.
@@ -356,7 +348,7 @@ abstract contract Initializable {
     view
     returns (InitializerState storage state)
   {
-    bytes32 slot = INITIALIZER_SLOT;
+    uint256 slot = INITIALIZER_SLOT;
     assembly {
       state.slot := slot
     }
