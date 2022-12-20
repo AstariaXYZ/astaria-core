@@ -51,6 +51,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   event FileUpdated(FileType what, bytes data);
+  error InvalidFileData();
   error UnsupportedFile();
 
   struct RouterStorage {
@@ -74,6 +75,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 minInterestBPS; // was uint64
     //slot 3 +
     address guardian; //20
+    address newGuardian; //20
     uint32 buyoutFeeNumerator;
     uint32 buyoutFeeDenominator;
     uint32 strategistFeeDenominator;

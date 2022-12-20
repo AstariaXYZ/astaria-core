@@ -98,6 +98,20 @@ contract PublicVault is
     return string(abi.encodePacked("AST-V-", ERC20(asset()).symbol()));
   }
 
+  function minDepositAmount()
+    public
+    view
+    virtual
+    override(ERC4626Cloned)
+    returns (uint256)
+  {
+    if (ERC20(asset()).decimals() == uint8(18)) {
+      return 100 gwei;
+    } else {
+      return 10**(ERC20(asset()).decimals() - 1);
+    }
+  }
+
   /**
    * @notice Signal a withdrawal of funds (redeeming for underlying asset) in the next epoch.
    * @param shares The number of VaultToken shares to redeem.
@@ -111,9 +125,7 @@ contract PublicVault is
     address owner
   ) public virtual override(ERC4626Cloned) returns (uint256 assets) {
     VaultData storage s = _loadStorageSlot();
-    // Check for rounding error since we round down in previewRedeem.
-    require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
-    assets = redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
+    assets = _redeemFutureEpoch(s, shares, receiver, owner, s.currentEpoch);
   }
 
   function withdraw(
@@ -122,9 +134,10 @@ contract PublicVault is
     address owner
   ) public virtual override(ERC4626Cloned) returns (uint256 shares) {
     shares = previewWithdraw(assets);
+
     VaultData storage s = _loadStorageSlot();
 
-    redeemFutureEpoch(shares, receiver, owner, s.currentEpoch);
+    _redeemFutureEpoch(s, shares, receiver, owner, s.currentEpoch);
   }
 
   function redeemFutureEpoch(
@@ -133,8 +146,28 @@ contract PublicVault is
     address owner,
     uint64 epoch
   ) public virtual returns (uint256 assets) {
+    return
+      _redeemFutureEpoch(_loadStorageSlot(), shares, receiver, owner, epoch);
+  }
+
+  function _redeemFutureEpoch(
+    VaultData storage s,
+    uint256 shares,
+    address receiver,
+    address owner,
+    uint64 epoch
+  ) internal virtual returns (uint256 assets) {
     // check to ensure that the requested epoch is not in the past
-    VaultData storage s = _loadStorageSlot();
+
+    ERC20Data storage es = _loadERC20Slot();
+
+    if (msg.sender != owner) {
+      uint256 allowed = es.allowance[owner][msg.sender]; // Saves gas for limited approvals.
+
+      if (allowed != type(uint256).max) {
+        es.allowance[owner][msg.sender] = allowed - shares;
+      }
+    }
 
     if (epoch < s.currentEpoch) {
       revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
@@ -142,8 +175,17 @@ contract PublicVault is
     require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     // check for rounding error since we round down in previewRedeem.
 
-    ERC20(address(this)).safeTransferFrom(msg.sender, address(this), shares);
 
+    //this will underflow if not enough balance
+    es.balanceOf[owner] -= shares;
+
+    // Cannot overflow because the sum of all user
+    // balances can't exceed the max uint256 value.
+    unchecked {
+      es.balanceOf[address(this)] += shares;
+    }
+
+    emit Transfer(owner, address(this), shares);
     // Deploy WithdrawProxy if no WithdrawProxy exists for the specified epoch
     _deployWithdrawProxyIfNotDeployed(s, epoch);
 
@@ -170,11 +212,11 @@ contract PublicVault is
   }
 
   function getLiquidationWithdrawRatio() public view returns (uint256) {
-    return _loadStorageSlot().liquidationWithdrawRatio;
+    return uint256(_loadStorageSlot().liquidationWithdrawRatio);
   }
 
   function getYIntercept() public view returns (uint256) {
-    return _loadStorageSlot().yIntercept;
+    return uint256(_loadStorageSlot().yIntercept);
   }
 
   function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
@@ -204,12 +246,6 @@ contract PublicVault is
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
     }
-
-    uint256 assets = totalAssets();
-    if (s.depositCap != 0 && assets >= s.depositCap) {
-      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
-    }
-
     return super.mint(shares, receiver);
   }
 
@@ -230,9 +266,6 @@ contract PublicVault is
     }
 
     uint256 assets = totalAssets();
-    if (s.depositCap != 0 && assets >= s.depositCap) {
-      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
-    }
 
     return super.deposit(amount, receiver);
   }
@@ -555,7 +588,10 @@ contract PublicVault is
     unchecked {
       s.yIntercept += assets.safeCastTo88();
     }
-
+    VIData storage v = _loadVISlot();
+    if (v.depositCap != 0 && totalAssets() >= v.depositCap) {
+      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+    }
     emit YInterceptChanged(s.yIntercept);
   }
 
