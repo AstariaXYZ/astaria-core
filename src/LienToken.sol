@@ -168,6 +168,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       params.encumber.stack[params.position].point.lienId
     );
 
+
     uint256 maxPotentialDebt;
     uint256 n = newStack.length;
     uint256 i;
@@ -317,6 +318,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 id
   ) public override(ERC721, IERC721) {
     LienStorage storage s = _loadLienStorageSlot();
+    if (_isPublicVault(s, to)) {
+      revert InvalidState(InvalidStates.PUBLIC_VAULT_RECIPIENT);
+    }
     if (s.lienMeta[id].atLiquidation) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
