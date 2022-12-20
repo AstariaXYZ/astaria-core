@@ -51,8 +51,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   event FileUpdated(FileType what, bytes data);
-  error InvalidFileData();
-  error UnsupportedFile();
 
   struct RouterStorage {
     //slot 1
@@ -318,6 +316,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidCommitmentState(CommitmentState);
   error InvalidStrategy(uint16);
   error InvalidVault(address);
+  error UnsupportedFile();
+
   enum LienState {
     HEALTHY,
     AUCTION
