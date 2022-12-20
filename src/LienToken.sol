@@ -592,7 +592,6 @@ contract LienToken is ERC721, ILienToken, Auth {
     uint256 end = stack[position].end;
     uint256 owing = stack[position].amountOwed;
     //checks the lien exists
-    address owner = ownerOf(lienId);
     address payee = _getPayee(s, lienId);
 
     if (owing < payment.safeCastTo88()) {
