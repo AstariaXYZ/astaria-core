@@ -217,6 +217,7 @@ contract AstariaRouter is
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.liquidationFeeNumerator = numerator.safeCastTo32();
       s.liquidationFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.StrategistFee) {
@@ -224,6 +225,7 @@ contract AstariaRouter is
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.strategistFeeNumerator = numerator.safeCastTo32();
       s.strategistFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.ProtocolFee) {
@@ -231,6 +233,7 @@ contract AstariaRouter is
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.protocolFeeNumerator = numerator.safeCastTo32();
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.BuyoutFee) {
@@ -238,6 +241,7 @@ contract AstariaRouter is
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.buyoutFeeNumerator = numerator.safeCastTo32();
       s.buyoutFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinInterestBPS) {
@@ -251,7 +255,7 @@ contract AstariaRouter is
     } else if (what == FileType.MaxEpochLength) {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.MaxInterestRate) {
-      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
+      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo88();
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
       s.feeTo = addr;
@@ -268,7 +272,21 @@ contract AstariaRouter is
   function setNewGuardian(address _guardian) external {
     RouterStorage storage s = _loadRouterSlot();
     require(address(msg.sender) == s.guardian);
-    s.guardian = _guardian;
+    s.newGuardian = _guardian;
+  }
+
+  function __renounceGuardian() external {
+    RouterStorage storage s = _loadRouterSlot();
+    require(address(msg.sender) == s.guardian);
+    s.guardian = address(0);
+    s.newGuardian = address(0);
+  }
+
+  function __acceptGuardian() external {
+    RouterStorage storage s = _loadRouterSlot();
+    require(address(msg.sender) == s.newGuardian);
+    s.guardian = s.newGuardian;
+    delete s.newGuardian;
   }
 
   function fileGuardian(File[] calldata file) external {

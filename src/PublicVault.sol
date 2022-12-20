@@ -99,6 +99,20 @@ contract PublicVault is
     return string(abi.encodePacked("AST-V-", ERC20(asset()).symbol()));
   }
 
+  function minDepositAmount()
+    public
+    view
+    virtual
+    override(ERC4626Cloned)
+    returns (uint256)
+  {
+    if (ERC20(asset()).decimals() == uint8(18)) {
+      return 100 gwei;
+    } else {
+      return 10**(ERC20(asset()).decimals() - 1);
+    }
+  }
+
   /**
    * @notice Signal a withdrawal of funds (redeeming for underlying asset) in the next epoch.
    * @param shares The number of VaultToken shares to redeem.
@@ -196,11 +210,11 @@ contract PublicVault is
   }
 
   function getLiquidationWithdrawRatio() public view returns (uint256) {
-    return _loadStorageSlot().liquidationWithdrawRatio;
+    return uint256(_loadStorageSlot().liquidationWithdrawRatio);
   }
 
   function getYIntercept() public view returns (uint256) {
-    return _loadStorageSlot().yIntercept;
+    return uint256(_loadStorageSlot().yIntercept);
   }
 
   function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
