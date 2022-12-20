@@ -105,6 +105,10 @@ contract LienToken is ERC721, ILienToken, Auth {
     validateStack(params.encumber.collateralId, params.encumber.stack)
     returns (Stack[] memory, Stack memory newStack)
   {
+    if (block.timestamp >= params.encumber.stack[params.position].point.end) {
+      revert InvalidState(InvalidStates.EXPIRED_LIEN);
+    }
+
     return _buyoutLien(_loadLienStorageSlot(), params);
   }
 
@@ -143,13 +147,19 @@ contract LienToken is ERC721, ILienToken, Auth {
     for (uint256 i = params.encumber.stack.length; i > 0; ) {
       uint256 j = i - 1;
       // should not be able to purchase lien if any lien in the stack is expired (and will be liquidated)
-      if (block.timestamp > params.encumber.stack[j].point.end) {
+      if (block.timestamp >= params.encumber.stack[j].point.end) {
         revert InvalidState(InvalidStates.EXPIRED_LIEN);
       }
 
-      potentialDebt += _getOwed(params.encumber.stack[j], params.encumber.stack[j].point.end);
+      potentialDebt += _getOwed(
+        params.encumber.stack[j],
+        params.encumber.stack[j].point.end
+      );
 
-      if (potentialDebt > params.encumber.stack[j].lien.details.liquidationInitialAsk) {
+      if (
+        potentialDebt >
+        params.encumber.stack[j].lien.details.liquidationInitialAsk
+      ) {
         revert InvalidState(InvalidStates.INITIAL_ASK_EXCEEDED);
       }
 
@@ -187,7 +197,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       newLien,
       params.encumber.stack[params.position].point.lienId
     );
-
 
     uint256 maxPotentialDebt;
     uint256 n = newStack.length;
@@ -455,7 +464,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     for (uint256 i = stack.length; i > 0; ) {
       uint256 j = i - 1;
       newStack[j] = stack[j];
-      if (block.timestamp > newStack[j].point.end) {
+      if (block.timestamp >= newStack[j].point.end) {
         revert InvalidState(InvalidStates.EXPIRED_LIEN);
       }
       unchecked {
@@ -787,7 +796,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
     uint64 end = stack.point.end;
     // Blocking off payments for a lien that has exceeded the lien.end to prevent repayment unless the msg.sender() is the AuctionHouse
-    if (block.timestamp > end) {
+    if (block.timestamp >= end) {
       revert InvalidLoanState();
     }
     uint256 owed = _getOwed(stack, block.timestamp);

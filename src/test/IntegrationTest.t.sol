@@ -105,7 +105,7 @@ contract IntegrationTest is TestHelpers {
     );
 
     // warp forward while 5 ETH is owed
-    vm.warp(block.timestamp + 14 days);
+    vm.warp(block.timestamp + 14 days - 1);
 
     // should be 5 ETH + accrual
     uint256 lienAmount = LIEN_TOKEN.getOwed(stack[0]);
