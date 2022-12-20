@@ -382,6 +382,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       } else {
         revert UnsupportedFile();
       }
+      emit FileUpdated(what, data);
     }
   }
 
