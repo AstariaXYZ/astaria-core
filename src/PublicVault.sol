@@ -172,6 +172,9 @@ contract PublicVault is
     if (epoch < s.currentEpoch) {
       revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
     }
+    require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
+    // check for rounding error since we round down in previewRedeem.
+
 
     //this will underflow if not enough balance
     es.balanceOf[owner] -= shares;

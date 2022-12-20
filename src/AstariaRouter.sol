@@ -252,9 +252,11 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo88();
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
+      if (addr == address(0)) revert InvalidFileData();
       s.feeTo = addr;
     } else if (what == FileType.StrategyValidator) {
       (uint8 TYPE, address addr) = abi.decode(data, (uint8, address));
+      if (addr == address(0)) revert InvalidFileData();
       s.strategyValidators[TYPE] = addr;
     } else {
       revert UnsupportedFile();
@@ -292,15 +294,19 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       bytes memory data = file[i].data;
       if (what == FileType.Implementation) {
         (uint8 implType, address addr) = abi.decode(data, (uint8, address));
+        if (addr == address(0)) revert InvalidFileData();
         s.implementations[implType] = addr;
       } else if (what == FileType.CollateralToken) {
         address addr = abi.decode(data, (address));
+        if (addr == address(0)) revert InvalidFileData();
         s.COLLATERAL_TOKEN = ICollateralToken(addr);
       } else if (what == FileType.LienToken) {
         address addr = abi.decode(data, (address));
+        if (addr == address(0)) revert InvalidFileData();
         s.LIEN_TOKEN = ILienToken(addr);
       } else if (what == FileType.TransferProxy) {
         address addr = abi.decode(data, (address));
+        if (addr == address(0)) revert InvalidFileData();
         s.TRANSFER_PROXY = ITransferProxy(addr);
       } else {
         revert UnsupportedFile();
