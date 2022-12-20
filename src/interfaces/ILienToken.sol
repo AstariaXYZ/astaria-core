@@ -65,7 +65,6 @@ interface ILienToken is IERC721 {
 
   struct Point {
     uint88 amount; //11
-    uint8 position; //1
     uint40 last; //5
     uint40 end; //5
     uint256 lienId; //32
@@ -139,7 +138,7 @@ interface ILienToken is IERC721 {
    * @param stack The Lien stack
    * @return the amount owed in uint192 at the current block.timestamp
    */
-  function getOwed(Stack calldata stack) external view returns (uint192);
+  function getOwed(Stack calldata stack) external view returns (uint88);
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -150,7 +149,7 @@ interface ILienToken is IERC721 {
   function getOwed(Stack calldata stack, uint256 timestamp)
     external
     view
-    returns (uint192);
+    returns (uint88);
 
   /**
    * @notice Public view function that computes the interest for a LienToken since its last payment.
@@ -269,13 +268,6 @@ interface ILienToken is IERC721 {
   function getPayee(uint256 lienId) external view returns (address);
 
   /**
-   * @notice Change the payee for a specified Lien.
-   * @param lien the Lien to change the payee for.
-   * @param newPayee The new Lien payee.
-   */
-  function setPayee(Lien calldata lien, address newPayee) external;
-
-  /**
    * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
    * @param file The incoming file to handle.
    */
@@ -322,7 +314,9 @@ interface ILienToken is IERC721 {
     MAX_LIENS,
     INVALID_HASH,
     INVALID_LIQUIDATION_INITIAL_ASK,
-    INITIAL_ASK_EXCEEDED
+    INITIAL_ASK_EXCEEDED,
+    EMPTY_STATE,
+    PUBLIC_VAULT_RECIPIENT
   }
 
   error InvalidState(InvalidStates);

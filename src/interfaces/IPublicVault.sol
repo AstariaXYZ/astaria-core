@@ -119,8 +119,14 @@ interface IPublicVault is IVaultImplementation {
   function processEpoch() external;
 
   /**
-   * @notice Decrease the PublicVault YIntercept.
-   * @param amount The amount to decrement by.
+   * @notice Increase the PublicVault yIntercept.
+   * @param amount newYIntercept The increase in yIntercept.
+   */
+  function increaseYIntercept(uint256 amount) external;
+
+  /**
+   * @notice Decrease the PublicVault yIntercept.
+   * @param amount newYIntercept The decrease in yIntercept.
    */
   function decreaseYIntercept(uint256 amount) external;
 
@@ -155,6 +161,7 @@ interface IPublicVault is IVaultImplementation {
     DEPOSIT_CAP_EXCEEDED
   }
 
+  event StrategistFee(uint88 feeInShares);
   event YInterceptChanged(uint88 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
   event LienOpen(uint256 lienId, uint256 epoch);

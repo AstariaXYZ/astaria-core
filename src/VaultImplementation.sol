@@ -46,7 +46,7 @@ abstract contract VaultImplementation is
   uint256 constant VI_SLOT =
     0x8db05f23e24c991e45d8dd3599daf8e419ee5ab93565cf65b18905286a24ec14;
 
-  function getStrategistNonce() external view returns (uint32) {
+  function getStrategistNonce() external view returns (uint256) {
     return _loadVISlot().strategistNonce;
   }
 
@@ -82,6 +82,7 @@ abstract contract VaultImplementation is
   function modifyAllowList(address depositor, bool enabled) external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowList[depositor] = enabled;
+    emit AllowListUpdated(depositor, enabled);
   }
 
   /**
@@ -90,6 +91,7 @@ abstract contract VaultImplementation is
   function disableAllowList() external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowListEnabled = false;
+    emit AllowListEnabled(false);
   }
 
   /**
@@ -98,16 +100,17 @@ abstract contract VaultImplementation is
   function enableAllowList() external virtual {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().allowListEnabled = true;
+    emit AllowListEnabled(true);
   }
 
   /**
    * @notice receive hook for ERC721 tokens, nothing special done
    */
   function onERC721Received(
-    address operator_,
-    address from_,
-    uint256 tokenId_,
-    bytes calldata data_
+    address, // operator_
+    address, // from_
+    uint256, // tokenId_
+    bytes calldata // data_
   ) external pure override returns (bytes4) {
     return ERC721TokenReceiver.onERC721Received.selector;
   }
@@ -148,7 +151,7 @@ abstract contract VaultImplementation is
   }
 
   bytes32 public constant STRATEGY_TYPEHASH =
-    0x679f3933bd13bd2e4ec6e9cde341ede07736ad7b635428a8a211e9cccb4393b0;
+    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
 
   /*
    * @notice encodes the data for a 712 signature
@@ -157,7 +160,7 @@ abstract contract VaultImplementation is
    * @param amount The amount of the token
    */
   function encodeStrategyData(
-    IAstariaRouter.StrategyDetails calldata strategy,
+    IAstariaRouter.StrategyDetailsParam calldata strategy,
     bytes32 root
   ) external view returns (bytes memory) {
     VIData storage s = _loadVISlot();
@@ -166,7 +169,7 @@ abstract contract VaultImplementation is
 
   function _encodeStrategyData(
     VIData storage s,
-    IAstariaRouter.StrategyDetails calldata strategy,
+    IAstariaRouter.StrategyDetailsParam calldata strategy,
     bytes32 root
   ) internal view returns (bytes memory) {
     bytes32 hash = keccak256(
@@ -198,6 +201,8 @@ abstract contract VaultImplementation is
     s.allowList[s.delegate] = false;
     s.allowList[delegate_] = true;
     s.delegate = delegate_;
+    emit DelegateUpdated(delegate_);
+    emit AllowListUpdated(delegate_, true);
   }
 
   /**
@@ -219,18 +224,15 @@ abstract contract VaultImplementation is
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
     address operator = CT.getApproved(collateralId);
-
     if (
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      !ROUTER().isValidVault(receiver)
+      !ROUTER().isValidVault(receiver) &&
+      !CT.isApprovedForAll(holder, receiver) &&
+      receiver != params.lienRequest.strategy.vault
     ) {
-      if (operator != address(0)) {
-        require(operator == receiver);
-      } else {
-        require(CT.isApprovedForAll(holder, receiver));
-      }
+      revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
     VIData storage s = _loadVISlot();
     address recovered = ecrecover(
@@ -261,10 +263,10 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata,
-    address receiver
-  ) internal virtual {}
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
+    internal
+    virtual
+  {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.
@@ -282,7 +284,7 @@ abstract contract VaultImplementation is
     whenNotPaused
     returns (uint256 lienId, ILienToken.Stack[] memory stack)
   {
-    _beforeCommitToLien(params, receiver);
+    _beforeCommitToLien(params);
     uint256 slopeAddition;
     (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(
       params,
@@ -354,7 +356,12 @@ abstract contract VaultImplementation is
       );
   }
 
-  function _timeToSecondEndIfPublic() internal view virtual returns (uint256 timeToSecondEpochEnd) {
+  function _timeToSecondEndIfPublic()
+    internal
+    view
+    virtual
+    returns (uint256 timeToSecondEpochEnd)
+  {
     return 0;
   }
 

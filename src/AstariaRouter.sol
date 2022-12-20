@@ -107,15 +107,84 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.guardian = address(msg.sender);
   }
 
+  function mint(
+    IERC4626 vault,
+    address to,
+    uint256 shares,
+    uint256 maxAmountIn
+  )
+    public
+    payable
+    virtual
+    override
+    validVault(address(vault))
+    returns (uint256 amountIn)
+  {
+    return super.mint(vault, to, shares, maxAmountIn);
+  }
+
+  function deposit(
+    IERC4626 vault,
+    address to,
+    uint256 amount,
+    uint256 minSharesOut
+  )
+    public
+    payable
+    virtual
+    override
+    validVault(address(vault))
+    returns (uint256 sharesOut)
+  {
+    return super.deposit(vault, to, amount, minSharesOut);
+  }
+
+  function withdraw(
+    IERC4626 vault,
+    address to,
+    uint256 amount,
+    uint256 maxSharesOut
+  )
+    public
+    payable
+    virtual
+    override
+    validVault(address(vault))
+    returns (uint256 sharesOut)
+  {
+    return super.withdraw(vault, to, amount, maxSharesOut);
+  }
+
+  function redeem(
+    IERC4626 vault,
+    address to,
+    uint256 shares,
+    uint256 minAmountOut
+  )
+    public
+    payable
+    virtual
+    override
+    validVault(address(vault))
+    returns (uint256 amountOut)
+  {
+    return super.redeem(vault, to, shares, minAmountOut);
+  }
+
   function redeemFutureEpoch(
     IPublicVault vault,
     uint256 shares,
     address receiver,
     uint64 epoch
-  ) public virtual returns (uint256 assets) {
-    pullToken(address(vault), shares, address(this));
-    ERC20(address(vault)).safeApprove(address(vault), shares);
-    vault.redeemFutureEpoch(shares, receiver, msg.sender, epoch);
+  ) public virtual validVault(address(vault)) returns (uint256 assets) {
+    return vault.redeemFutureEpoch(shares, receiver, msg.sender, epoch);
+  }
+
+  modifier validVault(address targetVault) {
+    if (!isValidVault(targetVault)) {
+      revert InvalidVault(targetVault);
+    }
+    _;
   }
 
   function pullToken(
@@ -189,11 +258,15 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   function fileBatch(File[] calldata files) external requiresAuth {
     for (uint256 i = 0; i < files.length; i++) {
-      file(files[i]);
+      _file(files[i]);
     }
   }
 
   function file(File calldata incoming) public requiresAuth {
+    _file(incoming);
+  }
+
+  function _file(File calldata incoming) internal {
     RouterStorage storage s = _loadRouterSlot();
     FileType what = incoming.what;
     bytes memory data = incoming.data;
@@ -209,6 +282,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.liquidationFeeNumerator = numerator.safeCastTo32();
       s.liquidationFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.StrategistFee) {
@@ -216,6 +290,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.strategistFeeNumerator = numerator.safeCastTo32();
       s.strategistFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.ProtocolFee) {
@@ -223,6 +298,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.protocolFeeNumerator = numerator.safeCastTo32();
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.BuyoutFee) {
@@ -230,6 +306,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         data,
         (uint256, uint256)
       );
+      if (denominator > numerator) revert InvalidFileData();
       s.buyoutFeeNumerator = numerator.safeCastTo32();
       s.buyoutFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinInterestBPS) {
@@ -243,14 +320,14 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     } else if (what == FileType.MaxEpochLength) {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.MaxInterestRate) {
-      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
-    } else if (what == FileType.MinInterestRate) {
-      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo48();
+      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo88();
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
+      if (addr == address(0)) revert InvalidFileData();
       s.feeTo = addr;
     } else if (what == FileType.StrategyValidator) {
       (uint8 TYPE, address addr) = abi.decode(data, (uint8, address));
+      if (addr == address(0)) revert InvalidFileData();
       s.strategyValidators[TYPE] = addr;
     } else {
       revert UnsupportedFile();
@@ -262,7 +339,21 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function setNewGuardian(address _guardian) external {
     RouterStorage storage s = _loadRouterSlot();
     require(address(msg.sender) == s.guardian);
-    s.guardian = _guardian;
+    s.newGuardian = _guardian;
+  }
+
+  function __renounceGuardian() external {
+    RouterStorage storage s = _loadRouterSlot();
+    require(address(msg.sender) == s.guardian);
+    s.guardian = address(0);
+    s.newGuardian = address(0);
+  }
+
+  function __acceptGuardian() external {
+    RouterStorage storage s = _loadRouterSlot();
+    require(address(msg.sender) == s.newGuardian);
+    s.guardian = s.newGuardian;
+    delete s.newGuardian;
   }
 
   function fileGuardian(File[] calldata file) external {
@@ -274,19 +365,24 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       bytes memory data = file[i].data;
       if (what == FileType.Implementation) {
         (uint8 implType, address addr) = abi.decode(data, (uint8, address));
+        if (addr == address(0)) revert InvalidFileData();
         s.implementations[implType] = addr;
       } else if (what == FileType.CollateralToken) {
         address addr = abi.decode(data, (address));
+        if (addr == address(0)) revert InvalidFileData();
         s.COLLATERAL_TOKEN = ICollateralToken(addr);
       } else if (what == FileType.LienToken) {
         address addr = abi.decode(data, (address));
+        if (addr == address(0)) revert InvalidFileData();
         s.LIEN_TOKEN = ILienToken(addr);
       } else if (what == FileType.TransferProxy) {
         address addr = abi.decode(data, (address));
+        if (addr == address(0)) revert InvalidFileData();
         s.TRANSFER_PROXY = ITransferProxy(addr);
       } else {
         revert UnsupportedFile();
       }
+      emit FileUpdated(what, data);
     }
   }
 
@@ -674,6 +770,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
       revert InvalidSenderForCollateral(msg.sender, collateralId);
+    }
+    if (s.vaults[c.lienRequest.strategy.vault] == address(0)) {
+      revert InvalidVault(c.lienRequest.strategy.vault);
     }
     //router must be approved for the collateral to take a loan,
     return

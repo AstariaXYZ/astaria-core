@@ -28,19 +28,15 @@ abstract contract WithdrawVaultBase is Clone, IWithdrawProxy {
     return _getArgUint8(20);
   }
 
-  function owner() public pure returns (address) {
+  function asset() public pure virtual override(IERC4626) returns (address) {
     return _getArgAddress(21);
   }
 
-  function asset() public pure virtual override(IERC4626) returns (address) {
+  function VAULT() public pure returns (address) {
     return _getArgAddress(41);
   }
 
-  function VAULT() public pure returns (address) {
-    return _getArgAddress(61);
-  }
-
   function CLAIMABLE_EPOCH() public pure returns (uint64) {
-    return _getArgUint64(81);
+    return _getArgUint64(61);
   }
 }
