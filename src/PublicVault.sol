@@ -685,11 +685,14 @@ contract PublicVault is
     }
   }
 
-  function _decreaseYIntercept(VaultData storage s, uint256 amount) internal {
-    unchecked {
-      s.yIntercept -= amount.safeCastTo88();
-    }
-    emit YInterceptChanged(s.yIntercept);
+  function increaseYIntercept(uint256 amount) public {
+    VaultData storage s = _loadStorageSlot();
+    uint256 currentEpoch = s.currentEpoch;
+    require(
+      currentEpoch != 0 &&
+        msg.sender == s.epochData[currentEpoch - 1].withdrawProxy
+    );
+    _setYIntercept(s, s.yIntercept + amount);
   }
 
   function decreaseYIntercept(uint256 amount) public {
