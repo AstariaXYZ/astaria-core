@@ -290,10 +290,7 @@ contract CollateralToken is
 
     address securityHook = s.securityHooks[addr];
     if (securityHook != address(0)) {
-      preTransferState = ISecurityHook(securityHook).getState(
-        addr,
-        tokenId
-      );
+      preTransferState = ISecurityHook(securityHook).getState(addr, tokenId);
     }
     // transfer the NFT to the destination optimistically
 
@@ -315,8 +312,7 @@ contract CollateralToken is
 
     if (
       securityHook != address(0) &&
-      preTransferState !=
-      ISecurityHook(securityHook).getState(addr, tokenId)
+      preTransferState != ISecurityHook(securityHook).getState(addr, tokenId)
     ) {
       revert FlashActionSecurityCheckFailed();
     }
@@ -358,16 +354,16 @@ contract CollateralToken is
     uint256 collateralId,
     address releaseTo
   ) internal {
-
-    delete s.idToUnderlying[collateralId];
-    _burn(collateralId);
-
     ClearingHouse(s.clearingHouse[collateralId]).transferUnderlying(
       underlyingAsset.tokenContract,
       underlyingAsset.tokenId,
       releaseTo
     );
-    emit ReleaseTo(underlyingAsset.tokenContract, underlyingAsset.tokenId, releaseTo);
+    emit ReleaseTo(
+      underlyingAsset.tokenContract,
+      underlyingAsset.tokenId,
+      releaseTo
+    );
   }
 
   function getConduitKey() public view returns (bytes32) {
