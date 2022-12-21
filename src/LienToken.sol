@@ -218,7 +218,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       }
     }
 
-    s.collateralStateHash[params.encumber.collateralId] = keccak256(
+    s.collateralStateHash[params.encumber.lien.collateralId] = keccak256(
       abi.encode(newStack)
     );
   }
@@ -390,13 +390,13 @@ contract LienToken is ERC721, ILienToken, Auth {
 
     lienSlope = calculateSlope(newStackSlot);
     emit AddLien(
-      params.collateralId,
+      params.lien.collateralId,
       uint8(params.stack.length),
       lienId,
       newStackSlot
     );
     emit LienStackUpdated(
-      params.collateralId,
+      params.lien.collateralId,
       uint8(params.stack.length),
       StackAction.ADD,
       uint8(newStack.length)
@@ -407,7 +407,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     ILienToken.LienActionEncumber memory params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
-    if (s.collateralStateHash[params.collateralId] == ACTIVE_AUCTION) {
+    if (s.collateralStateHash[params.lien.collateralId] == ACTIVE_AUCTION) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
     if (
@@ -571,9 +571,9 @@ contract LienToken is ERC721, ILienToken, Auth {
   function getBuyout(Stack calldata stack)
     public
     view
-    returns (uint256 buyout)
+    returns (uint256 owed, uint256 buyout)
   {
-    (, buyout) = _getBuyout(_loadLienStorageSlot(), stack);
+    return _getBuyout(_loadLienStorageSlot(), stack);
   }
 
   function _getBuyout(LienStorage storage s, Stack calldata stack)

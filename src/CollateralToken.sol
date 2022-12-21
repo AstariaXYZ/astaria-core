@@ -340,7 +340,15 @@ contract CollateralToken is
   {
     CollateralStorage storage s = _loadCollateralSlot();
 
-    _releaseToAddress(s, collateralId, releaseTo);
+    if (msg.sender != ownerOf(collateralId)) {
+      revert InvalidSender();
+    }
+    Asset storage underlying = s.idToUnderlying[collateralId];
+    address tokenContract = underlying.tokenContract;
+    uint256 tokenId = underlying.tokenId;
+    _burn(collateralId);
+    delete s.idToUnderlying[collateralId];
+    _releaseToAddress(tokenContract, tokenId, releaseTo);
   }
 
   /**

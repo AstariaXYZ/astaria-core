@@ -124,12 +124,11 @@ interface ILienToken is IERC721 {
   /**
    * @notice Computes and returns the buyout amount for a Lien.
    * @param stack the lien
-   * @return buyout The buyout amount for the Lien.
    */
   function getBuyout(Stack calldata stack)
     external
     view
-    returns (uint256 buyout);
+    returns (uint256 owed, uint256 buyout);
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -309,6 +308,7 @@ interface ILienToken is IERC721 {
   error InvalidTerms();
   error InvalidRefinance();
   error InvalidLoanState();
+  error InvalidSender();
   enum InvalidStates {
     NO_AUTHORITY,
     COLLATERAL_MISMATCH,

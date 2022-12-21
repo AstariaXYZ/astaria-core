@@ -318,7 +318,7 @@ abstract contract VaultImplementation is
   {
     LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
-    uint256 buyout = lienToken.getBuyout(stack[position]);
+    (uint256 owed, uint256 buyout) = lienToken.getBuyout(stack[position]);
 
     if (buyout > ERC20(asset()).balanceOf(address(this))) {
       revert IVaultImplementation.InvalidRequest(
@@ -342,7 +342,6 @@ abstract contract VaultImplementation is
         ILienToken.LienActionBuyout({
           position: position,
           encumber: ILienToken.LienActionEncumber({
-            collateralId: collateralId,
             amount: owed,
             receiver: recipient(),
             lien: ROUTER().validateCommitment({
