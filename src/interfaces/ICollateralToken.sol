@@ -171,18 +171,6 @@ interface ICollateralToken is IERC721 {
    */
   function liquidatorNFTClaim(OrderParameters memory params) external;
 
-  event Deposit721(
-    address indexed tokenContract,
-    uint256 indexed tokenId,
-    uint256 indexed collateralId,
-    address depositedFor
-  );
-  event ReleaseTo(
-    address indexed underlyingAsset,
-    uint256 assetId,
-    address indexed to
-  );
-
   error UnsupportedFile();
   error InvalidCollateral();
   error InvalidSender();
