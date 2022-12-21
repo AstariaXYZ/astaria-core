@@ -83,7 +83,6 @@ interface ILienToken is IERC721 {
   }
 
   struct LienActionBuyout {
-    IAstariaRouter.Commitment incoming;
     uint8 position;
     LienActionEncumber encumber;
   }
@@ -126,12 +125,12 @@ interface ILienToken is IERC721 {
   /**
    * @notice Computes and returns the buyout amount for a Lien.
    * @param stack the lien
-   * @return The outstanding debt for the lien and the buyout amount for the Lien.
+   * @return buyout The buyout amount for the Lien.
    */
   function getBuyout(Stack calldata stack)
     external
     view
-    returns (uint256, uint256);
+    returns (uint256 buyout);
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -242,6 +241,15 @@ interface ILienToken is IERC721 {
     returns (AuctionData memory);
 
   /**
+   * @notice Retrieves the liquidator for a CollateralToken.
+   * @param collateralId The ID of the CollateralToken.
+   */
+  function getAuctionLiquidator(uint256 collateralId)
+  external
+  view
+  returns (address liquidator);
+
+  /**
    * Calculates the debt accrued by all liens against a CollateralToken, assuming no payments are made until the end timestamp in the stack.
    * @param stack The stack data for active liens against the CollateralToken.
    */
@@ -316,7 +324,8 @@ interface ILienToken is IERC721 {
     INVALID_HASH,
     INVALID_LIQUIDATION_INITIAL_ASK,
     INITIAL_ASK_EXCEEDED,
-    EMPTY_STATE
+    EMPTY_STATE,
+    COLLATERAL_NOT_LIQUIDATED
   }
 
   error InvalidState(InvalidStates);

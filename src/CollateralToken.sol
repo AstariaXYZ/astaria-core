@@ -110,7 +110,7 @@ contract CollateralToken is
     uint256 collateralId = params.offer[0].token.computeId(
       params.offer[0].identifierOrCriteria
     );
-    address liquidator = s.LIEN_TOKEN.getAuctionData(collateralId).liquidator;
+    address liquidator = s.LIEN_TOKEN.getAuctionLiquidator(collateralId);
     if (
       s.collateralIdToAuction[collateralId] == bytes32(0) ||
       liquidator == address(0)
@@ -186,8 +186,12 @@ contract CollateralToken is
   }
 
   function fileBatch(File[] calldata files) external requiresAuth {
-    for (uint256 i = 0; i < files.length; i++) {
+    uint256 i;
+    for (; i < files.length; ) {
       _file(files[i]);
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -259,8 +263,6 @@ contract CollateralToken is
   }
 
   modifier onlyOwner(uint256 collateralId) {
-    CollateralStorage storage s = _loadCollateralSlot();
-
     require(ownerOf(collateralId) == msg.sender);
     _;
   }
@@ -287,11 +289,12 @@ contract CollateralToken is
 
     IERC721 nft = IERC721(addr);
 
-    bytes memory preTransferState;
+    bytes32 preTransferState;
     //look to see if we have a security handler for this asset
 
-    if (s.securityHooks[addr] != address(0)) {
-      preTransferState = ISecurityHook(s.securityHooks[addr]).getState(
+    address securityHook = s.securityHooks[addr];
+    if (securityHook != address(0)) {
+      preTransferState = ISecurityHook(securityHook).getState(
         addr,
         tokenId
       );
@@ -309,9 +312,9 @@ contract CollateralToken is
     }
 
     if (
-      s.securityHooks[addr] != address(0) &&
-      (keccak256(preTransferState) !=
-        keccak256(ISecurityHook(s.securityHooks[addr]).getState(addr, tokenId)))
+      securityHook != address(0) &&
+      preTransferState !=
+      ISecurityHook(securityHook).getState(addr, tokenId)
     ) {
       revert FlashActionSecurityCheckFailed();
     }
@@ -599,9 +602,9 @@ contract CollateralToken is
     s.SEAPORT.validate(listings);
     emit ListedOnSeaport(collateralId, listingOrder);
 
-    s.collateralIdToAuction[
-      uint256(listingOrder.parameters.zoneHash)
-    ] = keccak256(abi.encode(listingOrder.parameters));
+    s.collateralIdToAuction[collateralId] = keccak256(
+      abi.encode(listingOrder.parameters)
+    );
   }
 
   function settleAuction(uint256 collateralId) public requiresAuth {

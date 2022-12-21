@@ -44,9 +44,15 @@ abstract contract VaultImplementation is
   bytes32 public constant STRATEGY_TYPEHASH =
     keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
 
-  function name() public view virtual override returns (string memory);
+  bytes32 constant EIP_DOMAIN =
+    keccak256(
+      "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
+    );
+  bytes32 constant VERSION = keccak256("0");
 
-  function symbol() public view virtual override returns (string memory);
+  function name() external view virtual override returns (string memory);
+
+  function symbol() external view virtual override returns (string memory);
 
   function getStrategistNonce() external view returns (uint256) {
     return _loadVISlot().strategistNonce;
@@ -65,7 +71,7 @@ abstract contract VaultImplementation is
    * @notice modify the deposit cap for the vault
    * @param newCap The deposit cap.
    */
-  function modifyDepositCap(uint256 newCap) public {
+  function modifyDepositCap(uint256 newCap) external {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().depositCap = newCap.safeCastTo88();
   }
@@ -139,10 +145,8 @@ abstract contract VaultImplementation is
     return
       keccak256(
         abi.encode(
-          keccak256(
-            "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
-          ),
-          keccak256("0"), //version
+          EIP_DOMAIN,
+          VERSION, //version
           block.chainid,
           address(this)
         )
@@ -185,8 +189,12 @@ abstract contract VaultImplementation is
     s.depositCap = params.depositCap.safeCastTo88();
     if (params.allowListEnabled) {
       s.allowListEnabled = true;
-      for (uint256 i = 0; i < params.allowList.length; i++) {
+      uint256 i;
+      for (; i < params.allowList.length; ) {
         s.allowList[params.allowList[i]] = true;
+        unchecked {
+          ++i;
+        }
       }
     }
   }
@@ -307,9 +315,9 @@ abstract contract VaultImplementation is
     whenNotPaused
     returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
   {
-    (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
-      .LIEN_TOKEN()
-      .getBuyout(stack[position]);
+    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
+
+    uint256 buyout = lienToken.getBuyout(stack[position]);
 
     if (buyout > ERC20(asset()).balanceOf(address(this))) {
       revert IVaultImplementation.InvalidRequest(
@@ -321,8 +329,6 @@ abstract contract VaultImplementation is
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
-    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
-
     if (
       recipient() != address(this) &&
       !lienToken.isApprovedForAll(address(this), recipient())
@@ -333,7 +339,6 @@ abstract contract VaultImplementation is
     return
       lienToken.buyoutLien(
         ILienToken.LienActionBuyout({
-          incoming: incomingTerms,
           position: position,
           encumber: ILienToken.LienActionEncumber({
             collateralId: collateralId,
