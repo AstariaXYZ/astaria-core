@@ -538,7 +538,11 @@ contract AstariaRouter is
       .safeTransfer(address(msg.sender), totalBorrowed);
   }
 
-  function newVault(address delegate) external whenNotPaused returns (address) {
+  function newVault(address delegate, address underlying)
+    external
+    whenNotPaused
+    returns (address)
+  {
     address[] memory allowList = new address[](1);
     allowList[0] = msg.sender;
     RouterStorage storage s = _loadRouterSlot();
