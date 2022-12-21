@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts v4.4.1 (security/Pausable.sol)
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 interface IPausable {
   function paused() external view returns (bool);

@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -30,14 +30,10 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
-import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
-
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
 import {Pausable} from "core/utils/Pausable.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC4626Router} from "gpl/ERC4626Router.sol";
-import {ERC4626RouterBase} from "gpl/ERC4626RouterBase.sol";
-import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 
@@ -53,6 +49,10 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   uint256 constant ROUTER_SLOT =
     0xb5d37468eefb1c75507259f9212a7d55dca0c7d08d9ef7be1cda5c5103eaa88e;
+
+  // cast --to-bytes32 $(cast sig "OutOfBoundError()")
+  uint256 private constant OUTOFBOUND_ERROR_SELECTOR = 0x571e08d100000000000000000000000000000000000000000000000000000000;
+  uint256 private constant ONE_WORD = 0x20;
 
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
@@ -75,7 +75,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     address _WITHDRAW_IMPL,
     address _BEACON_PROXY_IMPL,
     address _CLEARING_HOUSE_IMPL
-  ) Auth(address(msg.sender), _AUTHORITY) {
+  ) Auth(msg.sender, _AUTHORITY) {
     RouterStorage storage s = _loadRouterSlot();
 
     s.WETH = ERC20(_WETH);
@@ -104,7 +104,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.buyoutFeeNumerator = uint32(100);
     s.buyoutFeeDenominator = uint32(1000);
     s.minDurationIncrease = uint32(5 days);
-    s.guardian = address(msg.sender);
+    s.guardian = msg.sender;
   }
 
   function mint(
@@ -257,8 +257,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   }
 
   function fileBatch(File[] calldata files) external requiresAuth {
-    for (uint256 i = 0; i < files.length; i++) {
+    uint256 i;
+    for (; i < files.length; ) {
       _file(files[i]);
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -358,9 +362,10 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
 
   function fileGuardian(File[] calldata file) external {
     RouterStorage storage s = _loadRouterSlot();
-    require(address(msg.sender) == address(s.guardian));
-    //only the guardian can call this
-    for (uint256 i = 0; i < file.length; i++) {
+    require(msg.sender == address(s.guardian));
+
+    uint256 i;
+    for (; i < file.length; ) {
       FileType what = file[i].what;
       bytes memory data = file[i].data;
       if (what == FileType.Implementation) {
@@ -383,12 +388,15 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         revert UnsupportedFile();
       }
       emit FileUpdated(what, data);
+      unchecked {
+        ++i;
+      }
     }
   }
 
   // MODIFIERS
   modifier onlyVaults() {
-    if (_loadRouterSlot().vaults[msg.sender] == address(0)) {
+    if (!_loadRouterSlot().vaults[msg.sender]) {
       revert InvalidVaultState(VaultState.UNINITIALIZED);
     }
     _;
@@ -411,14 +419,20 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function _sliceUint(bytes memory bs, uint256 start)
     internal
     pure
-    returns (uint256)
+    returns (uint256 x)
   {
-    require(bs.length >= start + 32);
-    uint256 x;
+    uint256 length = bs.length;
+
     assembly {
-      x := mload(add(bs, add(0x20, start)))
+      let end := add(ONE_WORD, start)
+
+      if lt(length , end) {
+        mstore(0, OUTOFBOUND_ERROR_SELECTOR)
+        revert(0, ONE_WORD)
+      }
+
+      x := mload(add(bs, end))
     }
-    return x;
   }
 
   function validateCommitment(
@@ -438,11 +452,12 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       revert InvalidCommitmentState(CommitmentState.EXPIRED);
     }
     uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
-    if (s.strategyValidators[nlrType] == address(0)) {
+    address strategyValidator = s.strategyValidators[nlrType];
+    if (strategyValidator == address(0)) {
       revert InvalidStrategy(nlrType);
     }
     (bytes32 leaf, ILienToken.Details memory details) = IStrategyValidator(
-      s.strategyValidators[nlrType]
+      strategyValidator
     ).validateAndParse(
         commitment.lienRequest,
         s.COLLATERAL_TOKEN.ownerOf(
@@ -498,7 +513,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       commitments[0].tokenContract,
       commitments[0].tokenId
     );
-    for (uint256 i; i < commitments.length; ) {
+
+    uint256 i;
+    for (; i < commitments.length; ) {
       if (i != 0) {
         commitments[i].lienRequest.stack = stack;
       }
@@ -513,15 +530,14 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     s.TRANSFER_PROXY.tokenTransferFrom(
       address(s.WETH),
       address(this),
-      address(msg.sender),
+      msg.sender,
       totalBorrowed
     );
   }
 
   function newVault(address delegate) external whenNotPaused returns (address) {
-    address[] memory allowList = new address[](2);
-    allowList[0] = address(msg.sender);
-    allowList[1] = delegate;
+    address[] memory allowList = new address[](1);
+    allowList[0] = msg.sender;
     RouterStorage storage s = _loadRouterSlot();
 
     return
@@ -634,7 +650,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       ICollateralToken.AuctionVaultParams({
         settlementToken: address(s.WETH),
         collateralId: stack[position].lien.collateralId,
-        maxDuration: uint256(s.auctionWindow + s.auctionWindowBuffer),
+        maxDuration: auctionWindowMax,
         startingPrice: stack[0].lien.details.liquidationInitialAsk,
         endingPrice: 1_000 wei
       })
@@ -683,7 +699,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    * @return A boolean representing whether the address exists as a Vault.
    */
   function isValidVault(address vault) public view returns (bool) {
-    return _loadRouterSlot().vaults[vault] != address(0);
+    return _loadRouterSlot().vaults[vault];
   }
 
   function isValidRefinance(
@@ -699,7 +715,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       revert InvalidRefinanceCollateral(newLien.collateralId);
     }
     return
-      (newLien.details.rate < maxNewRate &&
+      (newLien.details.rate <= maxNewRate &&
         newLien.details.duration + block.timestamp >=
         stack[position].point.end) ||
       (block.timestamp + newLien.details.duration - stack[position].point.end >=
@@ -737,7 +753,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       abi.encodePacked(
         address(this),
         vaultType,
-        address(msg.sender),
+        msg.sender,
         address(s.WETH),
         block.timestamp,
         epochLength,
@@ -755,7 +771,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       })
     );
 
-    s.vaults[vaultAddr] = msg.sender;
+    s.vaults[vaultAddr] = true;
 
     emit NewVault(msg.sender, delegate, vaultAddr, vaultType);
 
@@ -771,7 +787,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
       revert InvalidSenderForCollateral(msg.sender, collateralId);
     }
-    if (s.vaults[c.lienRequest.strategy.vault] == address(0)) {
+    if (!s.vaults[c.lienRequest.strategy.vault]) {
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
     //router must be approved for the collateral to take a loan,
@@ -788,9 +804,9 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     uint256 tokenId
   ) internal {
     ERC721 token = ERC721(tokenContract);
-    if (token.ownerOf(tokenId) == address(msg.sender)) {
+    if (token.ownerOf(tokenId) == msg.sender) {
       token.safeTransferFrom(
-        address(msg.sender),
+        msg.sender,
         address(s.COLLATERAL_TOKEN),
         tokenId,
         ""

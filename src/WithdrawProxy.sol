@@ -8,9 +8,8 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -18,7 +17,6 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {ERC4626Cloned} from "gpl/ERC4626-Cloned.sol";
 import {WithdrawVaultBase} from "core/WithdrawVaultBase.sol";
 import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
-import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {PublicVault} from "core/PublicVault.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
@@ -50,7 +48,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
 
   struct WPStorage {
     uint88 withdrawRatio;
-    uint88 expected; // Expected value of auctioned NFTs. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
+    uint88 expected; // The sum of the remaining debt (amountOwed) accrued against the NFT at the timestamp when it is liquidated. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
     uint40 finalAuctionEnd; // when this is deleted, we know the final auction is over
     uint256 withdrawReserveReceived; // amount received from PublicVault. The WETH balance of this contract - withdrawReserveReceived = amount received from liquidations.
   }
@@ -148,11 +146,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     revert NotSupported();
   }
 
-  function withdraw(
-    uint256 assets,
-    address receiver,
-    address owner
-  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 shares) {
+  modifier onlyWhenNoActiveAuction() {
     WPStorage storage s = _loadSlot();
     // If auction funds have been collected to the WithdrawProxy
     // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
@@ -160,7 +154,20 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       // if finalAuctionEnd is 0, no auctions were added
       revert InvalidState(InvalidStates.NOT_CLAIMED);
     }
+    _;
+  }
 
+  function withdraw(
+    uint256 assets,
+    address receiver,
+    address owner
+  )
+    public
+    virtual
+    override(ERC4626Cloned, IERC4626)
+    onlyWhenNoActiveAuction
+    returns (uint256 shares)
+  {
     return super.withdraw(assets, receiver, owner);
   }
 
@@ -175,15 +182,13 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 shares,
     address receiver,
     address owner
-  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 assets) {
-    WPStorage storage s = _loadSlot();
-    // If auction funds have been collected to the WithdrawProxy
-    // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
-    if (s.finalAuctionEnd != 0) {
-      // if finalAuctionEnd is 0, no auctions were added
-      revert InvalidState(InvalidStates.NOT_CLAIMED);
-    }
-
+  )
+    public
+    virtual
+    override(ERC4626Cloned, IERC4626)
+    onlyWhenNoActiveAuction
+    returns (uint256 assets)
+  {
     return super.redeem(shares, receiver, owner);
   }
 
@@ -219,8 +224,12 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     return s.expected;
   }
 
-  function increaseWithdrawReserveReceived(uint256 amount) public {
+  modifier onlyVault() {
     require(msg.sender == VAULT(), "only vault can call");
+    _;
+  }
+
+  function increaseWithdrawReserveReceived(uint256 amount) external onlyVault {
     WPStorage storage s = _loadSlot();
     s.withdrawReserveReceived += amount;
   }
@@ -235,16 +244,13 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     if (PublicVault(VAULT()).getCurrentEpoch() < CLAIMABLE_EPOCH()) {
       revert InvalidState(InvalidStates.PROCESS_EPOCH_NOT_COMPLETE);
     }
-    if (
-      block.timestamp < s.finalAuctionEnd
-      // || s.finalAuctionEnd == uint256(0)
-    ) {
+    if (block.timestamp < s.finalAuctionEnd) {
       revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);
     }
 
     uint256 transferAmount = 0;
     uint256 balance = ERC20(asset()).balanceOf(address(this)) -
-      s.withdrawReserveReceived;
+      s.withdrawReserveReceived; // will never underflow because withdrawReserveReceived is always increased by the transfer amount from the PublicVault
 
     if (balance < s.expected) {
       PublicVault(VAULT()).decreaseYIntercept(
@@ -279,9 +285,9 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
 
   function drain(uint256 amount, address withdrawProxy)
     public
+    onlyVault
     returns (uint256)
   {
-    require(msg.sender == VAULT());
     uint256 balance = ERC20(asset()).balanceOf(address(this));
     if (amount > balance) {
       amount = balance;
@@ -290,18 +296,14 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     return amount;
   }
 
-  function setWithdrawRatio(uint256 liquidationWithdrawRatio) public {
-    require(msg.sender == VAULT());
-    unchecked {
-      _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
-    }
+  function setWithdrawRatio(uint256 liquidationWithdrawRatio) public onlyVault {
+    _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
   }
 
   function handleNewLiquidation(
     uint256 newLienExpectedValue,
     uint256 finalAuctionDelta
-  ) public {
-    require(msg.sender == VAULT());
+  ) public onlyVault {
     WPStorage storage s = _loadSlot();
 
     unchecked {

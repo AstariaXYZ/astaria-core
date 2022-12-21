@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {IERC721} from "core/interfaces/IERC721.sol";
 
@@ -19,7 +19,6 @@ import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 interface ILienToken is IERC721 {
   enum FileType {
     NotSupported,
-    AuctionHouse,
     CollateralToken,
     AstariaRouter
   }
@@ -84,7 +83,6 @@ interface ILienToken is IERC721 {
   }
 
   struct LienActionBuyout {
-    IAstariaRouter.Commitment incoming;
     uint8 position;
     LienActionEncumber encumber;
   }
@@ -110,6 +108,7 @@ interface ILienToken is IERC721 {
    */
   function calculateSlope(Stack calldata stack)
     external
+    pure
     returns (uint256 slope);
 
   /**
@@ -126,12 +125,12 @@ interface ILienToken is IERC721 {
   /**
    * @notice Computes and returns the buyout amount for a Lien.
    * @param stack the lien
-   * @return The outstanding debt for the lien and the buyout amount for the Lien.
+   * @return buyout The buyout amount for the Lien.
    */
   function getBuyout(Stack calldata stack)
     external
     view
-    returns (uint256, uint256);
+    returns (uint256 buyout);
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -242,6 +241,15 @@ interface ILienToken is IERC721 {
     returns (AuctionData memory);
 
   /**
+   * @notice Retrieves the liquidator for a CollateralToken.
+   * @param collateralId The ID of the CollateralToken.
+   */
+  function getAuctionLiquidator(uint256 collateralId)
+  external
+  view
+  returns (address liquidator);
+
+  /**
    * Calculates the debt accrued by all liens against a CollateralToken, assuming no payments are made until the end timestamp in the stack.
    * @param stack The stack data for active liens against the CollateralToken.
    */
@@ -297,6 +305,7 @@ interface ILienToken is IERC721 {
   event PayeeChanged(uint256 indexed lienId, address indexed payee);
 
   error UnsupportedFile();
+  error InvalidTokenId(uint256 tokenId);
   error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
   error InvalidTerms();
   error InvalidRefinance();
@@ -316,7 +325,8 @@ interface ILienToken is IERC721 {
     INVALID_LIQUIDATION_INITIAL_ASK,
     INITIAL_ASK_EXCEEDED,
     EMPTY_STATE,
-    PUBLIC_VAULT_RECIPIENT
+    PUBLIC_VAULT_RECIPIENT,
+    COLLATERAL_NOT_LIQUIDATED
   }
 
   error InvalidState(InvalidStates);

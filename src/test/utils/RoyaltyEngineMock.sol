@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";

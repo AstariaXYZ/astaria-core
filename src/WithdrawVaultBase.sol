@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 import {IRouterBase} from "core/interfaces/IRouterBase.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";

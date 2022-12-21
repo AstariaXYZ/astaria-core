@@ -8,7 +8,7 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 pragma experimental ABIEncoderV2;
 
@@ -110,7 +110,7 @@ contract CollateralToken is
     uint256 collateralId = params.offer[0].token.computeId(
       params.offer[0].identifierOrCriteria
     );
-    address liquidator = s.LIEN_TOKEN.getAuctionData(collateralId).liquidator;
+    address liquidator = s.LIEN_TOKEN.getAuctionLiquidator(collateralId);
     if (
       s.collateralIdToAuction[collateralId] == bytes32(0) ||
       liquidator == address(0)
@@ -188,8 +188,12 @@ contract CollateralToken is
   }
 
   function fileBatch(File[] calldata files) external requiresAuth {
-    for (uint256 i = 0; i < files.length; i++) {
+    uint256 i;
+    for (; i < files.length; ) {
       _file(files[i]);
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -261,8 +265,6 @@ contract CollateralToken is
   }
 
   modifier onlyOwner(uint256 collateralId) {
-    CollateralStorage storage s = _loadCollateralSlot();
-
     require(ownerOf(collateralId) == msg.sender);
     _;
   }
@@ -289,11 +291,12 @@ contract CollateralToken is
 
     IERC721 nft = IERC721(addr);
 
-    bytes memory preTransferState;
+    bytes32 preTransferState;
     //look to see if we have a security handler for this asset
 
-    if (s.securityHooks[addr] != address(0)) {
-      preTransferState = ISecurityHook(s.securityHooks[addr]).getState(
+    address securityHook = s.securityHooks[addr];
+    if (securityHook != address(0)) {
+      preTransferState = ISecurityHook(securityHook).getState(
         addr,
         tokenId
       );
@@ -311,9 +314,9 @@ contract CollateralToken is
     }
 
     if (
-      s.securityHooks[addr] != address(0) &&
-      (keccak256(preTransferState) !=
-        keccak256(ISecurityHook(s.securityHooks[addr]).getState(addr, tokenId)))
+      securityHook != address(0) &&
+      preTransferState !=
+      ISecurityHook(securityHook).getState(addr, tokenId)
     ) {
       revert FlashActionSecurityCheckFailed();
     }
@@ -328,11 +331,10 @@ contract CollateralToken is
   function releaseToAddress(uint256 collateralId, address releaseTo)
     public
     releaseCheck(collateralId)
+    onlyOwner(collateralId)
   {
     CollateralStorage storage s = _loadCollateralSlot();
-    if (msg.sender != ownerOf(collateralId)) {
-      revert InvalidSender();
-    }
+
     _releaseToAddress(s, collateralId, releaseTo);
   }
 
@@ -352,8 +354,7 @@ contract CollateralToken is
     IERC721(underlyingAsset).safeTransferFrom(
       address(this),
       releaseTo,
-      assetId,
-      ""
+      assetId
     );
     emit ReleaseTo(underlyingAsset, assetId, releaseTo);
   }
@@ -562,12 +563,10 @@ contract CollateralToken is
     s.SEAPORT.validate(listings);
     emit ListedOnSeaport(collateralId, listingOrder);
 
-    s.collateralIdToAuction[
-      uint256(listingOrder.parameters.zoneHash)
-    ] = keccak256(abi.encode(listingOrder.parameters));
+    s.collateralIdToAuction[collateralId] = keccak256(
+      abi.encode(listingOrder.parameters)
+    );
   }
-
-  event ListedOnSeaport(uint256 collateralId, Order listingOrder);
 
   function settleAuction(uint256 collateralId) public requiresAuth {
     CollateralStorage storage s = _loadCollateralSlot();
@@ -587,13 +586,12 @@ contract CollateralToken is
 
   /**
    * @dev Mints a new CollateralToken wrapping an NFT.
-   * @param operator_ the approved sender that called safeTransferFrom
    * @param from_ the owner of the collateral deposited
    * @param tokenId_ The NFT token ID
    * @return a static return of the receive signature
    */
   function onERC721Received(
-    address operator_,
+    address, /* operator_ */
     address from_,
     uint256 tokenId_,
     bytes calldata // calldata data_
@@ -621,20 +619,14 @@ contract CollateralToken is
         revert InvalidCollateral();
       }
 
-      address depositFor = operator_;
-
-      if (operator_ != from_) {
-        depositFor = from_;
-      }
-
-      _mint(depositFor, collateralId);
+      _mint(from_, collateralId);
 
       s.idToUnderlying[collateralId] = Asset({
         tokenContract: msg.sender,
         tokenId: tokenId_
       });
 
-      emit Deposit721(msg.sender, tokenId_, collateralId, depositFor);
+      emit Deposit721(msg.sender, tokenId_, collateralId, from_);
       return IERC721Receiver.onERC721Received.selector;
     } else {
       revert();

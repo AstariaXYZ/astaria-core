@@ -7,7 +7,7 @@
  *
  * Copyright (c) Astaria Labs, Inc
  */
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 import {IV3PositionManager} from "core/interfaces/IV3PositionManager.sol";
 import {ISecurityHook} from "core/interfaces/ISecurityHook.sol";
 
@@ -21,7 +21,7 @@ contract V3SecurityHook is ISecurityHook {
   function getState(address tokenContract, uint256 tokenId)
     external
     view
-    returns (bytes memory)
+    returns (bytes32)
   {
     (
       uint96 nonce,
@@ -37,6 +37,6 @@ contract V3SecurityHook is ISecurityHook {
       ,
 
     ) = IV3PositionManager(positionManager).positions(tokenId);
-    return abi.encode(nonce, operator, liquidity);
+    return keccak256(abi.encode(nonce, operator, liquidity));
   }
 }

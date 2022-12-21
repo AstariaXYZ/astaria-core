@@ -1,4 +1,4 @@
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {IFlashAction} from "core/interfaces/IFlashAction.sol";
 import {IV3PositionManager} from "core/interfaces/IV3PositionManager.sol";
@@ -7,6 +7,8 @@ import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 
 contract ClaimFees is IFlashAction, IERC721Receiver {
   address public immutable positionManager;
+  bytes32 private constant FLASH_ACTION_MAGIC =
+    keccak256("FlashAction.onFlashAction");
 
   constructor(address positionManager_) {
     positionManager = positionManager_;
@@ -35,6 +37,6 @@ contract ClaimFees is IFlashAction, IERC721Receiver {
       )
     );
     ERC721(asset.token).transferFrom(address(this), msg.sender, asset.tokenId);
-    return keccak256("FlashAction.onFlashAction");
+    return FLASH_ACTION_MAGIC;
   }
 }

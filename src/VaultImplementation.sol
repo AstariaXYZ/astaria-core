@@ -8,13 +8,12 @@
  * Copyright (c) Astaria Labs, Inc
  */
 
-pragma solidity ^0.8.17;
+pragma solidity =0.8.17;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
@@ -39,9 +38,18 @@ abstract contract VaultImplementation is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
-  function name() public view virtual override returns (string memory);
+  bytes32 public constant STRATEGY_TYPEHASH =
+    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
 
-  function symbol() public view virtual override returns (string memory);
+  bytes32 constant EIP_DOMAIN =
+    keccak256(
+      "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
+    );
+  bytes32 constant VERSION = keccak256("0");
+
+  function name() external view virtual override returns (string memory);
+
+  function symbol() external view virtual override returns (string memory);
 
   uint256 private constant VI_SLOT =
     uint256(keccak256("xyz.astaria.VaultImplementation.storage.location")) - 1;
@@ -63,7 +71,7 @@ abstract contract VaultImplementation is
    * @notice modify the deposit cap for the vault
    * @param newCap The deposit cap.
    */
-  function modifyDepositCap(uint256 newCap) public {
+  function modifyDepositCap(uint256 newCap) external {
     require(msg.sender == owner()); //owner is "strategist"
     _loadVISlot().depositCap = newCap.safeCastTo88();
   }
@@ -142,18 +150,13 @@ abstract contract VaultImplementation is
     return
       keccak256(
         abi.encode(
-          keccak256(
-            "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
-          ),
-          keccak256("0"), //version
+          EIP_DOMAIN,
+          VERSION, //version
           block.chainid,
           address(this)
         )
       );
   }
-
-  bytes32 public constant STRATEGY_TYPEHASH =
-    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
 
   /*
    * @notice encodes the data for a 712 signature
@@ -191,8 +194,12 @@ abstract contract VaultImplementation is
     s.depositCap = params.depositCap.safeCastTo88();
     if (params.allowListEnabled) {
       s.allowListEnabled = true;
-      for (uint256 i = 0; i < params.allowList.length; i++) {
+      uint256 i;
+      for (; i < params.allowList.length; ) {
         s.allowList[params.allowList[i]] = true;
+        unchecked {
+          ++i;
+        }
       }
     }
   }
@@ -200,8 +207,6 @@ abstract contract VaultImplementation is
   function setDelegate(address delegate_) external {
     require(msg.sender == owner()); //owner is "strategist"
     VIData storage s = _loadVISlot();
-    s.allowList[s.delegate] = false;
-    s.allowList[delegate_] = true;
     s.delegate = delegate_;
     emit DelegateUpdated(delegate_);
     emit AllowListUpdated(delegate_, true);
@@ -261,7 +266,6 @@ abstract contract VaultImplementation is
   function _afterCommitToLien(
     uint40 end,
     uint256 lienId,
-    uint256 amount,
     uint256 slope
   ) internal virtual {}
 
@@ -295,7 +299,6 @@ abstract contract VaultImplementation is
     _afterCommitToLien(
       stack[stack.length - 1].point.end,
       lienId,
-      params.lienRequest.amount,
       slopeAddition
     );
   }
@@ -316,9 +319,9 @@ abstract contract VaultImplementation is
     whenNotPaused
     returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
   {
-    (uint256 owed, uint256 buyout) = IAstariaRouter(ROUTER())
-      .LIEN_TOKEN()
-      .getBuyout(stack[position]);
+    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
+
+    uint256 buyout = lienToken.getBuyout(stack[position]);
 
     if (buyout > ERC20(asset()).balanceOf(address(this))) {
       revert IVaultImplementation.InvalidRequest(
@@ -330,8 +333,6 @@ abstract contract VaultImplementation is
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
-    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
-
     if (
       recipient() != address(this) &&
       !lienToken.isApprovedForAll(address(this), recipient())
@@ -342,11 +343,10 @@ abstract contract VaultImplementation is
     return
       lienToken.buyoutLien(
         ILienToken.LienActionBuyout({
-          incoming: incomingTerms,
           position: position,
           encumber: ILienToken.LienActionEncumber({
             collateralId: collateralId,
-            amount: incomingTerms.lienRequest.amount,
+            amount: owed,
             receiver: recipient(),
             lien: ROUTER().validateCommitment({
               commitment: incomingTerms,
