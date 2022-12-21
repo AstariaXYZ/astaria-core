@@ -632,10 +632,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   ) external onlyLienToken {
     VaultData storage s = _loadStorageSlot();
     if (params.remaining > 0) _setYIntercept(s, s.yIntercept - params.remaining);
-    _decreaseEpochLienCount(
-      _loadStorageSlot(),
-      getLienEpoch(params.lienEnd.safeCastTo64())
-    );
   }
 
   /**
