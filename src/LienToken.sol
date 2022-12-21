@@ -257,10 +257,7 @@ contract LienToken is ERC721, ILienToken, Auth {
   {
     uint256 delta_t = timestamp - stack.point.last;
 
-    return
-      (delta_t * stack.lien.details.rate).mulWadDown(
-        stack.point.amount
-      );
+    return (delta_t * stack.lien.details.rate).mulWadDown(stack.point.amount);
   }
 
   modifier validateStack(uint256 collateralId, Stack[] memory stack) {
@@ -662,7 +659,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     LienStorage storage s,
     Stack[] calldata stack,
     uint256 totalCapitalAvailable
-  ) internal returns (Stack[] memory newStack, uint256 spent) {
+  ) internal returns (Stack[] memory newStack) {
     newStack = stack;
     for (uint256 i; i < newStack.length; ) {
       uint256 oldLength = newStack.length;
@@ -776,10 +773,7 @@ contract LienToken is ERC721, ILienToken, Auth {
     returns (uint256)
   {
     uint256 delta_t = stack.point.end - block.timestamp;
-    return
-      (delta_t * stack.lien.details.rate).mulWadDown(
-        stack.point.amount
-      );
+    return (delta_t * stack.lien.details.rate).mulWadDown(stack.point.amount);
   }
 
   /**
