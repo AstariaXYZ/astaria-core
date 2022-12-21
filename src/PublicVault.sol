@@ -376,7 +376,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
             s.withdrawReserve -= withdrawBalance.safeCastTo88();
           }
         }
-      }
 
       ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
       WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
@@ -683,16 +682,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   modifier onlyLienToken() {
     require(msg.sender == address(LIEN_TOKEN()));
     _;
-  }
-
-  function increaseYIntercept(uint256 amount) public {
-    VaultData storage s = _loadStorageSlot();
-    uint256 currentEpoch = s.currentEpoch;
-    require(
-      currentEpoch != 0 &&
-        msg.sender == s.epochData[currentEpoch - 1].withdrawProxy
-    );
-    _setYIntercept(s, s.yIntercept + amount);
   }
 
   function decreaseYIntercept(uint256 amount) public {
