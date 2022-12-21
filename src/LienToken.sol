@@ -655,9 +655,8 @@ contract LienToken is ERC721, ILienToken, Auth {
     Stack[] calldata stack,
     uint256 totalCapitalAvailable
   ) internal returns (Stack[] memory newStack, uint256 spent) {
-    uint256 n = stack.length;
     newStack = stack;
-    for (uint256 i; i < n; ) {
+    for (uint256 i; i < newStack.length; ) {
       uint256 oldLength = newStack.length;
       (newStack, spent) = _payment(
         s,
