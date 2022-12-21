@@ -235,9 +235,7 @@ abstract contract VaultImplementation is
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      !ROUTER().isValidVault(receiver) &&
-      !CT.isApprovedForAll(holder, receiver) &&
-      receiver != params.lienRequest.strategy.vault
+      !CT.isApprovedForAll(holder, receiver)
     ) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
