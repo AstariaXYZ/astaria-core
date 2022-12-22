@@ -506,7 +506,6 @@ contract AstariaRouter is
     });
   }
 
-  //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
   function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
     public
     whenNotPaused

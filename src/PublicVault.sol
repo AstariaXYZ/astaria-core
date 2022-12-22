@@ -635,12 +635,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (params.remaining > 0) _setYIntercept(s, s.yIntercept - params.remaining);
   }
 
-  /**
-   * @notice
-   * @param maxAuctionWindow The max possible auction duration.
-   * @param params AfterLiquidation data.
-   * @return withdrawProxyIfNearBoundary The address of the WithdrawProxy to set the payee to if the liquidation is triggered near an epoch boundary.
-   */
   function updateVaultAfterLiquidation(
     uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
