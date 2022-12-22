@@ -25,7 +25,7 @@ abstract contract AuthInitializable {
     }
   }
 
-  function __initAuth(address _owner, address _authority) public {
+  function __initAuth(address _owner, address _authority) internal {
     AuthStorage storage s = _getAuthSlot();
     require(s.owner == address(0), "Already initialized");
     s.owner = _owner;
