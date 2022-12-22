@@ -701,11 +701,6 @@ contract AstariaRouter is
       );
   }
 
-  /**
-   * @notice Returns whether a given address is that of a Vault.
-   * @param vault The Vault address.
-   * @return A boolean representing whether the address exists as a Vault.
-   */
   function isValidVault(address vault) public view returns (bool) {
     return _loadRouterSlot().vaults[vault];
   }
