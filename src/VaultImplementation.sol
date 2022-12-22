@@ -235,7 +235,7 @@ abstract contract VaultImplementation is
       msg.sender != holder &&
       receiver != holder &&
       receiver != operator &&
-      !CT.isApprovedForAll(holder, receiver)
+      !CT.isApprovedForAll(holder, msg.sender)
     ) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
