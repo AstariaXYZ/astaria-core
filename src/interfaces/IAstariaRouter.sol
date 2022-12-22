@@ -74,8 +74,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     address newGuardian; //20
     uint32 buyoutFeeNumerator;
     uint32 buyoutFeeDenominator;
-    uint32 strategistFeeDenominator;
-    uint32 strategistFeeNumerator; //4
     uint32 minDurationIncrease;
     mapping(uint8 => address) strategyValidators;
     mapping(uint8 => address) implementations;
@@ -203,18 +201,11 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
-  function maxInterestRate() external view returns (uint256);
-
   /**
    * @notice Returns the current auction duration.
    * @param includeBuffer Adds the current auctionWindowBuffer if true.
    */
   function getAuctionWindow(bool includeBuffer) external view returns (uint256);
-
-  /**
-   * @notice Computes the fee PublicVault strategists earn on loan origination from the strategistFee numerator and denominator.
-   */
-  function getStrategistFee(uint256) external view returns (uint256);
 
   /**
    * @notice Computes the fee the protocol earns on loan origination from the protocolFee numerator and denominator.

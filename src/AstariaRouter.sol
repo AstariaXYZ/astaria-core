@@ -56,8 +56,8 @@ contract AstariaRouter is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
-  uint256 constant ROUTER_SLOT =
-    0xb5d37468eefb1c75507259f9212a7d55dca0c7d08d9ef7be1cda5c5103eaa88e;
+  uint256 private constant ROUTER_SLOT =
+    uint256(keccak256("xyz.astaria.AstariaRouter.storage.location")) - 1;
 
   // cast --to-bytes32 $(cast sig "OutOfBoundError()")
   uint256 private constant OUTOFBOUND_ERROR_SELECTOR =
@@ -111,8 +111,6 @@ contract AstariaRouter is
     s.maxEpochLength = uint32(45 days);
     s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88();
     //63419583966; // 200% apy / second
-    s.strategistFeeNumerator = uint32(200);
-    s.strategistFeeDenominator = uint32(1000);
     s.buyoutFeeNumerator = uint32(100);
     s.buyoutFeeDenominator = uint32(1000);
     s.minDurationIncrease = uint32(5 days);
@@ -214,8 +212,9 @@ contract AstariaRouter is
   }
 
   function _loadRouterSlot() internal pure returns (RouterStorage storage rs) {
+    uint256 slot = ROUTER_SLOT;
     assembly {
-      rs.slot := ROUTER_SLOT
+      rs.slot := slot
     }
   }
 
@@ -242,11 +241,6 @@ contract AstariaRouter is
   function COLLATERAL_TOKEN() public view returns (ICollateralToken) {
     RouterStorage storage s = _loadRouterSlot();
     return s.COLLATERAL_TOKEN;
-  }
-
-  function maxInterestRate() public view returns (uint256) {
-    RouterStorage storage s = _loadRouterSlot();
-    return s.maxInterestRate;
   }
 
   /**
@@ -296,14 +290,6 @@ contract AstariaRouter is
       if (denominator > numerator) revert InvalidFileData();
       s.liquidationFeeNumerator = numerator.safeCastTo32();
       s.liquidationFeeDenominator = denominator.safeCastTo32();
-    } else if (what == FileType.StrategistFee) {
-      (uint256 numerator, uint256 denominator) = abi.decode(
-        data,
-        (uint256, uint256)
-      );
-      if (denominator > numerator) revert InvalidFileData();
-      s.strategistFeeNumerator = numerator.safeCastTo32();
-      s.strategistFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.ProtocolFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
@@ -399,14 +385,6 @@ contract AstariaRouter is
         ++i;
       }
     }
-  }
-
-  // MODIFIERS
-  modifier onlyVaults() {
-    if (!_loadRouterSlot().vaults[msg.sender]) {
-      revert InvalidVaultState(VaultState.UNINITIALIZED);
-    }
-    _;
   }
 
   //PUBLIC
@@ -599,7 +577,7 @@ contract AstariaRouter is
   )
     external
     whenNotPaused
-    onlyVaults
+    validVault(msg.sender)
     returns (
       uint256,
       ILienToken.Stack[] memory,
@@ -664,12 +642,6 @@ contract AstariaRouter is
         endingPrice: 1_000 wei
       })
     );
-  }
-
-  function getStrategistFee(uint256 amountIn) external view returns (uint256) {
-    RouterStorage storage s = _loadRouterSlot();
-    return
-      amountIn.mulDivDown(s.strategistFeeNumerator, s.strategistFeeDenominator);
   }
 
   function getProtocolFee(uint256 amountIn) external view returns (uint256) {

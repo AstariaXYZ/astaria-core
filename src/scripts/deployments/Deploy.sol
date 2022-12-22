@@ -229,7 +229,7 @@ contract Deploy is Script {
           )
         );
       COLLATERAL_TOKEN = CollateralToken(address(collateralTokenProxy));
-      assert(COLLATERAL_TOKEN.owner() == address(this));
+      assert(COLLATERAL_TOKEN.owner() == auth);
       if (testModeDisabled) {
         //      vm.setEnv("TRANSPARENT_UPGRADEABLE_PROXY_ADDR", address(transparentUpgradeableProxy));
         vm.writeLine(
