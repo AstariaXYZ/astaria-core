@@ -938,7 +938,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   struct Borrow {
     address borrower;
-    uint256 amount; // TODO allow custom LienDetails too
+    uint256 amount;
     uint256 repayAmount; // if less than amount, then auction initiated with a bid of bidAmount
     uint256 bidAmount;
     uint256 timestamp;
@@ -1008,7 +1008,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     OrderParameters memory params,
     uint256 bidAmount
   ) internal {
-    vm.deal(incomingBidder.bidder, bidAmount * 3); // TODO check amount multiplier, was 1.5 in old testhelpers
+    vm.deal(incomingBidder.bidder, bidAmount * 3);
     vm.startPrank(incomingBidder.bidder);
 
     if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
@@ -1112,7 +1112,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     //offer 1,2
     delete fulfillmentComponents;
 
-    //royalty stuff, setup :TODO:
+    //royalty stuff, setup
     fulfillmentComponent = FulfillmentComponent(1, 2);
     fulfillmentComponents.push(fulfillmentComponent);
     fourthFulfillment.offerComponents = fulfillmentComponents;
@@ -1144,7 +1144,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
       emit log_named_uint("start", params.consideration[0].startAmount);
       emit log_named_uint("amount", bidAmount);
       emit log_named_uint("warping", warp);
-      skip(warp + 1000); //TODO: figure this slope thing out
+      skip(warp + 1000);
       uint256 currentAmount = _locateCurrentAmount(
         orders[0].parameters.consideration[0].startAmount,
         orders[0].parameters.consideration[0].endAmount,
