@@ -287,11 +287,11 @@ abstract contract VaultImplementation is
   )
     external
     whenNotPaused
-    returns (uint256 lienId, ILienToken.Stack[] memory stack)
+    returns (uint256 lienId, ILienToken.Stack[] memory stack, uint256 payout)
   {
     _beforeCommitToLien(params);
     uint256 slopeAddition;
-    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(
+    (lienId, stack, slopeAddition, payout) = _requestLienAndIssuePayout(
       params,
       receiver
     );
@@ -388,12 +388,13 @@ abstract contract VaultImplementation is
     returns (
       uint256 newLienId,
       ILienToken.Stack[] memory stack,
-      uint256 slope
+      uint256 slope,
+      uint256 payout
     )
   {
     _validateCommitment(c, receiver);
     (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
-    uint256 payout = _handleProtocolFee(c.lienRequest.amount);
+    payout = _handleProtocolFee(c.lienRequest.amount);
     ERC20(asset()).safeTransfer(receiver, payout);
   }
 
