@@ -287,7 +287,7 @@ contract AstariaRouter is
         data,
         (uint256, uint256)
       );
-      if (denominator > numerator) revert InvalidFileData();
+      if (denominator < numerator) revert InvalidFileData();
       s.liquidationFeeNumerator = numerator.safeCastTo32();
       s.liquidationFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.ProtocolFee) {
@@ -295,7 +295,7 @@ contract AstariaRouter is
         data,
         (uint256, uint256)
       );
-      if (denominator > numerator) revert InvalidFileData();
+      if (denominator < numerator) revert InvalidFileData();
       s.protocolFeeNumerator = numerator.safeCastTo32();
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.BuyoutFee) {
@@ -303,7 +303,7 @@ contract AstariaRouter is
         data,
         (uint256, uint256)
       );
-      if (denominator > numerator) revert InvalidFileData();
+      if (denominator < numerator) revert InvalidFileData();
       s.buyoutFeeNumerator = numerator.safeCastTo32();
       s.buyoutFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinInterestBPS) {
