@@ -79,6 +79,18 @@ contract RevertTesting is TestHelpers {
     );
   }
 
+  function testInvalidFileData() public {
+    vm.expectRevert(
+      abi.encodeWithSelector(IAstariaRouter.InvalidFileData.selector)
+    );
+    ASTARIA_ROUTER.file(
+      IAstariaRouter.File({
+        what: IAstariaRouter.FileType.ProtocolFee,
+        data: abi.encode(uint256(11), uint256(10))
+      })
+    );
+  }
+
   function testFailInvalidSignature() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
