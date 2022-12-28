@@ -6,6 +6,7 @@
   "private": true,
   "main": "index.js",
   "dependencies": {
+    "@astariaxyz/sdk": "1.0.0-alpha.9",
     "global": "^4.4.0",
     "hardhat": "^2.9.3",
     "hardhat-preprocessor": "^0.1.4",
@@ -22,8 +23,7 @@
   "scripts": {
     "lint": "eslint src/**/*.sol",
     "lint:fix": "prettier --write src/**/*.sol",
-    "write-headers": "node scripts/writeHeaders.js",
-    "postinstall": "bash scripts/postinstall.sh"
+    "write-headers": "node scripts/writeHeaders.js"
   },
   "devDependencies": {
     "@dethcrypto/eth-sdk": "^0.3.3",
