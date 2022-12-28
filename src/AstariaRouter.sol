@@ -10,7 +10,7 @@
 
 pragma solidity =0.8.17;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
+import {Authority} from "solmate/auth/Auth.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -28,6 +28,7 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
+import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
 import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
 import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
@@ -36,12 +37,20 @@ import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC4626Router} from "gpl/ERC4626Router.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
+import {AuthInitializable} from "core/AuthInitializable.sol";
+import {Initializable} from "./utils/Initializable.sol";
 
 /**
  * @title AstariaRouter
  * @notice This contract manages the deployment of Vaults and universal Astaria actions.
  */
-contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
+contract AstariaRouter is
+  AuthInitializable,
+  Initializable,
+  ERC4626Router,
+  Pausable,
+  IAstariaRouter
+{
   using SafeTransferLib for ERC20;
   using SafeCastLib for uint256;
   using CollateralLookup for address;
@@ -51,22 +60,25 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     0xb5d37468eefb1c75507259f9212a7d55dca0c7d08d9ef7be1cda5c5103eaa88e;
 
   // cast --to-bytes32 $(cast sig "OutOfBoundError()")
-  uint256 private constant OUTOFBOUND_ERROR_SELECTOR = 0x571e08d100000000000000000000000000000000000000000000000000000000;
+  uint256 private constant OUTOFBOUND_ERROR_SELECTOR =
+    0x571e08d100000000000000000000000000000000000000000000000000000000;
   uint256 private constant ONE_WORD = 0x20;
+
+  constructor() {
+    _disableInitializers();
+  }
 
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
    * @param _AUTHORITY The authority manager.
-   * @param _WETH The WETH address to use for transfers.
    * @param _COLLATERAL_TOKEN The address of the deployed CollateralToken contract.
    * @param _LIEN_TOKEN The address of the deployed LienToken contract.
    * @param _TRANSFER_PROXY The address of the deployed TransferProxy contract.
    * @param _VAULT_IMPL The address of a base implementation of VaultImplementation for cloning.
    * @param _SOLO_IMPL The address of a base implementation of a PrivateVault for cloning.
    */
-  constructor(
+  function initialize(
     Authority _AUTHORITY,
-    address _WETH,
     ICollateralToken _COLLATERAL_TOKEN,
     ILienToken _LIEN_TOKEN,
     ITransferProxy _TRANSFER_PROXY,
@@ -75,10 +87,10 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     address _WITHDRAW_IMPL,
     address _BEACON_PROXY_IMPL,
     address _CLEARING_HOUSE_IMPL
-  ) Auth(msg.sender, _AUTHORITY) {
+  ) external initializer {
+    __initAuth(msg.sender, address(_AUTHORITY));
     RouterStorage storage s = _loadRouterSlot();
 
-    s.WETH = ERC20(_WETH);
     s.COLLATERAL_TOKEN = _COLLATERAL_TOKEN;
     s.LIEN_TOKEN = _LIEN_TOKEN;
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
@@ -225,11 +237,6 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function TRANSFER_PROXY() public view returns (ITransferProxy) {
     RouterStorage storage s = _loadRouterSlot();
     return s.TRANSFER_PROXY;
-  }
-
-  function WETH() public view returns (ERC20) {
-    RouterStorage storage s = _loadRouterSlot();
-    return s.WETH;
   }
 
   function COLLATERAL_TOKEN() public view returns (ICollateralToken) {
@@ -426,7 +433,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     assembly {
       let end := add(ONE_WORD, start)
 
-      if lt(length , end) {
+      if lt(length, end) {
         mstore(0, OUTOFBOUND_ERROR_SELECTOR)
         revert(0, ONE_WORD)
       }
@@ -490,15 +497,15 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     }
 
     lien = ILienToken.Lien({
+      collateralType: nlrType,
       details: details,
       strategyRoot: commitment.lienRequest.merkle.root,
       collateralId: commitment.tokenContract.computeId(commitment.tokenId),
       vault: commitment.lienRequest.strategy.vault,
-      token: address(s.WETH)
+      token: IAstariaVaultBase(commitment.lienRequest.strategy.vault).asset()
     });
   }
 
-  //todo fix this //return from _executeCommitment is a stack array, this needs to be a multi dimension stack to support updates to many tokens at once
   function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
     public
     whenNotPaused
@@ -526,17 +533,16 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
         ++i;
       }
     }
-    s.WETH.safeApprove(address(s.TRANSFER_PROXY), totalBorrowed);
 
-    s.TRANSFER_PROXY.tokenTransferFrom(
-      address(s.WETH),
-      address(this),
-      msg.sender,
-      totalBorrowed
-    );
+    ERC20(IAstariaVaultBase(commitments[0].lienRequest.strategy.vault).asset())
+      .safeTransfer(address(msg.sender), totalBorrowed);
   }
 
-  function newVault(address delegate) external whenNotPaused returns (address) {
+  function newVault(address delegate, address underlying)
+    external
+    whenNotPaused
+    returns (address)
+  {
     address[] memory allowList = new address[](1);
     allowList[0] = msg.sender;
     RouterStorage storage s = _loadRouterSlot();
@@ -544,6 +550,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return
       _newVault(
         s,
+        underlying,
         uint256(0),
         delegate,
         uint256(0),
@@ -556,6 +563,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
   function newPublicVault(
     uint256 epochLength,
     address delegate,
+    address underlying,
     uint256 vaultFee,
     bool allowListEnabled,
     address[] calldata allowList,
@@ -575,6 +583,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     return
       _newVault(
         s,
+        underlying,
         epochLength,
         delegate,
         vaultFee,
@@ -648,7 +657,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
     emit Liquidation(stack[position].lien.collateralId, position);
     listedOrder = s.COLLATERAL_TOKEN.auctionVault(
       ICollateralToken.AuctionVaultParams({
-        settlementToken: address(s.WETH),
+        settlementToken: stack[position].lien.token,
         collateralId: stack[position].lien.collateralId,
         maxDuration: auctionWindowMax,
         startingPrice: stack[0].lien.details.liquidationInitialAsk,
@@ -732,6 +741,7 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
    */
   function _newVault(
     RouterStorage storage s,
+    address underlying,
     uint256 epochLength,
     address delegate,
     uint256 vaultFee,
@@ -753,8 +763,8 @@ contract AstariaRouter is Auth, ERC4626Router, Pausable, IAstariaRouter {
       abi.encodePacked(
         address(this),
         vaultType,
-        msg.sender,
-        address(s.WETH),
+        address(msg.sender),
+        underlying,
         block.timestamp,
         epochLength,
         vaultFee

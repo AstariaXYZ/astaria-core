@@ -10,7 +10,7 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 
 contract V3Strategy is AstariaStack {
   function run() external {
-    IAstariaRouter router = IAstariaRouter(ROUTER_ADDR);
+    IAstariaRouter router = IAstariaRouter(ASTARIA_ROUTER_ADDR);
 
     CollateralToken ct = CollateralToken(COLLATERAL_TOKEN_ADDR);
     vm.startBroadcast(msg.sender);

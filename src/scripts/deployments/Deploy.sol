@@ -41,12 +41,15 @@ import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {
   ConsiderationInterface
 } from "seaport/interfaces/ConsiderationInterface.sol";
-
-interface IWETH9 is IERC20 {
-  function deposit() external payable;
-
-  function withdraw(uint256) external;
-}
+import {
+  TransparentUpgradeableProxy
+} from "lib/seaport/lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+  ProxyAdmin
+} from "lib/seaport/lib/openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
+import {
+  Initializable
+} from "lib/seaport/lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 contract Deploy is Script {
   enum UserRoles {
@@ -59,160 +62,359 @@ contract Deploy is Script {
 
   event Deployed(address);
 
-  IWETH9 WETH9;
-  MultiRolesAuthority MRA;
-  TransferProxy TRANSFER_PROXY;
-  LienToken LIEN_TOKEN;
   CollateralToken COLLATERAL_TOKEN;
-  Vault SOLO_IMPLEMENTATION;
-  PublicVault VAULT_IMPLEMENTATION;
-  WithdrawProxy WITHDRAW_PROXY;
+  LienToken LIEN_TOKEN;
   AstariaRouter ASTARIA_ROUTER;
+  PublicVault PUBLIC_VAULT_IMPLEMENTATION;
+  WithdrawProxy WITHDRAW_PROXY;
+  Vault SOLO_IMPLEMENTATION;
+  TransferProxy TRANSFER_PROXY;
+  WETH WETH9;
+  MultiRolesAuthority MRA;
+  ConsiderationInterface SEAPORT;
+  ProxyAdmin PROXY_ADMIN;
 
-  function run() external {
-    vm.startBroadcast(msg.sender);
+  bool testModeDisabled = true;
 
-    try
-      vm.removeFile(
-        string(abi.encodePacked(".env-", vm.toString(block.chainid)))
-      )
-    {} catch {}
+  function run() public virtual {
+    deploy();
+  }
+
+  function deploy() public virtual {
+    if (testModeDisabled) {
+      vm.startBroadcast(msg.sender);
+    }
+
     address weth;
 
     try vm.envAddress("WETH9_ADDR") {
       weth = vm.envAddress("WETH9_ADDR");
     } catch {}
+    if (address(SEAPORT) == address(0)) {
+      try vm.envAddress("SEAPORT_ADDR") {
+        SEAPORT = ConsiderationInterface(vm.envAddress("SEAPORT_ADDR"));
+      } catch {
+        revert("SEAPORT_ADDR not found");
+      }
+    }
+
     if (weth == address(0)) {
-      WETH9 = IWETH9(address(new WETH()));
+      WETH9 = new WETH();
+      if (testModeDisabled) {
+        vm.writeLine(
+          string(".env"),
+          string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
+        );
+      }
+    } else {
+      WETH9 = WETH(payable(weth)); // mainnet weth
+      if (testModeDisabled) {
+        vm.writeLine(
+          string(".env"),
+          string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
+        );
+      }
+    }
+    address auth = testModeDisabled ? address(msg.sender) : address(this);
+    MRA = new MultiRolesAuthority(auth, Authority(address(0)));
+    if (testModeDisabled) {
       vm.writeLine(
         string(".env"),
-        string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
+        string(abi.encodePacked("MRA_ADDR=", vm.toString(address(MRA))))
       );
-    } else {
-      WETH9 = IWETH9(weth); // mainnet weth
     }
-    emit Deployed(address(WETH9));
-    MRA = new MultiRolesAuthority(msg.sender, Authority(address(0)));
-    vm.writeLine(
-      string(".env"),
-      string(abi.encodePacked("MRA_ADDR=", vm.toString(address(MRA))))
-    );
-    emit Deployed(address(MRA));
 
     TRANSFER_PROXY = new TransferProxy(MRA);
-    emit Deployed(address(TRANSFER_PROXY));
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked(
-          "TRANSFER_PROXY_ADDR=",
-          vm.toString(address(TRANSFER_PROXY))
+    if (testModeDisabled) {
+      //      vm.setEnv("TRANSFER_PROXY_ADDR", address(TRANSFER_PROXY));
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "TRANSFER_PROXY_ADDR=",
+            vm.toString(address(TRANSFER_PROXY))
+          )
         )
-      )
-    );
-    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
-    emit Deployed(address(LIEN_TOKEN));
+      );
+    }
 
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked("LIEN_TOKEN_ADDR=", vm.toString(address(LIEN_TOKEN)))
-      )
-    );
+    PROXY_ADMIN = new ProxyAdmin();
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "PROXY_ADMIN_ADDR=",
+            vm.toString(address(PROXY_ADMIN))
+          )
+        )
+      );
+    }
 
-    address SEAPORT = address(1);
+    LienToken LT_IMPL = new LienToken();
 
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "LIEN_TOKEN_IMPL_ADDR=",
+            vm.toString(address(LT_IMPL))
+          )
+        )
+      );
+    }
+    // LienToken proxy deployment/setup
+    TransparentUpgradeableProxy lienTokenProxy = new TransparentUpgradeableProxy(
+        address(LT_IMPL),
+        address(PROXY_ADMIN),
+        abi.encodeWithSelector(
+          LIEN_TOKEN.initialize.selector,
+          MRA,
+          TRANSFER_PROXY
+        )
+      );
+    LIEN_TOKEN = LienToken(address(lienTokenProxy));
+    if (testModeDisabled) {
+      //      vm.setEnv("TRANSPARENT_UPGRADEABLE_PROXY_ADDR", address(transparentUpgradeableProxy));
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "LIEN_TOKEN_PROXY_ADDR=",
+            vm.toString(address(lienTokenProxy))
+          )
+        )
+      );
+    }
     ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
-    address royaltyRegistry = address(
-      0x0385603ab55642cb4Dd5De3aE9e306809991804f
-    );
-    IRoyaltyEngine ROYALTY_REGISTRY = IRoyaltyEngine(address(royaltyRegistry));
-    COLLATERAL_TOKEN = new CollateralToken(
-      MRA,
-      TRANSFER_PROXY,
-      ILienToken(address(LIEN_TOKEN)),
-      ConsiderationInterface(SEAPORT),
-      ROYALTY_REGISTRY
-    );
-    emit Deployed(address(COLLATERAL_TOKEN));
 
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked(
-          "COLLATERAL_TOKEN_ADDR=",
-          vm.toString(address(COLLATERAL_TOKEN))
+    if (testModeDisabled) {
+      //      vm.setEnv("CLEARING_HOUSE_IMPL_ADDR", address(CLEARING_HOUSE_IMPL));
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "CLEARING_HOUSE_IMPL_ADDR=",
+            vm.toString(address(CLEARING_HOUSE_IMPL))
+          )
         )
-      )
-    );
+      );
+    }
+
+    CollateralToken CT_IMPL = new CollateralToken();
+
+    if (testModeDisabled) {
+      //      vm.setEnv("COLLATERAL_TOKEN_ADDR", address(COLLATERAL_TOKEN));
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "COLLATERAL_TOKEN_IMPL_ADDR=",
+            vm.toString(address(CT_IMPL))
+          )
+        )
+      );
+    }
+    {
+      TransparentUpgradeableProxy collateralTokenProxy = new TransparentUpgradeableProxy(
+          address(CT_IMPL),
+          address(PROXY_ADMIN),
+          abi.encodeWithSelector(
+            COLLATERAL_TOKEN.initialize.selector,
+            MRA,
+            TRANSFER_PROXY,
+            ILienToken(address(LIEN_TOKEN)),
+            ConsiderationInterface(SEAPORT)
+          )
+        );
+      COLLATERAL_TOKEN = CollateralToken(address(collateralTokenProxy));
+      assert(COLLATERAL_TOKEN.owner() == address(this));
+      if (testModeDisabled) {
+        //      vm.setEnv("TRANSPARENT_UPGRADEABLE_PROXY_ADDR", address(transparentUpgradeableProxy));
+        vm.writeLine(
+          string(".env"),
+          string(
+            abi.encodePacked(
+              "COLLATERAL_TOKEN_PROXY_ADDR=",
+              vm.toString(address(collateralTokenProxy))
+            )
+          )
+        );
+      }
+    }
 
     SOLO_IMPLEMENTATION = new Vault();
-    emit Deployed(address(SOLO_IMPLEMENTATION));
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked(
-          "SOLO_IMPL_ADDR=",
-          vm.toString(address(SOLO_IMPLEMENTATION))
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "SOLO_IMPLEMENTATION_ADDR=",
+            vm.toString(address(SOLO_IMPLEMENTATION))
+          )
         )
-      )
-    );
-    VAULT_IMPLEMENTATION = new PublicVault();
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked(
-          "PUBLIC_IMPL_ADDR=",
-          vm.toString(address(VAULT_IMPLEMENTATION))
+      );
+    }
+    PUBLIC_VAULT_IMPLEMENTATION = new PublicVault();
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "PUBLIC_VAULT_IMPLEMENTATION_ADDR=",
+            vm.toString(address(PUBLIC_VAULT_IMPLEMENTATION))
+          )
         )
-      )
-    );
+      );
+    }
     WITHDRAW_PROXY = new WithdrawProxy();
-    emit Deployed(address(WITHDRAW_PROXY));
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked(
-          "WITHDRAW_PROXY_ADDR=",
-          vm.toString(address(WITHDRAW_PROXY))
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "WITHDRAW_PROXY_ADDR=",
+            vm.toString(address(WITHDRAW_PROXY))
+          )
         )
-      )
-    );
+      );
+    }
     BeaconProxy BEACON_PROXY = new BeaconProxy();
-    ASTARIA_ROUTER = new AstariaRouter(
-      MRA,
-      address(WETH9),
-      ICollateralToken(address(COLLATERAL_TOKEN)),
-      ILienToken(address(LIEN_TOKEN)),
-      ITransferProxy(address(TRANSFER_PROXY)),
-      address(VAULT_IMPLEMENTATION),
-      address(SOLO_IMPLEMENTATION),
-      address(WITHDRAW_PROXY),
-      address(BEACON_PROXY),
-      address(CLEARING_HOUSE_IMPL)
-    );
-    emit Deployed(address(ASTARIA_ROUTER));
-    vm.writeLine(
-      string(".env"),
-      string(
-        abi.encodePacked("ROUTER_ADDR=", vm.toString(address(ASTARIA_ROUTER)))
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "BEACON_PROXY_ADDR=",
+            vm.toString(address(BEACON_PROXY))
+          )
+        )
+      );
+    }
+
+    {
+      AstariaRouter AR_IMPL = new AstariaRouter();
+      if (testModeDisabled) {
+        vm.writeLine(
+          string(".env"),
+          string(
+            abi.encodePacked(
+              "ASTARIA_ROUTER_IMPL_ADDR=",
+              vm.toString(address(AR_IMPL))
+            )
+          )
+        );
+      }
+
+      TransparentUpgradeableProxy astariaRouterProxy = new TransparentUpgradeableProxy(
+          address(AR_IMPL),
+          address(PROXY_ADMIN),
+          abi.encodeWithSelector(
+            AstariaRouter.initialize.selector,
+            MRA,
+            ICollateralToken(address(COLLATERAL_TOKEN)),
+            ILienToken(address(LIEN_TOKEN)),
+            ITransferProxy(address(TRANSFER_PROXY)),
+            address(PUBLIC_VAULT_IMPLEMENTATION),
+            address(SOLO_IMPLEMENTATION),
+            address(WITHDRAW_PROXY),
+            address(BEACON_PROXY),
+            address(CLEARING_HOUSE_IMPL)
+          )
+        );
+      ASTARIA_ROUTER = AstariaRouter(address(astariaRouterProxy));
+
+      if (testModeDisabled) {
+        vm.writeLine(
+          string(".env"),
+          string(
+            abi.encodePacked(
+              "ASTARIA_ROUTER_PROXY_ADDR=",
+              vm.toString(address(astariaRouterProxy))
+            )
+          )
+        );
+      }
+    }
+    {
+      ICollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
+
+      ctfiles[0] = ICollateralToken.File({
+        what: ICollateralToken.FileType.AstariaRouter,
+        data: abi.encode(address(ASTARIA_ROUTER))
+      });
+      COLLATERAL_TOKEN.fileBatch(ctfiles);
+    }
+    _setupRolesAndCapabilities();
+
+    LIEN_TOKEN.file(
+      ILienToken.File(
+        ILienToken.FileType.CollateralToken,
+        abi.encode(address(COLLATERAL_TOKEN))
       )
     );
-
-    ICollateralToken.File[] memory ctfiles = new ICollateralToken.File[](1);
-
-    ctfiles[0] = ICollateralToken.File({
-      what: ICollateralToken.FileType.AstariaRouter,
-      data: abi.encode(address(ASTARIA_ROUTER))
-    });
-    COLLATERAL_TOKEN.fileBatch(ctfiles);
-    _setupRolesAndCapabilities();
-    _setOwner();
-    vm.stopBroadcast();
+    LIEN_TOKEN.file(
+      ILienToken.File(
+        ILienToken.FileType.AstariaRouter,
+        abi.encode(address(ASTARIA_ROUTER))
+      )
+    );
+    if (testModeDisabled) {
+      vm.stopBroadcast();
+    } else {
+      //      _setOwner();
+    }
   }
 
   function _setupRolesAndCapabilities() internal {
-    //TODO refactor deploy flow to use single set of contracts to deploy in test and prod
+    // ROUTER CAPABILITIES
+
+    MRA.setRoleCapability(
+      uint8(UserRoles.ASTARIA_ROUTER),
+      LienToken.createLien.selector,
+      true
+    );
+    MRA.setRoleCapability(
+      uint8(UserRoles.ASTARIA_ROUTER),
+      TRANSFER_PROXY.tokenTransferFrom.selector,
+      true
+    );
+
+    MRA.setRoleCapability(
+      uint8(UserRoles.ASTARIA_ROUTER),
+      CollateralToken.auctionVault.selector,
+      true
+    );
+
+    // LIEN TOKEN CAPABILITIES
+    MRA.setRoleCapability(
+      uint8(UserRoles.ASTARIA_ROUTER),
+      LienToken.stopLiens.selector,
+      true
+    );
+
+    MRA.setRoleCapability(
+      uint8(UserRoles.LIEN_TOKEN),
+      CollateralToken.settleAuction.selector,
+      true
+    );
+
+    MRA.setRoleCapability(
+      uint8(UserRoles.LIEN_TOKEN),
+      TRANSFER_PROXY.tokenTransferFrom.selector,
+      true
+    );
+
+    // SEAPORT CAPABILITIES
+
+    MRA.setUserRole(
+      address(ASTARIA_ROUTER),
+      uint8(UserRoles.ASTARIA_ROUTER),
+      true
+    );
+    MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
+    MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
   }
 
   function _setOwner() internal {

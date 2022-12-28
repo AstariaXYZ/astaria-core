@@ -31,12 +31,14 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {AuthInitializable} from "core/AuthInitializable.sol";
+import {Initializable} from "./utils/Initializable.sol";
 
 /**
  * @title LienToken
  * @notice This contract handles the creation, payments, buyouts, and liquidations of tokenized NFT-collateralized debt (liens). Vaults which originate loans against supported collateral are issued a LienToken representing the right to loan repayments and auctioned funds on liquidation.
  */
-contract LienToken is ERC721, ILienToken, Auth {
+contract LienToken is ERC721, ILienToken, AuthInitializable {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
   using SafeCastLib for uint256;
@@ -47,20 +49,18 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   bytes32 constant ACTIVE_AUCTION = bytes32("ACTIVE_AUCTION");
 
-  /**
-   * @dev Setup transfer authority and initialize the buyoutNumerator and buyoutDenominator for the lien buyout premium.
-   * @param _AUTHORITY The authority manager.
-   * @param _TRANSFER_PROXY The TransferProxy for balance transfers.
-   * @param _WETH The WETH address to use for transfers.
-   */
-  constructor(
-    Authority _AUTHORITY,
-    ITransferProxy _TRANSFER_PROXY,
-    address _WETH
-  ) Auth(msg.sender, _AUTHORITY) ERC721("Astaria Lien Token", "ALT") {
+  constructor() {
+    _disableInitializers();
+  }
+
+  function initialize(Authority _AUTHORITY, ITransferProxy _TRANSFER_PROXY)
+    public
+    initializer
+  {
+    __initAuth(address(msg.sender), address(_AUTHORITY));
+    __initERC721("Astaria Lien Token", "ALT");
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
-    s.WETH = _WETH;
     s.maxLiens = uint8(5);
   }
 
@@ -175,7 +175,12 @@ contract LienToken is ERC721, ILienToken, Auth {
       s,
       params.encumber.stack[params.position].point.lienId
     );
-    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, msg.sender, payee, buyout);
+    s.TRANSFER_PROXY.tokenTransferFrom(
+      params.encumber.stack[params.position].lien.token,
+      address(msg.sender),
+      payee,
+      buyout
+    );
 
     if (_isPublicVault(s, payee)) {
       IPublicVault(payee).handleBuyoutLien(
@@ -195,7 +200,6 @@ contract LienToken is ERC721, ILienToken, Auth {
       newLien,
       params.encumber.stack[params.position].point.lienId
     );
-
     uint256 maxPotentialDebt;
     uint256 n = newStack.length;
     uint256 i;
@@ -289,6 +293,9 @@ contract LienToken is ERC721, ILienToken, Auth {
     Stack[] calldata stack,
     address liquidator
   ) internal {
+    AuctionData memory auctionData;
+    auctionData.liquidator = liquidator;
+    auctionData.stack = new AuctionStack[](stack.length);
     s.auctionData[collateralId].liquidator = liquidator;
     uint256 i;
     for (; i < stack.length; ) {
@@ -299,7 +306,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       uint88 owed = _getOwed(stack[i], block.timestamp);
       auctionStack.amountOwed = owed;
       s.lienMeta[auctionStack.lienId].atLiquidation = true;
-      s.auctionData[collateralId].stack.push(auctionStack);
+      auctionData.stack[i] = auctionStack;
       address payee = _getPayee(s, auctionStack.lienId);
       if (_isPublicVault(s, payee)) {
         // update the public vault state and get the liquidation accountant back if any
@@ -322,6 +329,17 @@ contract LienToken is ERC721, ILienToken, Auth {
       }
     }
     s.collateralStateHash[collateralId] = ACTIVE_AUCTION;
+    auctionData.startTime = block.timestamp.safeCastTo48();
+    auctionData.endTime = (block.timestamp + auctionWindow).safeCastTo48();
+    auctionData.startAmount = stack[0]
+      .lien
+      .details
+      .liquidationInitialAsk
+      .safeCastTo88();
+    auctionData.endAmount = uint88(1000 wei);
+    s.COLLATERAL_TOKEN.getClearingHouse(collateralId).setAuctionData(
+      auctionData
+    );
   }
 
   function tokenURI(uint256 tokenId)
@@ -418,6 +436,10 @@ contract LienToken is ERC721, ILienToken, Auth {
       if (params.lien.collateralId != params.stack[0].lien.collateralId) {
         revert InvalidState(InvalidStates.COLLATERAL_MISMATCH);
       }
+
+      if (params.lien.token != params.stack[0].lien.token) {
+        revert InvalidState(InvalidStates.ASSET_MISMATCH);
+      }
     }
 
     newLienId = uint256(keccak256(abi.encode(params.lien)));
@@ -450,6 +472,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       if (block.timestamp >= newStack[j].point.end) {
         revert InvalidState(InvalidStates.EXPIRED_LIEN);
       }
+
       unchecked {
         potentialDebt += _getOwed(newStack[j], newStack[j].point.end);
       }
@@ -468,50 +491,32 @@ contract LienToken is ERC721, ILienToken, Auth {
     }
   }
 
-  function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
-    external
-  {
+  function payDebtViaClearingHouse(
+    address token,
+    uint256 collateralId,
+    uint256 payment,
+    AuctionStack[] memory auctionStack
+  ) external {
     LienStorage storage s = _loadLienStorageSlot();
-    require(msg.sender == s.COLLATERAL_TOKEN.getClearingHouse(collateralId));
+    require(
+      msg.sender == address(s.COLLATERAL_TOKEN.getClearingHouse(collateralId))
+    );
 
-    uint256 spent = _payDebt(s, collateralId, payment, msg.sender);
+    _payDebt(s, token, payment, msg.sender, auctionStack);
     delete s.collateralStateHash[collateralId];
-
-    if (spent < payment) {
-      s.TRANSFER_PROXY.tokenTransferFrom(
-        s.WETH,
-        msg.sender,
-        s.COLLATERAL_TOKEN.ownerOf(collateralId),
-        payment - spent
-      );
-    }
-    s.COLLATERAL_TOKEN.settleAuction(collateralId);
   }
 
   function _payDebt(
     LienStorage storage s,
-    uint256 collateralId,
+    address token,
     uint256 payment,
-    address payer
+    address payer,
+    AuctionStack[] memory stack
   ) internal returns (uint256 totalSpent) {
-    AuctionStack[] storage stack = s.auctionData[collateralId].stack;
-
-    uint256 liquidatorPayment = s.ASTARIA_ROUTER.getLiquidatorFee(payment);
-
-    s.TRANSFER_PROXY.tokenTransferFrom(
-      s.WETH,
-      payer,
-      s.auctionData[collateralId].liquidator,
-      liquidatorPayment
-    );
-    payment -= liquidatorPayment;
-    totalSpent += liquidatorPayment;
-    uint256 i;
-    for (; i < stack.length; ) {
-      if (payment == 0) break;
+    for (uint256 i = 0; i < stack.length; i++) {
       uint256 spent;
       unchecked {
-        spent = _paymentAH(s, stack, i, payment, payer);
+        spent = _paymentAH(s, token, stack, i, payment, payer);
         totalSpent += spent;
         payment -= spent;
         ++i;
@@ -613,7 +618,8 @@ contract LienToken is ERC721, ILienToken, Auth {
 
   function _paymentAH(
     LienStorage storage s,
-    AuctionStack[] storage stack,
+    address token,
+    AuctionStack[] memory stack,
     uint256 position,
     uint256 payment,
     address payer
@@ -630,7 +636,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       payment = owing;
     }
     if (payment > 0)
-      s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, payment);
+      s.TRANSFER_PROXY.tokenTransferFrom(token, payer, payee, payment);
 
     delete s.lienMeta[lienId]; //full delete
     delete stack[position];
@@ -836,7 +842,7 @@ contract LienToken is ERC721, ILienToken, Auth {
       activeStack = _removeStackPosition(activeStack, position);
     }
 
-    s.TRANSFER_PROXY.tokenTransferFrom(s.WETH, payer, payee, amount);
+    s.TRANSFER_PROXY.tokenTransferFrom(stack.lien.token, payer, payee, amount);
 
     emit Payment(lienId, amount);
     return (activeStack, amount);
