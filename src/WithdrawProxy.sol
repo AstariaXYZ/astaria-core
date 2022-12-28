@@ -265,10 +265,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     if (s.withdrawRatio == uint256(0)) {
       ERC20(asset()).safeTransfer(VAULT(), balance);
     } else {
-      transferAmount = uint256(s.withdrawRatio).mulDivDown(
-        balance,
-        10**ERC20(asset()).decimals()
-      );
+      transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
 
       unchecked {
         balance -= transferAmount;
