@@ -1,4 +1,4 @@
-import { StrategyTree } from "../lib/astaria-sdk/dist/index";
+import { StrategyTree } from "@astariaxyz/sdk";
 import { utils, BigNumber } from "ethers";
 const { defaultAbiCoder } = utils;
 const args = process.argv.slice(2);
