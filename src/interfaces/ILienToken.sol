@@ -55,11 +55,12 @@ interface ILienToken is IERC721 {
   }
 
   struct Lien {
+    uint8 collateralType;
     address token; //20
     address vault; //20
     bytes32 strategyRoot; //32
-    uint256 collateralId; //32
-    Details details; //32 * 4
+    uint256 collateralId; //32 //contractAddress + tokenId
+    Details details; //32 * 5
   }
 
   struct Point {
@@ -197,8 +198,12 @@ interface ILienToken is IERC721 {
    * @param collateralId The CollateralId of the liquidated NFT.
    * @param payment The payment amount.
    */
-  function payDebtViaClearingHouse(uint256 collateralId, uint256 payment)
-    external;
+  function payDebtViaClearingHouse(
+    address token,
+    uint256 collateralId,
+    uint256 payment,
+    AuctionStack[] memory auctionStack
+  ) external;
 
   /**
    * @notice Make a payment for the debt against a CollateralToken.
@@ -225,6 +230,10 @@ interface ILienToken is IERC721 {
   }
 
   struct AuctionData {
+    uint88 startAmount;
+    uint88 endAmount;
+    uint48 startTime;
+    uint48 endTime;
     address liquidator;
     AuctionStack[] stack;
   }
@@ -243,9 +252,9 @@ interface ILienToken is IERC721 {
    * @param collateralId The ID of the CollateralToken.
    */
   function getAuctionLiquidator(uint256 collateralId)
-  external
-  view
-  returns (address liquidator);
+    external
+    view
+    returns (address liquidator);
 
   /**
    * Calculates the debt accrued by all liens against a CollateralToken, assuming no payments are made until the end timestamp in the stack.
@@ -312,6 +321,7 @@ interface ILienToken is IERC721 {
   enum InvalidStates {
     NO_AUTHORITY,
     COLLATERAL_MISMATCH,
+    ASSET_MISMATCH,
     NOT_ENOUGH_FUNDS,
     INVALID_LIEN_ID,
     COLLATERAL_AUCTION,

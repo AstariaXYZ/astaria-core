@@ -138,11 +138,12 @@ interface IPublicVault is IVaultImplementation {
 
   /**
    * Hook to update the PublicVault owner of a LienToken when it is sent to liquidation.
-   * @param auctionWindow The auction duration.
+   * @param maxAuctionWindow The maximum possible auction duration.
    * @param params Liquidation data (lienSlope amount to deduct from the PublicVault slope, newAmount, and lienEnd timestamp)
+   * @return withdrawProxyIfNearBoundary The address of the WithdrawProxy to set the payee to if the liquidation is triggered near an epoch boundary.
    */
   function updateVaultAfterLiquidation(
-    uint256 auctionWindow,
+    uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
   ) external returns (address withdrawProxyIfNearBoundary);
 

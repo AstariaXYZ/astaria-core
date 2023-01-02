@@ -34,6 +34,7 @@ import {WithdrawProxy} from "core/WithdrawProxy.sol";
 
 import {Math} from "core/utils/Math.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 
 /*
@@ -53,7 +54,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     public
     pure
     virtual
-    override(AstariaVaultBase, ERC4626Cloned)
+    override(IAstariaVaultBase, AstariaVaultBase, ERC4626Cloned)
     returns (address)
   {
     return super.asset();
@@ -634,12 +635,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (params.remaining > 0) _setYIntercept(s, s.yIntercept - params.remaining);
   }
 
-  /**
-   * @notice
-   * @param maxAuctionWindow The max possible auction duration.
-   * @param params AfterLiquidation data.
-   * @return withdrawProxyIfNearBoundary The address of the WithdrawProxy to set the payee to if the liquidation is triggered near an epoch boundary.
-   */
   function updateVaultAfterLiquidation(
     uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params

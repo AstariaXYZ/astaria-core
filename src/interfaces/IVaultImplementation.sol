@@ -67,7 +67,13 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function commitToLien(
     IAstariaRouter.Commitment calldata params,
     address receiver
-  ) external returns (uint256 lienId, ILienToken.Stack[] memory stack, uint256 payout);
+  )
+    external
+    returns (
+      uint256 lienId,
+      ILienToken.Stack[] memory stack,
+      uint256 payout
+    );
 
   function buyoutLien(
     ILienToken.Stack[] calldata stack,

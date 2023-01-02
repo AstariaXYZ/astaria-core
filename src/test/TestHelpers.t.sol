@@ -46,6 +46,7 @@ import {
   UniqueValidator,
   IUniqueValidator
 } from "../strategies/UniqueValidator.sol";
+import {Deploy} from "core/scripts/deployments/Deploy.sol";
 import {V3SecurityHook} from "../security/V3SecurityHook.sol";
 import {CollateralToken} from "../CollateralToken.sol";
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
@@ -83,12 +84,7 @@ import {ConduitController} from "seaport/conduit/ConduitController.sol";
 import {Conduit} from "seaport/conduit/Conduit.sol";
 import {Consideration} from "seaport/lib/Consideration.sol";
 string constant weth9Artifact = "src/test/WETH9.json";
-
-interface IWETH9 is IERC20 {
-  function deposit() external payable;
-
-  function withdraw(uint256) external;
-}
+import {WETH} from "solmate/tokens/WETH.sol";
 
 contract TestNFT is MockERC721 {
   constructor(uint256 size) MockERC721("TestNFT", "TestNFT") {
@@ -126,7 +122,7 @@ contract ConsiderationTester is BaseOrderTest {
   }
 }
 
-contract TestHelpers is ConsiderationTester {
+contract TestHelpers is Deploy, ConsiderationTester {
   using CollateralLookup for address;
   using Strings2 for bytes;
   using SafeCastLib for uint256;
@@ -149,6 +145,14 @@ contract TestHelpers is ConsiderationTester {
   string private checkpointLabel;
   uint256 private checkpointGasLeft = 1; // Start the slot warm.
 
+  ILienToken.Details public shortNSweet =
+    ILienToken.Details({
+      maxAmount: 150 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 1 minutes,
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
+    });
   ILienToken.Details public blueChipDetails =
     ILienToken.Details({
       maxAmount: 150 ether,
@@ -217,17 +221,6 @@ contract TestHelpers is ConsiderationTester {
       liquidationInitialAsk: 500 ether
     });
 
-  enum UserRoles {
-    ADMIN,
-    ASTARIA_ROUTER,
-    WRAPPER,
-    AUCTION_HOUSE,
-    TRANSFER_PROXY,
-    LIEN_TOKEN,
-    SEAPORT,
-    AUCTION_VALIDATOR
-  }
-
   enum StrategyTypes {
     STANDARD,
     COLLECTION,
@@ -235,8 +228,6 @@ contract TestHelpers is ConsiderationTester {
   }
 
   struct Fees {
-    uint256 opensea;
-    uint256 royalties;
     uint256 liquidator;
     uint256 lender;
     uint256 borrower;
@@ -252,68 +243,26 @@ contract TestHelpers is ConsiderationTester {
     uint256 expiration
   );
   event RedeemVault(bytes32 vault, uint256 amount, address indexed redeemer);
-  mapping(uint256 => OrderParameters) seaportOrders;
-
-  CollateralToken COLLATERAL_TOKEN;
-  LienToken LIEN_TOKEN;
-  AstariaRouter ASTARIA_ROUTER;
-  PublicVault PUBLIC_VAULT;
-  WithdrawProxy WITHDRAW_PROXY;
-  Vault SOLO_VAULT;
-  TransferProxy TRANSFER_PROXY;
-  IWETH9 WETH9;
-  MultiRolesAuthority MRA;
-  ConsiderationInterface SEAPORT;
 
   address bidderConduit;
   bytes32 bidderConduitKey;
 
   function setUp() public virtual override {
+    testModeDisabled = false;
     super.setUp();
-    WETH9 = IWETH9(deployCode(weth9Artifact));
+    SEAPORT = ConsiderationInterface(address(consideration));
+    deploy();
+
+    WETH9 = new WETH();
     vm.label(address(WETH9), "WETH9");
-    MRA = new MultiRolesAuthority(address(this), Authority(address(0)));
     vm.label(address(MRA), "MRA");
-    TRANSFER_PROXY = new TransferProxy(MRA);
     vm.label(address(TRANSFER_PROXY), "TRANSFER_PROXY");
 
-    LIEN_TOKEN = new LienToken(MRA, TRANSFER_PROXY, address(WETH9));
     vm.label(address(LIEN_TOKEN), "LIEN_TOKEN");
 
-    SEAPORT = ConsiderationInterface(address(consideration));
-
-    RoyaltyEngineMock royaltyEngine = new RoyaltyEngineMock();
-    IRoyaltyEngine ROYALTY_REGISTRY = IRoyaltyEngine(address(royaltyEngine));
-
-    ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
-    COLLATERAL_TOKEN = new CollateralToken(
-      MRA,
-      TRANSFER_PROXY,
-      ILienToken(address(LIEN_TOKEN)),
-      SEAPORT,
-      ROYALTY_REGISTRY
-    );
     vm.label(address(COLLATERAL_TOKEN), "COLLATERAL_TOKEN");
 
     vm.label(COLLATERAL_TOKEN.getConduit(), "collateral conduit");
-
-    PUBLIC_VAULT = new PublicVault();
-    SOLO_VAULT = new Vault();
-    WITHDRAW_PROXY = new WithdrawProxy();
-    BeaconProxy BEACON_PROXY = new BeaconProxy();
-
-    ASTARIA_ROUTER = new AstariaRouter(
-      MRA,
-      address(WETH9),
-      ICollateralToken(address(COLLATERAL_TOKEN)),
-      ILienToken(address(LIEN_TOKEN)),
-      ITransferProxy(address(TRANSFER_PROXY)),
-      address(PUBLIC_VAULT),
-      address(SOLO_VAULT),
-      address(WITHDRAW_PROXY),
-      address(BEACON_PROXY),
-      address(CLEARING_HOUSE_IMPL)
-    );
 
     vm.label(address(ASTARIA_ROUTER), "ASTARIA_ROUTER");
 
@@ -360,70 +309,7 @@ contract TestHelpers is ConsiderationTester {
 
     ASTARIA_ROUTER.fileBatch(files);
 
-    LIEN_TOKEN.file(
-      ILienToken.File(
-        ILienToken.FileType.CollateralToken,
-        abi.encode(address(COLLATERAL_TOKEN))
-      )
-    );
-    LIEN_TOKEN.file(
-      ILienToken.File(
-        ILienToken.FileType.AstariaRouter,
-        abi.encode(address(ASTARIA_ROUTER))
-      )
-    );
-
     _setupRolesAndCapabilities();
-  }
-
-  function _setupRolesAndCapabilities() internal {
-    // ROUTER CAPABILITIES
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.createLien.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
-      true
-    );
-
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      CollateralToken.auctionVault.selector,
-      true
-    );
-
-    // LIEN TOKEN CAPABILITIES
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.stopLiens.selector,
-      true
-    );
-
-    MRA.setRoleCapability(
-      uint8(UserRoles.LIEN_TOKEN),
-      CollateralToken.settleAuction.selector,
-      true
-    );
-
-    MRA.setRoleCapability(
-      uint8(UserRoles.LIEN_TOKEN),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
-      true
-    );
-
-    // SEAPORT CAPABILITIES
-
-    MRA.setUserRole(
-      address(ASTARIA_ROUTER),
-      uint8(UserRoles.ASTARIA_ROUTER),
-      true
-    );
-    MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
-    MRA.setUserRole(address(SEAPORT), uint8(UserRoles.SEAPORT), true);
-    MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
   }
 
   function getAmountOwedToLender(
@@ -482,15 +368,12 @@ contract TestHelpers is ConsiderationTester {
 
   function getFeesForLiquidation(
     uint256 bid,
-    uint256 openseaPercentage,
     uint256 royaltyPercentage,
     uint256 liquidatorPercentage,
     uint256 lenderAmountOwed
   ) public returns (Fees memory fees) {
     uint256 remainder = bid;
     fees = Fees({
-      opensea: bid.mulDivDown(openseaPercentage, 1e18),
-      royalties: bid.mulDivDown(royaltyPercentage, 1e18),
       liquidator: bid.mulDivDown(liquidatorPercentage, 1e18),
       lender: 0,
       borrower: 0
@@ -506,18 +389,6 @@ contract TestHelpers is ConsiderationTester {
   }
 
   event FeesCalculated(Fees fees);
-
-  function testFeesExample() public {
-    uint256 amountOwedToLender = getAmountOwedToLender(15e17, 10e18, 14 days);
-    Fees memory fees = getFeesForLiquidation(
-      20e18,
-      25e15,
-      10e16,
-      13e16,
-      amountOwedToLender
-    );
-    emit FeesCalculated(fees);
-  }
 
   // wrap NFT in a CollateralToken
   function _depositNFT(address tokenContract, uint256 tokenId) internal {
@@ -581,7 +452,7 @@ contract TestHelpers is ConsiderationTester {
     returns (address privateVault)
   {
     vm.startPrank(strategist);
-    privateVault = ASTARIA_ROUTER.newVault(delegate);
+    privateVault = ASTARIA_ROUTER.newVault(delegate, address(WETH9));
     vm.stopPrank();
   }
 
@@ -595,6 +466,7 @@ contract TestHelpers is ConsiderationTester {
     publicVault = ASTARIA_ROUTER.newPublicVault(
       epochLength,
       delegate,
+      address(WETH9),
       uint256(0),
       false,
       new address[](0),
@@ -661,22 +533,30 @@ contract TestHelpers is ConsiderationTester {
         amount: amount,
         isFirstLien: isFirstLien,
         stack: new ILienToken.Stack[](0),
-        revertMessage: new bytes(0)
+        revertMessage: new bytes(0),
+        broadcast: false
       });
   }
 
   function _executeCommitments(
     IAstariaRouter.Commitment[] memory commitments,
-    bytes memory revertMessage
+    bytes memory revertMessage,
+    bool broadcast
   )
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
+    if (broadcast) {
+      vm.startBroadcast(msg.sender);
+    }
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
     if (revertMessage.length > 0) {
       vm.expectRevert(revertMessage);
     }
-    return ASTARIA_ROUTER.commitToLiens(commitments);
+    (lienIds, newStack) = ASTARIA_ROUTER.commitToLiens(commitments);
+    if (broadcast) {
+      vm.stopBroadcast();
+    }
   }
 
   struct V3LienParams {
@@ -700,7 +580,8 @@ contract TestHelpers is ConsiderationTester {
     address vault,
     uint256 amount,
     ILienToken.Stack[] memory stack,
-    bool isFirstLien
+    bool isFirstLien,
+    bool broadcast
   )
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
@@ -713,10 +594,16 @@ contract TestHelpers is ConsiderationTester {
     });
 
     if (isFirstLien) {
+      if (broadcast) {
+        vm.startBroadcast(msg.sender);
+      }
       ERC721(params.tokenContract).setApprovalForAll(
         address(ASTARIA_ROUTER),
         true
       );
+      if (broadcast) {
+        vm.stopBroadcast();
+      }
     }
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
@@ -724,7 +611,8 @@ contract TestHelpers is ConsiderationTester {
     return
       _executeCommitments({
         commitments: commitments,
-        revertMessage: new bytes(0)
+        revertMessage: new bytes(0),
+        broadcast: broadcast
       });
   }
 
@@ -753,7 +641,8 @@ contract TestHelpers is ConsiderationTester {
         amount: amount,
         isFirstLien: isFirstLien,
         stack: stack,
-        revertMessage: new bytes(0)
+        revertMessage: new bytes(0),
+        broadcast: false
       });
   }
 
@@ -772,6 +661,38 @@ contract TestHelpers is ConsiderationTester {
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
+    return
+      _commitToLien({
+        vault: vault,
+        strategist: strategist,
+        strategistPK: strategistPK,
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        lienDetails: lienDetails,
+        amount: amount,
+        isFirstLien: isFirstLien,
+        stack: stack,
+        revertMessage: revertMessage,
+        broadcast: false
+      });
+  }
+
+  function _commitToLien(
+    address vault, // address of deployed Vault
+    address strategist,
+    uint256 strategistPK,
+    address tokenContract, // original NFT address
+    uint256 tokenId, // original NFT id
+    ILienToken.Details memory lienDetails, // loan information
+    uint256 amount, // requested amount
+    bool isFirstLien,
+    ILienToken.Stack[] memory stack,
+    bytes memory revertMessage,
+    bool broadcast
+  )
+    internal
+    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
+  {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
       vault: vault,
       strategist: strategist,
@@ -784,7 +705,13 @@ contract TestHelpers is ConsiderationTester {
     });
 
     if (isFirstLien) {
+      if (broadcast) {
+        vm.startBroadcast(msg.sender);
+      }
       ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
+      if (broadcast) {
+        vm.stopBroadcast();
+      }
     }
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
@@ -792,7 +719,8 @@ contract TestHelpers is ConsiderationTester {
     return
       _executeCommitments({
         commitments: commitments,
-        revertMessage: revertMessage
+        revertMessage: revertMessage,
+        broadcast: broadcast
       });
   }
 
@@ -1010,7 +938,7 @@ contract TestHelpers is ConsiderationTester {
 
   struct Borrow {
     address borrower;
-    uint256 amount; // TODO allow custom LienDetails too
+    uint256 amount;
     uint256 repayAmount; // if less than amount, then auction initiated with a bid of bidAmount
     uint256 bidAmount;
     uint256 timestamp;
@@ -1080,7 +1008,7 @@ contract TestHelpers is ConsiderationTester {
     OrderParameters memory params,
     uint256 bidAmount
   ) internal {
-    vm.deal(incomingBidder.bidder, bidAmount * 3); // TODO check amount multiplier, was 1.5 in old testhelpers
+    vm.deal(incomingBidder.bidder, bidAmount * 3);
     vm.startPrank(incomingBidder.bidder);
 
     if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
@@ -1104,6 +1032,8 @@ contract TestHelpers is ConsiderationTester {
         "bidder conduit"
       );
     }
+    WETH9.deposit{value: bidAmount * 2}();
+    WETH9.approve(bidderConduits[incomingBidder.bidder].conduit, bidAmount * 2);
 
     OrderParameters memory mirror = _createMirrorOrderParameters(
       params,
@@ -1111,16 +1041,7 @@ contract TestHelpers is ConsiderationTester {
       params.zone,
       bidderConduits[incomingBidder.bidder].conduitKey
     );
-    mirror.offer[0].startAmount = bidAmount + 1 ether;
-    mirror.offer[0].endAmount = bidAmount + 1 ether;
-    mirror.offer[1].startAmount = (bidAmount + 1 ether + 200 wei).mulDivDown(
-      25,
-      1000
-    );
-    mirror.offer[1].endAmount = (bidAmount + 1 ether + 200 wei).mulDivDown(
-      25,
-      1000
-    );
+    emit log_order(mirror);
 
     Order[] memory orders = new Order[](2);
     orders[0] = Order(params, new bytes(0));
@@ -1191,7 +1112,7 @@ contract TestHelpers is ConsiderationTester {
     //offer 1,2
     delete fulfillmentComponents;
 
-    //royalty stuff, setup :TODO:
+    //royalty stuff, setup
     fulfillmentComponent = FulfillmentComponent(1, 2);
     fulfillmentComponents.push(fulfillmentComponent);
     fourthFulfillment.offerComponents = fulfillmentComponents;
@@ -1223,7 +1144,7 @@ contract TestHelpers is ConsiderationTester {
       emit log_named_uint("start", params.consideration[0].startAmount);
       emit log_named_uint("amount", bidAmount);
       emit log_named_uint("warping", warp);
-      skip(warp + 1000); //TODO: figure this slope thing out
+      skip(warp + 1000);
       uint256 currentAmount = _locateCurrentAmount(
         orders[0].parameters.consideration[0].startAmount,
         orders[0].parameters.consideration[0].endAmount,
@@ -1242,14 +1163,14 @@ contract TestHelpers is ConsiderationTester {
       emit log_named_uint("currentAmount fee", currentAmountFee);
       emit log_fills(fulfillments);
       emit log_named_uint("length", fulfillments.length);
-      consideration.matchOrders{value: bidAmount + 5 ether}(
-        orders,
-        fulfillments
-      );
+
+      consideration.matchOrders(orders, fulfillments);
     } else {
-      consideration.fulfillOrder{value: bidAmount * 2}(
-        orders[0],
-        bidderConduits[incomingBidder.bidder].conduitKey
+      consideration.fulfillAdvancedOrder(
+        AdvancedOrder(orders[0].parameters, 1, 1, orders[0].signature, ""),
+        new CriteriaResolver[](0),
+        bidderConduits[incomingBidder.bidder].conduitKey,
+        address(0)
       );
     }
     delete fulfillments;
@@ -1289,6 +1210,8 @@ contract TestHelpers is ConsiderationTester {
       orderParameters.offer,
       offerer
     );
+    //    _considerationItems[1].startAmount -= 1;
+    //    _considerationItems[1].endAmount -= 1;
 
     OrderParameters memory _mirrorOrderParameters = OrderParameters(
       offerer,
