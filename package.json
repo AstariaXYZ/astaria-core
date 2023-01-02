@@ -23,7 +23,8 @@
   "scripts": {
     "lint": "eslint src/**/*.sol",
     "lint:fix": "prettier --write src/**/*.sol",
-    "write-headers": "node scripts/writeHeaders.js"
+    "write-headers": "node scripts/writeHeaders.js",
+    "postinstall": "bash scripts/postinstall.sh"
   },
   "devDependencies": {
     "@dethcrypto/eth-sdk": "^0.3.3",
