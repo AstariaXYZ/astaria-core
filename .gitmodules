@@ -5,9 +5,6 @@
 	path = lib/gpl
 	url = https://github.com/AstariaXYZ/astaria-gpl
 	branch = main
-[submodule "lib/foundry_eip-4626"]
-	path = lib/foundry_eip-4626
-	url = https://github.com/jaglinux/foundry_eip-4626/
 [submodule "lib/clones-with-immutable-args"]
 	path = lib/clones-with-immutable-args
 	url = https://github.com/wighawag/clones-with-immutable-args
@@ -17,9 +14,6 @@
 [submodule "lib/ds-test"]
 	path = lib/ds-test
 	url = https://github.com/dapphub/ds-test
-[submodule "lib/astaria-sdk"]
-	path = lib/astaria-sdk
-	url = git@github.com:AstariaXYZ/astaria-sdk.git
 [submodule "lib/seaport"]
 	path = lib/seaport
 	url = https://github.com/projectopensea/seaport

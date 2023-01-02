@@ -6,6 +6,7 @@
   "private": true,
   "main": "index.js",
   "dependencies": {
+    "@astariaxyz/sdk": "1.0.0-alpha.9",
     "global": "^4.4.0",
     "hardhat": "^2.9.3",
     "hardhat-preprocessor": "^0.1.4",
