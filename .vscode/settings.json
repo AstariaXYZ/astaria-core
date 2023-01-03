@@ -1,8 +1,8 @@
 {
-  "solidity.defaultCompiler": "localFile",
+  "solidity.defaultCompiler": "remote",
 
   "solidity.packageDefaultDependenciesContractsDirectory": "src",
   "solidity.packageDefaultDependenciesDirectory": "lib",
 
-  "solidity.compileUsingRemoteVersion": "v0.8.13"
+  "solidity.compileUsingRemoteVersion": "v0.8.17+commit.8df45f5f"
 }
