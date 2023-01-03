@@ -5,5 +5,4 @@
   "solidity.packageDefaultDependenciesDirectory": "lib",
 
   "solidity.compileUsingRemoteVersion": "v0.8.13"
-
 }

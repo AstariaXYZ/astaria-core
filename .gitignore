@@ -10,9 +10,8 @@ artifacts
 out
 
 .idea
-.DS_Store
+.DS_Store 
 
 lcov.info
 yarn-error.log
 
-scripts/loanProofGenerator.js

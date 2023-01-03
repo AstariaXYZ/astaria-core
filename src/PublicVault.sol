@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 
 pragma solidity =0.8.17;
 
@@ -371,15 +371,15 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (currentWithdrawProxy != address(0)) {
       uint256 withdrawBalance = ERC20(asset()).balanceOf(address(this));
 
-        // prevent transfer of more assets then are available
-        if (s.withdrawReserve <= withdrawBalance) {
-          withdrawBalance = s.withdrawReserve;
-          s.withdrawReserve = 0;
-        } else {
-          unchecked {
-            s.withdrawReserve -= withdrawBalance.safeCastTo88();
-          }
+      // prevent transfer of more assets then are available
+      if (s.withdrawReserve <= withdrawBalance) {
+        withdrawBalance = s.withdrawReserve;
+        s.withdrawReserve = 0;
+      } else {
+        unchecked {
+          s.withdrawReserve -= withdrawBalance.safeCastTo88();
         }
+      }
 
       ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
       WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
@@ -397,18 +397,16 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       address currentWithdrawProxy = s
         .epochData[s.currentEpoch - 1]
         .withdrawProxy;
-      uint256 drainBalance = WithdrawProxy(withdrawProxy)
-        .drain(
-          s.withdrawReserve,
-          s.epochData[s.currentEpoch - 1].withdrawProxy
-        );
+      uint256 drainBalance = WithdrawProxy(withdrawProxy).drain(
+        s.withdrawReserve,
+        s.epochData[s.currentEpoch - 1].withdrawProxy
+      );
       unchecked {
-
         s.withdrawReserve -= drainBalance.safeCastTo88();
       }
       WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
-          drainBalance
-        );
+        drainBalance
+      );
     }
   }
 
@@ -635,7 +633,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     LiquidationPaymentParams calldata params
   ) external onlyLienToken {
     VaultData storage s = _loadStorageSlot();
-    if (params.remaining > 0) _setYIntercept(s, s.yIntercept - params.remaining);
+    if (params.remaining > 0)
+      _setYIntercept(s, s.yIntercept - params.remaining);
   }
 
   function updateVaultAfterLiquidation(

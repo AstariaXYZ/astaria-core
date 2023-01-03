@@ -8,11 +8,12 @@ accepted_file_names=("CollateralToken.sol" "LienToken.sol" "MultiRolesAuthority.
 
 forge build
 # loop through the array and generate types for each contract
-rm -rf typechainabi && mkdir -p typechainabi
+rm -rf abi && mkdir -p abi
 for i in ./out/*;
 do
   file=$(basename "${i}")
   if [[ ${accepted_file_names[(ie)$file]} -le ${#accepted_file_names} ]]; then
-    cp -r "$i"/*.json "typechainabi/"
+    cp -r "$i"/*.json "abi/"
   fi
 done
+

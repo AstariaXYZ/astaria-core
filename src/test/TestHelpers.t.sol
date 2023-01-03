@@ -491,7 +491,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   {
     string[] memory inputs = new string[](6);
     inputs[0] = "node";
-    inputs[1] = "./dist/loanProofGenerator.js";
+    inputs[1] = "./scripts/loan-proof-generator.js";
     if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
       inputs[2] = abi.encodePacked(uint8(0)).toHexString(); //type
     } else if (requestType == IAstariaRouter.LienRequestType.COLLECTION) {
