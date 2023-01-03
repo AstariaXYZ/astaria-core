@@ -340,7 +340,6 @@ contract CollateralToken is
     }
     Asset memory underlying = s.idToUnderlying[collateralId];
     address tokenContract = underlying.tokenContract;
-    uint256 tokenId = underlying.tokenId;
     _burn(collateralId);
     delete s.idToUnderlying[collateralId];
     _releaseToAddress(s, underlying, collateralId, releaseTo);
