@@ -338,20 +338,20 @@ contract AstariaRouter is
 
   function setNewGuardian(address _guardian) external {
     RouterStorage storage s = _loadRouterSlot();
-    require(address(msg.sender) == s.guardian);
+    require(msg.sender == s.guardian);
     s.newGuardian = _guardian;
   }
 
   function __renounceGuardian() external {
     RouterStorage storage s = _loadRouterSlot();
-    require(address(msg.sender) == s.guardian);
+    require(msg.sender == s.guardian);
     s.guardian = address(0);
     s.newGuardian = address(0);
   }
 
   function __acceptGuardian() external {
     RouterStorage storage s = _loadRouterSlot();
-    require(address(msg.sender) == s.newGuardian);
+    require(msg.sender == s.newGuardian);
     s.guardian = s.newGuardian;
     delete s.newGuardian;
   }
@@ -516,7 +516,7 @@ contract AstariaRouter is
     }
 
     ERC20(IAstariaVaultBase(commitments[0].lienRequest.strategy.vault).asset())
-      .safeTransfer(address(msg.sender), totalBorrowed);
+      .safeTransfer(msg.sender, totalBorrowed);
   }
 
   function newVault(address delegate, address underlying)
@@ -733,7 +733,7 @@ contract AstariaRouter is
       abi.encodePacked(
         address(this),
         vaultType,
-        address(msg.sender),
+        msg.sender,
         underlying,
         block.timestamp,
         epochLength,

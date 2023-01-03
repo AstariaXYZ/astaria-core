@@ -84,7 +84,7 @@ contract CollateralToken is
     ILienToken LIEN_TOKEN_,
     ConsiderationInterface SEAPORT_
   ) public initializer {
-    __initAuth(address(msg.sender), address(AUTHORITY_));
+    __initAuth(msg.sender, address(AUTHORITY_));
     __initERC721("Astaria Collateral Token", "ACT");
     CollateralStorage storage s = _loadCollateralSlot();
     s.TRANSFER_PROXY = TRANSFER_PROXY_;

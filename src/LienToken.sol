@@ -60,7 +60,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     public
     initializer
   {
-    __initAuth(address(msg.sender), address(_AUTHORITY));
+    __initAuth(msg.sender, address(_AUTHORITY));
     __initERC721("Astaria Lien Token", "ALT");
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
@@ -180,7 +180,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     );
     s.TRANSFER_PROXY.tokenTransferFrom(
       params.encumber.stack[params.position].lien.token,
-      address(msg.sender),
+      msg.sender,
       payee,
       buyout
     );

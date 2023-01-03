@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 
 pragma solidity =0.8.17;
 
@@ -480,39 +480,37 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function _generateLoanMerkleProof2(
     IAstariaRouter.LienRequestType requestType,
-    bytes memory data
-  ) internal returns (bytes32 rootHash, bytes32[] memory merkleProof) {
-    string[] memory inputs = new string[](4);
+    bytes memory data,
+    uint256 strategistPK,
+    bytes memory strategyData
+  )
+    internal
+    returns (
+      bytes32 rootHash,
+      bytes32[] memory merkleProof,
+      bytes memory signature
+    )
+  {
+    string[] memory inputs = new string[](6);
     inputs[0] = "node";
     inputs[1] = "./dist/loanProofGenerator.js";
-
     if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
-      IUniqueValidator.Details memory terms = abi.decode(
-        data,
-        (IUniqueValidator.Details)
-      );
       inputs[2] = abi.encodePacked(uint8(0)).toHexString(); //type
-      inputs[3] = abi.encode(terms).toHexString();
     } else if (requestType == IAstariaRouter.LienRequestType.COLLECTION) {
-      ICollectionValidator.Details memory terms = abi.decode(
-        data,
-        (ICollectionValidator.Details)
-      );
       inputs[2] = abi.encodePacked(uint8(1)).toHexString(); //type
-      inputs[3] = abi.encode(terms).toHexString();
     } else if (requestType == IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY) {
-      IUNI_V3Validator.Details memory terms = abi.decode(
-        data,
-        (IUNI_V3Validator.Details)
-      );
       inputs[2] = abi.encodePacked(uint8(2)).toHexString(); //type
-      inputs[3] = abi.encode(terms).toHexString();
     } else {
       revert("unsupported");
     }
-
+    inputs[3] = data.toHexString();
+    inputs[4] = abi.encodePacked(strategistPK).toHexString();
+    inputs[5] = strategyData.toHexString();
     bytes memory res = vm.ffi(inputs);
-    (rootHash, merkleProof) = abi.decode(res, (bytes32, bytes32[]));
+    (rootHash, merkleProof, signature) = abi.decode(
+      res,
+      (bytes32, bytes32[], bytes)
+    );
   }
 
   function _commitToLien(
@@ -771,34 +769,32 @@ contract TestHelpers is Deploy, ConsiderationTester {
         lien: params.details
       })
     );
-
-    (
-      bytes32 rootHash,
-      bytes32[] memory merkleProof
-    ) = _generateLoanMerkleProof2({
-        requestType: IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY,
-        data: validatorDetails
-      });
-
-    // setup 712 signature
-
     IAstariaRouter.StrategyDetailsParam memory strategyDetails = IAstariaRouter
       .StrategyDetailsParam({
         version: uint8(0),
         deadline: block.timestamp + 10 days,
         vault: vault
       });
+    (
+      bytes32 rootHash,
+      bytes32[] memory merkleProof,
+      bytes memory signature
+    ) = _generateLoanMerkleProof2({
+        requestType: IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY,
+        data: validatorDetails,
+        strategistPK: params.strategistPK,
+        strategyData: abi.encode(strategyDetails)
+      });
 
-    bytes32 termHash = keccak256(
-      _generateEncodedStrategyData(vault, strategyDetails.deadline, rootHash)
-    );
+    // setup 712 signature
+
     return
       _generateTerms(
         GenTerms({
           nlrType: uint8(IAstariaRouter.LienRequestType.UNIV3_LIQUIDITY),
           tokenContract: params.tokenContract,
           tokenId: params.tokenId,
-          termHash: termHash,
+          signature: signature,
           rootHash: rootHash,
           pk: params.strategistPK,
           strategyDetails: strategyDetails,
@@ -829,33 +825,31 @@ contract TestHelpers is Deploy, ConsiderationTester {
         lien: lienDetails
       })
     );
-
-    (
-      bytes32 rootHash,
-      bytes32[] memory merkleProof
-    ) = _generateLoanMerkleProof2({
-        requestType: IAstariaRouter.LienRequestType.UNIQUE,
-        data: validatorDetails
-      });
-
-    // setup 712 signature
-
     IAstariaRouter.StrategyDetailsParam memory strategyDetails = IAstariaRouter
       .StrategyDetailsParam({
         version: uint8(0),
         deadline: block.timestamp + 10 days,
         vault: vault
       });
+    (
+      bytes32 rootHash,
+      bytes32[] memory merkleProof,
+      bytes memory signature
+    ) = _generateLoanMerkleProof2({
+        requestType: IAstariaRouter.LienRequestType.UNIQUE,
+        data: validatorDetails,
+        strategistPK: strategistPK,
+        strategyData: abi.encode(strategyDetails)
+      });
 
-    bytes32 termHash = keccak256(
-      _generateEncodedStrategyData(vault, strategyDetails.deadline, rootHash)
-    );
+    // setup 712 signature
+
     return
       _generateTerms(
         GenTerms({
           tokenContract: tokenContract,
           tokenId: tokenId,
-          termHash: termHash,
+          signature: signature,
           rootHash: rootHash,
           pk: strategistPK,
           strategyDetails: strategyDetails,
@@ -871,7 +865,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   struct GenTerms {
     address tokenContract;
     uint256 tokenId;
-    bytes32 termHash;
+    bytes signature;
     bytes32 rootHash;
     uint256 pk;
     IAstariaRouter.StrategyDetailsParam strategyDetails;
@@ -882,11 +876,35 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 amount;
   }
 
+  function _toVRS(bytes memory signature)
+    internal
+    returns (
+      uint8 v,
+      bytes32 r,
+      bytes32 s
+    )
+  {
+    emit log_bytes(signature);
+    emit log_named_uint("signature length", signature.length);
+    if (signature.length == 65) {
+      // ecrecover takes the signature parameters,
+      // and the only way to get them currently is to use assembly.
+      /// @solidity memory-safe-assembly
+      assembly {
+        r := mload(add(signature, 0x20))
+        s := mload(add(signature, 0x40))
+        v := byte(0, mload(add(signature, 0x60)))
+      }
+    } else {
+      revert("Invalid Signature");
+    }
+  }
+
   function _generateTerms(GenTerms memory params)
     internal
     returns (IAstariaRouter.Commitment memory terms)
   {
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(params.pk, params.termHash);
+    (uint8 v, bytes32 r, bytes32 s) = _toVRS(params.signature);
 
     return
       IAstariaRouter.Commitment({
