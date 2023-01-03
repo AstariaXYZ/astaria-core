@@ -1,8 +1,8 @@
 {
   "name": "@astaria/astaria-core",
-  "version": "1.0.0",
+  "version": "0.0.6-rc",
   "author": "Astaria Labs, Inc.",
-  "license": "UNLICENSED",
+  "license": "BUSL-1.1",
   "private": true,
   "main": "index.js",
   "dependencies": {
