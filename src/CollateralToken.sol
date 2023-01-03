@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 
 pragma solidity =0.8.17;
 
@@ -341,7 +341,6 @@ contract CollateralToken is
     }
     Asset memory underlying = s.idToUnderlying[collateralId];
     address tokenContract = underlying.tokenContract;
-    uint256 tokenId = underlying.tokenId;
     _burn(collateralId);
     delete s.idToUnderlying[collateralId];
     _releaseToAddress(s, underlying, collateralId, releaseTo);

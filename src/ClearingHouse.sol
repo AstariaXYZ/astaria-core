@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 pragma solidity =0.8.17;
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
@@ -31,6 +31,7 @@ import {ERC721} from "solmate/tokens/ERC721.sol";
 contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   using Bytes32AddressLib for bytes32;
   using SafeTransferLib for ERC20;
+
   struct ClearingHouseStorage {
     ILienToken.AuctionData auctionStack;
   }
@@ -91,8 +92,11 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     returns (uint256[] memory output)
   {
     output = new uint256[](accounts.length);
-    for (uint256 i = 0; i < output.length; ++i) {
+    for (uint256 i; i < accounts.length; ) {
       output[i] = type(uint256).max;
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -171,6 +175,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     //data is empty and useless
     _execute(from, to, identifier, amount);
   }
+
   function safeBatchTransferFrom(
     address from,
     address to,
