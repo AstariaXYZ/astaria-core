@@ -876,8 +876,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 amount;
   }
 
-  //  event log_bytes(bytes b);
-
   function _toVRS(bytes memory signature)
     internal
     returns (

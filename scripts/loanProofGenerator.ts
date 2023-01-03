@@ -93,9 +93,6 @@ const main = async () => {
 
   const rootHash: string = merkleTree.getHexRoot();
   const proof = merkleTree.getHexProof(merkleTree.getLeaf(0));
-  // console.error(
-  //   merkleTree.verify(proof, MerkleTree.bufferToHex(proofLeaves[0]), rootHash)
-  // );
 
   const signature = await signRootLocal(
     await getTypedData(strategy, rootHash, strategy.vault, 31337),
