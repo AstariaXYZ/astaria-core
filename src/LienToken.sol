@@ -516,7 +516,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     address payer,
     AuctionStack[] memory stack
   ) internal returns (uint256 totalSpent) {
-    for (uint256 i = 0; i < stack.length; i++) {
+    uint256 i;
+    for (; i < stack.length;) {
       uint256 spent;
       unchecked {
         spent = _paymentAH(s, token, stack, i, payment, payer);
