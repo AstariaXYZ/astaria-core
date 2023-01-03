@@ -118,7 +118,7 @@ contract Deploy is Script {
         );
       }
     }
-    address auth = testModeDisabled ? address(msg.sender) : address(this);
+    address auth = testModeDisabled ? msg.sender : address(this);
     MRA = new MultiRolesAuthority(auth, Authority(address(0)));
     if (testModeDisabled) {
       vm.writeLine(
