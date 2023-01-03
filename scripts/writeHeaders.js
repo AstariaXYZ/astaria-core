@@ -37,26 +37,18 @@ const headers = async ({ dir, header, predicate }) => {
   }
 };
 
-// const header = `\/**
-//  *       __  ___       __
-//  *  /\\  /__'  |   /\\  |__) |  /\\
-//  * /~~\\ .__/  |  /~~\\ |  \\ | /~~\\
-//  *
-//  * Copyright (c) Astaria Labs, Inc
-//  *
-//  * This source code is licensed under the MIT license found in the
-//  * LICENSE file in the root directory of this source tree.
-//  */\n\n`;
+const header = `// SPDX-License-Identifier: BUSL-1.1
 
-const header = `// SPDX-License-Identifier: UNLICENSED
-
-/**
- *       __  ___       __
- *  /\\  /__'  |   /\\  |__) |  /\\
- * /~~\\ .__/  |  /~~\\ |  \\ | /~~\\
- * 
- * Copyright (c) Astaria Labs, Inc
- */\n\n`;
+/**                                                     
+*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
+* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+*
+* Astaria Labs, Inc
+*/\n\n`;
 
 headers({
   dir: "./src",
