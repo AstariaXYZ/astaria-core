@@ -16,4 +16,3 @@ do
     cp -r "$i"/*.json "typechainabi/"
   fi
 done
-typechain --target=ethers-v5 typechainabi/**/**.json --out-dir=typechain --show-stack-traces

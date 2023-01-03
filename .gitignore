@@ -3,18 +3,16 @@ node_modules
 coverage
 coverage.json
 typechain
-.DS_Store 
-
+abi
 dist
-#Hardhat files
 cache
 artifacts
-
 out
 
-lcov.info
-
-
 .idea
+.DS_Store
+
+lcov.info
+yarn-error.log
 
 scripts/loanProofGenerator.js

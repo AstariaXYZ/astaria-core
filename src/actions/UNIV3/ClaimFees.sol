@@ -1,3 +1,16 @@
+// SPDX-License-Identifier: BUSL-1.1
+
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
+
 pragma solidity =0.8.17;
 
 import {IFlashAction} from "core/interfaces/IFlashAction.sol";
@@ -42,6 +55,5 @@ contract ClaimFees is IFlashAction, IERC721Receiver {
       asset.tokenId
     );
     return FLASH_ACTION_MAGIC;
-
   }
 }
