@@ -57,7 +57,6 @@ import {
 
 import {Consideration} from "seaport/lib/Consideration.sol";
 import {SeaportInterface} from "seaport/interfaces/SeaportInterface.sol";
-import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
 

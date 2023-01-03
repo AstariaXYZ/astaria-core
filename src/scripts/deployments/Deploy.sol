@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 
 pragma solidity =0.8.17;
+
 import {Script} from "forge-std/Script.sol";
 
 import {Authority} from "solmate/auth/Auth.sol";
@@ -22,25 +23,20 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
-
 import {IERC20} from "core/interfaces/IERC20.sol";
 
 import {CollateralToken} from "core/CollateralToken.sol";
 import {LienToken} from "core/LienToken.sol";
 import {AstariaRouter} from "core/AstariaRouter.sol";
-
 import {Vault} from "core/Vault.sol";
 import {PublicVault} from "core/PublicVault.sol";
 import {TransferProxy} from "core/TransferProxy.sol";
-
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 import {BeaconProxy} from "core/BeaconProxy.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
-import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 import {
   ConsiderationInterface
 } from "seaport/interfaces/ConsiderationInterface.sol";

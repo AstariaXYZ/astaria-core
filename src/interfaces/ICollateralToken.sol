@@ -27,7 +27,6 @@ import {
 import {IERC1155} from "core/interfaces/IERC1155.sol";
 import {Order, OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
-import {IRoyaltyEngine} from "core/interfaces/IRoyaltyEngine.sol";
 
 interface ICollateralToken is IERC721 {
   event ListedOnSeaport(uint256 collateralId, Order listingOrder);

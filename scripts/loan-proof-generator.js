@@ -1,17 +1,15 @@
-import {
-  StrategyTree,
-  signRootLocal,
-  getTypedData,
-  Strategy,
-} from "@astariaxyz/sdk";
-import { utils, BigNumber, Wallet } from "ethers";
+const sdk = require("@astariaxyz/sdk");
+const { utils, BigNumber, Wallet } = require("ethers");
+
 const { defaultAbiCoder } = utils;
 
 const main = async () => {
   const args = process.argv.slice(2);
   const detailsType = parseInt(BigNumber.from(args.shift()).toString());
   const leaves = [];
-  let mapping: any = [];
+
+  let mapping = [];
+
   if (detailsType === 0) {
     mapping = [
       "uint8",
@@ -55,47 +53,45 @@ const main = async () => {
       "uint256",
     ];
   }
+
   // Create tree
+  const termData = defaultAbiCoder.decode(mapping, args.shift()).map((x) => {
+    if (x instanceof BigNumber) {
+      return x.toString();
+    }
+    return x;
+  });
 
-  const termData: string[] = defaultAbiCoder
-    // @ts-ignore
-    .decode(mapping, args.shift())
-    .map((x) => {
-      if (x instanceof BigNumber) {
-        return x.toString();
-      }
-      return x;
-    });
-
-  const pk: string = args.shift() as string;
+  const pk = args.shift();
 
   const wallet = new Wallet(pk);
 
-  const strategyData: any = defaultAbiCoder.decode(
+  const strategyData = defaultAbiCoder.decode(
     ["uint8", "uint256", "address"],
-    args.shift() as string
+    args.shift()
   );
 
-  const strategy: Strategy = {
+  const strategy = {
     version: strategyData[0],
     expiration: strategyData[1],
     vault: strategyData[2],
     nonce: BigNumber.from(0),
     delegate: wallet.address,
   };
-  // @ts-ignore
+
   leaves.push(termData);
-  const output: string = leaves.reduce((acc, cur) => {
+
+  const output = leaves.reduce((acc, cur) => {
     return acc + cur.join(",") + "\n";
   }, "");
 
-  const merkleTree = new StrategyTree(output);
+  const merkleTree = new sdk.StrategyTree(output);
 
-  const rootHash: string = merkleTree.getHexRoot();
+  const rootHash = merkleTree.getHexRoot();
   const proof = merkleTree.getHexProof(merkleTree.getLeaf(0));
 
-  const signature = await signRootLocal(
-    await getTypedData(strategy, rootHash, strategy.vault, 31337),
+  const signature = await sdk.signRootLocal(
+    await sdk.getTypedData(strategy, rootHash, strategy.vault, 31337),
     wallet
   );
 

@@ -43,9 +43,9 @@ import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import {Strings2} from "./utils/Strings2.sol";
+import {ClaimFees} from "../actions/UNIV3/ClaimFees.sol";
 
 import "./TestHelpers.t.sol";
-import {ClaimFees} from "../actions/UNIV3/ClaimFees.sol";
 
 contract ForkedTesting is TestHelpers {
   using FixedPointMathLib for uint256;
