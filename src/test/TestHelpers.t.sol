@@ -489,7 +489,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
       bytes memory signature
     )
   {
-    string[] memory inputs = new string[](6);
+    string[] memory inputs = new string[](7);
     inputs[0] = "node";
     inputs[1] = "./scripts/loan-proof-generator.js";
     if (requestType == IAstariaRouter.LienRequestType.UNIQUE) {
@@ -504,6 +504,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     inputs[3] = data.toHexString();
     inputs[4] = abi.encodePacked(strategistPK).toHexString();
     inputs[5] = strategyData.toHexString();
+    inputs[6] = abi.encodePacked(block.chainid).toHexString();
     bytes memory res = vm.ffi(inputs);
     (rootHash, merkleProof, signature) = abi.decode(
       res,

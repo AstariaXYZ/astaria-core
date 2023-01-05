@@ -95,6 +95,12 @@ To target tests following disallowed behavior, run:
 forge test --ffi --match-contract RevertTesting
 ```
 
+When fork testing testClaimFeesAgainstV3Liquidity use the following to ensure the state data is accurate  
+```sh
+forge test --ffi --match-test testClaimFeesAgainstV3Liquidity --fork-url <YOUR_RPC_HERE> --fork-block-number 15934974
+```
+
+
 Edge cases around withdrawing and other complex protocol usage are found in the WithdrawTest and IntegrationTest contracts.
 
 To view a gas report, run:

@@ -89,9 +89,15 @@ const main = async () => {
 
   const rootHash = merkleTree.getHexRoot();
   const proof = merkleTree.getHexProof(merkleTree.getLeaf(0));
+  const chainId = args.shift();
 
   const signature = await sdk.signRootLocal(
-    await sdk.getTypedData(strategy, rootHash, strategy.vault, 31337),
+    await sdk.getTypedData(
+      strategy,
+      rootHash,
+      strategy.vault,
+      parseInt(chainId)
+    ),
     wallet
   );
 
