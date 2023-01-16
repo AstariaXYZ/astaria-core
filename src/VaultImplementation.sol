@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 
 pragma solidity =0.8.17;
 
@@ -290,7 +290,11 @@ abstract contract VaultImplementation is
   )
     external
     whenNotPaused
-    returns (uint256 lienId, ILienToken.Stack[] memory stack, uint256 payout)
+    returns (
+      uint256 lienId,
+      ILienToken.Stack[] memory stack,
+      uint256 payout
+    )
   {
     _beforeCommitToLien(params);
     uint256 slopeAddition;
@@ -321,7 +325,16 @@ abstract contract VaultImplementation is
   {
     LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
-    (uint256 owed, uint256 buyout) = lienToken.getBuyout(stack[position]);
+    ILienToken.Lien memory newLien = ROUTER().validateCommitment({
+      commitment: incomingTerms,
+      timeToSecondEpochEnd: _timeToSecondEndIfPublic()
+    });
+
+    (uint256 owed, uint256 buyout) = lienToken.getBuyout(
+      stack[position],
+      newLien.details.rate,
+      newLien.details.duration
+    );
 
     if (buyout > ERC20(asset()).balanceOf(address(this))) {
       revert IVaultImplementation.InvalidRequest(
@@ -329,7 +342,7 @@ abstract contract VaultImplementation is
       );
     }
 
-    _validateCommitment(incomingTerms, recipient());
+    //    _validateCommitment(incomingTerms, recipient());
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
@@ -340,10 +353,11 @@ abstract contract VaultImplementation is
           encumber: ILienToken.LienActionEncumber({
             amount: owed,
             receiver: recipient(),
-            lien: ROUTER().validateCommitment({
-              commitment: incomingTerms,
-              timeToSecondEpochEnd: _timeToSecondEndIfPublic()
-            }),
+            lien: newLien,
+            //        ROUTER().validateCommitment({
+            //              commitment: incomingTerms,
+            //              timeToSecondEpochEnd: _timeToSecondEndIfPublic()
+            //            }),
             stack: stack
           })
         })
