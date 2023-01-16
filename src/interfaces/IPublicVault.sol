@@ -42,7 +42,7 @@ interface IPublicVault is IVaultImplementation {
   struct BuyoutLienParams {
     uint256 lienSlope;
     uint256 lienEnd;
-    uint256 increaseYIntercept;
+    uint256 yInterceptChange;
   }
 
   struct AfterLiquidationParams {
@@ -134,10 +134,16 @@ interface IPublicVault is IVaultImplementation {
   function decreaseYIntercept(uint256 amount) external;
 
   /**
-   * Hook to update the PublicVault's slope, YIntercept, and last timestamp on a LienToken buyout.
-   * @param params The lien buyout parameters (lienSlope, lienEnd, and increaseYIntercept)
+   * Hook to update the PublicVault's slope, YIntercept, and last timestamp when a LienToken is bought out. Also decreases the active lien count for the lien's expiring epoch.
+   * @param params The lien buyout parameters (lienSlope, lienEnd, and yInterceptChange)
    */
-  function handleBuyoutLien(BuyoutLienParams calldata params) external;
+  function handleLoseLienToBuyout(BuyoutLienParams calldata params) external;
+
+  /**
+   * Hook to update the PublicVault's slope, YIntercept, and last timestamp when it receives a refinanced increase. Also decreases the active lien count for the lien's expiring epoch.
+   * @param params The lien buyout parameters (lienSlope, lienEnd, and yInterceptChange)
+   */
+  function handleReceiveBuyout(BuyoutLienParams calldata params) external;
 
   /**
    * Hook to update the PublicVault owner of a LienToken when it is sent to liquidation.

@@ -103,7 +103,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (ERC20(asset()).decimals() == uint8(18)) {
       return 100 gwei;
     } else {
-      return 10**(ERC20(asset()).decimals() - 1);
+      return 10 ** (ERC20(asset()).decimals() - 1);
     }
   }
 
@@ -213,9 +213,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return uint256(_loadStorageSlot().yIntercept);
   }
 
-  function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
-    internal
-  {
+  function _deployWithdrawProxyIfNotDeployed(
+    VaultData storage s,
+    uint64 epoch
+  ) internal {
     if (s.epochData[epoch].withdrawProxy == address(0)) {
       s.epochData[epoch].withdrawProxy = ClonesWithImmutableArgs.clone(
         IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
@@ -230,12 +231,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function mint(uint256 shares, address receiver)
-    public
-    override(ERC4626Cloned)
-    whenNotPaused
-    returns (uint256)
-  {
+  function mint(
+    uint256 shares,
+    address receiver
+  ) public override(ERC4626Cloned) whenNotPaused returns (uint256) {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
@@ -248,12 +247,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
    * @param amount The amount of funds to deposit.
    * @param receiver The receiver of the resulting VaultToken shares.
    */
-  function deposit(uint256 amount, address receiver)
-    public
-    override(ERC4626Cloned)
-    whenNotPaused
-    returns (uint256)
-  {
+  function deposit(
+    uint256 amount,
+    address receiver
+  ) public override(ERC4626Cloned) whenNotPaused returns (uint256) {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
@@ -342,12 +339,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function supportsInterface(bytes4 interfaceId)
-    public
-    pure
-    override(IERC165)
-    returns (bool)
-  {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure override(IERC165) returns (bool) {
     return
       interfaceId == type(IPublicVault).interfaceId ||
       interfaceId == type(ERC4626Cloned).interfaceId ||
@@ -410,11 +404,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function _beforeCommitToLien(IAstariaRouter.Commitment calldata params)
-    internal
-    virtual
-    override(VaultImplementation)
-  {
+  function _beforeCommitToLien(
+    IAstariaRouter.Commitment calldata params
+  ) internal virtual override(VaultImplementation) {
     VaultData storage s = _loadStorageSlot();
 
     if (s.withdrawReserve > uint256(0)) {
@@ -512,10 +504,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _mint(msg.sender, unclaimed);
   }
 
-  function beforePayment(BeforePaymentParams calldata params)
-    external
-    onlyLienToken
-  {
+  function beforePayment(
+    BeforePaymentParams calldata params
+  ) external onlyLienToken {
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
@@ -572,11 +563,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
    * @param assets The amount of assets deposited to the PublicVault.
    * @param shares The resulting amount of VaultToken shares that were issued.
    */
-  function afterDeposit(uint256 assets, uint256 shares)
-    internal
-    virtual
-    override
-  {
+  function afterDeposit(
+    uint256 assets,
+    uint256 shares
+  ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
@@ -612,20 +602,37 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return ROUTER().LIEN_TOKEN();
   }
 
-  function handleBuyoutLien(BuyoutLienParams calldata params)
-    public
-    onlyLienToken
-  {
+  // TODO change to specify source vs. target of buyout
+  function handleLoseLienToBuyout(
+    BuyoutLienParams calldata params
+  ) public onlyLienToken {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
       uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
-      _setSlope(s, newSlope);
-      s.yIntercept += params.increaseYIntercept.safeCastTo88();
+      _setSlope(s, newSlope); // TODO move out of unchecked
+      s.yIntercept += params.yInterceptChange.safeCastTo88();
       s.last = block.timestamp.safeCastTo40();
     }
 
     _decreaseEpochLienCount(s, getLienEpoch(params.lienEnd.safeCastTo64()));
+    emit YInterceptChanged(s.yIntercept);
+  }
+
+  function handleReceiveBuyout(
+    BuyoutLienParams calldata params
+  ) public onlyLienToken {
+    VaultData storage s = _loadStorageSlot();
+
+    unchecked {
+      uint48 newSlope = s.slope + params.lienSlope.safeCastTo48();
+      _setSlope(s, newSlope);
+      s.last = block.timestamp.safeCastTo40();
+    }
+
+    s.yIntercept -= params.yInterceptChange.safeCastTo88();
+    _increaseOpenLiens(s, getLienEpoch(params.lienEnd.safeCastTo64()));
+
     emit YInterceptChanged(s.yIntercept);
   }
 
