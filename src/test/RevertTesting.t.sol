@@ -579,4 +579,83 @@ contract RevertTesting is TestHelpers {
       )
     });
   }
+
+  function testCannotDrainVaultWithRefinance() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+//    ILienToken.Details memory exploitDetails = standardLienDetails;
+//    exploitDetails.rate = (uint256(1e16) * 180) / (365 days) - 1; // max interest rate
+//    exploitDetails.rate = (uint256(1e16) * 450) / (365 days);
+
+    // borrow 10 eth against the dummy NFT
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 50 ether,
+      isFirstLien: true
+    });
+
+//    vm.warp(block.timestamp + 3 days);
+
+    uint256 accruedInterest = uint256(LIEN_TOKEN.getOwed(stack[0]));
+    uint256 tenthOfRemaining = (uint256(
+      LIEN_TOKEN.getOwed(stack[0], block.timestamp + 10 days)
+    ) - accruedInterest).mulDivDown(1, 10);
+
+    tenthOfRemaining -= (refinanceLienDetails.rate *
+      refinanceLienDetails.duration).mulWadDown(tenthOfRemaining);
+
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    ILienToken.Details memory invalidRefinanceDetails = refinanceLienDetails;
+    invalidRefinanceDetails.maxAmount = standardLienDetails.maxAmount + tenthOfRemaining - 1;
+    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: invalidRefinanceDetails,
+      amount: 50 ether,
+      stack: stack
+    });
+
+    _lendToPrivateVault(
+      Lender({addr: strategistOne, amountToLend: 100 ether}),
+      privateVault
+    );
+
+    vm.expectRevert(
+      abi.encodeWithSelector(ILienToken.InvalidRefinance.selector)
+    );
+    VaultImplementation(privateVault).buyoutLien(
+      stack,
+      uint8(0),
+      refinanceTerms
+    );
+  }
 }

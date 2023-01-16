@@ -189,10 +189,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   ILienToken.Details public refinanceLienDetails =
     ILienToken.Details({
-      maxAmount: 50 ether,
+      maxAmount: 51 ether,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 25 days,
-      maxPotentialDebt: 53 ether,
+      maxPotentialDebt: 200 ether,
       liquidationInitialAsk: 500 ether
     });
   ILienToken.Details public refinanceLienDetails2 =

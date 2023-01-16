@@ -671,7 +671,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     // so we reduce the buyout fee they pay to the original Vault by the interest rate the new Vault is charging on the loan.
     return
       tenthOfRemainingInterest -
-      (newLienDuration * newLienRate).mulWadDown(tenthOfRemainingInterest);
+      (newLienRate * newLienDuration).mulWadDown(tenthOfRemainingInterest);
   }
 
   function getBuyout(

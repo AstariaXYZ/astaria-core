@@ -365,7 +365,7 @@ contract AstariaTest is TestHelpers {
     assertEq(WETH9.balanceOf(address(1)), 50287680745810395000);
   }
 
-  function testBuyoutLien() public {
+  function testBuyoutLienToPrivateVault() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);
@@ -403,6 +403,8 @@ contract AstariaTest is TestHelpers {
     uint256 tenthOfRemaining = (uint256(
       LIEN_TOKEN.getOwed(stack[0], block.timestamp + 7 days)
     ) - accruedInterest).mulDivDown(1, 10);
+
+    tenthOfRemaining -= (refinanceLienDetails.rate * refinanceLienDetails.duration).mulWadDown(tenthOfRemaining);
 
     address privateVault = _createPrivateVault({
       strategist: strategistOne,
@@ -1125,6 +1127,137 @@ contract AstariaTest is TestHelpers {
       WETH9.balanceOf(garbage.borrower) - garbage.balances.borrower,
       382123287671272000000,
       "Borrower balance not correct"
+    );
+  }
+
+  function testBuyoutLienBothPublicVault() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    vm.warp(block.timestamp + 3 days);
+
+    uint256 accruedInterest = uint256(LIEN_TOKEN.getOwed(stack[0]));
+    uint256 tenthOfRemaining = (uint256(
+      LIEN_TOKEN.getOwed(stack[0], block.timestamp + 7 days)
+    ) - accruedInterest).mulDivDown(1, 10);
+
+    tenthOfRemaining -= (refinanceLienDetails.rate * refinanceLienDetails.duration).mulWadDown(tenthOfRemaining);
+
+    address publicVault2 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
+      vault: publicVault2,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: refinanceLienDetails,
+      amount: 10 ether, // amount is unused in buyouts, keeps original amount since borrower still has funds
+      stack: stack
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault2
+    );
+
+    uint256 originalSlope = PublicVault(publicVault).getSlope();
+
+    VaultImplementation(publicVault2).buyoutLien(
+      stack,
+      uint8(0),
+      refinanceTerms
+    );
+
+    assertEq(
+      WETH9.balanceOf(publicVault),
+      50 ether + tenthOfRemaining + ((accruedInterest - stack[0].point.amount)),
+      "Incorrect PublicVault balance"
+    );
+    assertEq(
+      PublicVault(publicVault).getYIntercept(),
+      50 ether + tenthOfRemaining + ((accruedInterest - stack[0].point.amount)),
+      "Incorrect PublicVault YIntercept"
+    );
+    assertEq(
+      PublicVault(publicVault).totalAssets(),
+      50 ether + tenthOfRemaining + (accruedInterest - stack[0].point.amount),
+      "Incorrect PublicVault YIntercept"
+    );
+    assertEq(
+      PublicVault(publicVault).getSlope(),
+      0,
+      "Incorrect PublicVault slope"
+    );
+
+    assertEq(
+      WETH9.balanceOf(publicVault2),
+      40 ether - tenthOfRemaining - (accruedInterest - stack[0].point.amount),
+      "Incorrect PublicVault2 balance"
+    );
+    assertEq(
+      PublicVault(publicVault2).getSlope(),
+      originalSlope,
+      "Target PublicVault slope not incremented"
+    );
+    assertTrue(
+      PublicVault(publicVault2).getYIntercept() != 0,
+      "Incorrect PublicVault2 YIntercept"
+    );
+    assertEq(
+      PublicVault(publicVault2).getYIntercept(),
+      40 ether - tenthOfRemaining - (accruedInterest - stack[0].point.amount), // TODO verify, ~39.8 weth
+      "Incorrect PublicVault YIntercept"
+    );
+
+    _signalWithdraw(address(1), publicVault);
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50 ether + tenthOfRemaining + (accruedInterest - stack[0].point.amount),
+      "Incorrect withdrawer balance"
     );
   }
 }
