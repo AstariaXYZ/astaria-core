@@ -100,10 +100,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     override(ERC4626Cloned)
     returns (uint256)
   {
-    if (ERC20(asset()).decimals() == uint8(18)) {
-      return 100 gwei;
-    } else {
+    if (ERC20(asset()).decimals() < 4) {
       return 10 ** (ERC20(asset()).decimals() - 1);
+    } else if (ERC20(asset()).decimals() < 8) {
+      return 10 ** (ERC20(asset()).decimals() - 2);
+    } else {
+      return 10 ** (ERC20(asset()).decimals() - 6);
     }
   }
 
