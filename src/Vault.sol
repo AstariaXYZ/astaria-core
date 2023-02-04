@@ -64,7 +64,7 @@ contract Vault is VaultImplementation {
 
   function withdraw(uint256 amount) external {
     require(msg.sender == owner());
-    ERC20(asset()).safeTransferFrom(address(this), msg.sender, amount);
+    ERC20(asset()).safeTransfer(msg.sender, amount);
   }
 
   function disableAllowList() external pure override(VaultImplementation) {
