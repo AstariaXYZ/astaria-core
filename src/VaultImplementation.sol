@@ -230,6 +230,9 @@ abstract contract VaultImplementation is
     IAstariaRouter.Commitment calldata params,
     address receiver
   ) internal view {
+    if (block.timestamp > params.lienRequest.strategy.deadline) {
+      revert IVaultImplementation.InvalidRequest(InvalidRequestReason.EXPIRED);
+    }
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);

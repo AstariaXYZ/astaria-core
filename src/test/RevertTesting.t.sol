@@ -481,6 +481,44 @@ contract RevertTesting is TestHelpers {
     });
   }
 
+  function testCannotCommitToLienAfterStrategyDeadline() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    uint256 balanceBefore = WETH9.balanceOf(address(this));
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true,
+      stack: new ILienToken.Stack[](0),
+      revertMessage: abi.encodeWithSelector(
+        IVaultImplementation.InvalidRequest.selector,
+        IVaultImplementation.InvalidRequestReason.EXPIRED
+      ),
+      beforeExecution: this._skip11DaysToFailStrategyDeadlineCheck
+    });
+  }
+
+  function _skip11DaysToFailStrategyDeadlineCheck() public {
+    skip(11 days);
+  }
+
   function testFailPayLienAfterLiquidate() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);

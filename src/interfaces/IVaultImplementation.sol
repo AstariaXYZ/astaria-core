@@ -28,7 +28,8 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
     INVALID_RATE,
     INVALID_POTENTIAL_DEBT,
     SHUTDOWN,
-    PAUSED
+    PAUSED,
+    EXPIRED
   }
 
   error InvalidRequest(InvalidRequestReason reason);
