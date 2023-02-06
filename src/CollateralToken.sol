@@ -441,7 +441,7 @@ contract CollateralToken is
     considerationItems[1] = ConsiderationItem(
       ItemType.ERC1155,
       s.clearingHouse[collateralId],
-      uint256(uint160(settlementToken)),
+      collateralId,
       prices[0],
       prices[1],
       payable(s.clearingHouse[collateralId])
