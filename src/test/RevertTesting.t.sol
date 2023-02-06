@@ -112,6 +112,56 @@ contract RevertTesting is TestHelpers {
     );
   }
 
+  function testCannotSettleAuctionIfNoneRunning() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 100 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    vm.warp(block.timestamp + 11 days);
+    //    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+    //      stack,
+    //      uint8(0)
+    //    );
+
+    ClearingHouse clearingHouse = ClearingHouse(
+      COLLATERAL_TOKEN.getClearingHouse(collateralId)
+    );
+    deal(address(WETH9), address(clearingHouse), 1000 ether);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        ClearingHouse.InvalidRequest.selector,
+        ClearingHouse.InvalidRequestReason.NO_AUCTION
+      )
+    );
+    clearingHouse.safeTransferFrom(
+      address(this),
+      address(this),
+      uint256(uint160(address(erc20s[0]))),
+      1000 ether,
+      "0x"
+    );
+  }
+
   function testCannotRandomAccountIncrementNonce() public {
     address privateVault = _createPublicVault({
       strategist: strategistOne,

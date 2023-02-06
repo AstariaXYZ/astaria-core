@@ -52,7 +52,8 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     AuctionData auctionStack;
   }
   enum InvalidRequestReason {
-    NOT_ENOUGH_FUNDS_RECEIVED
+    NOT_ENOUGH_FUNDS_RECEIVED,
+    NO_AUCTION
   }
   error InvalidRequest(InvalidRequestReason);
 
@@ -136,7 +137,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
 
     ClearingHouseStorage storage s = _getStorage();
-    address paymentToken = s.auctionStack.token;
+    ERC20 paymentToken = ERC20(s.auctionStack.token);
 
     uint256 currentOfferPrice = _locateCurrentAmount({
       startAmount: s.auctionStack.startAmount,
@@ -145,8 +146,11 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
       endTime: s.auctionStack.endTime,
       roundUp: true //we are a consideration we round up
     });
-    uint256 payment = ERC20(paymentToken).balanceOf(address(this));
 
+    if (currentOfferPrice == 0) {
+      revert InvalidRequest(InvalidRequestReason.NO_AUCTION);
+    }
+    uint256 payment = paymentToken.balanceOf(address(this));
     if (currentOfferPrice > payment) {
       revert InvalidRequest(InvalidRequestReason.NOT_ENOUGH_FUNDS_RECEIVED);
     }
@@ -158,27 +162,22 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
 
     uint256 liquidatorPayment = ASTARIA_ROUTER.getLiquidatorFee(payment);
 
-    ERC20(paymentToken).safeTransfer(
-      s.auctionStack.liquidator,
-      liquidatorPayment
-    );
+    payment -= liquidatorPayment;
+    paymentToken.safeTransfer(s.auctionStack.liquidator, liquidatorPayment);
 
-    ERC20(paymentToken).safeApprove(
-      address(ASTARIA_ROUTER.TRANSFER_PROXY()),
-      payment - liquidatorPayment
-    );
+    paymentToken.safeApprove(address(ASTARIA_ROUTER.TRANSFER_PROXY()), payment);
 
     ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
-      paymentToken,
+      address(paymentToken),
       collateralId,
-      payment - liquidatorPayment,
+      payment,
       s.auctionStack.stack
     );
 
-    if (ERC20(paymentToken).balanceOf(address(this)) > 0) {
-      ERC20(paymentToken).safeTransfer(
+    if (payment > 0) {
+      paymentToken.safeTransfer(
         ASTARIA_ROUTER.COLLATERAL_TOKEN().ownerOf(collateralId),
-        ERC20(paymentToken).balanceOf(address(this))
+        payment
       );
     }
     ASTARIA_ROUTER.COLLATERAL_TOKEN().settleAuction(collateralId);
