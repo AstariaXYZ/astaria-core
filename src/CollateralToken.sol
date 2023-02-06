@@ -510,10 +510,10 @@ contract CollateralToken is
   function settleAuction(uint256 collateralId) public {
     CollateralStorage storage s = _loadCollateralSlot();
     if (
-      s.collateralIdToAuction[collateralId] == bytes32(0) &&
+      s.collateralIdToAuction[collateralId] == bytes32(0) ||
       ERC721(s.idToUnderlying[collateralId].tokenContract).ownerOf(
         s.idToUnderlying[collateralId].tokenId
-      ) !=
+      ) ==
       s.clearingHouse[collateralId]
     ) {
       revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
