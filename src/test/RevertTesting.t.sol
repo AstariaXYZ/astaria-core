@@ -61,6 +61,20 @@ contract RevertTesting is TestHelpers {
     MAX_LIENS
   }
 
+  function testCannotDeployUnderlyingWithNoCode() public {
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IAstariaRouter.InvalidUnderlying.selector,
+        address(3)
+      )
+    );
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      token: address(3)
+    });
+  }
+
   function testCannotRandomAccountIncrementNonce() public {
     address privateVault = _createPublicVault({
       strategist: strategistOne,
