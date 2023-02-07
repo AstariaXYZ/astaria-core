@@ -49,7 +49,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   }
 
   struct ClearingHouseStorage {
-    AuctionData auctionStack;
+    AuctionData auctionData;
   }
   enum InvalidRequestReason {
     NOT_ENOUGH_FUNDS_RECEIVED,
@@ -90,11 +90,11 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     require(msg.sender == address(ASTARIA_ROUTER.LIEN_TOKEN()));
 
     ClearingHouseStorage storage s = _getStorage();
-    s.auctionStack = auctionData;
+    s.auctionData = auctionData;
   }
 
   function getAuctionData() external view returns (AuctionData memory) {
-    return _getStorage().auctionStack;
+    return _getStorage().auctionData;
   }
 
   function supportsInterface(bytes4 interfaceId) external view returns (bool) {
@@ -134,16 +134,16 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   }
 
   function _execute() internal {
-    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
+    IAstariaRouter ASTARIA_ROUTER = ROUTER(); // get the router from the immutable arg
 
     ClearingHouseStorage storage s = _getStorage();
-    ERC20 paymentToken = ERC20(s.auctionStack.token);
+    ERC20 paymentToken = ERC20(s.auctionData.token);
 
     uint256 currentOfferPrice = _locateCurrentAmount({
-      startAmount: s.auctionStack.startAmount,
-      endAmount: s.auctionStack.endAmount,
-      startTime: s.auctionStack.startTime,
-      endTime: s.auctionStack.endTime,
+      startAmount: s.auctionData.startAmount,
+      endAmount: s.auctionData.endAmount,
+      startTime: s.auctionData.startTime,
+      endTime: s.auctionData.endTime,
       roundUp: true //we are a consideration we round up
     });
 
@@ -155,29 +155,30 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
       revert InvalidRequest(InvalidRequestReason.NOT_ENOUGH_FUNDS_RECEIVED);
     }
 
-    uint256 collateralId = _getArgUint256(21);
+    uint256 collateralId = COLLATERAL_ID();
     // pay liquidator fees here
 
-    AuctionStack[] storage stack = s.auctionStack.stack;
+    AuctionStack[] storage stack = s.auctionData.stack;
 
     uint256 liquidatorPayment = ASTARIA_ROUTER.getLiquidatorFee(payment);
 
     payment -= liquidatorPayment;
-    paymentToken.safeTransfer(s.auctionStack.liquidator, liquidatorPayment);
+    paymentToken.safeTransfer(s.auctionData.liquidator, liquidatorPayment);
 
-    paymentToken.safeApprove(address(ASTARIA_ROUTER.TRANSFER_PROXY()), payment);
+    paymentToken.approve(address(ASTARIA_ROUTER.TRANSFER_PROXY()), payment);
 
     ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
       address(paymentToken),
       collateralId,
       payment,
-      s.auctionStack.stack
+      s.auctionData.stack
     );
 
-    if (payment > 0) {
+    uint remainingBalance = paymentToken.balanceOf(address(this));
+    if (remainingBalance > 0) {
       paymentToken.safeTransfer(
         ASTARIA_ROUTER.COLLATERAL_TOKEN().ownerOf(collateralId),
-        payment
+        remainingBalance
       );
     }
     ASTARIA_ROUTER.COLLATERAL_TOKEN().settleAuction(collateralId);
@@ -212,7 +213,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   }
 
   function validateOrder(Order memory order) external {
-    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
+    IAstariaRouter ASTARIA_ROUTER = ROUTER();
     require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN()));
     Order[] memory listings = new Order[](1);
     listings[0] = order;
@@ -229,21 +230,22 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     uint256 tokenId,
     address target
   ) external {
-    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
+    IAstariaRouter ASTARIA_ROUTER = ROUTER();
     require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN()));
     ERC721(tokenContract).safeTransferFrom(address(this), target, tokenId);
   }
 
   function settleLiquidatorNFTClaim() external {
-    IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0));
+    IAstariaRouter ASTARIA_ROUTER = ROUTER();
 
     require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN()));
     ClearingHouseStorage storage s = _getStorage();
+    uint collateralId = COLLATERAL_ID();
     ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
       address(0),
-      COLLATERAL_ID(),
+      collateralId,
       0,
-      s.auctionStack.stack
+      s.auctionData.stack
     );
   }
 }
