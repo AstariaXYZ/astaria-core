@@ -896,6 +896,57 @@ contract AstariaTest is TestHelpers {
     _;
   }
 
+  // From C4 #408
+  function testCompleteWithdrawAfterOneEpoch() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 7 days
+    });
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 60 ether}),
+      publicVault
+    );
+
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    vm.warp(block.timestamp + 3 days);
+
+    _signalWithdraw(address(1), publicVault);
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+
+    vm.startPrank(address(1));
+    withdrawProxy.redeem(
+      withdrawProxy.balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    vm.stopPrank();
+
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50 ether,
+      "LP did not receive all WETH not lent out"
+    );
+  }
+
   function testFinalAuctionEnd() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
