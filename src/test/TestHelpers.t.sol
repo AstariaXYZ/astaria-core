@@ -1283,12 +1283,22 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
     vm.startPrank(lender);
     ERC20(publicVault).safeApprove(address(ASTARIA_ROUTER), vaultTokenBalance);
-    ASTARIA_ROUTER.redeemFutureEpoch({
-      vault: IPublicVault(publicVault),
-      shares: vaultTokenBalance,
-      receiver: lender,
-      epoch: epoch
-    });
+    uint256 currentEpoch = PublicVault(publicVault).getCurrentEpoch();
+    if (epoch == currentEpoch) {
+      ASTARIA_ROUTER.redeem({
+        vault: IERC4626(address(publicVault)),
+        to: lender,
+        shares: vaultTokenBalance,
+        minAmountOut: 0
+      });
+    } else {
+      ASTARIA_ROUTER.redeemFutureEpoch({
+        vault: IPublicVault(publicVault),
+        shares: vaultTokenBalance,
+        receiver: lender,
+        epoch: epoch
+      });
+    }
 
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       epoch
