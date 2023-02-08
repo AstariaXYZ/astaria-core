@@ -219,23 +219,28 @@ contract AstariaTest is TestHelpers {
       delegate: strategistTwo,
       epochLength: 14 days
     });
+    vm.roll(block.number + 1);
 
     address publicVault2 = _createPublicVault({
       strategist: strategistOne,
       delegate: strategistTwo,
       epochLength: 14 days
     });
+    vm.roll(block.number + 1);
+
     address publicVault3 = _createPublicVault({
       strategist: strategistOne,
       delegate: strategistTwo,
       epochLength: 14 days
     });
+    vm.roll(block.number + 1);
 
     address publicVault4 = _createPublicVault({
       strategist: strategistOne,
       delegate: strategistTwo,
       epochLength: 14 days
     });
+    vm.roll(block.number + 1);
 
     address publicVault5 = _createPublicVault({
       strategist: strategistOne,
