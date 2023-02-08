@@ -333,6 +333,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   enum VaultState {
     UNINITIALIZED,
+    CORRUPTED,
     CLOSED,
     LIQUIDATED
   }
