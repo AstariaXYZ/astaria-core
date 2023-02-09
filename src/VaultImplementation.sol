@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 
 pragma solidity =0.8.17;
 
@@ -271,10 +271,9 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
-    internal
-    virtual
-  {}
+  function _beforeCommitToLien(
+    IAstariaRouter.Commitment calldata
+  ) internal virtual {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.

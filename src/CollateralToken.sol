@@ -182,12 +182,9 @@ contract CollateralToken is
         : bytes4(0xffffffff);
   }
 
-  function supportsInterface(bytes4 interfaceId)
-    public
-    view
-    override(ERC721, IERC165)
-    returns (bool)
-  {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public view override(ERC721, IERC165) returns (bool) {
     return
       interfaceId == type(ICollateralToken).interfaceId ||
       super.supportsInterface(interfaceId);
@@ -328,11 +325,10 @@ contract CollateralToken is
     }
   }
 
-  function releaseToAddress(uint256 collateralId, address releaseTo)
-    public
-    releaseCheck(collateralId)
-    onlyOwner(collateralId)
-  {
+  function releaseToAddress(
+    uint256 collateralId,
+    address releaseTo
+  ) public releaseCheck(collateralId) onlyOwner(collateralId) {
     CollateralStorage storage s = _loadCollateralSlot();
 
     if (msg.sender != ownerOf(collateralId)) {
@@ -382,11 +378,9 @@ contract CollateralToken is
    * @param collateralId The ID of the CollateralToken wrapping the NFT.
    * @return The address and tokenId of the underlying NFT.
    */
-  function getUnderlying(uint256 collateralId)
-    public
-    view
-    returns (address, uint256)
-  {
+  function getUnderlying(
+    uint256 collateralId
+  ) public view returns (address, uint256) {
     Asset memory underlying = _loadCollateralSlot().idToUnderlying[
       collateralId
     ];
@@ -398,13 +392,9 @@ contract CollateralToken is
    * @param collateralId The ID of the CollateralToken.
    * @return the URI of the CollateralToken.
    */
-  function tokenURI(uint256 collateralId)
-    public
-    view
-    virtual
-    override(ERC721, IERC721)
-    returns (string memory)
-  {
+  function tokenURI(
+    uint256 collateralId
+  ) public view virtual override(ERC721, IERC721) returns (string memory) {
     (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
     return ERC721(underlyingAsset).tokenURI(assetId);
   }
@@ -413,11 +403,9 @@ contract CollateralToken is
     return _loadCollateralSlot().securityHooks[target];
   }
 
-  function getClearingHouse(uint256 collateralId)
-    external
-    view
-    returns (ClearingHouse)
-  {
+  function getClearingHouse(
+    uint256 collateralId
+  ) external view returns (ClearingHouse) {
     return
       ClearingHouse(payable(_loadCollateralSlot().clearingHouse[collateralId]));
   }
@@ -474,11 +462,9 @@ contract CollateralToken is
     });
   }
 
-  function auctionVault(AuctionVaultParams calldata params)
-    external
-    requiresAuth
-    returns (OrderParameters memory orderParameters)
-  {
+  function auctionVault(
+    AuctionVaultParams calldata params
+  ) external requiresAuth returns (OrderParameters memory orderParameters) {
     CollateralStorage storage s = _loadCollateralSlot();
 
     uint256[] memory prices = new uint256[](2);
@@ -538,9 +524,10 @@ contract CollateralToken is
     _burn(collateralId);
   }
 
-  function _settleAuction(CollateralStorage storage s, uint256 collateralId)
-    internal
-  {
+  function _settleAuction(
+    CollateralStorage storage s,
+    uint256 collateralId
+  ) internal {
     delete s.collateralIdToAuction[collateralId];
   }
 
@@ -551,7 +538,7 @@ contract CollateralToken is
    * @return a static return of the receive signature
    */
   function onERC721Received(
-    address, /* operator_ */
+    address /* operator_ */,
     address from_,
     uint256 tokenId_,
     bytes calldata // calldata data_

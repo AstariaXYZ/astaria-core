@@ -22,11 +22,10 @@ contract V3SecurityHook is ISecurityHook {
     positionManager = nftManager_;
   }
 
-  function getState(address tokenContract, uint256 tokenId)
-    external
-    view
-    returns (bytes32)
-  {
+  function getState(
+    address tokenContract,
+    uint256 tokenId
+  ) external view returns (bytes32) {
     (
       uint96 nonce,
       address operator,

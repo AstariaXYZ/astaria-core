@@ -44,9 +44,10 @@ interface IWithdrawProxy is IRouterBase, IERC165, IERC4626 {
    * @param amount The amount to attempt to drain from the WithdrawProxy.
    * @param withdrawProxy The address of the withdrawProxy to drain to.
    */
-  function drain(uint256 amount, address withdrawProxy)
-    external
-    returns (uint256);
+  function drain(
+    uint256 amount,
+    address withdrawProxy
+  ) external returns (uint256);
 
   /**
    * @notice Return any excess funds to the PublicVault, according to the withdrawRatio between withdrawing and remaining LPs.

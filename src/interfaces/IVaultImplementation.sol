@@ -72,11 +72,7 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
     address receiver
   )
     external
-    returns (
-      uint256 lienId,
-      ILienToken.Stack[] memory stack,
-      uint256 payout
-    );
+    returns (uint256 lienId, ILienToken.Stack[] memory stack, uint256 payout);
 
   function buyoutLien(
     ILienToken.Stack[] calldata stack,

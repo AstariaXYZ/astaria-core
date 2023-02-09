@@ -27,17 +27,9 @@ interface IERC721 is IERC165 {
 
   function setApprovalForAll(address operator, bool approved) external;
 
-  function transferFrom(
-    address from,
-    address to,
-    uint256 id
-  ) external;
+  function transferFrom(address from, address to, uint256 id) external;
 
-  function safeTransferFrom(
-    address from,
-    address to,
-    uint256 id
-  ) external;
+  function safeTransferFrom(address from, address to, uint256 id) external;
 
   function safeTransferFrom(
     address from,
