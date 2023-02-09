@@ -32,10 +32,29 @@ import {ERC721} from "solmate/tokens/ERC721.sol";
 contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   using Bytes32AddressLib for bytes32;
   using SafeTransferLib for ERC20;
+  struct AuctionStack {
+    uint256 lienId;
+    uint88 amountOwed;
+    uint40 end;
+  }
+
+  struct AuctionData {
+    uint88 startAmount;
+    uint88 endAmount;
+    uint48 startTime;
+    uint48 endTime;
+    address liquidator;
+    address token;
+    AuctionStack[] stack;
+  }
 
   struct ClearingHouseStorage {
-    ILienToken.AuctionData auctionStack;
+    AuctionData auctionStack;
   }
+  enum InvalidRequestReason {
+    NOT_ENOUGH_FUNDS_RECEIVED
+  }
+  error InvalidRequest(InvalidRequestReason);
 
   uint256 private constant CLEARING_HOUSE_STORAGE_SLOT =
     uint256(keccak256("xyz.astaria.ClearingHouse.storage.location")) - 1;
@@ -63,9 +82,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     }
   }
 
-  function setAuctionData(
-    ILienToken.AuctionData calldata auctionData
-  ) external {
+  function setAuctionData(AuctionData calldata auctionData) external {
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
 
     //only execute from the conduit
@@ -75,21 +92,27 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     s.auctionStack = auctionData;
   }
 
+  function getAuctionData() external view returns (AuctionData memory) {
+    return _getStorage().auctionStack;
+  }
+
   function supportsInterface(bytes4 interfaceId) external view returns (bool) {
     return interfaceId == type(IERC1155).interfaceId;
   }
 
-  function balanceOf(
-    address account,
-    uint256 id
-  ) external view returns (uint256) {
+  function balanceOf(address account, uint256 id)
+    external
+    view
+    returns (uint256)
+  {
     return type(uint256).max;
   }
 
-  function balanceOfBatch(
-    address[] calldata accounts,
-    uint256[] calldata ids
-  ) external view returns (uint256[] memory output) {
+  function balanceOfBatch(address[] calldata accounts, uint256[] calldata ids)
+    external
+    view
+    returns (uint256[] memory output)
+  {
     output = new uint256[](accounts.length);
     for (uint256 i; i < accounts.length; ) {
       output[i] = type(uint256).max;
@@ -101,23 +124,19 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
 
   function setApprovalForAll(address operator, bool approved) external {}
 
-  function isApprovedForAll(
-    address account,
-    address operator
-  ) external view returns (bool) {
+  function isApprovedForAll(address account, address operator)
+    external
+    view
+    returns (bool)
+  {
     return true;
   }
 
-  function _execute(
-    address tokenContract, // collateral token sending the fake nft
-    address to, // buyer
-    uint256 encodedMetaData, //retrieve token address from the encoded data
-    uint256 // space to encode whatever is needed,
-  ) internal {
+  function _execute() internal {
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
 
     ClearingHouseStorage storage s = _getStorage();
-    address paymentToken = bytes32(encodedMetaData).fromLast20Bytes();
+    address paymentToken = s.auctionStack.token;
 
     uint256 currentOfferPrice = _locateCurrentAmount({
       startAmount: s.auctionStack.startAmount,
@@ -128,12 +147,14 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     });
     uint256 payment = ERC20(paymentToken).balanceOf(address(this));
 
-    require(payment >= currentOfferPrice, "not enough funds received");
+    if (currentOfferPrice > payment) {
+      revert InvalidRequest(InvalidRequestReason.NOT_ENOUGH_FUNDS_RECEIVED);
+    }
 
     uint256 collateralId = _getArgUint256(21);
     // pay liquidator fees here
 
-    ILienToken.AuctionStack[] storage stack = s.auctionStack.stack;
+    AuctionStack[] storage stack = s.auctionStack.stack;
 
     uint256 liquidatorPayment = ASTARIA_ROUTER.getLiquidatorFee(payment);
 
@@ -171,7 +192,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     bytes calldata data //empty from seaport
   ) public {
     //data is empty and useless
-    _execute(from, to, identifier, amount);
+    _execute();
   }
 
   function safeBatchTransferFrom(
