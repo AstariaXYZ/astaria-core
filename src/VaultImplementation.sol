@@ -216,7 +216,7 @@ abstract contract VaultImplementation is
   }
 
   /**
-   * @dev Validates the terms for a requested loan.
+   * @dev Validates the incoming request for a lien
    * Who is requesting the borrow, is it a smart contract? or is it a user?
    * if a smart contract, then ensure that the contract is approved to borrow and is also receiving the funds.
    * if a user, then ensure that the user is approved to borrow and is also receiving the funds.
@@ -224,24 +224,22 @@ abstract contract VaultImplementation is
    * lien details are decoded from the obligation data and validated the collateral
    *
    * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
-   * @param receiver The address of the prospective borrower.
    */
-  function _validateCommitment(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
-  ) internal view {
+  function _validateRequest(
+    IAstariaRouter.Commitment calldata params
+  ) internal view returns (address) {
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
     address operator = CT.getApproved(collateralId);
     if (
       msg.sender != holder &&
-      receiver != holder &&
-      receiver != operator &&
+      msg.sender != operator &&
       !CT.isApprovedForAll(holder, msg.sender)
     ) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
+
     VIData storage s = _loadVISlot();
     address recovered = ecrecover(
       keccak256(
@@ -263,6 +261,16 @@ abstract contract VaultImplementation is
         InvalidRequestReason.INVALID_SIGNATURE
       );
     }
+
+    if (holder != msg.sender) {
+      if (msg.sender.code.length > 0) {
+        return msg.sender;
+      } else {
+        revert InvalidRequest(InvalidRequestReason.OPERATOR_NO_CODE);
+      }
+    } else {
+      return holder;
+    }
   }
 
   function _afterCommitToLien(
@@ -280,23 +288,18 @@ abstract contract VaultImplementation is
    * Origination consists of a few phases: pre-commitment validation, lien token issuance, strategist reward, and after commitment actions
    * Starts by depositing collateral and take optimized-out a lien against it. Next, verifies the merkle proof for a loan commitment. Vault owners are then rewarded fees for successful loan origination.
    * @param params Commitment data for the incoming lien request
-   * @param receiver The borrower receiving the loan.
    * @return lienId The id of the newly minted lien token.
    */
   function commitToLien(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
+    IAstariaRouter.Commitment calldata params
   )
     external
     whenNotPaused
-    returns (uint256 lienId, ILienToken.Stack[] memory stack, uint256 payout)
+    returns (uint256 lienId, ILienToken.Stack[] memory stack)
   {
     _beforeCommitToLien(params);
     uint256 slopeAddition;
-    (lienId, stack, slopeAddition, payout) = _requestLienAndIssuePayout(
-      params,
-      receiver
-    );
+    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(params);
     _afterCommitToLien(
       stack[stack.length - 1].point.end,
       lienId,
@@ -328,7 +331,7 @@ abstract contract VaultImplementation is
       );
     }
 
-    _validateCommitment(incomingTerms, recipient());
+    _validateRequest(incomingTerms);
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
@@ -373,24 +376,19 @@ abstract contract VaultImplementation is
   /**
    * @dev Generates a Lien for a valid loan commitment proof and sends the loan amount to the borrower.
    * @param c The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
-   * @param receiver The borrower requesting the loan.
    */
   function _requestLienAndIssuePayout(
-    IAstariaRouter.Commitment calldata c,
-    address receiver
+    IAstariaRouter.Commitment calldata c
   )
     internal
-    returns (
-      uint256 newLienId,
-      ILienToken.Stack[] memory stack,
-      uint256 slope,
-      uint256 payout
-    )
+    returns (uint256 newLienId, ILienToken.Stack[] memory stack, uint256 slope)
   {
-    _validateCommitment(c, receiver);
+    address receiver = _validateRequest(c);
     (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
-    payout = _handleProtocolFee(c.lienRequest.amount);
-    ERC20(asset()).safeTransfer(receiver, payout);
+    ERC20(asset()).safeTransfer(
+      receiver,
+      _handleProtocolFee(c.lienRequest.amount)
+    );
   }
 
   function _handleProtocolFee(uint256 amount) internal returns (uint256) {

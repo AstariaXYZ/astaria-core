@@ -508,9 +508,8 @@ contract AstariaRouter is
       if (i != 0) {
         commitments[i].lienRequest.stack = stack;
       }
-      uint256 payout;
-      (lienIds[i], stack, payout) = _executeCommitment(s, commitments[i]);
-      totalBorrowed += payout;
+      (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
+      totalBorrowed += stack[stack.length - 1].point.amount;
       unchecked {
         ++i;
       }
@@ -753,10 +752,7 @@ contract AstariaRouter is
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment memory c
-  )
-    internal
-    returns (uint256, ILienToken.Stack[] memory stack, uint256 payout)
-  {
+  ) internal returns (uint256, ILienToken.Stack[] memory stack) {
     uint256 collateralId = c.tokenContract.computeId(c.tokenId);
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
@@ -766,11 +762,7 @@ contract AstariaRouter is
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
     //router must be approved for the collateral to take a loan,
-    return
-      IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
-        c,
-        address(this)
-      );
+    return IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(c);
   }
 
   function _transferAndDepositAssetIfAble(
