@@ -31,19 +31,15 @@ interface ICollectionValidator is IStrategyValidator {
 contract CollectionValidator is ICollectionValidator {
   uint8 public constant VERSION_TYPE = uint8(2);
 
-  function getLeafDetails(bytes memory nlrDetails)
-    public
-    pure
-    returns (ICollectionValidator.Details memory)
-  {
+  function getLeafDetails(
+    bytes memory nlrDetails
+  ) public pure returns (ICollectionValidator.Details memory) {
     return abi.decode(nlrDetails, (ICollectionValidator.Details));
   }
 
-  function assembleLeaf(ICollectionValidator.Details memory details)
-    public
-    pure
-    returns (bytes memory)
-  {
+  function assembleLeaf(
+    ICollectionValidator.Details memory details
+  ) public pure returns (bytes memory) {
     return abi.encode(details);
   }
 

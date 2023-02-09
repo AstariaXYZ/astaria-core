@@ -8,7 +8,7 @@
   },
   "scripts": {
     "lint": "eslint src/**/*.sol",
-    "lint:fix": "prettier --write src/**/*.sol",
+    "lint:fix": "prettier --write src/**/*.sol src/*.sol",
     "postinstall": "husky install"
   },
   "lint-staged": {
