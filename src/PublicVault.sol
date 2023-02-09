@@ -315,24 +315,19 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
       uint256 expected = currentWithdrawProxy.getExpected();
 
-      unchecked {
-        if (totalAssets() > expected) {
-          s.withdrawReserve = (totalAssets() - expected)
-            .mulWadDown(s.liquidationWithdrawRatio)
-            .safeCastTo88();
-        } else {
-          s.withdrawReserve = 0;
-        }
+      if (totalAssets() > expected) {
+        s.withdrawReserve = (totalAssets() - expected)
+          .mulWadDown(s.liquidationWithdrawRatio)
+          .safeCastTo88();
+      } else {
+        s.withdrawReserve = 0;
       }
-
-      s.yIntercept = totalAssets().safeCastTo88();
-      s.last = block.timestamp.safeCastTo40();
 
       _setYIntercept(
         s,
-        s.yIntercept -
-          totalAssets().mulDivDown(s.liquidationWithdrawRatio, 1e18)
+        totalAssets().mulDivDown(1e18 - s.liquidationWithdrawRatio, 1e18)
       );
+      s.last = block.timestamp.safeCastTo40();
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
     }
