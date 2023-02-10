@@ -23,13 +23,13 @@ interface IPublicVault is IVaultImplementation {
   }
 
   struct VaultData {
-    uint88 yIntercept;
-    uint256 slope;
+    uint256 yIntercept;
+    uint48 slope;
     uint40 last;
     uint64 currentEpoch;
-    uint88 withdrawReserve;
-    uint88 liquidationWithdrawRatio;
-    uint88 strategistUnclaimedShares;
+    uint256 withdrawReserve;
+    uint256 liquidationWithdrawRatio;
+    uint256 strategistUnclaimedShares;
     mapping(uint64 => EpochData) epochData;
   }
 
@@ -165,9 +165,9 @@ interface IPublicVault is IVaultImplementation {
     DEPOSIT_CAP_EXCEEDED
   }
 
-  event StrategistFee(uint88 feeInShares);
+  event StrategistFee(uint256 feeInShares);
   event LiensOpenForEpochRemaining(uint64 epoch, uint256 liensOpenForEpoch);
-  event YInterceptChanged(uint88 newYintercept);
+  event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
   event LienOpen(uint256 lienId, uint256 epoch);
   event SlopeUpdated(uint256 newSlope);

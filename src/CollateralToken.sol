@@ -456,7 +456,11 @@ contract CollateralToken is
       startTime: uint256(block.timestamp),
       endTime: uint256(block.timestamp + maxDuration),
       zoneHash: bytes32(collateralId),
-      salt: uint256(blockhash(block.number)),
+      salt: uint256(
+        keccak256(
+          abi.encodePacked(collateralId, uint256(blockhash(block.number - 1)))
+        )
+      ),
       conduitKey: s.CONDUIT_KEY, // 0x120
       totalOriginalConsiderationItems: considerationItems.length
     });

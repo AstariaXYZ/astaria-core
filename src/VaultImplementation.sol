@@ -76,7 +76,7 @@ abstract contract VaultImplementation is
    */
   function modifyDepositCap(uint256 newCap) external {
     require(msg.sender == owner()); //owner is "strategist"
-    _loadVISlot().depositCap = newCap.safeCastTo88();
+    _loadVISlot().depositCap = newCap;
   }
 
   function _loadVISlot() internal pure returns (VIData storage s) {
@@ -194,7 +194,7 @@ abstract contract VaultImplementation is
     if (params.delegate != address(0)) {
       s.delegate = params.delegate;
     }
-    s.depositCap = params.depositCap.safeCastTo88();
+    s.depositCap = params.depositCap;
     if (params.allowListEnabled) {
       s.allowListEnabled = true;
       uint256 i;

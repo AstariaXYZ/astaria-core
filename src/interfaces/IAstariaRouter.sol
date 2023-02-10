@@ -70,7 +70,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     ITransferProxy TRANSFER_PROXY; //20
     address feeTo; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
-    uint88 maxInterestRate; //6
+    uint256 maxInterestRate; //6
     uint32 minInterestBPS; // was uint64
     //slot 3 +
     address guardian; //20

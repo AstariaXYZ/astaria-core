@@ -112,7 +112,7 @@ contract AstariaRouter is
     s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
     s.minEpochLength = uint32(7 days);
     s.maxEpochLength = uint32(45 days);
-    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days)).safeCastTo88();
+    s.maxInterestRate = ((uint256(1e16) * 200) / (365 days));
     //63419583966; // 200% apy / second
     s.buyoutFeeNumerator = uint32(100);
     s.buyoutFeeDenominator = uint32(1000);
@@ -320,7 +320,7 @@ contract AstariaRouter is
     } else if (what == FileType.MaxEpochLength) {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.MaxInterestRate) {
-      s.maxInterestRate = abi.decode(data, (uint256)).safeCastTo88();
+      s.maxInterestRate = abi.decode(data, (uint256));
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
       if (addr == address(0)) revert InvalidFileData();
@@ -608,8 +608,7 @@ contract AstariaRouter is
     ILienToken.Stack memory stack
   ) public view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
-    return (stack.point.end <= block.timestamp ||
-      msg.sender == s.COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId));
+    return (stack.point.end <= block.timestamp);
   }
 
   function liquidate(
