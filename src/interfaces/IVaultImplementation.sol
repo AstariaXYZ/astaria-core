@@ -41,7 +41,7 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   }
 
   struct VIData {
-    uint88 depositCap;
+    uint256 depositCap;
     address delegate;
     bool allowListEnabled;
     bool isShutdown;

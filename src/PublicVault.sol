@@ -100,10 +100,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     override(ERC4626Cloned)
     returns (uint256)
   {
-    if (ERC20(asset()).decimals() == uint8(18)) {
-      return 100 gwei;
-    } else {
+    if (ERC20(asset()).decimals() < 4) {
       return 10 ** (ERC20(asset()).decimals() - 1);
+    } else if (ERC20(asset()).decimals() < 8) {
+      return 10 ** (ERC20(asset()).decimals() - 2);
+    } else {
+      return 10 ** (ERC20(asset()).decimals() - 6);
     }
   }
 
@@ -308,18 +310,16 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if ((address(currentWithdrawProxy) != address(0))) {
       uint256 proxySupply = currentWithdrawProxy.totalSupply();
 
-      s.liquidationWithdrawRatio = proxySupply
-        .mulDivDown(1e18, totalSupply())
-        .safeCastTo88();
+      s.liquidationWithdrawRatio = proxySupply.mulDivDown(1e18, totalSupply());
 
       currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
       uint256 expected = currentWithdrawProxy.getExpected();
 
       unchecked {
         if (totalAssets() > expected) {
-          s.withdrawReserve = (totalAssets() - expected)
-            .mulWadDown(s.liquidationWithdrawRatio)
-            .safeCastTo88();
+          s.withdrawReserve = (totalAssets() - expected).mulWadDown(
+            s.liquidationWithdrawRatio
+          );
         } else {
           s.withdrawReserve = 0;
         }
@@ -375,7 +375,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         s.withdrawReserve = 0;
       } else {
         unchecked {
-          s.withdrawReserve -= withdrawBalance.safeCastTo88();
+          s.withdrawReserve -= withdrawBalance;
         }
       }
 
@@ -400,7 +400,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         s.epochData[s.currentEpoch - 1].withdrawProxy
       );
       unchecked {
-        s.withdrawReserve -= drainBalance.safeCastTo88();
+        s.withdrawReserve -= drainBalance;
       }
       WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
         drainBalance
@@ -460,7 +460,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
   function _accrue(VaultData storage s) internal returns (uint256) {
     unchecked {
-      s.yIntercept = (_totalAssets(s)).safeCastTo88();
+      s.yIntercept = (_totalAssets(s));
       s.last = block.timestamp.safeCastTo40();
     }
     emit YInterceptChanged(s.yIntercept);
@@ -574,7 +574,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
-      s.yIntercept += assets.safeCastTo88();
+      s.yIntercept += assets;
     }
     VIData storage v = _loadVISlot();
     if (v.depositCap != 0 && totalAssets() >= v.depositCap) {
@@ -596,7 +596,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
       uint256 fee = x.mulDivDown(VAULT_FEE(), 10000);
-      uint88 feeInShares = convertToShares(fee).safeCastTo88();
+      uint256 feeInShares = convertToShares(fee);
       s.strategistUnclaimedShares += feeInShares;
       emit StrategistFee(feeInShares);
     }
@@ -614,7 +614,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     unchecked {
       uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
       _setSlope(s, newSlope);
-      s.yIntercept += params.increaseYIntercept.safeCastTo88();
+      s.yIntercept += params.increaseYIntercept;
       s.last = block.timestamp.safeCastTo40();
     }
 
@@ -685,7 +685,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   }
 
   function _setYIntercept(VaultData storage s, uint256 newYIntercept) internal {
-    s.yIntercept = newYIntercept.safeCastTo88();
+    s.yIntercept = newYIntercept;
     emit YInterceptChanged(s.yIntercept);
   }
 

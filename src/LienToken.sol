@@ -307,7 +307,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
 
       auctionStack.lienId = stack[i].point.lienId;
       auctionStack.end = stack[i].point.end;
-      uint88 owed = _getOwed(stack[i], block.timestamp);
+      uint256 owed = _getOwed(stack[i], block.timestamp);
       auctionStack.amountOwed = owed;
       s.lienMeta[auctionStack.lienId].atLiquidation = true;
       auctionData.stack[i] = auctionStack;
@@ -335,12 +335,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     s.collateralStateHash[collateralId] = ACTIVE_AUCTION;
     auctionData.startTime = block.timestamp.safeCastTo48();
     auctionData.endTime = (block.timestamp + auctionWindow).safeCastTo48();
-    auctionData.startAmount = stack[0]
-      .lien
-      .details
-      .liquidationInitialAsk
-      .safeCastTo88();
-    auctionData.endAmount = uint88(1000 wei);
+    auctionData.startAmount = stack[0].lien.details.liquidationInitialAsk;
+    auctionData.endAmount = uint256(1000 wei);
     s.COLLATERAL_TOKEN.getClearingHouse(collateralId).setAuctionData(
       auctionData
     );
@@ -449,7 +445,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     newLienId = uint256(keccak256(abi.encode(params.lien)));
     Point memory point = Point({
       lienId: newLienId,
-      amount: params.amount.safeCastTo88(),
+      amount: params.amount,
       last: block.timestamp.safeCastTo40(),
       end: (block.timestamp + params.lien.details.duration).safeCastTo40()
     });
@@ -637,7 +633,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     //checks the lien exists
     address payee = _getPayee(s, lienId);
     uint256 remaining = 0;
-    if (owing > payment.safeCastTo88()) {
+    if (owing > payment) {
       remaining = owing - payment;
     } else {
       payment = owing;
@@ -742,16 +738,15 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     }
   }
 
-  function getOwed(Stack memory stack) external view returns (uint88) {
+  function getOwed(Stack memory stack) external view returns (uint256) {
     validateLien(stack.lien);
     return _getOwed(stack, block.timestamp);
   }
 
-  function getOwed(Stack memory stack, uint256 timestamp)
-    external
-    view
-    returns (uint88)
-  {
+  function getOwed(
+    Stack memory stack,
+    uint256 timestamp
+  ) external view returns (uint256) {
     validateLien(stack.lien);
     return _getOwed(stack, timestamp);
   }
@@ -761,12 +756,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
    * @param stack The specified Lien.
    * @return The amount owed to the Lien at the specified timestamp.
    */
-  function _getOwed(Stack memory stack, uint256 timestamp)
-    internal
-    pure
-    returns (uint88)
-  {
-    return stack.point.amount + _getInterest(stack, timestamp).safeCastTo88();
+  function _getOwed(
+    Stack memory stack,
+    uint256 timestamp
+  ) internal pure returns (uint256) {
+    return stack.point.amount + _getInterest(stack, timestamp);
   }
 
   /**
@@ -826,11 +820,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     }
 
     //bring the point up to block.timestamp, compute the owed
-    stack.point.amount = owed.safeCastTo88();
+    stack.point.amount = owed;
     stack.point.last = block.timestamp.safeCastTo40();
 
     if (stack.point.amount > amount) {
-      stack.point.amount -= amount.safeCastTo88();
+      stack.point.amount -= amount;
       //      // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
       if (isPublicVault) {
         IPublicVault(lienOwner).afterPayment(calculateSlope(stack));
