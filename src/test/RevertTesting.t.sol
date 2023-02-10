@@ -579,4 +579,45 @@ contract RevertTesting is TestHelpers {
       )
     });
   }
+
+  function testCannotSelfLiquidateBeforeExpiration() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IAstariaRouter.InvalidLienState.selector,
+        IAstariaRouter.LienState.HEALTHY
+      )
+    );
+    ASTARIA_ROUTER.liquidate(stack, uint8(0));
+  }
 }
