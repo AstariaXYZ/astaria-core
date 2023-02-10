@@ -67,7 +67,7 @@ interface ILienToken is IERC721 {
   }
 
   struct Point {
-    uint88 amount; //11
+    uint256 amount; //11
     uint40 last; //5
     uint40 end; //5
     uint256 lienId; //32
@@ -136,7 +136,7 @@ interface ILienToken is IERC721 {
    * @param stack The Lien stack
    * @return the amount owed in uint192 at the current block.timestamp
    */
-  function getOwed(Stack calldata stack) external view returns (uint88);
+  function getOwed(Stack calldata stack) external view returns (uint256);
 
   /**
    * @notice Removes all liens for a given CollateralToken.
@@ -147,7 +147,7 @@ interface ILienToken is IERC721 {
   function getOwed(
     Stack calldata stack,
     uint256 timestamp
-  ) external view returns (uint88);
+  ) external view returns (uint256);
 
   /**
    * @notice Public view function that computes the interest for a LienToken since its last payment.
@@ -219,13 +219,13 @@ interface ILienToken is IERC721 {
 
   struct AuctionStack {
     uint256 lienId;
-    uint88 amountOwed;
+    uint256 amountOwed;
     uint40 end;
   }
 
   struct AuctionData {
-    uint88 startAmount;
-    uint88 endAmount;
+    uint256 startAmount;
+    uint256 endAmount;
     uint48 startTime;
     uint48 endTime;
     address liquidator;
