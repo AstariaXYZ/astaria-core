@@ -24,7 +24,7 @@ interface IPublicVault is IVaultImplementation {
 
   struct VaultData {
     uint256 yIntercept;
-    uint48 slope;
+    uint256 slope;
     uint40 last;
     uint64 currentEpoch;
     uint256 withdrawReserve;

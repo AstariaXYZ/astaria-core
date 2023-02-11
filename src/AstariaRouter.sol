@@ -20,10 +20,9 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
-
 import {
-  ClonesWithImmutableArgs
-} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+  Create2ClonesWithImmutableArgs
+} from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
@@ -721,7 +720,7 @@ contract AstariaRouter is
     }
 
     //immutable data
-    vaultAddr = ClonesWithImmutableArgs.clone(
+    vaultAddr = Create2ClonesWithImmutableArgs.clone(
       s.BEACON_PROXY_IMPLEMENTATION,
       abi.encodePacked(
         address(this),
@@ -731,9 +730,13 @@ contract AstariaRouter is
         block.timestamp,
         epochLength,
         vaultFee
-      )
+      ),
+      keccak256(abi.encode(msg.sender, blockhash(block.number - 1)))
     );
 
+    if (s.LIEN_TOKEN.balanceOf(vaultAddr) > 0) {
+      revert InvalidVaultState(IAstariaRouter.VaultState.CORRUPTED);
+    }
     //mutable data
     IVaultImplementation(vaultAddr).init(
       IVaultImplementation.InitParams({

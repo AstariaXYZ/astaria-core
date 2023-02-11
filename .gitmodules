@@ -17,3 +17,7 @@
 [submodule "lib/seaport"]
 	path = lib/seaport
 	url = https://github.com/projectopensea/seaport
+[submodule "lib/create2-clones-with-immutable-args"]
+	path = lib/create2-clones-with-immutable-args
+	url = https://github.com/emo-eth/create2-clones-with-immutable-args
+	branch = v0.1.1
