@@ -170,4 +170,5 @@ interface IPublicVault is IVaultImplementation {
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
   event LienOpen(uint256 lienId, uint256 epoch);
+  event SlopeUpdated(uint256 newSlope);
 }

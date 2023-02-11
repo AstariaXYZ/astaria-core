@@ -436,7 +436,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     // increment slope for the new lien
     _accrue(s);
     unchecked {
-      uint48 newSlope = s.slope + lienSlope.safeCastTo48();
+      uint256 newSlope = s.slope + lienSlope;
       _setSlope(s, newSlope);
     }
 
@@ -445,8 +445,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _increaseOpenLiens(s, epoch);
     emit LienOpen(lienId, epoch);
   }
-
-  event SlopeUpdated(uint48 newSlope);
 
   function accrue() public returns (uint256) {
     return _accrue(_loadStorageSlot());
@@ -509,13 +507,13 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _accrue(s);
 
     unchecked {
-      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      uint256 newSlope = s.slope - params.lienSlope;
       _setSlope(s, newSlope);
     }
     _handleStrategistInterestReward(s, params.interestOwed, params.amount);
   }
 
-  function _setSlope(VaultData storage s, uint48 newSlope) internal {
+  function _setSlope(VaultData storage s, uint256 newSlope) internal {
     s.slope = newSlope;
     emit SlopeUpdated(newSlope);
   }
@@ -550,9 +548,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
   function afterPayment(uint256 computedSlope) public onlyLienToken {
     VaultData storage s = _loadStorageSlot();
-    unchecked {
-      s.slope += computedSlope.safeCastTo48();
-    }
+    s.slope += computedSlope;
     emit SlopeUpdated(s.slope);
   }
 
@@ -606,7 +602,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
-      uint48 newSlope = s.slope - params.lienSlope.safeCastTo48();
+      uint256 newSlope = s.slope - params.lienSlope;
       _setSlope(s, newSlope);
       s.yIntercept += params.increaseYIntercept;
       s.last = block.timestamp.safeCastTo40();
@@ -632,7 +628,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
     _accrue(s);
     unchecked {
-      _setSlope(s, s.slope - params.lienSlope.safeCastTo48());
+      _setSlope(s, s.slope - params.lienSlope);
     }
 
     if (s.currentEpoch != 0) {
