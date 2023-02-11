@@ -143,8 +143,13 @@ contract RevertTesting is TestHelpers {
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
 
     uint256 balanceOfBefore = ERC20(privateVault).balanceOf(address(this));
-    vm.expectRevert(abi.encodePacked("InvalidRequest(1)"));
-    VaultImplementation(privateVault).commitToLien(terms, address(this));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IVaultImplementation.InvalidRequest.selector,
+        IVaultImplementation.InvalidRequestReason.NO_AUTHORITY
+      )
+    );
+    VaultImplementation(privateVault).commitToLien(terms);
     assertEq(
       balanceOfBefore,
       ERC20(privateVault).balanceOf(address(this)),
