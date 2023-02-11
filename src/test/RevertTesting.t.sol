@@ -108,6 +108,19 @@ contract RevertTesting is TestHelpers {
     );
   }
 
+  function testFailDepositWhenProtocolPaused() public {
+    address privateVault = _createPrivateVault({
+      delegate: strategistOne,
+      strategist: strategistTwo
+    });
+    ASTARIA_ROUTER.__emergencyPause();
+
+    _lendToPrivateVault(
+      Lender({addr: strategistTwo, amountToLend: 50 ether}),
+      privateVault
+    );
+  }
+
   function testFailInvalidSignature() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);

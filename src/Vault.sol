@@ -55,7 +55,7 @@ contract Vault is VaultImplementation {
   function deposit(
     uint256 amount,
     address receiver
-  ) public virtual returns (uint256) {
+  ) public virtual whenNotPaused returns (uint256) {
     VIData storage s = _loadVISlot();
     require(s.allowList[msg.sender] && receiver == owner());
     ERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
