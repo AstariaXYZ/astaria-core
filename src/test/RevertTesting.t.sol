@@ -40,6 +40,9 @@ import {LienToken} from "../LienToken.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
+import {
+  Create2ClonesWithImmutableArgs
+} from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 
 import {Strings2} from "./utils/Strings2.sol";
 
@@ -82,6 +85,82 @@ contract RevertTesting is TestHelpers {
     );
   }
 
+  function testCannotCorruptVaults() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    _lendToPrivateVault(
+      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      privateVault
+    );
+
+    IAstariaRouter.Commitment memory terms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      stack: new ILienToken.Stack[](0)
+    });
+
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId,
+      ""
+    );
+
+    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+
+    uint256 balanceOfBefore = ERC20(WETH9).balanceOf(address(this));
+    (uint256 lienId, , ) = VaultImplementation(privateVault).commitToLien(
+      terms,
+      address(this)
+    );
+
+    address underlying = address(WETH9);
+    uint256 epochLength = 10 days;
+    uint256 vaultFee = 0;
+    emit log_named_uint("block number", block.number);
+    address attackTarget = Create2ClonesWithImmutableArgs.deriveAddress(
+      address(ASTARIA_ROUTER),
+      ASTARIA_ROUTER.BEACON_PROXY_IMPLEMENTATION(),
+      abi.encodePacked(
+        address(ASTARIA_ROUTER),
+        uint8(IAstariaRouter.ImplementationType.PublicVault),
+        strategistTwo,
+        underlying,
+        block.timestamp,
+        epochLength,
+        vaultFee
+      ),
+      keccak256(abi.encode(strategistTwo, blockhash(block.number - 1)))
+    );
+
+    vm.startPrank(strategistOne);
+    LIEN_TOKEN.transferFrom(strategistOne, attackTarget, lienId);
+    vm.stopPrank();
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IAstariaRouter.InvalidVaultState.selector,
+        IAstariaRouter.VaultState.CORRUPTED
+      )
+    );
+    address publicVault = _createPublicVault({
+      strategist: strategistTwo,
+      delegate: strategistTwo,
+      epochLength: epochLength
+    });
+  }
+
   function testInvalidFileData() public {
     vm.expectRevert(
       abi.encodeWithSelector(IAstariaRouter.InvalidFileData.selector)
@@ -94,7 +173,7 @@ contract RevertTesting is TestHelpers {
     );
   }
 
-  function testFailInvalidSignature() public {
+  function testCannotCommitWithInvalidSignature() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(1);
@@ -103,7 +182,7 @@ contract RevertTesting is TestHelpers {
       delegate: strategistTwo
     });
 
-    _lendToVault(
+    _lendToPrivateVault(
       Lender({addr: strategistOne, amountToLend: 50 ether}),
       privateVault
     );
@@ -128,14 +207,13 @@ contract RevertTesting is TestHelpers {
 
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
 
-    uint256 balanceOfBefore = ERC20(privateVault).balanceOf(address(this));
-    vm.expectRevert(abi.encodePacked("InvalidRequest(1)"));
-    VaultImplementation(privateVault).commitToLien(terms, address(this));
-    assertEq(
-      balanceOfBefore,
-      ERC20(privateVault).balanceOf(address(this)),
-      "balance changed"
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IVaultImplementation.InvalidRequest.selector,
+        IVaultImplementation.InvalidRequestReason.INVALID_SIGNATURE
+      )
     );
+    VaultImplementation(privateVault).commitToLien(terms, address(this));
   }
 
   // Only strategists for PrivateVaults can supply capital
