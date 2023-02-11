@@ -55,7 +55,7 @@ contract Vault is VaultImplementation {
   function deposit(
     uint256 amount,
     address receiver
-  ) public virtual returns (uint256) {
+  ) public virtual whenNotPaused returns (uint256) {
     VIData storage s = _loadVISlot();
     require(s.allowList[msg.sender] && receiver == owner());
     ERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
@@ -64,7 +64,7 @@ contract Vault is VaultImplementation {
 
   function withdraw(uint256 amount) external {
     require(msg.sender == owner());
-    ERC20(asset()).safeTransferFrom(address(this), msg.sender, amount);
+    ERC20(asset()).safeTransfer(msg.sender, amount);
   }
 
   function disableAllowList() external pure override(VaultImplementation) {

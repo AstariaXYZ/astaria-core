@@ -50,8 +50,8 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256(keccak256("xyz.astaria.WithdrawProxy.storage.location")) - 1;
 
   struct WPStorage {
-    uint88 withdrawRatio;
-    uint88 expected; // The sum of the remaining debt (amountOwed) accrued against the NFT at the timestamp when it is liquidated. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
+    uint256 withdrawRatio;
+    uint256 expected; // The sum of the remaining debt (amountOwed) accrued against the NFT at the timestamp when it is liquidated. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
     uint40 finalAuctionEnd; // when this is deleted, we know the final auction is over
     uint256 withdrawReserveReceived; // amount received from PublicVault. The WETH balance of this contract - withdrawReserveReceived = amount received from liquidations.
   }
@@ -292,7 +292,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public onlyVault {
-    _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
+    _loadSlot().withdrawRatio = liquidationWithdrawRatio;
   }
 
   function handleNewLiquidation(
@@ -302,7 +302,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     WPStorage storage s = _loadSlot();
 
     unchecked {
-      s.expected += newLienExpectedValue.safeCastTo88();
+      s.expected += newLienExpectedValue;
       uint40 auctionEnd = (block.timestamp + finalAuctionDelta).safeCastTo40();
       if (auctionEnd > s.finalAuctionEnd) s.finalAuctionEnd = auctionEnd;
     }
