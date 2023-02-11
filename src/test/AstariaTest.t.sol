@@ -160,6 +160,37 @@ contract AstariaTest is TestHelpers {
     assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
   }
 
+  // From C4 #489
+  function testPrivateVaultWithdraw() public {
+    uint256 amountToLend = 50 ether;
+    vm.deal(strategistOne, amountToLend);
+
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    vm.startPrank(strategistOne);
+
+    WETH9.deposit{value: amountToLend}();
+    WETH9.approve(privateVault, amountToLend);
+
+    // strategistOne deposits 50 ether WETH to privateVault
+    Vault(privateVault).deposit(amountToLend, strategistOne);
+
+    // still reverting with APPROVE_FAILED
+    //    ASTARIA_ROUTER.withdraw(
+    //      IERC4626(privateVault),
+    //      strategistOne,
+    //      amountToLend,
+    //      type(uint256).max
+    //    );
+
+    Vault(privateVault).withdraw(amountToLend);
+
+    vm.stopPrank();
+  }
+
   function testWithdrawProxy() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
