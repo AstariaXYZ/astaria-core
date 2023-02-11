@@ -450,11 +450,19 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function _createPrivateVault(
     address strategist,
-    address delegate
+    address delegate,
+    address token
   ) internal returns (address privateVault) {
     vm.startPrank(strategist);
-    privateVault = ASTARIA_ROUTER.newVault(delegate, address(WETH9));
+    privateVault = ASTARIA_ROUTER.newVault(delegate, token);
     vm.stopPrank();
+  }
+
+  function _createPrivateVault(
+    address strategist,
+    address delegate
+  ) internal returns (address) {
+    return _createPrivateVault(strategist, delegate, address(WETH9));
   }
 
   function _createPublicVault(

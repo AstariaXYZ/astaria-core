@@ -712,6 +712,9 @@ contract AstariaRouter is
   ) internal returns (address vaultAddr) {
     uint8 vaultType;
 
+    if (underlying.code.length == 0) {
+      revert InvalidUnderlying(underlying);
+    }
     if (epochLength > uint256(0)) {
       vaultType = uint8(ImplementationType.PublicVault);
     } else {
