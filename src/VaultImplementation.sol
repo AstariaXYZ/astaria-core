@@ -230,6 +230,10 @@ abstract contract VaultImplementation is
     view
     returns (address)
   {
+    if (params.lienRequest.strategy.vault != address(this)) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
+    }
+    
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);

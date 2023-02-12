@@ -44,6 +44,7 @@ import {
   Create2ClonesWithImmutableArgs
 } from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 
+import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
@@ -196,7 +197,66 @@ contract RevertTesting is TestHelpers {
       privateVault
     );
   }
-  
+
+  function testInvalidVaultRequest() public {
+    TestNFT nft = new TestNFT(2);
+    address tokenContract = address(nft);
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // Create a private vault with WETH asset
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: address(0),
+      token: address(WETH9)
+    });
+
+    _lendToPrivateVault(
+      Lender({addr: strategistOne, amountToLend: 500 ether}),
+      privateVault
+    );
+
+    // Send the NFT to Collateral contract and receive Collateral token
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      1,
+      ""
+    );
+
+    // generate valid terms
+    uint256 amount = 50 ether; // amount to borrow
+    IAstariaRouter.Commitment memory c = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: 1,
+      lienDetails: standardLienDetails,
+      amount: amount,
+      stack: new ILienToken.Stack[](0)
+    });
+
+    // Attack starts here
+    // The borrower an asset which has no value in the market
+    MockERC20 FakeToken = new MockERC20("USDC", "FakeAsset", 18); // this could be any ERC token created by the attacker
+    FakeToken.mint(address(this), 500 ether);
+    // The borrower creates a private vault with his/her asset
+    address privateVaultOfBorrower = _createPrivateVault({
+      strategist: address(this),
+      delegate: address(0),
+      token: address(FakeToken)
+    });
+
+    c.lienRequest.strategy.vault = privateVaultOfBorrower;
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IVaultImplementation.InvalidRequest.selector,
+        IVaultImplementation.InvalidRequestReason.INVALID_VAULT
+      )
+    );
+    IVaultImplementation(privateVault).commitToLien(c);
+  }
+
   function testCannotCommitWithInvalidSignature() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
