@@ -34,13 +34,13 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   using SafeTransferLib for ERC20;
   struct AuctionStack {
     uint256 lienId;
-    uint88 amountOwed;
+    uint256 amountOwed;
     uint40 end;
   }
 
   struct AuctionData {
-    uint88 startAmount;
-    uint88 endAmount;
+    uint256 startAmount;
+    uint256 endAmount;
     uint48 startTime;
     uint48 endTime;
     address liquidator;
@@ -174,7 +174,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
       s.auctionData.stack
     );
 
-    uint remainingBalance = paymentToken.balanceOf(address(this));
+    uint256 remainingBalance = paymentToken.balanceOf(address(this));
     if (remainingBalance > 0) {
       paymentToken.safeTransfer(
         ASTARIA_ROUTER.COLLATERAL_TOKEN().ownerOf(collateralId),
@@ -240,7 +240,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
 
     require(msg.sender == address(ASTARIA_ROUTER.COLLATERAL_TOKEN()));
     ClearingHouseStorage storage s = _getStorage();
-    uint collateralId = COLLATERAL_ID();
+    uint256 collateralId = COLLATERAL_ID();
     ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
       address(0),
       collateralId,
