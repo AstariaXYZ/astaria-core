@@ -233,6 +233,7 @@ abstract contract VaultImplementation is
     if (params.lienRequest.strategy.vault != address(this)) {
       revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
     }
+    
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
@@ -243,6 +244,10 @@ abstract contract VaultImplementation is
       !CT.isApprovedForAll(holder, msg.sender)
     ) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
+    }
+
+    if (block.timestamp > params.lienRequest.strategy.deadline) {
+      revert InvalidRequest(InvalidRequestReason.EXPIRED);
     }
 
     VIData storage s = _loadVISlot();

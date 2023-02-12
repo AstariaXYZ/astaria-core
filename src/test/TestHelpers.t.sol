@@ -552,30 +552,22 @@ contract TestHelpers is Deploy, ConsiderationTester {
         amount: amount,
         isFirstLien: isFirstLien,
         stack: new ILienToken.Stack[](0),
-        revertMessage: new bytes(0),
-        broadcast: false
+        revertMessage: new bytes(0)
       });
   }
 
   function _executeCommitments(
     IAstariaRouter.Commitment[] memory commitments,
-    bytes memory revertMessage,
-    bool broadcast
+    bytes memory revertMessage
   )
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
   {
-    if (broadcast) {
-      vm.startBroadcast(msg.sender);
-    }
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
     if (revertMessage.length > 0) {
       vm.expectRevert(revertMessage);
     }
     (lienIds, newStack) = ASTARIA_ROUTER.commitToLiens(commitments);
-    if (broadcast) {
-      vm.stopBroadcast();
-    }
   }
 
   struct V3LienParams {
@@ -599,8 +591,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address vault,
     uint256 amount,
     ILienToken.Stack[] memory stack,
-    bool isFirstLien,
-    bool broadcast
+    bool isFirstLien
   )
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
@@ -613,16 +604,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
     });
 
     if (isFirstLien) {
-      if (broadcast) {
-        vm.startBroadcast(msg.sender);
-      }
       ERC721(params.tokenContract).setApprovalForAll(
         address(ASTARIA_ROUTER),
         true
       );
-      if (broadcast) {
-        vm.stopBroadcast();
-      }
     }
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
@@ -630,8 +615,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     return
       _executeCommitments({
         commitments: commitments,
-        revertMessage: new bytes(0),
-        broadcast: broadcast
+        revertMessage: new bytes(0)
       });
   }
 
@@ -660,8 +644,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
         amount: amount,
         isFirstLien: isFirstLien,
         stack: stack,
-        revertMessage: new bytes(0),
-        broadcast: false
+        revertMessage: new bytes(0)
       });
   }
 
@@ -692,9 +675,11 @@ contract TestHelpers is Deploy, ConsiderationTester {
         isFirstLien: isFirstLien,
         stack: stack,
         revertMessage: revertMessage,
-        broadcast: false
+        beforeExecution: this.beforeExecutionMock
       });
   }
+
+  function beforeExecutionMock() public {}
 
   function _commitToLien(
     address vault, // address of deployed Vault
@@ -707,7 +692,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     bool isFirstLien,
     ILienToken.Stack[] memory stack,
     bytes memory revertMessage,
-    bool broadcast
+    function() external beforeExecution
   )
     internal
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
@@ -724,22 +709,16 @@ contract TestHelpers is Deploy, ConsiderationTester {
     });
 
     if (isFirstLien) {
-      if (broadcast) {
-        vm.startBroadcast(msg.sender);
-      }
       ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
-      if (broadcast) {
-        vm.stopBroadcast();
-      }
     }
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
+    beforeExecution();
     return
       _executeCommitments({
         commitments: commitments,
-        revertMessage: revertMessage,
-        broadcast: broadcast
+        revertMessage: revertMessage
       });
   }
 
