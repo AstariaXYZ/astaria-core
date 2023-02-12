@@ -24,7 +24,7 @@ interface IPublicVault is IVaultImplementation {
 
   struct VaultData {
     uint256 yIntercept;
-    uint48 slope;
+    uint256 slope;
     uint40 last;
     uint64 currentEpoch;
     uint256 withdrawReserve;
@@ -170,4 +170,5 @@ interface IPublicVault is IVaultImplementation {
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
   event LienOpen(uint256 lienId, uint256 epoch);
+  event SlopeUpdated(uint256 newSlope);
 }

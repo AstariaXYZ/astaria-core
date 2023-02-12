@@ -20,10 +20,9 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
-
 import {
-  ClonesWithImmutableArgs
-} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+  Create2ClonesWithImmutableArgs
+} from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 
@@ -508,9 +507,8 @@ contract AstariaRouter is
       if (i != 0) {
         commitments[i].lienRequest.stack = stack;
       }
-      uint256 payout;
-      (lienIds[i], stack, payout) = _executeCommitment(s, commitments[i]);
-      totalBorrowed += payout;
+      (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
+      totalBorrowed += stack[stack.length - 1].point.amount;
       unchecked {
         ++i;
       }
@@ -712,6 +710,9 @@ contract AstariaRouter is
   ) internal returns (address vaultAddr) {
     uint8 vaultType;
 
+    if (underlying.code.length == 0) {
+      revert InvalidUnderlying(underlying);
+    }
     if (epochLength > uint256(0)) {
       vaultType = uint8(ImplementationType.PublicVault);
     } else {
@@ -719,7 +720,7 @@ contract AstariaRouter is
     }
 
     //immutable data
-    vaultAddr = ClonesWithImmutableArgs.clone(
+    vaultAddr = Create2ClonesWithImmutableArgs.clone(
       s.BEACON_PROXY_IMPLEMENTATION,
       abi.encodePacked(
         address(this),
@@ -729,9 +730,13 @@ contract AstariaRouter is
         block.timestamp,
         epochLength,
         vaultFee
-      )
+      ),
+      keccak256(abi.encode(msg.sender, blockhash(block.number - 1)))
     );
 
+    if (s.LIEN_TOKEN.balanceOf(vaultAddr) > 0) {
+      revert InvalidVaultState(IAstariaRouter.VaultState.CORRUPTED);
+    }
     //mutable data
     IVaultImplementation(vaultAddr).init(
       IVaultImplementation.InitParams({
@@ -752,10 +757,7 @@ contract AstariaRouter is
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment memory c
-  )
-    internal
-    returns (uint256, ILienToken.Stack[] memory stack, uint256 payout)
-  {
+  ) internal returns (uint256, ILienToken.Stack[] memory stack) {
     uint256 collateralId = c.tokenContract.computeId(c.tokenId);
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
@@ -765,11 +767,7 @@ contract AstariaRouter is
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
     //router must be approved for the collateral to take a loan,
-    return
-      IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
-        c,
-        address(this)
-      );
+    return IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(c);
   }
 
   function _transferAndDepositAssetIfAble(

@@ -459,13 +459,21 @@ contract TestHelpers is Deploy, ConsiderationTester {
     );
   }
 
-  function _createPrivateVault(address strategist, address delegate)
-    internal
-    returns (address privateVault)
-  {
+  function _createPrivateVault(
+    address strategist,
+    address delegate,
+    address token
+  ) internal returns (address privateVault) {
     vm.startPrank(strategist);
-    privateVault = ASTARIA_ROUTER.newVault(delegate, address(WETH9));
+    privateVault = ASTARIA_ROUTER.newVault(delegate, token);
     vm.stopPrank();
+  }
+
+  function _createPrivateVault(
+    address strategist,
+    address delegate
+  ) internal returns (address) {
+    return _createPrivateVault(strategist, delegate, address(WETH9));
   }
 
   function _createPublicVault(
@@ -1302,12 +1310,22 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
     vm.startPrank(lender);
     ERC20(publicVault).safeApprove(address(ASTARIA_ROUTER), vaultTokenBalance);
-    ASTARIA_ROUTER.redeemFutureEpoch({
-      vault: IPublicVault(publicVault),
-      shares: vaultTokenBalance,
-      receiver: lender,
-      epoch: epoch
-    });
+    uint256 currentEpoch = PublicVault(publicVault).getCurrentEpoch();
+    if (epoch == currentEpoch) {
+      ASTARIA_ROUTER.redeem({
+        vault: IERC4626(address(publicVault)),
+        to: lender,
+        shares: vaultTokenBalance,
+        minAmountOut: 0
+      });
+    } else {
+      ASTARIA_ROUTER.redeemFutureEpoch({
+        vault: IPublicVault(publicVault),
+        shares: vaultTokenBalance,
+        receiver: lender,
+        epoch: epoch
+      });
+    }
 
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
       epoch

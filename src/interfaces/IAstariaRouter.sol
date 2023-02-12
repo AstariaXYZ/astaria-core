@@ -307,6 +307,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidCommitmentState(CommitmentState);
   error InvalidStrategy(uint16);
   error InvalidVault(address);
+  error InvalidUnderlying(address);
   error UnsupportedFile();
 
   enum LienState {
@@ -332,6 +333,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   enum VaultState {
     UNINITIALIZED,
+    CORRUPTED,
     CLOSED,
     LIQUIDATED
   }

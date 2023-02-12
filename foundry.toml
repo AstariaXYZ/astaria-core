@@ -10,6 +10,8 @@ remappings = [
     'solmate/=lib/solmate/src/',
     'gpl/=lib/gpl/src/',
     'clones-with-immutable-args/=lib/clones-with-immutable-args/src/',
+    'create2-clones-with-immutable-args/=lib/create2-clones-with-immutable-args/src/',
+    'create2-helpers/=lib/create2-clones-with-immutable-args/lib/create2-helpers/src/',
     'core/=./src/',
     'seaport/=lib/seaport/contracts',
 ]
