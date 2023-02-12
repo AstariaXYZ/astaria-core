@@ -225,9 +225,14 @@ abstract contract VaultImplementation is
    *
    * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    */
-  function _validateRequest(
-    IAstariaRouter.Commitment calldata params
-  ) internal view returns (address) {
+  function _validateRequest(IAstariaRouter.Commitment calldata params)
+    internal
+    view
+    returns (address)
+  {
+    if (params.lienRequest.strategy.vault != address(this)) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
+    }
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
@@ -279,9 +284,10 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata
-  ) internal virtual {}
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
+    internal
+    virtual
+  {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.
@@ -290,9 +296,7 @@ abstract contract VaultImplementation is
    * @param params Commitment data for the incoming lien request
    * @return lienId The id of the newly minted lien token.
    */
-  function commitToLien(
-    IAstariaRouter.Commitment calldata params
-  )
+  function commitToLien(IAstariaRouter.Commitment calldata params)
     external
     whenNotPaused
     returns (uint256 lienId, ILienToken.Stack[] memory stack)
@@ -377,11 +381,13 @@ abstract contract VaultImplementation is
    * @dev Generates a Lien for a valid loan commitment proof and sends the loan amount to the borrower.
    * @param c The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    */
-  function _requestLienAndIssuePayout(
-    IAstariaRouter.Commitment calldata c
-  )
+  function _requestLienAndIssuePayout(IAstariaRouter.Commitment calldata c)
     internal
-    returns (uint256 newLienId, ILienToken.Stack[] memory stack, uint256 slope)
+    returns (
+      uint256 newLienId,
+      ILienToken.Stack[] memory stack,
+      uint256 slope
+    )
   {
     address receiver = _validateRequest(c);
     (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
