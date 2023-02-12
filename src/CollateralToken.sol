@@ -140,6 +140,11 @@ contract CollateralToken is
     ClearingHouse CH = ClearingHouse(payable(s.clearingHouse[collateralId]));
     CH.settleLiquidatorNFTClaim();
     _releaseToAddress(s, underlying, collateralId, liquidator);
+    _settleAuction(s, collateralId);
+    delete s.idToUnderlying[collateralId];
+    delete s.idToUnderlying[collateralId].tokenId;
+    delete s.idToUnderlying[collateralId].tokenContract;
+    _burn(collateralId);
   }
 
   function _loadCollateralSlot()
@@ -338,6 +343,8 @@ contract CollateralToken is
     address tokenContract = underlying.tokenContract;
     _burn(collateralId);
     delete s.idToUnderlying[collateralId];
+    delete s.idToUnderlying[collateralId].tokenId;
+    delete s.idToUnderlying[collateralId].tokenContract;
     _releaseToAddress(s, underlying, collateralId, releaseTo);
   }
 
@@ -441,7 +448,7 @@ contract CollateralToken is
     considerationItems[1] = ConsiderationItem(
       ItemType.ERC1155,
       s.clearingHouse[collateralId],
-      uint256(uint160(settlementToken)),
+      collateralId,
       prices[0],
       prices[1],
       payable(s.clearingHouse[collateralId])
@@ -513,16 +520,17 @@ contract CollateralToken is
 
   function settleAuction(uint256 collateralId) public {
     CollateralStorage storage s = _loadCollateralSlot();
+    require(msg.sender == s.clearingHouse[collateralId]);
+
     if (
-      s.collateralIdToAuction[collateralId] == bytes32(0) &&
+      s.collateralIdToAuction[collateralId] == bytes32(0) ||
       ERC721(s.idToUnderlying[collateralId].tokenContract).ownerOf(
         s.idToUnderlying[collateralId].tokenId
-      ) !=
+      ) ==
       s.clearingHouse[collateralId]
     ) {
       revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
     }
-    require(msg.sender == s.clearingHouse[collateralId]);
     _settleAuction(s, collateralId);
     delete s.idToUnderlying[collateralId];
     _burn(collateralId);
