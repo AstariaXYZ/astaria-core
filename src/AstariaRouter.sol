@@ -103,8 +103,7 @@ contract AstariaRouter is
       uint8(ImplementationType.ClearingHouse)
     ] = _CLEARING_HOUSE_IMPL;
     s.BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
-    s.auctionWindow = uint32(2 days);
-    s.auctionWindowBuffer = uint32(1 days);
+    s.auctionWindow = uint32(3 days);
 
     s.liquidationFeeNumerator = uint32(130);
     s.liquidationFeeDenominator = uint32(1000);
@@ -274,12 +273,8 @@ contract AstariaRouter is
     FileType what = incoming.what;
     bytes memory data = incoming.data;
     if (what == FileType.AuctionWindow) {
-      (uint256 window, uint256 windowBuffer) = abi.decode(
-        data,
-        (uint256, uint256)
-      );
+      uint256 window = abi.decode(data, (uint256));
       s.auctionWindow = window.safeCastTo32();
-      s.auctionWindowBuffer = windowBuffer.safeCastTo32();
     } else if (what == FileType.LiquidationFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
@@ -380,9 +375,9 @@ contract AstariaRouter is
     }
   }
 
-  function getAuctionWindow(bool includeBuffer) public view returns (uint256) {
+  function getAuctionWindow() public view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
-    return s.auctionWindow + (includeBuffer ? s.auctionWindowBuffer : 0);
+    return s.auctionWindow;
   }
 
   function _sliceUint(
@@ -597,7 +592,7 @@ contract AstariaRouter is
     }
 
     RouterStorage storage s = _loadRouterSlot();
-    uint256 auctionWindowMax = s.auctionWindow + s.auctionWindowBuffer;
+    uint256 auctionWindowMax = s.auctionWindow;
 
     s.LIEN_TOKEN.stopLiens(
       stack[position].lien.collateralId,

@@ -40,7 +40,6 @@ interface ILienToken is IERC721 {
 
   struct LienStorage {
     uint8 maxLiens;
-    address WETH;
     ITransferProxy TRANSFER_PROXY;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
@@ -169,10 +168,10 @@ interface ILienToken is IERC721 {
    * @param timestamp the timestamp you want to inquire about
    * @return the amount owed in uint192
    */
-  function getOwed(
-    Stack calldata stack,
-    uint256 timestamp
-  ) external view returns (uint256);
+  function getOwed(Stack calldata stack, uint256 timestamp)
+    external
+    view
+    returns (uint256);
 
   /**
    * @notice Public view function that computes the interest for a LienToken since its last payment.
@@ -315,9 +314,12 @@ interface ILienToken is IERC721 {
   event AddLien(
     uint256 indexed collateralId,
     uint8 position,
-    uint256 indexed lienId,
+    uint8 stackLength,
     Stack stack
   );
+
+  event RemoveLien(uint256 indexed collateralId, uint8 position);
+
   enum StackAction {
     CLEAR,
     ADD,
