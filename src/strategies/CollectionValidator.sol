@@ -31,20 +31,24 @@ interface ICollectionValidator is IStrategyValidator {
 contract CollectionValidator is ICollectionValidator {
   uint8 public constant VERSION_TYPE = uint8(2);
 
-  function getLeafDetails(
-    bytes memory nlrDetails
-  ) public pure returns (ICollectionValidator.Details memory) {
+  function getLeafDetails(bytes calldata nlrDetails)
+    public
+    pure
+    returns (ICollectionValidator.Details memory)
+  {
     return abi.decode(nlrDetails, (ICollectionValidator.Details));
   }
 
-  function assembleLeaf(
-    ICollectionValidator.Details memory details
-  ) public pure returns (bytes memory) {
+  function assembleLeaf(ICollectionValidator.Details memory details)
+    public
+    pure
+    returns (bytes memory)
+  {
     return abi.encode(details);
   }
 
   function validateAndParse(
-    IAstariaRouter.NewLienRequest calldata params,
+    bytes calldata nlrDetails,
     address borrower,
     address collateralTokenContract,
     uint256 // collateralTokenId
@@ -54,7 +58,7 @@ contract CollectionValidator is ICollectionValidator {
     override
     returns (bytes32 leaf, ILienToken.Details memory ld)
   {
-    ICollectionValidator.Details memory cd = getLeafDetails(params.nlrDetails);
+    ICollectionValidator.Details memory cd = getLeafDetails(nlrDetails);
 
     if (cd.version != VERSION_TYPE) {
       revert("invalid type");
@@ -67,7 +71,7 @@ contract CollectionValidator is ICollectionValidator {
     }
     require(cd.token == collateralTokenContract, "invalid token contract");
 
-    leaf = keccak256(params.nlrDetails);
+    leaf = keccak256(nlrDetails);
     ld = cd.lien;
   }
 }

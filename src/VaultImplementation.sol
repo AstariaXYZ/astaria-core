@@ -26,6 +26,8 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
+import {MerkleProofLib} from "core/utils/MerkleProofLib.sol";
+import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 
 /**
  * @title VaultImplementation
@@ -215,6 +217,80 @@ abstract contract VaultImplementation is
     emit AllowListUpdated(delegate_, true);
   }
 
+  //  function validateCommitment(
+  //    IAstariaRouter.Commitment calldata commitment,
+  //    uint256 timeToSecondEpochEnd
+  //  ) public view returns (ILienToken.Lien memory lien) {
+  //    return
+  //    _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
+  //  }
+  error InvalidCommitmentState(CommitmentState);
+  enum CommitmentState {
+    INVALID,
+    INVALID_RATE,
+    INVALID_AMOUNT,
+    EXPIRED,
+    COLLATERAL_AUCTION,
+    COLLATERAL_NO_DEPOSIT
+  }
+
+  function _validateCommitment(
+    IVaultImplementation.VIData storage s,
+    IAstariaRouter.Commitment calldata commitment,
+    address strategyValidator,
+    uint8 nlrType,
+    uint256 timeToSecondEpochEnd
+  ) internal view returns (ILienToken.Lien memory lien) {
+    uint256 collateralId = commitment.tokenContract.computeId(
+      commitment.tokenId
+    );
+    if (block.timestamp > commitment.lienRequest.strategy.deadline) {
+      revert InvalidCommitmentState(CommitmentState.EXPIRED);
+    }
+    if (strategyValidator == address(0)) {
+      revert("no strategy validator");
+    }
+    (bytes32 leaf, ILienToken.Details memory details) = IStrategyValidator(
+      strategyValidator
+    ).validateAndParse(
+        commitment.lienRequest.nlrDetails,
+        ROUTER().COLLATERAL_TOKEN().ownerOf(collateralId),
+        commitment.tokenContract,
+        commitment.tokenId
+      );
+
+    //    if (details.rate == uint256(0) || details.rate > s.maxInterestRate) {
+    //      revert InvalidCommitmentState(CommitmentState.INVALID_RATE);
+    //    }
+
+    if (details.maxAmount < commitment.lienRequest.amount) {
+      revert InvalidCommitmentState(CommitmentState.INVALID_AMOUNT);
+    }
+
+    if (
+      !MerkleProofLib.verify(
+        commitment.lienRequest.merkle.proof,
+        commitment.lienRequest.merkle.root,
+        leaf
+      )
+    ) {
+      revert InvalidCommitmentState(CommitmentState.INVALID);
+    }
+
+    if (timeToSecondEpochEnd > 0 && details.duration > timeToSecondEpochEnd) {
+      details.duration = timeToSecondEpochEnd;
+    }
+
+    lien = ILienToken.Lien({
+      collateralType: nlrType,
+      details: details,
+      strategyRoot: commitment.lienRequest.merkle.root,
+      collateralId: collateralId,
+      vault: address(this),
+      token: asset()
+    });
+  }
+
   /**
    * @dev Validates the incoming request for a lien
    * Who is requesting the borrow, is it a smart contract? or is it a user?
@@ -226,21 +302,16 @@ abstract contract VaultImplementation is
    * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    */
   function _validateRequest(
-    IAstariaRouter.Commitment calldata params
-  ) internal view returns (address) {
-    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
-    ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
-    address holder = CT.ownerOf(collateralId);
-    address operator = CT.getApproved(collateralId);
-    if (
-      msg.sender != holder &&
-      msg.sender != operator &&
-      !CT.isApprovedForAll(holder, msg.sender)
-    ) {
-      revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
-    }
-
+    IAstariaRouter.Commitment calldata params,
+    uint8 nlrType,
+    address strategyValidator
+  ) internal view returns (ILienToken.Lien memory lien) {
     VIData storage s = _loadVISlot();
+
+    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
+
+    lien = _validateCommitment(s, params, strategyValidator, nlrType, 0);
+
     address recovered = ecrecover(
       keccak256(
         _encodeStrategyData(
@@ -261,16 +332,6 @@ abstract contract VaultImplementation is
         InvalidRequestReason.INVALID_SIGNATURE
       );
     }
-
-    if (holder != msg.sender) {
-      if (msg.sender.code.length > 0) {
-        return msg.sender;
-      } else {
-        revert InvalidRequest(InvalidRequestReason.OPERATOR_NO_CODE);
-      }
-    } else {
-      return holder;
-    }
   }
 
   function _afterCommitToLien(
@@ -279,9 +340,10 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata
-  ) internal virtual {}
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
+    internal
+    virtual
+  {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.
@@ -291,7 +353,10 @@ abstract contract VaultImplementation is
    * @return lienId The id of the newly minted lien token.
    */
   function commitToLien(
-    IAstariaRouter.Commitment calldata params
+    IAstariaRouter.Commitment calldata params,
+    uint8 nlrType,
+    address strategyValidator,
+    address borrower
   )
     external
     whenNotPaused
@@ -299,7 +364,12 @@ abstract contract VaultImplementation is
   {
     _beforeCommitToLien(params);
     uint256 slopeAddition;
-    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(params);
+    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(
+      params,
+      nlrType,
+      strategyValidator,
+      borrower
+    );
     _afterCommitToLien(
       stack[stack.length - 1].point.end,
       lienId,
@@ -331,7 +401,11 @@ abstract contract VaultImplementation is
       );
     }
 
-    _validateRequest(incomingTerms);
+    ILienToken.Lien memory newLien = _validateRequest(
+      incomingTerms,
+      0,
+      address(0)
+    );
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
@@ -342,10 +416,7 @@ abstract contract VaultImplementation is
           encumber: ILienToken.LienActionEncumber({
             amount: owed,
             receiver: recipient(),
-            lien: ROUTER().validateCommitment({
-              commitment: incomingTerms,
-              timeToSecondEpochEnd: _timeToSecondEndIfPublic()
-            }),
+            lien: newLien,
             stack: stack
           })
         })
@@ -378,15 +449,33 @@ abstract contract VaultImplementation is
    * @param c The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    */
   function _requestLienAndIssuePayout(
-    IAstariaRouter.Commitment calldata c
+    IAstariaRouter.Commitment calldata c,
+    uint8 nlrType,
+    address strategyValidator,
+    address borrower
   )
     internal
-    returns (uint256 newLienId, ILienToken.Stack[] memory stack, uint256 slope)
+    returns (
+      uint256 newLienId,
+      ILienToken.Stack[] memory stack,
+      uint256 slope
+    )
   {
-    address receiver = _validateRequest(c);
-    (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
+    ILienToken.Lien memory newLien = _validateRequest(
+      c,
+      nlrType,
+      strategyValidator
+    );
+    (newLienId, stack, slope) = ROUTER().LIEN_TOKEN().createLien(
+      ILienToken.LienActionEncumber({
+        lien: newLien,
+        amount: c.lienRequest.amount,
+        stack: c.lienRequest.stack,
+        receiver: address(this)
+      })
+    );
     ERC20(asset()).safeTransfer(
-      receiver,
+      borrower,
       _handleProtocolFee(c.lienRequest.amount)
     );
   }

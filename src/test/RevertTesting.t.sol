@@ -134,7 +134,12 @@ contract RevertTesting is TestHelpers {
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
 
     uint256 balanceOfBefore = ERC20(WETH9).balanceOf(address(this));
-    (uint256 lienId, ) = VaultImplementation(privateVault).commitToLien(terms);
+    (uint256 lienId, ) = VaultImplementation(privateVault).commitToLien(
+      terms,
+      0,
+      address(0),
+      address(this)
+    );
 
     address underlying = address(WETH9);
     uint256 epochLength = 10 days;
@@ -196,7 +201,7 @@ contract RevertTesting is TestHelpers {
       privateVault
     );
   }
-  
+
   function testCannotCommitWithInvalidSignature() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
@@ -237,7 +242,12 @@ contract RevertTesting is TestHelpers {
         IVaultImplementation.InvalidRequestReason.INVALID_SIGNATURE
       )
     );
-    VaultImplementation(privateVault).commitToLien(terms);
+    VaultImplementation(privateVault).commitToLien(
+      terms,
+      uint8(0),
+      address(0),
+      address(this)
+    );
   }
 
   // Only strategists for PrivateVaults can supply capital

@@ -61,20 +61,24 @@ contract UNI_V3Validator is IUNI_V3Validator {
   IUniswapV3Factory public V3_FACTORY =
     IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
 
-  function assembleLeaf(
-    IUNI_V3Validator.Details memory details
-  ) public pure returns (bytes memory) {
+  function assembleLeaf(IUNI_V3Validator.Details memory details)
+    public
+    pure
+    returns (bytes memory)
+  {
     return abi.encode(details);
   }
 
-  function getLeafDetails(
-    bytes memory nlrDetails
-  ) public pure returns (IUNI_V3Validator.Details memory) {
+  function getLeafDetails(bytes memory nlrDetails)
+    public
+    pure
+    returns (IUNI_V3Validator.Details memory)
+  {
     return abi.decode(nlrDetails, (IUNI_V3Validator.Details));
   }
 
   function validateAndParse(
-    IAstariaRouter.NewLienRequest calldata params,
+    bytes memory nlrDetails,
     address borrower,
     address collateralTokenContract,
     uint256 collateralTokenId
@@ -84,7 +88,7 @@ contract UNI_V3Validator is IUNI_V3Validator {
     override
     returns (bytes32 leaf, ILienToken.Details memory ld)
   {
-    IUNI_V3Validator.Details memory details = getLeafDetails(params.nlrDetails);
+    IUNI_V3Validator.Details memory details = getLeafDetails(nlrDetails);
 
     if (details.version != VERSION_TYPE) {
       revert InvalidType();
@@ -148,7 +152,7 @@ contract UNI_V3Validator is IUNI_V3Validator {
       revert InvalidLiquidity();
     }
 
-    leaf = keccak256(params.nlrDetails);
+    leaf = keccak256(nlrDetails);
     ld = details.lien;
   }
 }

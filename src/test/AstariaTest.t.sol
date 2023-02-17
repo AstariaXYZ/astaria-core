@@ -55,6 +55,86 @@ contract AstariaTest is TestHelpers {
     emit FeesCalculated(fees);
   }
 
+  function testMultipleLiensIssuedNewWay() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+
+    address publicVault = _createPublicVault({
+      epochLength: 10 days, // 10 days
+      strategist: strategistTwo,
+      delegate: strategistOne
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    IAstariaRouter.Commitment memory terms = _generateValidTerms({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      stack: new ILienToken.Stack[](0)
+    });
+
+    IAstariaRouter.Commitment memory terms1 = _generateValidTerms({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: refinanceLienDetails3,
+      amount: 10 ether,
+      stack: new ILienToken.Stack[](0)
+    });
+    //    IAstariaRouter.Commitment memory terms2 = _generateValidTerms({
+    //      vault: publicVault,
+    //      strategist: strategistOne,
+    //      strategistPK: strategistOnePK,
+    //      tokenContract: tokenContract,
+    //      tokenId: tokenId,
+    //      lienDetails: refinanceLienDetails2,
+    //      amount: 10 ether,
+    //      stack: new ILienToken.Stack[](0)
+    //    });
+    //    IAstariaRouter.Commitment memory terms3 = _generateValidTerms({
+    //      vault: publicVault,
+    //      strategist: strategistOne,
+    //      strategistPK: strategistOnePK,
+    //      tokenContract: tokenContract,
+    //      tokenId: tokenId,
+    //      lienDetails: refinanceLienDetails,
+    //      amount: 10 ether,
+    //      stack: new ILienToken.Stack[](0)
+    //    });
+    //    IAstariaRouter.Commitment memory terms4 = _generateValidTerms({
+    //      vault: publicVault,
+    //      strategist: strategistOne,
+    //      strategistPK: strategistOnePK,
+    //      tokenContract: tokenContract,
+    //      tokenId: tokenId,
+    //      lienDetails: standardLienDetails7,
+    //      amount: 10 ether,
+    //      stack: new ILienToken.Stack[](0)
+    //    });
+
+    nft.approve(address(ASTARIA_ROUTER), tokenId);
+    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](2);
+    commitments[0] = terms;
+    commitments[1] = terms1;
+    //    commitments[2] = terms2;
+    //    commitments[3] = terms3;
+    //    commitments[4] = terms4;
+    ASTARIA_ROUTER.commitToLiens(commitments);
+  }
+
   function testVaultShutdown() public {
     address publicVault = _createPublicVault({
       epochLength: 10 days, // 10 days

@@ -101,11 +101,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     returns (uint256)
   {
     if (ERC20(asset()).decimals() < 4) {
-      return 10 ** (ERC20(asset()).decimals() - 1);
+      return 10**(ERC20(asset()).decimals() - 1);
     } else if (ERC20(asset()).decimals() < 8) {
-      return 10 ** (ERC20(asset()).decimals() - 2);
+      return 10**(ERC20(asset()).decimals() - 2);
     } else {
-      return 10 ** (ERC20(asset()).decimals() - 6);
+      return 10**(ERC20(asset()).decimals() - 6);
     }
   }
 
@@ -215,10 +215,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return uint256(_loadStorageSlot().yIntercept);
   }
 
-  function _deployWithdrawProxyIfNotDeployed(
-    VaultData storage s,
-    uint64 epoch
-  ) internal {
+  function _deployWithdrawProxyIfNotDeployed(VaultData storage s, uint64 epoch)
+    internal
+  {
     if (s.epochData[epoch].withdrawProxy == address(0)) {
       s.epochData[epoch].withdrawProxy = ClonesWithImmutableArgs.clone(
         IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
@@ -233,10 +232,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function mint(
-    uint256 shares,
-    address receiver
-  ) public override(ERC4626Cloned) whenNotPaused returns (uint256) {
+  function mint(uint256 shares, address receiver)
+    public
+    override(ERC4626Cloned)
+    whenNotPaused
+    returns (uint256)
+  {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
@@ -249,10 +250,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
    * @param amount The amount of funds to deposit.
    * @param receiver The receiver of the resulting VaultToken shares.
    */
-  function deposit(
-    uint256 amount,
-    address receiver
-  ) public override(ERC4626Cloned) whenNotPaused returns (uint256) {
+  function deposit(uint256 amount, address receiver)
+    public
+    override(ERC4626Cloned)
+    whenNotPaused
+    returns (uint256)
+  {
     VIData storage s = _loadVISlot();
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
@@ -316,8 +319,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       uint256 expected = currentWithdrawProxy.getExpected();
 
       if (totalAssets() > expected) {
-        s.withdrawReserve = (totalAssets() - expected)
-          .mulWadDown(s.liquidationWithdrawRatio);
+        s.withdrawReserve = (totalAssets() - expected).mulWadDown(
+          s.liquidationWithdrawRatio
+        );
       } else {
         s.withdrawReserve = 0;
       }
@@ -337,9 +341,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function supportsInterface(
-    bytes4 interfaceId
-  ) public pure override(IERC165) returns (bool) {
+  function supportsInterface(bytes4 interfaceId)
+    public
+    pure
+    override(IERC165)
+    returns (bool)
+  {
     return
       interfaceId == type(IPublicVault).interfaceId ||
       interfaceId == type(ERC4626Cloned).interfaceId ||
@@ -402,9 +409,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params
-  ) internal virtual override(VaultImplementation) {
+  function _beforeCommitToLien(IAstariaRouter.Commitment calldata params)
+    internal
+    virtual
+    override(VaultImplementation)
+  {
     VaultData storage s = _loadStorageSlot();
 
     if (s.withdrawReserve > uint256(0)) {
@@ -432,7 +441,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     uint256 lienSlope
   ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
-
     // increment slope for the new lien
     _accrue(s);
     unchecked {
@@ -500,9 +508,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _mint(msg.sender, unclaimed);
   }
 
-  function beforePayment(
-    BeforePaymentParams calldata params
-  ) external onlyLienToken {
+  function beforePayment(BeforePaymentParams calldata params)
+    external
+    onlyLienToken
+  {
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
@@ -557,10 +566,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
    * @param assets The amount of assets deposited to the PublicVault.
    * @param shares The resulting amount of VaultToken shares that were issued.
    */
-  function afterDeposit(
-    uint256 assets,
-    uint256 shares
-  ) internal virtual override {
+  function afterDeposit(uint256 assets, uint256 shares)
+    internal
+    virtual
+    override
+  {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {
@@ -596,9 +606,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return ROUTER().LIEN_TOKEN();
   }
 
-  function handleBuyoutLien(
-    BuyoutLienParams calldata params
-  ) public onlyLienToken {
+  function handleBuyoutLien(BuyoutLienParams calldata params)
+    public
+    onlyLienToken
+  {
     VaultData storage s = _loadStorageSlot();
 
     unchecked {

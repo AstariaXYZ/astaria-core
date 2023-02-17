@@ -34,8 +34,7 @@ interface ICollateralToken is IERC721 {
   event Deposit721(
     address indexed tokenContract,
     uint256 indexed tokenId,
-    uint256 indexed collateralId,
-    address depositedFor
+    uint256 indexed collateralId
   );
   event ReleaseTo(
     address indexed underlyingAsset,
@@ -44,8 +43,10 @@ interface ICollateralToken is IERC721 {
   );
 
   struct Asset {
-    address tokenContract;
     uint256 tokenId;
+    address tokenContract;
+    address clearingHouse;
+    bool deposited;
   }
 
   struct CollateralStorage {
@@ -83,6 +84,12 @@ interface ICollateralToken is IERC721 {
     FileType what;
     bytes data;
   }
+
+  function depositERC721(
+    address token,
+    uint256 tokenId,
+    address receiver
+  ) external;
 
   /**
    * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
@@ -128,9 +135,9 @@ interface ICollateralToken is IERC721 {
    * @notice Send a CollateralToken to a Seaport auction on liquidation.
    * @param params The auction data.
    */
-  function auctionVault(
-    AuctionVaultParams calldata params
-  ) external returns (OrderParameters memory);
+  function auctionVault(AuctionVaultParams calldata params)
+    external
+    returns (OrderParameters memory);
 
   /**
    * @notice Clears the auction for a CollateralToken.
@@ -145,9 +152,10 @@ interface ICollateralToken is IERC721 {
    * @param collateralId The ID of the CollateralToken wrapping the NFT.
    * @return The address and tokenId of the underlying NFT.
    */
-  function getUnderlying(
-    uint256 collateralId
-  ) external view returns (address, uint256);
+  function getUnderlying(uint256 collateralId)
+    external
+    view
+    returns (address, uint256);
 
   /**
    * @notice Unlocks the NFT for a CollateralToken and sends it to a specified address.
@@ -177,7 +185,8 @@ interface ICollateralToken is IERC721 {
     FLASH_DISABLED,
     AUCTION_ACTIVE,
     INVALID_AUCTION_PARAMS,
-    ACTIVE_LIENS
+    ACTIVE_LIENS,
+    ALREADY_DEPOSITED
   }
 
   error FlashActionCallbackFailed();

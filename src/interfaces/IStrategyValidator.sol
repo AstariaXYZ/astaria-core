@@ -18,7 +18,7 @@ import {ILienToken} from "core/interfaces/IAstariaRouter.sol";
 
 interface IStrategyValidator {
   function validateAndParse(
-    IAstariaRouter.NewLienRequest calldata params,
+    bytes calldata nlrDetails,
     address borrower,
     address collateralTokenContract,
     uint256 collateralTokenId

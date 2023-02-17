@@ -25,12 +25,12 @@ interface IPublicVault is IVaultImplementation {
   struct VaultData {
     uint256 yIntercept;
     uint256 slope;
+    mapping(uint64 => EpochData) epochData;
     uint40 last;
     uint64 currentEpoch;
     uint256 withdrawReserve;
     uint256 liquidationWithdrawRatio;
     uint256 strategistUnclaimedShares;
-    mapping(uint64 => EpochData) epochData;
   }
 
   struct BeforePaymentParams {

@@ -32,20 +32,24 @@ interface IUniqueValidator is IStrategyValidator {
 contract UniqueValidator is IUniqueValidator {
   uint8 public constant VERSION_TYPE = uint8(1);
 
-  function getLeafDetails(
-    bytes memory nlrDetails
-  ) public pure returns (Details memory) {
+  function getLeafDetails(bytes calldata nlrDetails)
+    public
+    pure
+    returns (Details memory)
+  {
     return abi.decode(nlrDetails, (Details));
   }
 
-  function assembleLeaf(
-    Details memory details
-  ) public pure returns (bytes memory) {
+  function assembleLeaf(Details memory details)
+    public
+    pure
+    returns (bytes memory)
+  {
     return abi.encode(details);
   }
 
   function validateAndParse(
-    IAstariaRouter.NewLienRequest memory params,
+    bytes calldata nlrDetails,
     address borrower,
     address collateralTokenContract,
     uint256 collateralTokenId
@@ -55,7 +59,7 @@ contract UniqueValidator is IUniqueValidator {
     override
     returns (bytes32 leaf, ILienToken.Details memory ld)
   {
-    Details memory cd = getLeafDetails(params.nlrDetails);
+    Details memory cd = getLeafDetails(nlrDetails);
     if (cd.version != VERSION_TYPE) {
       revert("invalid type");
     }
@@ -70,7 +74,7 @@ contract UniqueValidator is IUniqueValidator {
     require(cd.token == collateralTokenContract, "invalid token contract");
 
     require(cd.tokenId == collateralTokenId, "invalid token id");
-    leaf = keccak256(params.nlrDetails);
+    leaf = keccak256(nlrDetails);
     ld = cd.lien;
   }
 }
