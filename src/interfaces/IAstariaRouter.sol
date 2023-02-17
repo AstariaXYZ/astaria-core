@@ -53,7 +53,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   struct RouterStorage {
     //slot 1
     uint32 auctionWindow;
-    uint32 auctionWindowBuffer;
     uint32 liquidationFeeNumerator;
     uint32 liquidationFeeDenominator;
     uint32 maxEpochLength;
@@ -61,7 +60,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 protocolFeeNumerator;
     uint32 protocolFeeDenominator;
     //slot 2
-    ERC20 WETH; //20
     ICollateralToken COLLATERAL_TOKEN; //20
     ILienToken LIEN_TOKEN; //20
     ITransferProxy TRANSFER_PROXY; //20
@@ -194,9 +192,8 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   /**
    * @notice Returns the current auction duration.
-   * @param includeBuffer Adds the current auctionWindowBuffer if true.
    */
-  function getAuctionWindow(bool includeBuffer) external view returns (uint256);
+  function getAuctionWindow() external view returns (uint256);
 
   /**
    * @notice Computes the fee the protocol earns on loan origination from the protocolFee numerator and denominator.

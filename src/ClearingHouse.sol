@@ -53,7 +53,8 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   }
   enum InvalidRequestReason {
     NOT_ENOUGH_FUNDS_RECEIVED,
-    NO_AUCTION
+    NO_AUCTION,
+    INVALID_ORDER
   }
   error InvalidRequest(InvalidRequestReason);
 
@@ -219,7 +220,9 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
       ASTARIA_ROUTER.COLLATERAL_TOKEN().getConduit(),
       order.parameters.offer[0].identifierOrCriteria
     );
-    ASTARIA_ROUTER.COLLATERAL_TOKEN().SEAPORT().validate(listings);
+    if (!ASTARIA_ROUTER.COLLATERAL_TOKEN().SEAPORT().validate(listings)) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_ORDER);
+    }
   }
 
   function transferUnderlying(
