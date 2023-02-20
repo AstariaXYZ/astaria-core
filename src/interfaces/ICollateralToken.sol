@@ -63,7 +63,6 @@ interface ICollateralToken is IERC721 {
     mapping(uint256 => Asset) idToUnderlying;
     //mapping of a security token hook for an nft's token contract address
     mapping(address => address) securityHooks;
-    mapping(uint256 => address) clearingHouse;
   }
 
   struct ListUnderlyingForSaleParams {

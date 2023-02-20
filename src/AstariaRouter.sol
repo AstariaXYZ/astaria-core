@@ -103,7 +103,7 @@ contract AstariaRouter is
       uint8(ImplementationType.ClearingHouse)
     ] = _CLEARING_HOUSE_IMPL;
     s.BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
-    s.auctionWindow = uint32(2 days);
+    s.auctionWindow = uint32(3 days);
 
     s.liquidationFeeNumerator = uint32(130);
     s.liquidationFeeDenominator = uint32(1000);
@@ -277,10 +277,7 @@ contract AstariaRouter is
     FileType what = incoming.what;
     bytes memory data = incoming.data;
     if (what == FileType.AuctionWindow) {
-      (uint256 window, uint256 windowBuffer) = abi.decode(
-        data,
-        (uint256, uint256)
-      );
+      uint256 window = abi.decode(data, (uint256));
       s.auctionWindow = window.safeCastTo32();
     } else if (what == FileType.LiquidationFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
@@ -420,76 +417,69 @@ contract AstariaRouter is
     }
   }
 
-  function validateCommitment(
-    IAstariaRouter.Commitment calldata commitment,
-    uint256 timeToSecondEpochEnd
-  ) public view returns (ILienToken.Lien memory lien) {
-    return
-      _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
-  }
-
-  struct CommitmentValidatorParams {
-    uint256 timeToSecondEpochEnd;
-    uint8 nlrType;
-    address strategyValidator;
-    IAstariaRouter.Commitment commitment;
-  }
-
-  function _validateCommitment(
-    RouterStorage storage s,
-    IAstariaRouter.Commitment calldata commitment,
-    uint256 timeToSecondEpochEnd
-  ) internal view returns (ILienToken.Lien memory lien) {
-    if (block.timestamp > commitment.lienRequest.strategy.deadline) {
-      revert InvalidCommitmentState(CommitmentState.EXPIRED);
-    }
-    uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
-    address strategyValidator = s.strategyValidators[nlrType];
-    if (strategyValidator == address(0)) {
-      revert InvalidStrategy(nlrType);
-    }
-    (bytes32 leaf, ILienToken.Details memory details) = IStrategyValidator(
-      strategyValidator
-    ).validateAndParse(
-        commitment.lienRequest.nlrDetails,
-        s.COLLATERAL_TOKEN.ownerOf(
-          commitment.tokenContract.computeId(commitment.tokenId)
-        ),
-        commitment.tokenContract,
-        commitment.tokenId
-      );
-
-    if (details.rate == uint256(0) || details.rate > s.maxInterestRate) {
-      revert InvalidCommitmentState(CommitmentState.INVALID_RATE);
-    }
-
-    if (details.maxAmount < commitment.lienRequest.amount) {
-      revert InvalidCommitmentState(CommitmentState.INVALID_AMOUNT);
-    }
-
-    if (
-      !MerkleProofLib.verify(
-        commitment.lienRequest.merkle.proof,
-        commitment.lienRequest.merkle.root,
-        leaf
-      )
-    ) {
-      revert InvalidCommitmentState(CommitmentState.INVALID);
-    }
-
-    if (timeToSecondEpochEnd > 0 && details.duration > timeToSecondEpochEnd) {
-      details.duration = timeToSecondEpochEnd;
-    }
-
-    lien = ILienToken.Lien({
-      collateralType: nlrType,
-      details: details,
-      strategyRoot: commitment.lienRequest.merkle.root,
-      collateralId: commitment.tokenContract.computeId(commitment.tokenId),
-      vault: commitment.lienRequest.strategy.vault,
-      token: IAstariaVaultBase(commitment.lienRequest.strategy.vault).asset()
-    });
-  }
+  //  function validateCommitment(
+  //    IAstariaRouter.Commitment calldata commitment,
+  //    uint256 timeToSecondEpochEnd
+  //  ) public view returns (ILienToken.Lien memory lien) {
+  //    return
+  //      _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
+  //  }
+  //
+  //  function _validateCommitment(
+  //    RouterStorage storage s,
+  //    IAstariaRouter.Commitment calldata commitment,
+  //    uint256 timeToSecondEpochEnd
+  //  ) internal view returns (ILienToken.Lien memory lien) {
+  //    if (block.timestamp > commitment.lienRequest.strategy.deadline) {
+  //      revert InvalidCommitmentState(CommitmentState.EXPIRED);
+  //    }
+  //    uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
+  //    address strategyValidator = s.strategyValidators[nlrType];
+  //    if (strategyValidator == address(0)) {
+  //      revert InvalidStrategy(nlrType);
+  //    }
+  //    (bytes32 leaf, ILienToken.Details memory details) = IStrategyValidator(
+  //      strategyValidator
+  //    ).validateAndParse(
+  //        commitment.lienRequest.nlrDetails,
+  //        s.COLLATERAL_TOKEN.ownerOf(
+  //          commitment.tokenContract.computeId(commitment.tokenId)
+  //        ),
+  //        commitment.tokenContract,
+  //        commitment.tokenId
+  //      );
+  //
+  //    if (details.rate == uint256(0) || details.rate > s.maxInterestRate) {
+  //      revert InvalidCommitmentState(CommitmentState.INVALID_RATE);
+  //    }
+  //
+  //    if (details.maxAmount < commitment.lienRequest.amount) {
+  //      revert InvalidCommitmentState(CommitmentState.INVALID_AMOUNT);
+  //    }
+  //
+  //    if (
+  //      !MerkleProofLib.verify(
+  //        commitment.lienRequest.merkle.proof,
+  //        commitment.lienRequest.merkle.root,
+  //        leaf
+  //      )
+  //    ) {
+  //      revert InvalidCommitmentState(CommitmentState.INVALID);
+  //    }
+  //
+  //    if (timeToSecondEpochEnd > 0 && details.duration > timeToSecondEpochEnd) {
+  //      details.duration = timeToSecondEpochEnd;
+  //    }
+  //
+  //    lien = ILienToken.Lien({
+  //      collateralType: nlrType,
+  //      details: details,
+  //      strategyRoot: commitment.lienRequest.merkle.root,
+  //      collateralId: commitment.tokenContract.computeId(commitment.tokenId),
+  //      vault: commitment.lienRequest.strategy.vault,
+  //      token: IAstariaVaultBase(commitment.lienRequest.strategy.vault).asset()
+  //    });
+  //  }
 
   function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
     public
@@ -508,15 +498,22 @@ contract AstariaRouter is
     uint256 i;
     ILienToken.Lien[] memory liens = new ILienToken.Lien[](commitments.length);
     for (; i < commitments.length; ) {
-      if (i != 0) {
-        commitments[i].lienRequest.stack = stack;
-      }
-      (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
+      (liens[i]) = _executeCommitment(s, commitments[i]);
       //      totalBorrowed += stack[stack.length - 1].point.amount;
       unchecked {
         ++i;
       }
     }
+
+    (lienIds, stack) = s.LIEN_TOKEN.createLiens(
+      ILienToken.LienActionEncumberNew({
+        collateralId: commitments[0].tokenContract.computeId(
+          commitments[0].tokenId
+        ),
+        commitments: commitments,
+        lien: liens
+      })
+    );
 
     //    ERC20(IAstariaVaultBase(commitments[0].lienRequest.strategy.vault).asset())
     //      .safeTransfer(msg.sender, totalBorrowed);
@@ -574,40 +571,6 @@ contract AstariaRouter is
         allowListEnabled,
         allowList,
         depositCap
-      );
-  }
-
-  function requestLienPosition(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
-  )
-    external
-    whenNotPaused
-    validVault(msg.sender)
-    returns (
-      uint256,
-      ILienToken.Stack[] memory,
-      uint256
-    )
-  {
-    RouterStorage storage s = _loadRouterSlot();
-
-    return
-      s.LIEN_TOKEN.createLien(
-        ILienToken.LienActionEncumber({
-          lien: _validateCommitment({
-            s: s,
-            commitment: params,
-            timeToSecondEpochEnd: IPublicVault(msg.sender).supportsInterface(
-              type(IPublicVault).interfaceId
-            )
-              ? IPublicVault(msg.sender).timeToSecondEpochEnd()
-              : 0
-          }),
-          amount: params.lienRequest.amount,
-          stack: params.lienRequest.stack,
-          receiver: receiver
-        })
       );
   }
 
@@ -770,7 +733,7 @@ contract AstariaRouter is
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment memory c
-  ) internal returns (uint256, ILienToken.Stack[] memory stack) {
+  ) internal returns (ILienToken.Lien memory) {
     uint256 collateralId = c.tokenContract.computeId(c.tokenId);
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
@@ -789,7 +752,6 @@ contract AstariaRouter is
     return
       IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
         c,
-        nlrType,
         strategyValidator,
         msg.sender
       );

@@ -695,6 +695,92 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     }
   }
 
+  function _createLien2(
+    LienStorage storage s,
+    IAstariaRouter.Commitment memory commitment,
+    ILienToken.Lien memory newLien
+  ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
+    //
+    //    if (s.collateralStateHash[params.lien.collateralId] == ACTIVE_AUCTION) {
+    //      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    //    }
+    //    if (
+    //      newLien.details.liquidationInitialAsk < params.amount ||
+    //      newLien.details.liquidationInitialAsk == 0
+    //    ) {
+    //      revert InvalidState(InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK);
+    //    }
+    //
+    //    if (params.liens.length > 0) {
+    //      if (newLien.collateralId != params.lien[0].collateralId) {
+    //        revert InvalidState(InvalidStates.COLLATERAL_MISMATCH);
+    //      }
+    //
+    //      if (newLien.token != params.lien[0].token) {
+    //        revert InvalidState(InvalidStates.ASSET_MISMATCH);
+    //      }
+    //    }
+
+    newLienId = uint256(keccak256(abi.encode(newLien)));
+    Point memory point = Point({
+      lienId: newLienId,
+      amount: commitment.lienRequest.amount,
+      last: block.timestamp.safeCastTo40(),
+      end: (block.timestamp + newLien.details.duration).safeCastTo40()
+    });
+
+    newSlot = Stack({lien: newLien, point: point});
+  }
+
+  function createLiens(ILienToken.LienActionEncumberNew memory params)
+    external
+    //    requiresAuth
+    validateStack(params.collateralId, new Stack[](0))
+    returns (uint256[] memory lienId, Stack[] memory newStack)
+  {
+    LienStorage storage s = _loadLienStorageSlot();
+    //0 - 4 are valid
+    Stack memory newStackSlot;
+    lienId = new uint256[](params.lien.length);
+    newStack = new Stack[](params.lien.length);
+
+    for (uint256 i = 0; i < params.lien.length; i++) {
+      (lienId[i], newStack[i]) = _createLien2(
+        s,
+        params.commitments[i],
+        params.lien[i]
+      );
+      _safeMint(
+        newStack[i].lien.vault,
+        lienId[i],
+        abi.encode(lienId[i], newStack[i].point.end)
+      );
+      //      VaultImplementation(newStack[i].lien.vault).commitToLiens(
+      //        params.commitments[i],
+      //        lienId[i],
+      //        uint40(newStack[i].point.end),
+      //        calculateSlope(newStack[i]),
+      //        msg.sender
+      //      );
+    }
+    s.collateralStateHash[params.collateralId] = keccak256(
+      abi.encode(newStack)
+    );
+    //    emit AddLien(
+    //      params.lien.collateralId,
+    //      uint8(params.stack.length),
+    //      uint8(params.stack.lengthcer),
+    //      lienId,
+    //      newStackSlot
+    //    );
+    //    emit LienStackUpdated(
+    //      params.lien.collateralId,
+    //      uint8(params.stack.length),
+    //      StackAction.ADD,
+    //      uint8(newStack.length)
+    //    );
+  }
+
   function calculateSlope(Stack memory stack) public pure returns (uint256) {
     return stack.lien.details.rate.mulWadDown(stack.point.amount);
   }

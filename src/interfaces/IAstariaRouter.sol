@@ -125,16 +125,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   }
 
   /**
-   * @notice Validates the incoming loan commitment.
-   * @param commitment The commitment proofs and requested loan data for each loan.
-   * @return lien the new Lien data.
-   */
-  function validateCommitment(
-    IAstariaRouter.Commitment calldata commitment,
-    uint256 timeToSecondEpochEnd
-  ) external returns (ILienToken.Lien memory lien);
-
-  /**
    * @notice Deploys a new PublicVault.
    * @param epochLength The length of each epoch for the new PublicVault.
    * @param delegate The address of the delegate account.
@@ -177,22 +167,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   function commitToLiens(Commitment[] memory commitments)
     external
     returns (uint256[] memory, ILienToken.Stack[] memory);
-
-  /**
-   * @notice Create a new lien against a CollateralToken.
-   * @param params The valid proof and lien details for the new loan.
-   * @return The ID of the created lien.
-   */
-  function requestLienPosition(
-    IAstariaRouter.Commitment calldata params,
-    address recipient
-  )
-    external
-    returns (
-      uint256,
-      ILienToken.Stack[] memory,
-      uint256
-    );
 
   function LIEN_TOKEN() external view returns (ILienToken);
 

@@ -64,7 +64,8 @@ contract CollateralToken is
   AuthInitializable,
   ERC721,
   ICollateralToken,
-  ZoneInterface
+  ZoneInterface,
+  IERC721Receiver
 {
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
@@ -99,6 +100,15 @@ contract CollateralToken is
       address(SEAPORT_),
       true
     );
+  }
+
+  function onERC721Received(
+    address operator,
+    address from,
+    uint256 tokenId,
+    bytes calldata data
+  ) external returns (bytes4) {
+    return IERC721Receiver.onERC721Received.selector;
   }
 
   function SEAPORT() public view returns (ConsiderationInterface) {
@@ -423,7 +433,11 @@ contract CollateralToken is
     returns (ClearingHouse)
   {
     return
-      ClearingHouse(payable(_loadCollateralSlot().clearingHouse[collateralId]));
+      ClearingHouse(
+        payable(
+          _loadCollateralSlot().idToUnderlying[collateralId].clearingHouse
+        )
+      );
   }
 
   function _generateValidOrderParameters(

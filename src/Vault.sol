@@ -46,16 +46,22 @@ contract Vault is VaultImplementation {
       string(abi.encodePacked("AST-V", owner(), "-", ERC20(asset()).symbol()));
   }
 
-  function supportsInterface(
-    bytes4
-  ) public pure virtual override(IERC165) returns (bool) {
+  function supportsInterface(bytes4)
+    public
+    pure
+    virtual
+    override(IERC165)
+    returns (bool)
+  {
     return false;
   }
 
-  function deposit(
-    uint256 amount,
-    address receiver
-  ) public virtual whenNotPaused returns (uint256) {
+  function deposit(uint256 amount, address receiver)
+    public
+    virtual
+    whenNotPaused
+    returns (uint256)
+  {
     VIData storage s = _loadVISlot();
     require(s.allowList[msg.sender] && receiver == owner());
     ERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
@@ -77,10 +83,11 @@ contract Vault is VaultImplementation {
     revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
   }
 
-  function modifyAllowList(
-    address,
-    bool
-  ) external pure override(VaultImplementation) {
+  function modifyAllowList(address, bool)
+    external
+    pure
+    override(VaultImplementation)
+  {
     //invalid action private vautls can only be the owner or strategist
     revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
   }

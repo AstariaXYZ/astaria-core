@@ -433,13 +433,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
   /**
    * @dev Hook for updating the slope of the PublicVault after a LienToken is issued.
-   * @param lienId The ID of the lien.
    */
-  function _afterCommitToLien(
-    uint40 lienEnd,
-    uint256 lienId,
-    uint256 lienSlope
-  ) internal virtual override {
+  function _afterCommitToLien(uint40 lienEnd, uint256 lienSlope)
+    internal
+    virtual
+    override(VaultImplementation)
+  {
     VaultData storage s = _loadStorageSlot();
     // increment slope for the new lien
     _accrue(s);
@@ -447,8 +446,24 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       uint256 newSlope = s.slope + lienSlope;
       _setSlope(s, newSlope);
     }
+    //
+    //    uint64 epoch = getLienEpoch(lienEnd);
+    //
+    //    _increaseOpenLiens(s, epoch);
+  }
 
-    uint64 epoch = getLienEpoch(lienEnd);
+  function _handleLienMint(bytes calldata mintPayload)
+    internal
+    virtual
+    override(VaultImplementation)
+  {
+    VaultData storage s = _loadStorageSlot();
+
+    (uint256 lienId, uint256 lienEnd) = abi.decode(
+      mintPayload,
+      (uint256, uint256)
+    );
+    uint64 epoch = getLienEpoch(lienEnd.safeCastTo64());
 
     _increaseOpenLiens(s, epoch);
     emit LienOpen(lienId, epoch);

@@ -92,46 +92,35 @@ contract AstariaTest is TestHelpers {
       amount: 10 ether,
       stack: new ILienToken.Stack[](0)
     });
-    //    IAstariaRouter.Commitment memory terms2 = _generateValidTerms({
-    //      vault: publicVault,
-    //      strategist: strategistOne,
-    //      strategistPK: strategistOnePK,
-    //      tokenContract: tokenContract,
-    //      tokenId: tokenId,
-    //      lienDetails: refinanceLienDetails2,
-    //      amount: 10 ether,
-    //      stack: new ILienToken.Stack[](0)
-    //    });
-    //    IAstariaRouter.Commitment memory terms3 = _generateValidTerms({
-    //      vault: publicVault,
-    //      strategist: strategistOne,
-    //      strategistPK: strategistOnePK,
-    //      tokenContract: tokenContract,
-    //      tokenId: tokenId,
-    //      lienDetails: refinanceLienDetails,
-    //      amount: 10 ether,
-    //      stack: new ILienToken.Stack[](0)
-    //    });
-    //    IAstariaRouter.Commitment memory terms4 = _generateValidTerms({
-    //      vault: publicVault,
-    //      strategist: strategistOne,
-    //      strategistPK: strategistOnePK,
-    //      tokenContract: tokenContract,
-    //      tokenId: tokenId,
-    //      lienDetails: standardLienDetails7,
-    //      amount: 10 ether,
-    //      stack: new ILienToken.Stack[](0)
-    //    });
+    IAstariaRouter.Commitment memory terms2 = _generateValidTerms({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: refinanceLienDetails2,
+      amount: 10 ether,
+      stack: new ILienToken.Stack[](0)
+    });
+    IAstariaRouter.Commitment memory terms3 = _generateValidTerms({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: refinanceLienDetails,
+      amount: 10 ether,
+      stack: new ILienToken.Stack[](0)
+    });
 
     nft.approve(address(ASTARIA_ROUTER), tokenId);
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
     IAstariaRouter.Commitment[]
-      memory commitments = new IAstariaRouter.Commitment[](2);
+      memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
-    commitments[1] = terms1;
+    //    commitments[1] = terms1;
     //    commitments[2] = terms2;
     //    commitments[3] = terms3;
-    //    commitments[4] = terms4;
     ASTARIA_ROUTER.commitToLiens(commitments);
   }
 
