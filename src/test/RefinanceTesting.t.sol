@@ -288,17 +288,6 @@ contract RefinanceTesting is TestHelpers {
     vm.warp(block.timestamp + 9 days);
 
     uint256 accruedInterest = uint256(LIEN_TOKEN.getOwed(stack[0]));
-    uint256 tenthOfRemaining = (uint256(
-      LIEN_TOKEN.getOwed(stack[0], block.timestamp + 1 days)
-    ) - accruedInterest).mulDivDown(1, 10);
-
-    uint256 buyoutFee = _locateCurrentAmount({
-      startAmount: tenthOfRemaining,
-      endAmount: 0,
-      startTime: 1,
-      endTime: 1 + standardLienDetails.duration.mulDivDown(900, 1000),
-      roundUp: true
-    });
 
     address publicVault2 = _createPublicVault({
       strategist: strategistOne,
