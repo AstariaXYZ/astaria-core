@@ -78,7 +78,7 @@ contract RevertTesting is TestHelpers {
       token: address(3)
     });
   }
-  
+
   function testCannotEndAuctionWithWrongToken() public {
     address alice = address(1);
     address bob = address(2);

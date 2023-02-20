@@ -403,11 +403,10 @@ contract AstariaRouter is
     return s.auctionWindow + (includeBuffer ? s.auctionWindowBuffer : 0);
   }
 
-  function _sliceUint(bytes memory bs, uint256 start)
-    internal
-    pure
-    returns (uint256 x)
-  {
+  function _sliceUint(
+    bytes memory bs,
+    uint256 start
+  ) internal pure returns (uint256 x) {
     uint256 length = bs.length;
 
     assembly {
@@ -483,7 +482,9 @@ contract AstariaRouter is
     });
   }
 
-  function commitToLiens(IAstariaRouter.Commitment[] memory commitments)
+  function commitToLiens(
+    IAstariaRouter.Commitment[] memory commitments
+  )
     public
     whenNotPaused
     returns (uint256[] memory lienIds, ILienToken.Stack[] memory stack)
@@ -514,11 +515,10 @@ contract AstariaRouter is
       .safeTransfer(msg.sender, totalBorrowed);
   }
 
-  function newVault(address delegate, address underlying)
-    external
-    whenNotPaused
-    returns (address)
-  {
+  function newVault(
+    address delegate,
+    address underlying
+  ) external whenNotPaused returns (address) {
     address[] memory allowList = new address[](1);
     allowList[0] = msg.sender;
     RouterStorage storage s = _loadRouterSlot();
@@ -576,11 +576,7 @@ contract AstariaRouter is
     external
     whenNotPaused
     validVault(msg.sender)
-    returns (
-      uint256,
-      ILienToken.Stack[] memory,
-      uint256
-    )
+    returns (uint256, ILienToken.Stack[] memory, uint256)
   {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -603,19 +599,17 @@ contract AstariaRouter is
       );
   }
 
-  function canLiquidate(ILienToken.Stack memory stack)
-    public
-    view
-    returns (bool)
-  {
+  function canLiquidate(
+    ILienToken.Stack memory stack
+  ) public view returns (bool) {
     RouterStorage storage s = _loadRouterSlot();
     return (stack.point.end <= block.timestamp);
   }
 
-  function liquidate(ILienToken.Stack[] memory stack, uint8 position)
-    public
-    returns (OrderParameters memory listedOrder)
-  {
+  function liquidate(
+    ILienToken.Stack[] memory stack,
+    uint8 position
+  ) public returns (OrderParameters memory listedOrder) {
     if (!canLiquidate(stack[position])) {
       revert InvalidLienState(LienState.HEALTHY);
     }
@@ -658,11 +652,9 @@ contract AstariaRouter is
       );
   }
 
-  function getBuyoutFee(uint256 remainingInterestIn)
-    external
-    view
-    returns (uint256)
-  {
+  function getBuyoutFee(
+    uint256 remainingInterestIn
+  ) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
     return
       remainingInterestIn.mulDivDown(
