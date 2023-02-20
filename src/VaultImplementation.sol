@@ -327,7 +327,7 @@ abstract contract VaultImplementation is
   )
     external
     whenNotPaused
-    returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
+    returns (ILienToken.Stack[] memory stacks, ILienToken.Stack memory newStack)
   {
     LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
@@ -343,22 +343,29 @@ abstract contract VaultImplementation is
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
-    return
-      lienToken.buyoutLien(
-        ILienToken.LienActionBuyout({
-          position: position,
-          encumber: ILienToken.LienActionEncumber({
-            amount: owed,
-            receiver: recipient(),
-            lien: ROUTER().validateCommitment({
-              commitment: incomingTerms,
-              timeToSecondEpochEnd: _timeToSecondEndIfPublic()
-            }),
-            stack: stack
-          })
+    ILienToken.BuyoutLienParams memory buyoutParams;
+
+    (stacks, newStack, buyoutParams) = lienToken.buyoutLien(
+      ILienToken.LienActionBuyout({
+        position: position,
+        encumber: ILienToken.LienActionEncumber({
+          amount: owed,
+          receiver: recipient(),
+          lien: ROUTER().validateCommitment({
+            commitment: incomingTerms,
+            timeToSecondEpochEnd: _timeToSecondEndIfPublic()
+          }),
+          stack: stack
         })
-      );
+      })
+    );
+
+    _handleReceiveBuyout(buyoutParams);
   }
+
+  function _handleReceiveBuyout(
+    ILienToken.BuyoutLienParams memory buyoutParams
+  ) internal virtual {}
 
   function _timeToSecondEndIfPublic()
     internal

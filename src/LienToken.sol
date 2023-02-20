@@ -38,11 +38,13 @@ import {AuthInitializable} from "core/AuthInitializable.sol";
 import {Initializable} from "./utils/Initializable.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
 
+import {AmountDeriver} from "seaport/lib/AmountDeriver.sol";
+
 /**
  * @title LienToken
  * @notice This contract handles the creation, payments, buyouts, and liquidations of tokenized NFT-collateralized debt (liens). Vaults which originate loans against supported collateral are issued a LienToken representing the right to loan repayments and auctioned funds on liquidation.
  */
-contract LienToken is ERC721, ILienToken, AuthInitializable {
+contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
   using SafeCastLib for uint256;
@@ -66,6 +68,12 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
     s.maxLiens = uint8(5);
+    s.buyoutFeeNumerator = uint32(100);
+    s.buyoutFeeDenominator = uint32(1000);
+    s.durationFeeCapNumerator = uint32(900);
+    s.durationFeeCapDenominator = uint32(1000);
+    s.minDurationIncrease = uint32(5 days);
+    s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
   }
 
   function _loadLienStorageSlot()
@@ -88,6 +96,28 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
       s.COLLATERAL_TOKEN = ICollateralToken(abi.decode(data, (address)));
     } else if (what == FileType.AstariaRouter) {
       s.ASTARIA_ROUTER = IAstariaRouter(abi.decode(data, (address)));
+    } else if (what == FileType.BuyoutFee) {
+      (uint256 numerator, uint256 denominator) = abi.decode(
+        data,
+        (uint256, uint256)
+      );
+      if (denominator < numerator) revert InvalidFileData();
+      s.buyoutFeeNumerator = numerator.safeCastTo32();
+      s.buyoutFeeDenominator = denominator.safeCastTo32();
+    } else if (what == FileType.BuyoutFeeDurationCap) {
+      (uint256 numerator, uint256 denominator) = abi.decode(
+        data,
+        (uint256, uint256)
+      );
+      if (denominator < numerator) revert InvalidFileData();
+      s.durationFeeCapNumerator = numerator.safeCastTo32();
+      s.durationFeeCapDenominator = denominator.safeCastTo32();
+    } else if (what == FileType.MinInterestBPS) {
+      uint256 value = abi.decode(data, (uint256));
+      s.minInterestBPS = value.safeCastTo32();
+    } else if (what == FileType.MinDurationIncrease) {
+      uint256 value = abi.decode(data, (uint256));
+      s.minDurationIncrease = value.safeCastTo32();
     } else {
       revert UnsupportedFile();
     }
@@ -102,12 +132,53 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
       super.supportsInterface(interfaceId);
   }
 
+  function isValidRefinance(
+    Lien calldata newLien,
+    uint8 position,
+    Stack[] calldata stack,
+    uint256 owed,
+    uint256 buyout
+  ) public view returns (bool) {
+    LienStorage storage s = _loadLienStorageSlot();
+    uint256 maxNewRate = uint256(stack[position].lien.details.rate) -
+      s.minInterestBPS;
+
+    if (newLien.collateralId != stack[0].lien.collateralId) {
+      revert InvalidRefinanceCollateral(newLien.collateralId);
+    }
+
+    // PublicVault refinances are only valid if they do not have a buyout fee.
+    // This happens when the borrower executes the buyout, or the lien duration is past the durationFeeCap.
+    if (_isPublicVault(s, msg.sender) && buyout > owed) {
+      revert RefinanceBlocked();
+    }
+
+    bool hasImprovedRate = (newLien.details.rate <= maxNewRate &&
+      newLien.details.duration + block.timestamp >= stack[position].point.end);
+
+    bool hasImprovedDuration = (block.timestamp +
+      newLien.details.duration -
+      stack[position].point.end >=
+      s.minDurationIncrease &&
+      newLien.details.rate <= stack[position].lien.details.rate);
+
+    bool hasNotDecreasedInitialAsk = newLien.details.liquidationInitialAsk >=
+      stack[position].lien.details.liquidationInitialAsk;
+
+    return
+      (hasImprovedRate || hasImprovedDuration) && hasNotDecreasedInitialAsk;
+  }
+
   function buyoutLien(
     ILienToken.LienActionBuyout calldata params
   )
     external
     validateStack(params.encumber.lien.collateralId, params.encumber.stack)
-    returns (Stack[] memory, Stack memory newStack)
+    returns (
+      Stack[] memory stacks,
+      Stack memory newStack,
+      ILienToken.BuyoutLienParams memory buyoutParams
+    )
   {
     if (block.timestamp >= params.encumber.stack[params.position].point.end) {
       revert InvalidState(InvalidStates.EXPIRED_LIEN);
@@ -122,14 +193,29 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
   function _buyoutLien(
     LienStorage storage s,
     ILienToken.LienActionBuyout calldata params
-  ) internal returns (Stack[] memory newStack, Stack memory newLien) {
+  )
+    internal
+    returns (
+      Stack[] memory newStack,
+      Stack memory newLien,
+      ILienToken.BuyoutLienParams memory buyoutParams
+    )
+  {
     //the borrower shouldn't incur more debt from the buyout than they already owe
     (, newLien) = _createLien(s, params.encumber);
+
+    (uint256 owed, uint256 buyout) = _getBuyout(
+      s,
+      params.encumber.stack[params.position]
+    );
+
     if (
-      !s.ASTARIA_ROUTER.isValidRefinance({
+      !isValidRefinance({
         newLien: params.encumber.lien,
         position: params.position,
-        stack: params.encumber.stack
+        stack: params.encumber.stack,
+        owed: owed,
+        buyout: buyout
       })
     ) {
       revert InvalidRefinance();
@@ -140,10 +226,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     ) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-    (uint256 owed, uint256 buyout) = _getBuyout(
-      s,
-      params.encumber.stack[params.position]
-    );
 
     if (params.encumber.lien.details.maxAmount < owed) {
       revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
@@ -178,23 +260,26 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
       s,
       params.encumber.stack[params.position].point.lienId
     );
+
+    if (_isPublicVault(s, payee)) {
+      IPublicVault(payee).handleLoseLienToBuyout(
+        ILienToken.BuyoutLienParams({
+          lienSlope: calculateSlope(params.encumber.stack[params.position]),
+          lienEnd: params.encumber.stack[params.position].point.end,
+          yInterceptChange: buyout -
+            params.encumber.stack[params.position].point.amount
+        })
+      );
+    } else {
+      payee = params.encumber.stack[params.position].lien.vault; // Since LienToken owner and payee for PrivateVaults is the strategists, change to vault address instead (otherwise buyout amount gets sent from PrivateVault to strategist)
+    }
+
     s.TRANSFER_PROXY.tokenTransferFrom(
       params.encumber.stack[params.position].lien.token,
       msg.sender,
       payee,
       buyout
     );
-
-    if (_isPublicVault(s, payee)) {
-      IPublicVault(payee).handleBuyoutLien(
-        IPublicVault.BuyoutLienParams({
-          lienSlope: calculateSlope(params.encumber.stack[params.position]),
-          lienEnd: params.encumber.stack[params.position].point.end,
-          increaseYIntercept: buyout -
-            params.encumber.stack[params.position].point.amount
-        })
-      );
-    }
 
     newStack = _replaceStackAtPositionWithNewLien(
       s,
@@ -204,16 +289,17 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
       params.encumber.stack[params.position].point.lienId
     );
     uint256 maxPotentialDebt;
-    uint256 n = newStack.length;
     uint256 i;
-    for (i; i < n; ) {
-      maxPotentialDebt += _getOwed(newStack[i], newStack[i].point.end);
+    for (i; i < newStack.length; ) {
       //no need to check validity before the position we're buying
       if (i == params.position) {
         if (maxPotentialDebt > params.encumber.lien.details.maxPotentialDebt) {
           revert InvalidState(InvalidStates.DEBT_LIMIT);
         }
       }
+
+      maxPotentialDebt += _getOwed(newStack[i], newStack[i].point.end);
+
       if (
         i > params.position &&
         (maxPotentialDebt > newStack[i].lien.details.maxPotentialDebt)
@@ -224,6 +310,12 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
         ++i;
       }
     }
+
+    buyoutParams = ILienToken.BuyoutLienParams({
+      lienSlope: calculateSlope(newStack[params.position]),
+      lienEnd: newStack[params.position].point.end,
+      yInterceptChange: buyout
+    });
 
     s.collateralStateHash[params.encumber.lien.collateralId] = keccak256(
       abi.encode(newStack)
@@ -458,7 +550,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     newStack = new Stack[](stack.length + 1);
     newStack[stack.length] = newSlot;
 
-    uint256 potentialDebt = _getOwed(newSlot, newSlot.point.end);
+    uint256 newPotentialDebt = _getOwed(newSlot, newSlot.point.end);
+    uint256 totalPotentialDebt = newPotentialDebt;
+
     for (uint256 i = stack.length; i > 0; ) {
       uint256 j = i - 1;
       newStack[j] = stack[j];
@@ -467,9 +561,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
       }
 
       unchecked {
-        potentialDebt += _getOwed(newStack[j], newStack[j].point.end);
+        totalPotentialDebt += _getOwed(newStack[j], newStack[j].point.end);
       }
-      if (potentialDebt > newStack[j].lien.details.liquidationInitialAsk) {
+      if (totalPotentialDebt > newStack[j].lien.details.liquidationInitialAsk) {
         revert InvalidState(InvalidStates.INITIAL_ASK_EXCEEDED);
       }
 
@@ -477,8 +571,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
         --i;
       }
     }
+
     if (
-      stack.length > 0 && potentialDebt > newSlot.lien.details.maxPotentialDebt
+      stack.length > 0 &&
+      totalPotentialDebt - newPotentialDebt >
+      newSlot.lien.details.maxPotentialDebt
     ) {
       revert InvalidState(InvalidStates.DEBT_LIMIT);
     }
@@ -558,6 +655,32 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     return _loadLienStorageSlot().collateralStateHash[collateralId];
   }
 
+  function getBuyoutFee(
+    uint256 remainingInterestIn,
+    uint256 end,
+    uint256 duration
+  ) public view returns (uint256 fee) {
+    LienStorage storage s = _loadLienStorageSlot();
+
+    uint256 start = end - duration;
+
+    // Buyout fees begin at (buyoutFee * remainingInterest) and decrease linearly until the durationFeeCap is reached.
+    fee = _locateCurrentAmount({
+      startAmount: remainingInterestIn.mulDivDown(
+        s.buyoutFeeNumerator,
+        s.buyoutFeeDenominator
+      ),
+      endAmount: 0,
+      startTime: start,
+      endTime: start +
+        duration.mulDivDown(
+          s.durationFeeCapNumerator,
+          s.durationFeeCapDenominator
+        ),
+      roundUp: true
+    });
+  }
+
   function getBuyout(
     Stack calldata stack
   ) public view returns (uint256 owed, uint256 buyout) {
@@ -569,9 +692,19 @@ contract LienToken is ERC721, ILienToken, AuthInitializable {
     Stack calldata stack
   ) internal view returns (uint256 owed, uint256 buyout) {
     owed = _getOwed(stack, block.timestamp);
-    buyout =
-      owed +
-      s.ASTARIA_ROUTER.getBuyoutFee(_getRemainingInterest(s, stack));
+    buyout = owed;
+
+    // Buyout fees are excluded if the borrower is executing the refinance or if the refinance is within the same Vault.
+    if (
+      tx.origin != s.COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId) &&
+      msg.sender != stack.lien.vault
+    ) {
+      buyout += getBuyoutFee(
+        _getRemainingInterest(s, stack),
+        stack.point.end,
+        stack.lien.details.duration
+      );
+    }
   }
 
   function makePayment(

@@ -31,13 +31,10 @@ interface IAstariaRouter is IPausable, IBeacon {
     LiquidationFee,
     ProtocolFee,
     StrategistFee,
-    MinInterestBPS,
     MinEpochLength,
     MaxEpochLength,
     MinInterestRate,
     MaxInterestRate,
-    BuyoutFee,
-    MinDurationIncrease,
     AuctionWindow,
     StrategyValidator,
     Implementation,
@@ -71,13 +68,9 @@ interface IAstariaRouter is IPausable, IBeacon {
     address feeTo; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
     uint256 maxInterestRate; //6
-    uint32 minInterestBPS; // was uint64
     //slot 3 +
     address guardian; //20
     address newGuardian; //20
-    uint32 buyoutFeeNumerator;
-    uint32 buyoutFeeDenominator;
-    uint32 minDurationIncrease;
     mapping(uint8 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
@@ -211,11 +204,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   function getProtocolFee(uint256) external view returns (uint256);
 
   /**
-   * @notice Computes the fee Vaults earn when a Lien is bought out using the buyoutFee numerator and denominator.
-   */
-  function getBuyoutFee(uint256) external view returns (uint256);
-
-  /**
    * @notice Computes the fee the users earn on liquidating an expired lien from the liquidationFee numerator and denominator.
    */
   function getLiquidatorFee(uint256) external view returns (uint256);
@@ -273,20 +261,6 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function getImpl(uint8 implType) external view returns (address impl);
 
-  /**
-   * @notice Returns whether a new lien offers more favorable terms over an old lien.
-   * A new lien must have a rate less than or equal to maxNewRate,
-   * or a duration lower by minDurationIncrease, provided the other parameter does not get any worse.
-   * @param newLien The new Lien for the proposed refinance.
-   * @param position The Lien position against the CollateralToken.
-   * @param stack The Stack of existing Liens against the CollateralToken.
-   */
-  function isValidRefinance(
-    ILienToken.Lien calldata newLien,
-    uint8 position,
-    ILienToken.Stack[] calldata stack
-  ) external view returns (bool);
-
   event Liquidation(uint256 collateralId, uint256 position);
   event NewVault(
     address strategist,
@@ -299,7 +273,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);
   error InvalidRefinanceDuration(uint256);
-  error InvalidRefinanceCollateral(uint256);
   error InvalidVaultState(VaultState);
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);
