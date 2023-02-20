@@ -297,7 +297,6 @@ contract RefinanceTesting is TestHelpers {
 
     ILienToken.Details memory sameRateRefinance = refinanceLienDetails;
     sameRateRefinance.rate = (uint256(1e16) * 150) / (365 days);
-    sameRateRefinance.maxAmount = 10 ether;
 
     IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
       vault: publicVault2,
