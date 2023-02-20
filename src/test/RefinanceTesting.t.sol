@@ -375,9 +375,9 @@ contract RefinanceTesting is TestHelpers {
       "Incorrect PublicVault2 balance"
     );
     //    assertEq(
-    //      PublicVault(publicVault2).getSlope(),
-    //      originalSlope,
-    //      "Target PublicVault slope not incremented"
+    //      PublicVault(publicVault2).totalAssets(),
+    //      50 ether + (accruedInterest - 10 ether) + (accruedInterest * ((uint256(1e16) * 150) / (365 days)) * (14 days)),
+    //      "Target PublicVault totalAssets incorrect"
     //    );
     assertTrue(
       PublicVault(publicVault2).getYIntercept() != 0,

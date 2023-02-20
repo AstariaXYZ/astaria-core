@@ -215,6 +215,10 @@ abstract contract VaultImplementation is
     emit AllowListUpdated(delegate_, true);
   }
 
+  function isDelegateOrOwner(address addr) external view returns (bool) {
+    return addr == owner() || addr == _loadVISlot().delegate;
+  }
+
   /**
    * @dev Validates the incoming request for a lien
    * Who is requesting the borrow, is it a smart contract? or is it a user?

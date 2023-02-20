@@ -29,7 +29,7 @@ import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-
+import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {VaultImplementation} from "./VaultImplementation.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -147,9 +147,18 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       revert InvalidRefinanceCollateral(newLien.collateralId);
     }
 
+    bool isPublicVault = _isPublicVault(s, msg.sender);
+    bool hasBuyoutFee = buyout > owed;
+
     // PublicVault refinances are only valid if they do not have a buyout fee.
     // This happens when the borrower executes the buyout, or the lien duration is past the durationFeeCap.
-    if (_isPublicVault(s, msg.sender) && buyout > owed) {
+    if (isPublicVault && hasBuyoutFee) {
+      revert RefinanceBlocked();
+    } else if (
+      !isPublicVault &&
+      !VaultImplementation(newLien.vault).isDelegateOrOwner(msg.sender) &&
+      hasBuyoutFee
+    ) {
       revert RefinanceBlocked();
     }
 
@@ -227,8 +236,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
 
-    if (params.encumber.lien.details.maxAmount < owed) {
-      revert InvalidBuyoutDetails(params.encumber.lien.details.maxAmount, owed);
+    if (params.encumber.lien.details.maxAmount < buyout) {
+      revert InvalidBuyoutDetails(
+        params.encumber.lien.details.maxAmount,
+        buyout
+      );
     }
 
     uint256 potentialDebt = 0;
