@@ -324,7 +324,7 @@ contract RefinanceTesting is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVault2),
-      40 ether - (accruedInterest - stack[0].point.amount),
+      50 ether - accruedInterest,
       "Incorrect PublicVault2 balance"
     );
     assertEq(
@@ -371,7 +371,7 @@ contract RefinanceTesting is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVault2),
-      40 ether - (accruedInterest - stack[0].point.amount),
+      50 ether - accruedInterest,
       "Incorrect PublicVault2 balance"
     );
     //    assertEq(
