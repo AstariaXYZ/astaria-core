@@ -598,7 +598,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   }
 
   function handleLoseLienToBuyout(
-    ILienToken.BuyoutLienParams calldata buyoutParams
+    ILienToken.BuyoutLienParams calldata buyoutParams,
+    uint256 buyoutFeeIfAny
   ) public onlyLienToken {
     VaultData storage s = _loadStorageSlot();
 
@@ -606,7 +607,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     unchecked {
       uint256 newSlope = s.slope - buyoutParams.lienSlope;
       _setSlope(s, newSlope);
-      s.yIntercept += buyoutParams.yInterceptChange;
+      s.yIntercept += buyoutFeeIfAny;
     }
 
     _decreaseEpochLienCount(
@@ -630,7 +631,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       _setSlope(s, newSlope);
     }
 
-    s.yIntercept -= buyoutParams.yInterceptChange;
     _increaseOpenLiens(s, getLienEpoch(buyoutParams.lienEnd.safeCastTo64()));
 
     emit YInterceptChanged(s.yIntercept);

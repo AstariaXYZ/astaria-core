@@ -103,7 +103,6 @@ interface ILienToken is IERC721 {
   struct BuyoutLienParams {
     uint256 lienSlope;
     uint256 lienEnd;
-    uint256 yInterceptChange;
   }
 
   /**

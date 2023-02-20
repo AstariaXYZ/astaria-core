@@ -265,10 +265,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       IPublicVault(payee).handleLoseLienToBuyout(
         ILienToken.BuyoutLienParams({
           lienSlope: calculateSlope(params.encumber.stack[params.position]),
-          lienEnd: params.encumber.stack[params.position].point.end,
-          yInterceptChange: buyout -
-            params.encumber.stack[params.position].point.amount
-        })
+          lienEnd: params.encumber.stack[params.position].point.end
+        }),
+        buyout - owed
       );
     } else {
       payee = params.encumber.stack[params.position].lien.vault; // Since LienToken owner and payee for PrivateVaults is the strategists, change to vault address instead (otherwise buyout amount gets sent from PrivateVault to strategist)
@@ -313,8 +312,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
     buyoutParams = ILienToken.BuyoutLienParams({
       lienSlope: calculateSlope(newStack[params.position]),
-      lienEnd: newStack[params.position].point.end,
-      yInterceptChange: buyout
+      lienEnd: newStack[params.position].point.end
     });
 
     s.collateralStateHash[params.encumber.lien.collateralId] = keccak256(

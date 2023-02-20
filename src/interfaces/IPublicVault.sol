@@ -131,9 +131,11 @@ interface IPublicVault is IVaultImplementation {
   /**
    * Hook to update the PublicVault's slope, YIntercept, and last timestamp when a LienToken is bought out. Also decreases the active lien count for the lien's expiring epoch.
    * @param buyoutParams The lien buyout parameters (lienSlope, lienEnd, and yInterceptChange)
+   * @param buyoutFeeIfAny The buyout fee if the target vault is a PrivateVault and the lien is being bought out before feeDurationCap has passed.
    */
   function handleLoseLienToBuyout(
-    ILienToken.BuyoutLienParams calldata buyoutParams
+    ILienToken.BuyoutLienParams calldata buyoutParams,
+    uint256 buyoutFeeIfAny
   ) external;
 
   /**

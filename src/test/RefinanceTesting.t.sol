@@ -308,6 +308,7 @@ contract RefinanceTesting is TestHelpers {
 
     ILienToken.Details memory sameRateRefinance = refinanceLienDetails;
     sameRateRefinance.rate = (uint256(1e16) * 150) / (365 days);
+    sameRateRefinance.maxAmount = 10 ether;
 
     IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
       vault: publicVault2,
@@ -316,7 +317,7 @@ contract RefinanceTesting is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: sameRateRefinance,
-      amount: 15 ether,
+      amount: 10 ether,
       stack: stack
     });
 
@@ -335,22 +336,22 @@ contract RefinanceTesting is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVault2),
-      40 ether - buyoutFee - (accruedInterest - stack[0].point.amount),
-      "Incorrect PrivateVault balance"
+      40 ether - (accruedInterest - stack[0].point.amount),
+      "Incorrect PublicVault2 balance"
     );
     assertEq(
       WETH9.balanceOf(publicVault),
-      50 ether + buyoutFee + ((accruedInterest - stack[0].point.amount)),
+      50 ether + (accruedInterest - stack[0].point.amount),
       "Incorrect PublicVault balance"
     );
     assertEq(
       PublicVault(publicVault).getYIntercept(),
-      50 ether + buyoutFee + ((accruedInterest - stack[0].point.amount)),
+      50 ether + (accruedInterest - stack[0].point.amount),
       "Incorrect PublicVault YIntercept"
     );
     assertEq(
       PublicVault(publicVault).totalAssets(),
-      50 ether + buyoutFee + (accruedInterest - stack[0].point.amount),
+      50 ether + (accruedInterest - stack[0].point.amount),
       "Incorrect PublicVault totalAssets"
     );
     assertEq(
@@ -373,7 +374,7 @@ contract RefinanceTesting is TestHelpers {
     );
     assertEq(
       WETH9.balanceOf(address(1)),
-      50 ether + buyoutFee + (accruedInterest - stack[0].point.amount),
+      50 ether + (accruedInterest - stack[0].point.amount),
       "Incorrect withdrawer balance"
     );
 
@@ -382,7 +383,7 @@ contract RefinanceTesting is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVault2),
-      40 ether - buyoutFee - (accruedInterest - stack[0].point.amount),
+      40 ether - (accruedInterest - stack[0].point.amount),
       "Incorrect PublicVault2 balance"
     );
     //    assertEq(
@@ -396,7 +397,7 @@ contract RefinanceTesting is TestHelpers {
     );
     assertEq(
       PublicVault(publicVault2).getYIntercept(),
-      40 ether - buyoutFee - (accruedInterest - stack[0].point.amount),
+      50 ether,
       "Incorrect PublicVault2 YIntercept"
     );
   }
