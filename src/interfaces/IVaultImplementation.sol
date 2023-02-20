@@ -70,9 +70,9 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
 
   function incrementNonce() external;
 
-  function commitToLien(IAstariaRouter.Commitment calldata params)
-    external
-    returns (uint256 lienId, ILienToken.Stack[] memory stack);
+  function commitToLien(
+    IAstariaRouter.Commitment calldata params
+  ) external returns (uint256 lienId, ILienToken.Stack[] memory stack);
 
   function buyoutLien(
     ILienToken.Stack[] calldata stack,

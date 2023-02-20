@@ -316,8 +316,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       uint256 expected = currentWithdrawProxy.getExpected();
 
       if (totalAssets() > expected) {
-        s.withdrawReserve = (totalAssets() - expected)
-          .mulWadDown(s.liquidationWithdrawRatio);
+        s.withdrawReserve = (totalAssets() - expected).mulWadDown(
+          s.liquidationWithdrawRatio
+        );
       } else {
         s.withdrawReserve = 0;
       }

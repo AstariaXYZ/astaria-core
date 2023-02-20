@@ -334,10 +334,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
       (rate * amount * duration).mulDivDown(1, 365 days).mulDivDown(1, 1e18);
   }
 
-  function setupLiquidation(address borrower)
-    public
-    returns (address publicVault, ILienToken.Stack[] memory stack)
-  {
+  function setupLiquidation(
+    address borrower
+  ) public returns (address publicVault, ILienToken.Stack[] memory stack) {
     TestNFT nft = new TestNFT(0);
     _mintNoDepositApproveRouterSpecific(borrower, address(nft), 99);
     address tokenContract = address(nft);
@@ -423,9 +422,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
     );
   }
 
-  function _mintNoDepositApproveRouter(address tokenContract, uint256 tokenId)
-    internal
-  {
+  function _mintNoDepositApproveRouter(
+    address tokenContract,
+    uint256 tokenId
+  ) internal {
     TestNFT(tokenContract).mint(address(this), tokenId);
     TestNFT(tokenContract).approve(address(ASTARIA_ROUTER), tokenId);
   }
@@ -873,14 +873,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 amount;
   }
 
-  function _toVRS(bytes memory signature)
-    internal
-    returns (
-      uint8 v,
-      bytes32 r,
-      bytes32 s
-    )
-  {
+  function _toVRS(
+    bytes memory signature
+  ) internal returns (uint8 v, bytes32 r, bytes32 s) {
     emit log_bytes(signature);
     emit log_named_uint("signature length", signature.length);
     if (signature.length == 65) {
@@ -897,10 +892,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
     }
   }
 
-  function _generateTerms(GenTerms memory params)
-    internal
-    returns (IAstariaRouter.Commitment memory terms)
-  {
+  function _generateTerms(
+    GenTerms memory params
+  ) internal returns (IAstariaRouter.Commitment memory terms) {
     (uint8 v, bytes32 r, bytes32 s) = _toVRS(params.signature);
 
     return
@@ -1247,11 +1241,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
     return _mirrorOrderParameters;
   }
 
-  function _toOfferItems(ConsiderationItem[] memory _considerationItems)
-    internal
-    pure
-    returns (OfferItem[] memory)
-  {
+  function _toOfferItems(
+    ConsiderationItem[] memory _considerationItems
+  ) internal pure returns (OfferItem[] memory) {
     OfferItem[] memory _offerItems = new OfferItem[](
       _considerationItems.length
     );

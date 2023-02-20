@@ -101,19 +101,17 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     return interfaceId == type(IERC1155).interfaceId;
   }
 
-  function balanceOf(address account, uint256 id)
-    external
-    view
-    returns (uint256)
-  {
+  function balanceOf(
+    address account,
+    uint256 id
+  ) external view returns (uint256) {
     return type(uint256).max;
   }
 
-  function balanceOfBatch(address[] calldata accounts, uint256[] calldata ids)
-    external
-    view
-    returns (uint256[] memory output)
-  {
+  function balanceOfBatch(
+    address[] calldata accounts,
+    uint256[] calldata ids
+  ) external view returns (uint256[] memory output) {
     output = new uint256[](accounts.length);
     for (uint256 i; i < accounts.length; ) {
       output[i] = type(uint256).max;
@@ -125,11 +123,10 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
 
   function setApprovalForAll(address operator, bool approved) external {}
 
-  function isApprovedForAll(address account, address operator)
-    external
-    view
-    returns (bool)
-  {
+  function isApprovedForAll(
+    address account,
+    address operator
+  ) external view returns (bool) {
     return true;
   }
 
