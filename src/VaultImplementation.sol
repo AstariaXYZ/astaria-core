@@ -252,6 +252,22 @@ abstract contract VaultImplementation is
       revert InvalidRequest(InvalidRequestReason.EXPIRED);
     }
 
+    _validateSignature(params);
+
+    if (holder != msg.sender) {
+      if (msg.sender.code.length > 0) {
+        return msg.sender;
+      } else {
+        revert InvalidRequest(InvalidRequestReason.OPERATOR_NO_CODE);
+      }
+    } else {
+      return holder;
+    }
+  }
+
+  function _validateSignature(
+    IAstariaRouter.Commitment calldata params
+  ) internal view {
     VIData storage s = _loadVISlot();
     address recovered = ecrecover(
       keccak256(
@@ -272,16 +288,6 @@ abstract contract VaultImplementation is
       revert IVaultImplementation.InvalidRequest(
         InvalidRequestReason.INVALID_SIGNATURE
       );
-    }
-
-    if (holder != msg.sender) {
-      if (msg.sender.code.length > 0) {
-        return msg.sender;
-      } else {
-        revert InvalidRequest(InvalidRequestReason.OPERATOR_NO_CODE);
-      }
-    } else {
-      return holder;
     }
   }
 
@@ -343,7 +349,7 @@ abstract contract VaultImplementation is
       );
     }
 
-    _validateRequest(incomingTerms);
+    _validateSignature(incomingTerms);
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 

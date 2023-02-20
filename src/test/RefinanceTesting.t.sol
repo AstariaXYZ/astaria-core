@@ -116,12 +116,13 @@ contract RefinanceTesting is TestHelpers {
       Lender({addr: strategistOne, amountToLend: 50 ether}),
       privateVault
     );
-
+    vm.startPrank(strategistTwo);
     VaultImplementation(privateVault).buyoutLien(
       stack,
       uint8(0),
       refinanceTerms
     );
+    vm.stopPrank();
 
     assertEq(
       WETH9.balanceOf(privateVault),
