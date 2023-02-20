@@ -602,11 +602,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   ) public onlyLienToken {
     VaultData storage s = _loadStorageSlot();
 
+    _accrue(s);
     unchecked {
       uint256 newSlope = s.slope - buyoutParams.lienSlope;
       _setSlope(s, newSlope);
       s.yIntercept += buyoutParams.yInterceptChange;
-      s.last = block.timestamp.safeCastTo40();
     }
 
     _decreaseEpochLienCount(
@@ -621,14 +621,13 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   ) internal virtual override {
     VaultData storage s = _loadStorageSlot();
 
+    _accrue(s);
     if (s.withdrawReserve > uint256(0)) {
       transferWithdrawReserve();
     }
-
     unchecked {
       uint256 newSlope = s.slope + buyoutParams.lienSlope;
       _setSlope(s, newSlope);
-      s.last = block.timestamp.safeCastTo40();
     }
 
     s.yIntercept -= buyoutParams.yInterceptChange;
