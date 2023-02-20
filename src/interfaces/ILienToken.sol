@@ -326,12 +326,7 @@ interface ILienToken is IERC721 {
     REMOVE,
     REPLACE
   }
-  event LienStackUpdated(
-    uint256 indexed collateralId,
-    uint8 position,
-    StackAction action,
-    uint8 stackLength
-  );
+
   event RemovedLiens(uint256 indexed collateralId);
   event Payment(uint256 indexed lienId, uint256 amount);
   event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
