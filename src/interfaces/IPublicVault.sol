@@ -149,6 +149,13 @@ interface IPublicVault is IVaultImplementation {
     AfterLiquidationParams calldata params
   ) external returns (address withdrawProxyIfNearBoundary);
 
+  function getState()
+    external
+    view
+    returns (uint256, uint256, uint40, uint64, uint256, uint256, uint256);
+
+  function getEpochData(uint64 epoch) external view returns (uint, address);
+
   // ERRORS
 
   error InvalidState(InvalidStates);

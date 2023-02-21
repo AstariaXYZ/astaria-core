@@ -64,6 +64,19 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
 
   event VaultShutdown();
 
+  function getState()
+    external
+    view
+    returns (
+      uint depositCap,
+      address delegate,
+      bool allowListEnabled,
+      bool isShutdown,
+      uint strategistNonce
+    );
+
+  function getAllowList(address depositor) external view returns (bool);
+
   function getShutdown() external view returns (bool);
 
   function shutdown() external;

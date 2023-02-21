@@ -263,6 +263,41 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return super.deposit(amount, receiver);
   }
 
+  //struct VaultData {
+  //    uint256 yIntercept;
+  //    uint256 slope;
+  //    uint40 last;
+  //    uint64 currentEpoch;
+  //    uint256 withdrawReserve;
+  //    uint256 liquidationWithdrawRatio;
+  //    uint256 strategistUnclaimedShares;
+  //    mapping(uint64 => EpochData) epochData;
+  //  }
+  function getState()
+    public
+    view
+    returns (uint256, uint256, uint40, uint64, uint256, uint256, uint256)
+  {
+    VaultData storage s = _loadStorageSlot();
+    return (
+      s.yIntercept,
+      s.slope,
+      s.last,
+      s.currentEpoch,
+      s.withdrawReserve,
+      s.liquidationWithdrawRatio,
+      s.strategistUnclaimedShares
+    );
+  }
+
+  function getEpochData(uint64 epoch) public view returns () {
+    VaultData storage s = _loadStorageSlot();
+    return (
+      s.epochData[epoch].liensOpenForEpoch,
+      s.epochData[epoch].withdrawProxy
+    );
+  }
+
   /**
    * @notice Retrieve the domain separator.
    * @return The domain separator.
