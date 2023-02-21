@@ -137,7 +137,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     uint8 position,
     Stack[] calldata stack,
     uint256 owed,
-    uint256 buyout
+    uint256 buyout,
+    bool chargeable
   ) public view returns (bool) {
     LienStorage storage s = _loadLienStorageSlot();
     uint256 maxNewRate = uint256(stack[position].lien.details.rate) -
@@ -152,13 +153,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
     // PublicVault refinances are only valid if they do not have a buyout fee.
     // This happens when the borrower executes the buyout, or the lien duration is past the durationFeeCap.
-    if (isPublicVault && hasBuyoutFee) {
-      revert RefinanceBlocked();
-    } else if (
-      !isPublicVault &&
-      !VaultImplementation(newLien.vault).isDelegateOrOwner(msg.sender) &&
-      hasBuyoutFee
-    ) {
+    if (hasBuyoutFee && !chargeable) {
       revert RefinanceBlocked();
     }
 
@@ -224,7 +219,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         position: params.position,
         stack: params.encumber.stack,
         owed: owed,
-        buyout: buyout
+        buyout: buyout,
+        chargeable: params.chargeable
       })
     ) {
       revert InvalidRefinance();

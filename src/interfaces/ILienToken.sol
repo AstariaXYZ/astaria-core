@@ -96,6 +96,7 @@ interface ILienToken is IERC721 {
   }
 
   struct LienActionBuyout {
+    bool chargeable;
     uint8 position;
     LienActionEncumber encumber;
   }
@@ -216,7 +217,8 @@ interface ILienToken is IERC721 {
     uint8 position,
     Stack[] calldata stack,
     uint256 owed,
-    uint256 buyout
+    uint256 buyout,
+    bool chargeable
   ) external view returns (bool);
 
   /**

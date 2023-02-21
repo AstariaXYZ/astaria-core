@@ -357,6 +357,8 @@ abstract contract VaultImplementation is
 
     (stacks, newStack, buyoutParams) = lienToken.buyoutLien(
       ILienToken.LienActionBuyout({
+        chargeable: (!_isPublicVault() &&
+          (msg.sender == owner() || msg.sender == _loadVISlot().delegate)),
         position: position,
         encumber: ILienToken.LienActionEncumber({
           amount: owed,
@@ -391,11 +393,15 @@ abstract contract VaultImplementation is
    * @return The address of the recipient.
    */
   function recipient() public view returns (address) {
-    if (IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault)) {
+    if (_isPublicVault()) {
       return address(this);
     } else {
       return owner();
     }
+  }
+
+  function _isPublicVault() internal view returns (bool) {
+    return IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault);
   }
 
   /**
