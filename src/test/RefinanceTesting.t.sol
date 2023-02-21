@@ -378,7 +378,8 @@ contract RefinanceTesting is TestHelpers {
 
     assertEq(
       PublicVault(publicVault2).totalAssets(),
-      50 ether + (14 days * getWadRateFromDecimal(150)).mulWadDown(owed),
+      50 ether +
+        ((14 * 1 days + 1) * getWadRateFromDecimal(150).mulWadDown(owed)),
       "Target PublicVault totalAssets incorrect"
     );
     assertTrue(
