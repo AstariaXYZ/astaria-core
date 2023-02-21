@@ -288,7 +288,7 @@ contract RefinanceTesting is TestHelpers {
 
     vm.warp(block.timestamp + 9 days);
 
-    uint256 accruedInterest = uint256(LIEN_TOKEN.getOwed(stack[0]));
+    uint256 owed = uint256(LIEN_TOKEN.getOwed(stack[0]));
 
     address publicVault2 = _createPublicVault({
       strategist: strategistOne,
@@ -297,7 +297,7 @@ contract RefinanceTesting is TestHelpers {
     });
 
     ILienToken.Details memory sameRateRefinance = refinanceLienDetails;
-    sameRateRefinance.rate = (uint256(1e16) * 150) / (365 days);
+    sameRateRefinance.rate = getWadRateFromDecimal(150);
 
     IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
       vault: publicVault2,
@@ -325,22 +325,22 @@ contract RefinanceTesting is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVault2),
-      50 ether - accruedInterest,
+      50 ether - owed,
       "Incorrect PublicVault2 balance"
     );
     assertEq(
       WETH9.balanceOf(publicVault),
-      50 ether + (accruedInterest - stack[0].point.amount),
+      50 ether + (owed - stack[0].point.amount),
       "Incorrect PublicVault balance"
     );
     assertEq(
       PublicVault(publicVault).getYIntercept(),
-      50 ether + (accruedInterest - stack[0].point.amount),
+      50 ether + (owed - stack[0].point.amount),
       "Incorrect PublicVault YIntercept"
     );
     assertEq(
       PublicVault(publicVault).totalAssets(),
-      50 ether + (accruedInterest - stack[0].point.amount),
+      50 ether + (owed - stack[0].point.amount),
       "Incorrect PublicVault totalAssets"
     );
     assertEq(
@@ -363,7 +363,7 @@ contract RefinanceTesting is TestHelpers {
     );
     assertEq(
       WETH9.balanceOf(address(1)),
-      50 ether + (accruedInterest - stack[0].point.amount),
+      50 ether + (owed - stack[0].point.amount),
       "Incorrect withdrawer balance"
     );
 
@@ -372,14 +372,15 @@ contract RefinanceTesting is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(publicVault2),
-      50 ether - accruedInterest,
+      50 ether - owed,
       "Incorrect PublicVault2 balance"
     );
-    //    assertEq(
-    //      PublicVault(publicVault2).totalAssets(),
-    //      50 ether + (accruedInterest - 10 ether) + (accruedInterest * ((uint256(1e16) * 150) / (365 days)) * (14 days)),
-    //      "Target PublicVault totalAssets incorrect"
-    //    );
+
+    assertEq(
+      PublicVault(publicVault2).totalAssets(),
+      50 ether + (14 days * getWadRateFromDecimal(150)).mulWadDown(owed),
+      "Target PublicVault totalAssets incorrect"
+    );
     assertTrue(
       PublicVault(publicVault2).getYIntercept() != 0,
       "Incorrect PublicVault2 YIntercept"
@@ -389,6 +390,12 @@ contract RefinanceTesting is TestHelpers {
       50 ether,
       "Incorrect PublicVault2 YIntercept"
     );
+  }
+
+  function getWadRateFromDecimal(
+    uint256 decimal
+  ) internal pure returns (uint256) {
+    return uint256(1e16).mulDivDown(decimal, 365 days);
   }
 
   function testPublicVaultCannotBuyoutBefore90PercentDurationOver() public {
