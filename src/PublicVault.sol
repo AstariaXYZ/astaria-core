@@ -26,8 +26,8 @@ import {IERC20} from "core/interfaces/IERC20.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {ERC20Cloned} from "gpl/ERC20-Cloned.sol";
 import {
-  ClonesWithImmutableArgs
-} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+  Create2ClonesWithImmutableArgs
+} from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
@@ -220,7 +220,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     uint64 epoch
   ) internal {
     if (s.epochData[epoch].withdrawProxy == address(0)) {
-      s.epochData[epoch].withdrawProxy = ClonesWithImmutableArgs.clone(
+      s.epochData[epoch].withdrawProxy = Create2ClonesWithImmutableArgs.clone(
         IAstariaRouter(ROUTER()).BEACON_PROXY_IMPLEMENTATION(),
         abi.encodePacked(
           address(ROUTER()), // router is the beacon
@@ -228,7 +228,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
           asset(), // token
           address(this), // vault
           epoch + 1 // claimable epoch
-        )
+        ),
+        keccak256(abi.encodePacked(address(this), epoch))
       );
     }
   }

@@ -14,7 +14,7 @@
 pragma solidity =0.8.17;
 
 import {IBeacon} from "core/interfaces/IBeacon.sol";
-import {Clone} from "clones-with-immutable-args/Clone.sol";
+import {Clone} from "create2-clones-with-immutable-args/Clone.sol";
 
 contract BeaconProxy is Clone {
   function _getBeacon() internal pure returns (IBeacon) {

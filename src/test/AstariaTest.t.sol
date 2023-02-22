@@ -23,18 +23,62 @@ import {
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
 import {ERC721} from "gpl/ERC721.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 
 import {IAstariaRouter, AstariaRouter} from "../AstariaRouter.sol";
 import {VaultImplementation} from "../VaultImplementation.sol";
 import {PublicVault} from "../PublicVault.sol";
-import {TransferProxy} from "../TransferProxy.sol";
+import {Receiver, TransferProxy} from "../TransferProxy.sol";
 import {WithdrawProxy} from "../WithdrawProxy.sol";
 
 import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
+import {
+  Create2ClonesWithImmutableArgs
+} from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
+
+contract MockERC20 is ERC20 {
+  mapping(address => bool) public blacklist;
+
+  constructor(
+    string memory _name,
+    string memory _symbol,
+    uint8 _decimals
+  ) ERC20(_name, _symbol, _decimals) {}
+
+  function mint(address to, uint256 value) public virtual {
+    _mint(to, value);
+  }
+
+  function burn(address from, uint256 value) public virtual {
+    _burn(from, value);
+  }
+
+  function setBlacklist(address addr, bool isBlacklisted) public {
+    blacklist[addr] = isBlacklisted;
+  }
+
+  function transfer(address to, uint256 amount) public override returns (bool) {
+    require(!blacklist[msg.sender], "blacklisted");
+    require(!blacklist[to], "blacklisted");
+    return super.transfer(to, amount);
+  }
+
+  function transferFrom(
+    address from,
+    address to,
+    uint256 amount
+  ) public override returns (bool) {
+    require(!blacklist[from], "blacklisted");
+    require(!blacklist[to], "blacklisted");
+    require(!blacklist[msg.sender], "blacklisted");
+    return super.transferFrom(from, to, amount);
+  }
+}
 
 contract AstariaTest is TestHelpers {
   using FixedPointMathLib for uint256;
@@ -142,7 +186,11 @@ contract AstariaTest is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        token: address(WETH9),
+        addr: strategistOne,
+        amountToLend: 50 ether
+      }),
       privateVault
     );
 
@@ -558,6 +606,67 @@ contract AstariaTest is TestHelpers {
       ILienToken.File(ILienToken.FileType.CollateralToken, collateralIdAddr)
     );
     assert(LIEN_TOKEN.COLLATERAL_TOKEN() == ICollateralToken(address(0)));
+  }
+
+  function testBasicPrivateVaultLoanBlacklistWrapper() public {
+    TestNFT nft = new TestNFT(2);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+    MockERC20 token = new MockERC20("Test", "TST", 18);
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      token: address(token)
+    });
+    vm.label(privateVault, "privateVault");
+    token.mint(strategistOne, 50 ether);
+    token.mint(strategistOne, 50 ether);
+    _lendToPrivateVault(
+      PrivateLender({
+        token: address(token),
+        addr: strategistOne,
+        amountToLend: 50 ether
+      }),
+      privateVault
+    );
+
+    (
+      uint256[] memory lienIds,
+      ILienToken.Stack[] memory stack
+    ) = _commitToLien({
+        vault: privateVault,
+        strategist: strategistOne,
+        strategistPK: strategistOnePK,
+        tokenContract: tokenContract,
+        tokenId: tokenId,
+        lienDetails: standardLienDetails,
+        amount: 10 ether,
+        isFirstLien: true
+      });
+
+    assertEq(token.balanceOf(address(this)), initialBalance + 10 ether);
+    token.setBlacklist(strategistOne, true);
+    _repay(stack, 0, 10 ether, address(this));
+
+    address receiverCreated = Create2ClonesWithImmutableArgs.deriveAddress(
+      address(TRANSFER_PROXY),
+      TRANSFER_PROXY.receiverImplementation(),
+      abi.encodePacked(strategistOne),
+      keccak256(abi.encodePacked(strategistOne))
+    );
+
+    assertEq(receiverCreated.code.length > 0, true, "receiver has no code");
+    assertEq(
+      token.balanceOf(receiverCreated),
+      10 ether,
+      "receiver has no tokens"
+    );
+    token.setBlacklist(strategistOne, false);
+    vm.startPrank(strategistOne);
+
+    Receiver(receiverCreated).withdraw(ERC20(address(token)), 10 ether);
   }
 
   function testEpochProcessionMultipleActors() public {

@@ -77,7 +77,11 @@ contract ForkedTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        token: address(WETH9),
+        addr: strategistOne,
+        amountToLend: 50 ether
+      }),
       privateVault
     );
     address[] memory assets;

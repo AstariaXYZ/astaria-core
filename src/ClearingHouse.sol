@@ -17,7 +17,7 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {Clone} from "clones-with-immutable-args/Clone.sol";
+import {Clone} from "create2-clones-with-immutable-args/Clone.sol";
 import {IERC1155} from "core/interfaces/IERC1155.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";

@@ -207,7 +207,11 @@ contract RevertTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
       privateVault
     );
 
@@ -250,7 +254,7 @@ contract RevertTesting is TestHelpers {
         epochLength,
         vaultFee
       ),
-      keccak256(abi.encode(strategistTwo, blockhash(block.number - 1)))
+      keccak256(abi.encodePacked(strategistTwo, blockhash(block.number - 1)))
     );
 
     vm.startPrank(strategistOne);
@@ -290,7 +294,11 @@ contract RevertTesting is TestHelpers {
     ASTARIA_ROUTER.__emergencyPause();
 
     _lendToPrivateVault(
-      Lender({addr: strategistTwo, amountToLend: 50 ether}),
+      PrivateLender({
+        addr: strategistTwo,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
       privateVault
     );
   }
@@ -308,7 +316,11 @@ contract RevertTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 500 ether}),
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 500 ether
+      }),
       privateVault
     );
 
@@ -364,7 +376,11 @@ contract RevertTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
       privateVault
     );
 

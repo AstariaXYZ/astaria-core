@@ -254,7 +254,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       );
     }
 
-    s.TRANSFER_PROXY.tokenTransferFrom(
+    s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
       params.encumber.stack[params.position].lien.token,
       msg.sender,
       payee,
@@ -721,7 +721,12 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       payment = owing;
     }
     if (payment > 0)
-      s.TRANSFER_PROXY.tokenTransferFrom(token, payer, payee, payment);
+      s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
+        token,
+        payer,
+        payee,
+        payment
+      );
 
     delete s.lienMeta[lienId]; //full delete
     delete stack[position];
@@ -929,7 +934,12 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       activeStack = _removeStackPosition(activeStack, position);
     }
 
-    s.TRANSFER_PROXY.tokenTransferFrom(stack.lien.token, payer, payee, amount);
+    s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
+      stack.lien.token,
+      payer,
+      payee,
+      amount
+    );
 
     emit Payment(lienId, amount);
     return (activeStack, amount);

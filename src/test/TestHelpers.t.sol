@@ -930,6 +930,11 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address addr;
     uint256 amountToLend;
   }
+  struct PrivateLender {
+    address addr;
+    uint256 amountToLend;
+    address token;
+  }
 
   function _lendToVault(Lender memory lender, address vault) internal {
     vm.deal(lender.addr, lender.amountToLend);
@@ -946,11 +951,19 @@ contract TestHelpers is Deploy, ConsiderationTester {
     vm.stopPrank();
   }
 
-  function _lendToPrivateVault(Lender memory lender, address vault) internal {
-    vm.deal(lender.addr, lender.amountToLend);
+  function _lendToPrivateVault(
+    PrivateLender memory lender,
+    address vault
+  ) internal {
     vm.startPrank(lender.addr);
-    WETH9.deposit{value: lender.amountToLend}();
-    WETH9.approve(vault, lender.amountToLend);
+
+    if (lender.token == address(WETH9) || lender.token == address(0)) {
+      vm.deal(lender.addr, lender.amountToLend);
+      WETH9.deposit{value: lender.amountToLend}();
+      WETH9.approve(vault, lender.amountToLend);
+    } else {
+      ERC20(lender.token).approve(vault, type(uint256).max);
+    }
     //min slippage on the deposit
     Vault(vault).deposit(lender.amountToLend, lender.addr);
 
@@ -977,11 +990,15 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 amount,
     address payer
   ) internal returns (ILienToken.Stack[] memory newStack) {
-    vm.deal(payer, amount * 3);
-    vm.startPrank(payer);
-    WETH9.deposit{value: amount * 2}();
-    WETH9.approve(address(TRANSFER_PROXY), amount * 2);
-    WETH9.approve(address(LIEN_TOKEN), amount * 2);
+    if (stack[0].lien.token == address(WETH9)) {
+      vm.deal(payer, amount * 3);
+      vm.startPrank(payer);
+      WETH9.deposit{value: amount * 2}();
+      WETH9.approve(address(TRANSFER_PROXY), amount * 2);
+      WETH9.approve(address(LIEN_TOKEN), amount * 2);
+    } else {
+      ERC20(stack[0].lien.token).approve(address(TRANSFER_PROXY), amount);
+    }
 
     newStack = LIEN_TOKEN.makePayment(
       stack[position].lien.collateralId,

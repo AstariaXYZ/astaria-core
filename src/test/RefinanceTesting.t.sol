@@ -113,7 +113,11 @@ contract RefinanceTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
       privateVault
     );
     vm.startPrank(strategistTwo);
@@ -236,7 +240,11 @@ contract RefinanceTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
       privateVault
     );
 
@@ -541,7 +549,11 @@ contract RefinanceTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
       privateVault
     );
 
@@ -657,16 +669,15 @@ contract RefinanceTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
       privateVault
     );
 
     vm.startPrank(strategistTwo);
-    //    vm.expectRevert(
-    //      abi.encodeWithSelector(
-    //        ILienToken.InvalidSender.selector
-    //      )
-    //    );
     LIEN_TOKEN.buyoutLien(
       ILienToken.LienActionBuyout({
         chargeable: true,

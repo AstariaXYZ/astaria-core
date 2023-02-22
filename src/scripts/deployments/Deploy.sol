@@ -30,7 +30,7 @@ import {LienToken} from "core/LienToken.sol";
 import {AstariaRouter} from "core/AstariaRouter.sol";
 import {Vault} from "core/Vault.sol";
 import {PublicVault} from "core/PublicVault.sol";
-import {TransferProxy} from "core/TransferProxy.sol";
+import {TransferProxy, Receiver} from "core/TransferProxy.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
@@ -123,7 +123,7 @@ contract Deploy is Script {
       );
     }
 
-    TRANSFER_PROXY = new TransferProxy(MRA);
+    TRANSFER_PROXY = new TransferProxy(MRA, address(new Receiver()));
     if (testModeDisabled) {
       //      vm.setEnv("TRANSFER_PROXY_ADDR", address(TRANSFER_PROXY));
       vm.writeLine(
@@ -401,7 +401,7 @@ contract Deploy is Script {
 
     MRA.setRoleCapability(
       uint8(UserRoles.LIEN_TOKEN),
-      TRANSFER_PROXY.tokenTransferFrom.selector,
+      TRANSFER_PROXY.tokenTransferFromWithErrorReceiver.selector,
       true
     );
 

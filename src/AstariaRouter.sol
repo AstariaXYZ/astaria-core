@@ -678,7 +678,7 @@ contract AstariaRouter is
         epochLength,
         vaultFee
       ),
-      keccak256(abi.encode(msg.sender, blockhash(block.number - 1)))
+      keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1)))
     );
 
     if (s.LIEN_TOKEN.balanceOf(vaultAddr) > 0) {

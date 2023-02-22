@@ -20,4 +20,11 @@ interface ITransferProxy {
     address to,
     uint256 amount
   ) external;
+
+  function tokenTransferFromWithErrorReceiver(
+    address token,
+    address from,
+    address to,
+    uint256 amount
+  ) external;
 }

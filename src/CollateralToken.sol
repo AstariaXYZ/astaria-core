@@ -34,8 +34,8 @@ import {VaultImplementation} from "core/VaultImplementation.sol";
 import {ZoneInterface} from "seaport/interfaces/ZoneInterface.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {
-  ClonesWithImmutableArgs
-} from "clones-with-immutable-args/ClonesWithImmutableArgs.sol";
+  Create2ClonesWithImmutableArgs
+} from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 
 import {
   ConduitControllerInterface
@@ -563,13 +563,14 @@ contract CollateralToken is
       require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
 
       if (s.clearingHouse[collateralId] == address(0)) {
-        address clearingHouse = ClonesWithImmutableArgs.clone(
+        address clearingHouse = Create2ClonesWithImmutableArgs.clone(
           s.ASTARIA_ROUTER.BEACON_PROXY_IMPLEMENTATION(),
           abi.encodePacked(
             address(s.ASTARIA_ROUTER),
             uint8(IAstariaRouter.ImplementationType.ClearingHouse),
             collateralId
-          )
+          ),
+          bytes32(collateralId)
         );
 
         s.clearingHouse[collateralId] = clearingHouse;
