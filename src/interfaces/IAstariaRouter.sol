@@ -31,13 +31,10 @@ interface IAstariaRouter is IPausable, IBeacon {
     LiquidationFee,
     ProtocolFee,
     StrategistFee,
-    MinInterestBPS,
     MinEpochLength,
     MaxEpochLength,
     MinInterestRate,
     MaxInterestRate,
-    BuyoutFee,
-    MinDurationIncrease,
     AuctionWindow,
     StrategyValidator,
     Implementation,
@@ -56,7 +53,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   struct RouterStorage {
     //slot 1
     uint32 auctionWindow;
-    uint32 auctionWindowBuffer;
     uint32 liquidationFeeNumerator;
     uint32 liquidationFeeDenominator;
     uint32 maxEpochLength;
@@ -64,20 +60,15 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 protocolFeeNumerator;
     uint32 protocolFeeDenominator;
     //slot 2
-    ERC20 WETH; //20
     ICollateralToken COLLATERAL_TOKEN; //20
     ILienToken LIEN_TOKEN; //20
     ITransferProxy TRANSFER_PROXY; //20
     address feeTo; //20
     address BEACON_PROXY_IMPLEMENTATION; //20
-    uint88 maxInterestRate; //6
-    uint32 minInterestBPS; // was uint64
+    uint256 maxInterestRate; //6
     //slot 3 +
     address guardian; //20
     address newGuardian; //20
-    uint32 buyoutFeeNumerator;
-    uint32 buyoutFeeDenominator;
-    uint32 minDurationIncrease;
     mapping(uint8 => address) strategyValidators;
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
@@ -162,9 +153,10 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param underlying The address of the underlying token.
    * @return The address of the new PrivateVault.
    */
-  function newVault(address delegate, address underlying)
-    external
-    returns (address);
+  function newVault(
+    address delegate,
+    address underlying
+  ) external returns (address);
 
   /**
    * @notice Retrieves the address that collects protocol-level fees.
@@ -176,9 +168,9 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param commitments The commitment proofs and requested loan data for each loan.
    * @return lienIds the lienIds for each loan.
    */
-  function commitToLiens(Commitment[] memory commitments)
-    external
-    returns (uint256[] memory, ILienToken.Stack[] memory);
+  function commitToLiens(
+    Commitment[] memory commitments
+  ) external returns (uint256[] memory, ILienToken.Stack[] memory);
 
   /**
    * @notice Create a new lien against a CollateralToken.
@@ -188,13 +180,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   function requestLienPosition(
     IAstariaRouter.Commitment calldata params,
     address recipient
-  )
-    external
-    returns (
-      uint256,
-      ILienToken.Stack[] memory,
-      uint256
-    );
+  ) external returns (uint256, ILienToken.Stack[] memory, uint256);
 
   function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -206,19 +192,13 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   /**
    * @notice Returns the current auction duration.
-   * @param includeBuffer Adds the current auctionWindowBuffer if true.
    */
-  function getAuctionWindow(bool includeBuffer) external view returns (uint256);
+  function getAuctionWindow() external view returns (uint256);
 
   /**
    * @notice Computes the fee the protocol earns on loan origination from the protocolFee numerator and denominator.
    */
   function getProtocolFee(uint256) external view returns (uint256);
-
-  /**
-   * @notice Computes the fee Vaults earn when a Lien is bought out using the buyoutFee numerator and denominator.
-   */
-  function getBuyoutFee(uint256) external view returns (uint256);
 
   /**
    * @notice Computes the fee the users earn on liquidating an expired lien from the liquidationFee numerator and denominator.
@@ -231,9 +211,10 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param position The position of the defaulted lien.
    * @return reserve The amount owed on all liens for against the collateral being liquidated, including accrued interest.
    */
-  function liquidate(ILienToken.Stack[] calldata stack, uint8 position)
-    external
-    returns (OrderParameters memory);
+  function liquidate(
+    ILienToken.Stack[] calldata stack,
+    uint8 position
+  ) external returns (OrderParameters memory);
 
   /**
    * @notice Returns whether a specified lien can be liquidated.
@@ -277,20 +258,6 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function getImpl(uint8 implType) external view returns (address impl);
 
-  /**
-   * @notice Returns whether a new lien offers more favorable terms over an old lien.
-   * A new lien must have a rate less than or equal to maxNewRate,
-   * or a duration lower by minDurationIncrease, provided the other parameter does not get any worse.
-   * @param newLien The new Lien for the proposed refinance.
-   * @param position The Lien position against the CollateralToken.
-   * @param stack The Stack of existing Liens against the CollateralToken.
-   */
-  function isValidRefinance(
-    ILienToken.Lien calldata newLien,
-    uint8 position,
-    ILienToken.Stack[] calldata stack
-  ) external view returns (bool);
-
   event Liquidation(uint256 collateralId, uint256 position);
   event NewVault(
     address strategist,
@@ -303,7 +270,6 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);
   error InvalidRefinanceDuration(uint256);
-  error InvalidRefinanceCollateral(uint256);
   error InvalidVaultState(VaultState);
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);
@@ -311,6 +277,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidCommitmentState(CommitmentState);
   error InvalidStrategy(uint16);
   error InvalidVault(address);
+  error InvalidUnderlying(address);
   error UnsupportedFile();
 
   enum LienState {
@@ -329,13 +296,13 @@ interface IAstariaRouter is IPausable, IBeacon {
     INVALID,
     INVALID_RATE,
     INVALID_AMOUNT,
-    EXPIRED,
     COLLATERAL_AUCTION,
     COLLATERAL_NO_DEPOSIT
   }
 
   enum VaultState {
     UNINITIALIZED,
+    CORRUPTED,
     CLOSED,
     LIQUIDATED
   }

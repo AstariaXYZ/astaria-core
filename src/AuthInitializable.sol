@@ -62,12 +62,10 @@ abstract contract AuthInitializable {
     return _getAuthSlot().authority;
   }
 
-  function isAuthorized(address user, bytes4 functionSig)
-    internal
-    view
-    virtual
-    returns (bool)
-  {
+  function isAuthorized(
+    address user,
+    bytes4 functionSig
+  ) internal view virtual returns (bool) {
     AuthStorage storage s = _getAuthSlot();
     Authority auth = s.authority; // Memoizing authority saves us a warm SLOAD, around 100 gas.
 

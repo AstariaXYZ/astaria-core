@@ -17,7 +17,9 @@ jobs:
           submodules: recursive
           token: ${{ secrets.MY_REPO_PAT }}
 
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
       - run: yarn
       - uses: onbjerg/foundry-toolchain@v1
         with:

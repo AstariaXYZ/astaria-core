@@ -21,6 +21,8 @@ import {IERC165} from "core/interfaces/IERC165.sol";
 interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   enum InvalidRequestReason {
     NO_AUTHORITY,
+    OPERATOR_NO_CODE,
+    INVALID_VAULT,
     INVALID_SIGNATURE,
     INVALID_COMMITMENT,
     INVALID_AMOUNT,
@@ -28,7 +30,8 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
     INVALID_RATE,
     INVALID_POTENTIAL_DEBT,
     SHUTDOWN,
-    PAUSED
+    PAUSED,
+    EXPIRED
   }
 
   error InvalidRequest(InvalidRequestReason reason);
@@ -41,7 +44,7 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   }
 
   struct VIData {
-    uint88 depositCap;
+    uint256 depositCap;
     address delegate;
     bool allowListEnabled;
     bool isShutdown;
@@ -68,15 +71,8 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function incrementNonce() external;
 
   function commitToLien(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
-  )
-    external
-    returns (
-      uint256 lienId,
-      ILienToken.Stack[] memory stack,
-      uint256 payout
-    );
+    IAstariaRouter.Commitment calldata params
+  ) external returns (uint256 lienId, ILienToken.Stack[] memory stack);
 
   function buyoutLien(
     ILienToken.Stack[] calldata stack,

@@ -77,7 +77,11 @@ contract ForkedTesting is TestHelpers {
     });
 
     _lendToPrivateVault(
-      Lender({addr: strategistOne, amountToLend: 50 ether}),
+      PrivateLender({
+        token: address(WETH9),
+        addr: strategistOne,
+        amountToLend: 50 ether
+      }),
       privateVault
     );
     address[] memory assets;
@@ -119,8 +123,7 @@ contract ForkedTesting is TestHelpers {
         vault: privateVault,
         amount: 10 ether,
         stack: new ILienToken.Stack[](0),
-        isFirstLien: true,
-        broadcast: false
+        isFirstLien: true
       });
     }
 

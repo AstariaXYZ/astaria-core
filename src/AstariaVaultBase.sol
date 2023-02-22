@@ -14,7 +14,7 @@
 pragma solidity =0.8.17;
 
 import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
-import {Clone} from "clones-with-immutable-args/Clone.sol";
+import {Clone} from "create2-clones-with-immutable-args/Clone.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";

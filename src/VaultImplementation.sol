@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 
 pragma solidity =0.8.17;
 
@@ -76,7 +76,7 @@ abstract contract VaultImplementation is
    */
   function modifyDepositCap(uint256 newCap) external {
     require(msg.sender == owner()); //owner is "strategist"
-    _loadVISlot().depositCap = newCap.safeCastTo88();
+    _loadVISlot().depositCap = newCap;
   }
 
   function _loadVISlot() internal pure returns (VIData storage s) {
@@ -194,7 +194,7 @@ abstract contract VaultImplementation is
     if (params.delegate != address(0)) {
       s.delegate = params.delegate;
     }
-    s.depositCap = params.depositCap.safeCastTo88();
+    s.depositCap = params.depositCap;
     if (params.allowListEnabled) {
       s.allowListEnabled = true;
       uint256 i;
@@ -215,8 +215,12 @@ abstract contract VaultImplementation is
     emit AllowListUpdated(delegate_, true);
   }
 
+  function isDelegateOrOwner(address addr) external view returns (bool) {
+    return addr == owner() || addr == _loadVISlot().delegate;
+  }
+
   /**
-   * @dev Validates the terms for a requested loan.
+   * @dev Validates the incoming request for a lien
    * Who is requesting the borrow, is it a smart contract? or is it a user?
    * if a smart contract, then ensure that the contract is approved to borrow and is also receiving the funds.
    * if a user, then ensure that the user is approved to borrow and is also receiving the funds.
@@ -224,24 +228,46 @@ abstract contract VaultImplementation is
    * lien details are decoded from the obligation data and validated the collateral
    *
    * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
-   * @param receiver The address of the prospective borrower.
    */
-  function _validateCommitment(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
-  ) internal view {
+  function _validateRequest(
+    IAstariaRouter.Commitment calldata params
+  ) internal view returns (address) {
+    if (params.lienRequest.strategy.vault != address(this)) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
+    }
+
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
     address operator = CT.getApproved(collateralId);
     if (
       msg.sender != holder &&
-      receiver != holder &&
-      receiver != operator &&
+      msg.sender != operator &&
       !CT.isApprovedForAll(holder, msg.sender)
     ) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
+
+    if (block.timestamp > params.lienRequest.strategy.deadline) {
+      revert InvalidRequest(InvalidRequestReason.EXPIRED);
+    }
+
+    _validateSignature(params);
+
+    if (holder != msg.sender) {
+      if (msg.sender.code.length > 0) {
+        return msg.sender;
+      } else {
+        revert InvalidRequest(InvalidRequestReason.OPERATOR_NO_CODE);
+      }
+    } else {
+      return holder;
+    }
+  }
+
+  function _validateSignature(
+    IAstariaRouter.Commitment calldata params
+  ) internal view {
     VIData storage s = _loadVISlot();
     address recovered = ecrecover(
       keccak256(
@@ -271,33 +297,27 @@ abstract contract VaultImplementation is
     uint256 slope
   ) internal virtual {}
 
-  function _beforeCommitToLien(IAstariaRouter.Commitment calldata)
-    internal
-    virtual
-  {}
+  function _beforeCommitToLien(
+    IAstariaRouter.Commitment calldata
+  ) internal virtual {}
 
   /**
    * @notice Pipeline for lifecycle of new loan origination.
    * Origination consists of a few phases: pre-commitment validation, lien token issuance, strategist reward, and after commitment actions
    * Starts by depositing collateral and take optimized-out a lien against it. Next, verifies the merkle proof for a loan commitment. Vault owners are then rewarded fees for successful loan origination.
    * @param params Commitment data for the incoming lien request
-   * @param receiver The borrower receiving the loan.
    * @return lienId The id of the newly minted lien token.
    */
   function commitToLien(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
+    IAstariaRouter.Commitment calldata params
   )
     external
     whenNotPaused
-    returns (uint256 lienId, ILienToken.Stack[] memory stack, uint256 payout)
+    returns (uint256 lienId, ILienToken.Stack[] memory stack)
   {
     _beforeCommitToLien(params);
     uint256 slopeAddition;
-    (lienId, stack, slopeAddition, payout) = _requestLienAndIssuePayout(
-      params,
-      receiver
-    );
+    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(params);
     _afterCommitToLien(
       stack[stack.length - 1].point.end,
       lienId,
@@ -317,7 +337,7 @@ abstract contract VaultImplementation is
   )
     external
     whenNotPaused
-    returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
+    returns (ILienToken.Stack[] memory stacks, ILienToken.Stack memory newStack)
   {
     LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
@@ -329,26 +349,35 @@ abstract contract VaultImplementation is
       );
     }
 
-    _validateCommitment(incomingTerms, recipient());
+    _validateSignature(incomingTerms);
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
-    return
-      lienToken.buyoutLien(
-        ILienToken.LienActionBuyout({
-          position: position,
-          encumber: ILienToken.LienActionEncumber({
-            amount: owed,
-            receiver: recipient(),
-            lien: ROUTER().validateCommitment({
-              commitment: incomingTerms,
-              timeToSecondEpochEnd: _timeToSecondEndIfPublic()
-            }),
-            stack: stack
-          })
+    ILienToken.BuyoutLienParams memory buyoutParams;
+
+    (stacks, newStack, buyoutParams) = lienToken.buyoutLien(
+      ILienToken.LienActionBuyout({
+        chargeable: (!_isPublicVault() &&
+          (msg.sender == owner() || msg.sender == _loadVISlot().delegate)),
+        position: position,
+        encumber: ILienToken.LienActionEncumber({
+          amount: owed,
+          receiver: recipient(),
+          lien: ROUTER().validateCommitment({
+            commitment: incomingTerms,
+            timeToSecondEpochEnd: _timeToSecondEndIfPublic()
+          }),
+          stack: stack
         })
-      );
+      })
+    );
+
+    _handleReceiveBuyout(buyoutParams);
   }
+
+  function _handleReceiveBuyout(
+    ILienToken.BuyoutLienParams memory buyoutParams
+  ) internal virtual {}
 
   function _timeToSecondEndIfPublic()
     internal
@@ -364,34 +393,33 @@ abstract contract VaultImplementation is
    * @return The address of the recipient.
    */
   function recipient() public view returns (address) {
-    if (IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault)) {
+    if (_isPublicVault()) {
       return address(this);
     } else {
       return owner();
     }
   }
 
+  function _isPublicVault() internal view returns (bool) {
+    return IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault);
+  }
+
   /**
    * @dev Generates a Lien for a valid loan commitment proof and sends the loan amount to the borrower.
    * @param c The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
-   * @param receiver The borrower requesting the loan.
    */
   function _requestLienAndIssuePayout(
-    IAstariaRouter.Commitment calldata c,
-    address receiver
+    IAstariaRouter.Commitment calldata c
   )
     internal
-    returns (
-      uint256 newLienId,
-      ILienToken.Stack[] memory stack,
-      uint256 slope,
-      uint256 payout
-    )
+    returns (uint256 newLienId, ILienToken.Stack[] memory stack, uint256 slope)
   {
-    _validateCommitment(c, receiver);
+    address receiver = _validateRequest(c);
     (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
-    payout = _handleProtocolFee(c.lienRequest.amount);
-    ERC20(asset()).safeTransfer(receiver, payout);
+    ERC20(asset()).safeTransfer(
+      receiver,
+      _handleProtocolFee(c.lienRequest.amount)
+    );
   }
 
   function _handleProtocolFee(uint256 amount) internal returns (uint256) {

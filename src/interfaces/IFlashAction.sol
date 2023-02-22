@@ -20,7 +20,8 @@ interface IFlashAction {
     uint256 tokenId;
   }
 
-  function onFlashAction(Underlying calldata, bytes calldata)
-    external
-    returns (bytes32);
+  function onFlashAction(
+    Underlying calldata,
+    bytes calldata
+  ) external returns (bytes32);
 }

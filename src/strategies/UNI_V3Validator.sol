@@ -61,19 +61,15 @@ contract UNI_V3Validator is IUNI_V3Validator {
   IUniswapV3Factory public V3_FACTORY =
     IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
 
-  function assembleLeaf(IUNI_V3Validator.Details memory details)
-    public
-    pure
-    returns (bytes memory)
-  {
+  function assembleLeaf(
+    IUNI_V3Validator.Details memory details
+  ) public pure returns (bytes memory) {
     return abi.encode(details);
   }
 
-  function getLeafDetails(bytes memory nlrDetails)
-    public
-    pure
-    returns (IUNI_V3Validator.Details memory)
-  {
+  function getLeafDetails(
+    bytes memory nlrDetails
+  ) public pure returns (IUNI_V3Validator.Details memory) {
     return abi.decode(nlrDetails, (IUNI_V3Validator.Details));
   }
 

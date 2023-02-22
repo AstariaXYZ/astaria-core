@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-/**                                                     
-*  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗ 
-* ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
-* ███████║███████╗   ██║   ███████║██████╔╝██║███████║
-* ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
-* ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
-* ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
-*
-* Astaria Labs, Inc
-*/
+/**
+ *  █████╗ ███████╗████████╗ █████╗ ██████╗ ██╗ █████╗
+ * ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║██╔══██╗
+ * ███████║███████╗   ██║   ███████║██████╔╝██║███████║
+ * ██╔══██║╚════██║   ██║   ██╔══██║██╔══██╗██║██╔══██║
+ * ██║  ██║███████║   ██║   ██║  ██║██║  ██║██║██║  ██║
+ * ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+ *
+ * Astaria Labs, Inc
+ */
 
 pragma solidity =0.8.17;
 
@@ -50,8 +50,8 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256(keccak256("xyz.astaria.WithdrawProxy.storage.location")) - 1;
 
   struct WPStorage {
-    uint88 withdrawRatio;
-    uint88 expected; // The sum of the remaining debt (amountOwed) accrued against the NFT at the timestamp when it is liquidated. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
+    uint256 withdrawRatio;
+    uint256 expected; // The sum of the remaining debt (amountOwed) accrued against the NFT at the timestamp when it is liquidated. yIntercept (virtual assets) of a PublicVault are not modified on liquidation, only once an auction is completed.
     uint40 finalAuctionEnd; // when this is deleted, we know the final auction is over
     uint256 withdrawReserveReceived; // amount received from PublicVault. The WETH balance of this contract - withdrawReserveReceived = amount received from liquidations.
   }
@@ -129,23 +129,19 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
    * @param receiver The receiver of the Withdraw Tokens.
    * @param shares The number of shares to mint.
    */
-  function mint(uint256 shares, address receiver)
-    public
-    virtual
-    override(ERC4626Cloned, IERC4626)
-    returns (uint256 assets)
-  {
+  function mint(
+    uint256 shares,
+    address receiver
+  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 assets) {
     require(msg.sender == VAULT(), "only vault can mint");
     _mint(receiver, shares);
     return shares;
   }
 
-  function deposit(uint256 assets, address receiver)
-    public
-    virtual
-    override(ERC4626Cloned, IERC4626)
-    returns (uint256 shares)
-  {
+  function deposit(
+    uint256 assets,
+    address receiver
+  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 shares) {
     revert NotSupported();
   }
 
@@ -195,12 +191,9 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     return super.redeem(shares, receiver, owner);
   }
 
-  function supportsInterface(bytes4 interfaceId)
-    external
-    view
-    virtual
-    returns (bool)
-  {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) external view virtual returns (bool) {
     return interfaceId == type(IWithdrawProxy).interfaceId;
   }
 
@@ -268,10 +261,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     if (s.withdrawRatio == uint256(0)) {
       ERC20(asset()).safeTransfer(VAULT(), balance);
     } else {
-      transferAmount = uint256(s.withdrawRatio).mulDivDown(
-        balance,
-        10**ERC20(asset()).decimals()
-      );
+      transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
 
       unchecked {
         balance -= transferAmount;
@@ -286,11 +276,10 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     emit Claimed(address(this), transferAmount, VAULT(), balance);
   }
 
-  function drain(uint256 amount, address withdrawProxy)
-    public
-    onlyVault
-    returns (uint256)
-  {
+  function drain(
+    uint256 amount,
+    address withdrawProxy
+  ) public onlyVault returns (uint256) {
     uint256 balance = ERC20(asset()).balanceOf(address(this));
     if (amount > balance) {
       amount = balance;
@@ -300,7 +289,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public onlyVault {
-    _loadSlot().withdrawRatio = liquidationWithdrawRatio.safeCastTo88();
+    _loadSlot().withdrawRatio = liquidationWithdrawRatio;
   }
 
   function handleNewLiquidation(
@@ -310,7 +299,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     WPStorage storage s = _loadSlot();
 
     unchecked {
-      s.expected += newLienExpectedValue.safeCastTo88();
+      s.expected += newLienExpectedValue;
       uint40 auctionEnd = (block.timestamp + finalAuctionDelta).safeCastTo40();
       if (auctionEnd > s.finalAuctionEnd) s.finalAuctionEnd = auctionEnd;
     }

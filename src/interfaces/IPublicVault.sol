@@ -15,6 +15,7 @@ pragma solidity =0.8.17;
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
+import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 interface IPublicVault is IVaultImplementation {
   struct EpochData {
@@ -23,13 +24,13 @@ interface IPublicVault is IVaultImplementation {
   }
 
   struct VaultData {
-    uint88 yIntercept;
-    uint48 slope;
+    uint256 yIntercept;
+    uint256 slope;
     uint40 last;
     uint64 currentEpoch;
-    uint88 withdrawReserve;
-    uint88 liquidationWithdrawRatio;
-    uint88 strategistUnclaimedShares;
+    uint256 withdrawReserve;
+    uint256 liquidationWithdrawRatio;
+    uint256 strategistUnclaimedShares;
     mapping(uint64 => EpochData) epochData;
   }
 
@@ -37,12 +38,6 @@ interface IPublicVault is IVaultImplementation {
     uint256 lienSlope;
     uint256 amount;
     uint256 interestOwed;
-  }
-
-  struct BuyoutLienParams {
-    uint256 lienSlope;
-    uint256 lienEnd;
-    uint256 increaseYIntercept;
   }
 
   struct AfterLiquidationParams {
@@ -134,10 +129,14 @@ interface IPublicVault is IVaultImplementation {
   function decreaseYIntercept(uint256 amount) external;
 
   /**
-   * Hook to update the PublicVault's slope, YIntercept, and last timestamp on a LienToken buyout.
-   * @param params The lien buyout parameters (lienSlope, lienEnd, and increaseYIntercept)
+   * Hook to update the PublicVault's slope, YIntercept, and last timestamp when a LienToken is bought out. Also decreases the active lien count for the lien's expiring epoch.
+   * @param buyoutParams The lien buyout parameters (lienSlope, lienEnd, and yInterceptChange)
+   * @param buyoutFeeIfAny The buyout fee if the target vault is a PrivateVault and the lien is being bought out before feeDurationCap has passed.
    */
-  function handleBuyoutLien(BuyoutLienParams calldata params) external;
+  function handleLoseLienToBuyout(
+    ILienToken.BuyoutLienParams calldata buyoutParams,
+    uint256 buyoutFeeIfAny
+  ) external;
 
   /**
    * Hook to update the PublicVault owner of a LienToken when it is sent to liquidation.
@@ -165,9 +164,10 @@ interface IPublicVault is IVaultImplementation {
     DEPOSIT_CAP_EXCEEDED
   }
 
-  event StrategistFee(uint88 feeInShares);
+  event StrategistFee(uint256 feeInShares);
   event LiensOpenForEpochRemaining(uint64 epoch, uint256 liensOpenForEpoch);
-  event YInterceptChanged(uint88 newYintercept);
+  event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
   event LienOpen(uint256 lienId, uint256 epoch);
+  event SlopeUpdated(uint256 newSlope);
 }

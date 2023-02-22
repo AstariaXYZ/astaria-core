@@ -32,19 +32,15 @@ interface IUniqueValidator is IStrategyValidator {
 contract UniqueValidator is IUniqueValidator {
   uint8 public constant VERSION_TYPE = uint8(1);
 
-  function getLeafDetails(bytes memory nlrDetails)
-    public
-    pure
-    returns (Details memory)
-  {
+  function getLeafDetails(
+    bytes memory nlrDetails
+  ) public pure returns (Details memory) {
     return abi.decode(nlrDetails, (Details));
   }
 
-  function assembleLeaf(Details memory details)
-    public
-    pure
-    returns (bytes memory)
-  {
+  function assembleLeaf(
+    Details memory details
+  ) public pure returns (bytes memory) {
     return abi.encode(details);
   }
 
