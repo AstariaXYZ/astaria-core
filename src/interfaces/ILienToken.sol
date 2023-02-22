@@ -40,7 +40,6 @@ interface ILienToken is IERC721 {
 
   struct LienStorage {
     uint8 maxLiens;
-    address WETH;
     ITransferProxy TRANSFER_PROXY;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
@@ -315,21 +314,19 @@ interface ILienToken is IERC721 {
   event AddLien(
     uint256 indexed collateralId,
     uint8 position,
-    uint256 indexed lienId,
+    uint8 stackLength,
     Stack stack
   );
+
+  event RemoveLien(uint256 indexed collateralId, uint8 position);
+
   enum StackAction {
     CLEAR,
     ADD,
     REMOVE,
     REPLACE
   }
-  event LienStackUpdated(
-    uint256 indexed collateralId,
-    uint8 position,
-    StackAction action,
-    uint8 stackLength
-  );
+
   event RemovedLiens(uint256 indexed collateralId);
   event Payment(uint256 indexed lienId, uint256 amount);
   event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);

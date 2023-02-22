@@ -481,14 +481,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     emit AddLien(
       params.lien.collateralId,
       uint8(params.stack.length),
-      lienId,
-      newStackSlot
-    );
-    emit LienStackUpdated(
-      params.lien.collateralId,
       uint8(params.stack.length),
-      StackAction.ADD,
-      uint8(newStack.length)
+      newStackSlot
     );
   }
 
@@ -965,12 +959,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         ++i;
       }
     }
-    emit LienStackUpdated(
-      stack[position].lien.collateralId,
-      position,
-      StackAction.REMOVE,
-      uint8(newStack.length)
-    );
+
+    emit RemoveLien(stack[position].lien.collateralId, position);
   }
 
   function _isPublicVault(
