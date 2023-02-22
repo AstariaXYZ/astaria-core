@@ -112,14 +112,14 @@ contract CollateralToken is
     uint256 collateralId = params.offer[0].token.computeId(
       params.offer[0].identifierOrCriteria
     );
-    address liquidator = s.LIEN_TOKEN.getAuctionLiquidator(collateralId);
-    if (
-      s.idToUnderlying[collateralId].auctionHash == bytes32(0) ||
-      liquidator == address(0)
-    ) {
+    if (s.idToUnderlying[collateralId].auctionHash == bytes32(0)) {
       //revert no auction
       revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
     }
+    address liquidator = ClearingHouse(
+      s.idToUnderlying[collateralId].clearingHouse
+    ).getAuctionData().liquidator;
+
     if (
       s.idToUnderlying[collateralId].auctionHash !=
       keccak256(abi.encode(params))
@@ -139,7 +139,7 @@ contract CollateralToken is
     address tokenContract = underlying.tokenContract;
     uint256 tokenId = underlying.tokenId;
     ClearingHouse CH = ClearingHouse(
-      payable(s.idToUnderlying[collateralId].clearingHouse)
+      address(s.idToUnderlying[collateralId].clearingHouse)
     );
     CH.settleLiquidatorNFTClaim();
     _releaseToAddress(s, underlying, collateralId, liquidator);

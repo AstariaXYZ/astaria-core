@@ -87,7 +87,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   function setAuctionData(AuctionData calldata auctionData) external {
     IAstariaRouter ASTARIA_ROUTER = IAstariaRouter(_getArgAddress(0)); // get the router from the immutable arg
 
-    //only execute from the conduit
+    //only execute from the lien token
     require(msg.sender == address(ASTARIA_ROUTER.LIEN_TOKEN()));
 
     ClearingHouseStorage storage s = _getStorage();
@@ -180,6 +180,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
       );
     }
     ASTARIA_ROUTER.COLLATERAL_TOKEN().settleAuction(collateralId);
+    _deleteLocalState();
   }
 
   function safeTransferFrom(
@@ -247,5 +248,11 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
       0,
       s.auctionData.stack
     );
+    _deleteLocalState();
+  }
+
+  function _deleteLocalState() internal {
+    ClearingHouseStorage storage s = _getStorage();
+    delete s.auctionData;
   }
 }
