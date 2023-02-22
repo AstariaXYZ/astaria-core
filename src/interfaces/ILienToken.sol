@@ -168,10 +168,10 @@ interface ILienToken is IERC721 {
    * @param timestamp the timestamp you want to inquire about
    * @return the amount owed in uint192
    */
-  function getOwed(Stack calldata stack, uint256 timestamp)
-    external
-    view
-    returns (uint256);
+  function getOwed(
+    Stack calldata stack,
+    uint256 timestamp
+  ) external view returns (uint256);
 
   /**
    * @notice Public view function that computes the interest for a LienToken since its last payment.
