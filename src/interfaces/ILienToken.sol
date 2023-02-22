@@ -24,7 +24,11 @@ interface ILienToken is IERC721 {
   enum FileType {
     NotSupported,
     CollateralToken,
-    AstariaRouter
+    AstariaRouter,
+    BuyoutFee,
+    BuyoutFeeDurationCap,
+    MinInterestBPS,
+    MinDurationIncrease
   }
 
   struct File {
@@ -42,6 +46,12 @@ interface ILienToken is IERC721 {
     ICollateralToken COLLATERAL_TOKEN;
     mapping(uint256 => bytes32) collateralStateHash;
     mapping(uint256 => LienMeta) lienMeta;
+    uint32 buyoutFeeNumerator;
+    uint32 buyoutFeeDenominator;
+    uint32 durationFeeCapNumerator;
+    uint32 durationFeeCapDenominator;
+    uint32 minDurationIncrease;
+    uint32 minInterestBPS;
   }
 
   struct LienMeta {
@@ -86,8 +96,14 @@ interface ILienToken is IERC721 {
   }
 
   struct LienActionBuyout {
+    bool chargeable;
     uint8 position;
     LienActionEncumber encumber;
+  }
+
+  struct BuyoutLienParams {
+    uint256 lienSlope;
+    uint256 lienEnd;
   }
 
   /**
@@ -122,6 +138,15 @@ interface ILienToken is IERC721 {
     Stack[] calldata stack,
     address liquidator
   ) external;
+
+  /**
+   * @notice Computes the fee Vaults earn when a Lien is bought out using the buyoutFee numerator and denominator.
+   */
+  function getBuyoutFee(
+    uint256 remainingInterestIn,
+    uint256 end,
+    uint256 duration
+  ) external view returns (uint256);
 
   /**
    * @notice Computes and returns the buyout amount for a Lien.
@@ -176,16 +201,39 @@ interface ILienToken is IERC721 {
    * @param params LienActionEncumber data containing CollateralToken information and lien parameters (rate, duration, and amount, rate, and debt caps).
    */
   function createLien(
-    LienActionEncumber memory params
+    LienActionEncumber calldata params
   ) external returns (uint256 lienId, Stack[] memory stack, uint256 slope);
+
+  /**
+   * @notice Returns whether a new lien offers more favorable terms over an old lien.
+   * A new lien must have a rate less than or equal to maxNewRate,
+   * or a duration lower by minDurationIncrease, provided the other parameter does not get any worse.
+   * @param newLien The new Lien for the proposed refinance.
+   * @param position The Lien position against the CollateralToken.
+   * @param stack The Stack of existing Liens against the CollateralToken.
+   */
+  function isValidRefinance(
+    Lien calldata newLien,
+    uint8 position,
+    Stack[] calldata stack,
+    uint256 owed,
+    uint256 buyout,
+    bool chargeable
+  ) external view returns (bool);
 
   /**
    * @notice Purchase a LienToken for its buyout price.
    * @param params The LienActionBuyout data specifying the lien position, receiver address, and underlying CollateralToken information of the lien.
    */
   function buyoutLien(
-    LienActionBuyout memory params
-  ) external returns (Stack[] memory, Stack memory);
+    LienActionBuyout calldata params
+  )
+    external
+    returns (
+      Stack[] memory stacks,
+      Stack memory newStack,
+      BuyoutLienParams memory buyoutParams
+    );
 
   /**
    * @notice Called by the ClearingHouse (through Seaport) to pay back debt with auction funds.
@@ -287,11 +335,14 @@ interface ILienToken is IERC721 {
   event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
   event PayeeChanged(uint256 indexed lienId, address indexed payee);
 
+  error InvalidFileData();
   error UnsupportedFile();
   error InvalidTokenId(uint256 tokenId);
   error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
   error InvalidTerms();
   error InvalidRefinance();
+  error InvalidRefinanceCollateral(uint256);
+  error RefinanceBlocked();
   error InvalidLoanState();
   error InvalidSender();
   enum InvalidStates {

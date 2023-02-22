@@ -597,19 +597,42 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return ROUTER().LIEN_TOKEN();
   }
 
-  function handleBuyoutLien(
-    BuyoutLienParams calldata params
+  function handleLoseLienToBuyout(
+    ILienToken.BuyoutLienParams calldata buyoutParams,
+    uint256 buyoutFeeIfAny
   ) public onlyLienToken {
     VaultData storage s = _loadStorageSlot();
 
+    _accrue(s);
     unchecked {
-      uint256 newSlope = s.slope - params.lienSlope;
+      uint256 newSlope = s.slope - buyoutParams.lienSlope;
       _setSlope(s, newSlope);
-      s.yIntercept += params.increaseYIntercept;
-      s.last = block.timestamp.safeCastTo40();
+      s.yIntercept += buyoutFeeIfAny;
     }
 
-    _decreaseEpochLienCount(s, getLienEpoch(params.lienEnd.safeCastTo64()));
+    _decreaseEpochLienCount(
+      s,
+      getLienEpoch(buyoutParams.lienEnd.safeCastTo64())
+    );
+    emit YInterceptChanged(s.yIntercept);
+  }
+
+  function _handleReceiveBuyout(
+    ILienToken.BuyoutLienParams memory buyoutParams
+  ) internal virtual override {
+    VaultData storage s = _loadStorageSlot();
+
+    _accrue(s);
+    if (s.withdrawReserve > uint256(0)) {
+      transferWithdrawReserve();
+    }
+    unchecked {
+      uint256 newSlope = s.slope + buyoutParams.lienSlope;
+      _setSlope(s, newSlope);
+    }
+
+    _increaseOpenLiens(s, getLienEpoch(buyoutParams.lienEnd.safeCastTo64()));
+
     emit YInterceptChanged(s.yIntercept);
   }
 

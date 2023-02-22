@@ -108,14 +108,10 @@ contract AstariaRouter is
 
     s.liquidationFeeNumerator = uint32(130);
     s.liquidationFeeDenominator = uint32(1000);
-    s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
     s.minEpochLength = uint32(7 days);
     s.maxEpochLength = uint32(45 days);
     s.maxInterestRate = ((uint256(1e16) * 200) / (365 days));
     //63419583966; // 200% apy / second
-    s.buyoutFeeNumerator = uint32(100);
-    s.buyoutFeeDenominator = uint32(1000);
-    s.minDurationIncrease = uint32(5 days);
     s.guardian = msg.sender;
   }
 
@@ -300,20 +296,6 @@ contract AstariaRouter is
       if (denominator < numerator) revert InvalidFileData();
       s.protocolFeeNumerator = numerator.safeCastTo32();
       s.protocolFeeDenominator = denominator.safeCastTo32();
-    } else if (what == FileType.BuyoutFee) {
-      (uint256 numerator, uint256 denominator) = abi.decode(
-        data,
-        (uint256, uint256)
-      );
-      if (denominator < numerator) revert InvalidFileData();
-      s.buyoutFeeNumerator = numerator.safeCastTo32();
-      s.buyoutFeeDenominator = denominator.safeCastTo32();
-    } else if (what == FileType.MinInterestBPS) {
-      uint256 value = abi.decode(data, (uint256));
-      s.minInterestBPS = value.safeCastTo32();
-    } else if (what == FileType.MinDurationIncrease) {
-      uint256 value = abi.decode(data, (uint256));
-      s.minDurationIncrease = value.safeCastTo32();
     } else if (what == FileType.MinEpochLength) {
       s.minEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.MaxEpochLength) {
@@ -652,40 +634,8 @@ contract AstariaRouter is
       );
   }
 
-  function getBuyoutFee(
-    uint256 remainingInterestIn
-  ) external view returns (uint256) {
-    RouterStorage storage s = _loadRouterSlot();
-    return
-      remainingInterestIn.mulDivDown(
-        s.buyoutFeeNumerator,
-        s.buyoutFeeDenominator
-      );
-  }
-
   function isValidVault(address vault) public view returns (bool) {
     return _loadRouterSlot().vaults[vault];
-  }
-
-  function isValidRefinance(
-    ILienToken.Lien calldata newLien,
-    uint8 position,
-    ILienToken.Stack[] calldata stack
-  ) public view returns (bool) {
-    RouterStorage storage s = _loadRouterSlot();
-    uint256 maxNewRate = uint256(stack[position].lien.details.rate) -
-      s.minInterestBPS;
-
-    if (newLien.collateralId != stack[0].lien.collateralId) {
-      revert InvalidRefinanceCollateral(newLien.collateralId);
-    }
-    return
-      (newLien.details.rate <= maxNewRate &&
-        newLien.details.duration + block.timestamp >=
-        stack[position].point.end) ||
-      (block.timestamp + newLien.details.duration - stack[position].point.end >=
-        s.minDurationIncrease &&
-        newLien.details.rate <= stack[position].lien.details.rate);
   }
 
   /**

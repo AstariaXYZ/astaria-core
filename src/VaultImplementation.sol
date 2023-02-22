@@ -215,6 +215,10 @@ abstract contract VaultImplementation is
     emit AllowListUpdated(delegate_, true);
   }
 
+  function isDelegateOrOwner(address addr) external view returns (bool) {
+    return addr == owner() || addr == _loadVISlot().delegate;
+  }
+
   /**
    * @dev Validates the incoming request for a lien
    * Who is requesting the borrow, is it a smart contract? or is it a user?
@@ -248,6 +252,22 @@ abstract contract VaultImplementation is
       revert InvalidRequest(InvalidRequestReason.EXPIRED);
     }
 
+    _validateSignature(params);
+
+    if (holder != msg.sender) {
+      if (msg.sender.code.length > 0) {
+        return msg.sender;
+      } else {
+        revert InvalidRequest(InvalidRequestReason.OPERATOR_NO_CODE);
+      }
+    } else {
+      return holder;
+    }
+  }
+
+  function _validateSignature(
+    IAstariaRouter.Commitment calldata params
+  ) internal view {
     VIData storage s = _loadVISlot();
     address recovered = ecrecover(
       keccak256(
@@ -268,16 +288,6 @@ abstract contract VaultImplementation is
       revert IVaultImplementation.InvalidRequest(
         InvalidRequestReason.INVALID_SIGNATURE
       );
-    }
-
-    if (holder != msg.sender) {
-      if (msg.sender.code.length > 0) {
-        return msg.sender;
-      } else {
-        revert InvalidRequest(InvalidRequestReason.OPERATOR_NO_CODE);
-      }
-    } else {
-      return holder;
     }
   }
 
@@ -327,7 +337,7 @@ abstract contract VaultImplementation is
   )
     external
     whenNotPaused
-    returns (ILienToken.Stack[] memory, ILienToken.Stack memory)
+    returns (ILienToken.Stack[] memory stacks, ILienToken.Stack memory newStack)
   {
     LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
 
@@ -339,26 +349,35 @@ abstract contract VaultImplementation is
       );
     }
 
-    _validateRequest(incomingTerms);
+    _validateSignature(incomingTerms);
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
 
-    return
-      lienToken.buyoutLien(
-        ILienToken.LienActionBuyout({
-          position: position,
-          encumber: ILienToken.LienActionEncumber({
-            amount: owed,
-            receiver: recipient(),
-            lien: ROUTER().validateCommitment({
-              commitment: incomingTerms,
-              timeToSecondEpochEnd: _timeToSecondEndIfPublic()
-            }),
-            stack: stack
-          })
+    ILienToken.BuyoutLienParams memory buyoutParams;
+
+    (stacks, newStack, buyoutParams) = lienToken.buyoutLien(
+      ILienToken.LienActionBuyout({
+        chargeable: (!_isPublicVault() &&
+          (msg.sender == owner() || msg.sender == _loadVISlot().delegate)),
+        position: position,
+        encumber: ILienToken.LienActionEncumber({
+          amount: owed,
+          receiver: recipient(),
+          lien: ROUTER().validateCommitment({
+            commitment: incomingTerms,
+            timeToSecondEpochEnd: _timeToSecondEndIfPublic()
+          }),
+          stack: stack
         })
-      );
+      })
+    );
+
+    _handleReceiveBuyout(buyoutParams);
   }
+
+  function _handleReceiveBuyout(
+    ILienToken.BuyoutLienParams memory buyoutParams
+  ) internal virtual {}
 
   function _timeToSecondEndIfPublic()
     internal
@@ -374,11 +393,15 @@ abstract contract VaultImplementation is
    * @return The address of the recipient.
    */
   function recipient() public view returns (address) {
-    if (IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault)) {
+    if (_isPublicVault()) {
       return address(this);
     } else {
       return owner();
     }
+  }
+
+  function _isPublicVault() internal view returns (bool) {
+    return IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault);
   }
 
   /**
