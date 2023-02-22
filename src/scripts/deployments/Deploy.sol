@@ -360,9 +360,8 @@ contract Deploy is Script {
       )
     );
     if (testModeDisabled) {
+      _setOwner();
       vm.stopBroadcast();
-    } else {
-      //      _setOwner();
     }
   }
 
@@ -417,9 +416,17 @@ contract Deploy is Script {
   }
 
   function _setOwner() internal {
-    MRA.transferOwnership(msg.sender);
-    ASTARIA_ROUTER.transferOwnership(msg.sender);
-    LIEN_TOKEN.transferOwnership(msg.sender);
-    COLLATERAL_TOKEN.transferOwnership(msg.sender);
+    address guardian;
+    try vm.envAddress("GUARDIAN_ADDR") {
+      guardian = vm.envAddress("GUARDIAN_ADDR");
+    } catch {
+      revert("No guardian address set in .env file");
+    }
+    ASTARIA_ROUTER.setNewGuardian(guardian);
+    PROXY_ADMIN.transferOwnership(guardian);
+    MRA.transferOwnership(guardian);
+    ASTARIA_ROUTER.transferOwnership(guardian);
+    LIEN_TOKEN.transferOwnership(guardian);
+    COLLATERAL_TOKEN.transferOwnership(guardian);
   }
 }
