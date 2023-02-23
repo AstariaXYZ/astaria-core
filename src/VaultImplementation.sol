@@ -61,6 +61,30 @@ abstract contract VaultImplementation is
     return _loadVISlot().strategistNonce;
   }
 
+  function getState()
+    external
+    view
+    virtual
+    returns (uint, address, bool, bool, uint)
+  {
+    VIData storage s = _loadVISlot();
+    return (
+      s.depositCap,
+      s.delegate,
+      s.allowListEnabled,
+      s.isShutdown,
+      s.strategistNonce
+    );
+  }
+
+  function getAllowList(address depositor) external view returns (bool) {
+    VIData storage s = _loadVISlot();
+    if (!s.allowListEnabled) {
+      return true;
+    }
+    return s.allowList[depositor];
+  }
+
   function incrementNonce() external {
     VIData storage s = _loadVISlot();
     if (msg.sender != owner() && msg.sender != s.delegate) {
