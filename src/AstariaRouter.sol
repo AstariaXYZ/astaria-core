@@ -459,6 +459,12 @@ contract AstariaRouter is
     });
   }
 
+  function getStrategyValidator(
+    uint8 validator
+  ) external view returns (address) {
+    return _loadRouterSlot().strategyValidators[validator];
+  }
+
   function commitToLiens(
     IAstariaRouter.Commitment[] memory commitments
   )

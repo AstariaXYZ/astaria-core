@@ -205,6 +205,8 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function getLiquidatorFee(uint256) external view returns (uint256);
 
+  function getStrategyValidator(uint8) external view returns (address);
+
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
    * @param stack the stack being liquidated

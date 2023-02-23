@@ -4,7 +4,7 @@
 
 # define array and add all contracts from optimized-out.sol that are in typechainabi
 
-accepted_file_names=("CollateralToken.sol" "LienToken.sol" "MultiRolesAuthority.sol" "PublicVault.sol" "Vault.sol" "WithdrawProxy.sol"  "AstariaRouter.sol" "VaultImplementation.sol")
+accepted_file_names=("CollateralToken.sol" "LienToken.sol" "MultiRolesAuthority.sol" "PublicVault.sol" "Vault.sol" "WithdrawProxy.sol"  "AstariaRouter.sol" "VaultImplementation.sol" "ClearingHouse.sol")
 
 forge build
 # loop through the array and generate types for each contract
