@@ -64,6 +64,25 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
   error InvalidState(InvalidStates);
 
+  function getState()
+    public
+    view
+    returns (
+      uint256 withdrawRatio,
+      uint256 expected,
+      uint40 finalAuctionEnd,
+      uint256 withdrawReserveReceived
+    )
+  {
+    WPStorage storage s = _loadSlot();
+    return (
+      s.withdrawRatio,
+      s.expected,
+      s.finalAuctionEnd,
+      s.withdrawReserveReceived
+    );
+  }
+
   function minDepositAmount()
     public
     view
