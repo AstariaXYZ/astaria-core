@@ -382,6 +382,11 @@ contract CollateralToken is
     return s.CONDUIT;
   }
 
+  function hasFlashAction(uint256 collateralId) external view returns (bool) {
+    CollateralStorage storage s = _loadCollateralSlot();
+    return s.flashEnabled[s.idToUnderlying[collateralId].tokenContract];
+  }
+
   /**
    * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.
    * @param collateralId The ID of the CollateralToken wrapping the NFT.

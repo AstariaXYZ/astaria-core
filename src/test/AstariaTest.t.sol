@@ -882,6 +882,8 @@ contract AstariaTest is TestHelpers {
 
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
 
+    emit log_named_string("withdrawProxy symbol", withdrawProxy.symbol());
+    emit log_named_string("withdrawProxy name", withdrawProxy.name());
     vm.startPrank(address(1));
     withdrawProxy.redeem(
       withdrawProxy.balanceOf(address(1)),

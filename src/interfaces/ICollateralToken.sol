@@ -164,6 +164,8 @@ interface ICollateralToken is IERC721 {
    */
   function liquidatorNFTClaim(OrderParameters memory params) external;
 
+  function hasFlashAction(uint256 collateralId) external view returns (bool);
+
   error UnsupportedFile();
   error InvalidCollateral();
   error InvalidSender();

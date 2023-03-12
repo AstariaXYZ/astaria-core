@@ -23,6 +23,7 @@ import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
 import {PublicVault} from "core/PublicVault.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
+import {LibString} from "solmate/utils/LibString.sol";
 
 /**
  * @title WithdrawProxy
@@ -126,7 +127,14 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     returns (string memory)
   {
     return
-      string(abi.encodePacked("AST-WithdrawVault-", ERC20(asset()).symbol()));
+      string(
+        abi.encodePacked(
+          "AST-WithdrawVault-",
+          ERC20(asset()).symbol(),
+          "-",
+          LibString.toString(VAULT().epochEndTimestamp(CLAIMABLE_EPOCH()))
+        )
+      );
   }
 
   /**
@@ -139,8 +147,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     override(IERC20Metadata, WithdrawVaultBase)
     returns (string memory)
   {
-    return
-      string(abi.encodePacked("AST-W", VAULT(), "-", ERC20(asset()).symbol()));
+    return string(abi.encodePacked("AST-WV-", ERC20(asset()).symbol()));
   }
 
   /**
@@ -151,8 +158,13 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   function mint(
     uint256 shares,
     address receiver
-  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 assets) {
-    require(msg.sender == VAULT(), "only vault can mint");
+  )
+    public
+    virtual
+    override(ERC4626Cloned, IERC4626)
+    onlyVault
+    returns (uint256 assets)
+  {
     _mint(receiver, shares);
     return shares;
   }
@@ -160,7 +172,13 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   function deposit(
     uint256 assets,
     address receiver
-  ) public virtual override(ERC4626Cloned, IERC4626) returns (uint256 shares) {
+  )
+    public
+    virtual
+    override(ERC4626Cloned, IERC4626)
+    onlyVault
+    returns (uint256 shares)
+  {
     revert NotSupported();
   }
 
@@ -240,7 +258,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   }
 
   modifier onlyVault() {
-    require(msg.sender == VAULT(), "only vault can call");
+    require(msg.sender == address(VAULT()), "only vault can call");
     _;
   }
 
@@ -256,7 +274,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       revert InvalidState(InvalidStates.CANT_CLAIM);
     }
 
-    if (PublicVault(VAULT()).getCurrentEpoch() < CLAIMABLE_EPOCH()) {
+    if (VAULT().getCurrentEpoch() < CLAIMABLE_EPOCH()) {
       revert InvalidState(InvalidStates.PROCESS_EPOCH_NOT_COMPLETE);
     }
     if (block.timestamp < s.finalAuctionEnd) {
@@ -268,17 +286,17 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       s.withdrawReserveReceived; // will never underflow because withdrawReserveReceived is always increased by the transfer amount from the PublicVault
 
     if (balance < s.expected) {
-      PublicVault(VAULT()).decreaseYIntercept(
+      VAULT().decreaseYIntercept(
         (s.expected - balance).mulWadDown(1e18 - s.withdrawRatio)
       );
     } else {
-      PublicVault(VAULT()).increaseYIntercept(
+      VAULT().increaseYIntercept(
         (balance - s.expected).mulWadDown(1e18 - s.withdrawRatio)
       );
     }
 
     if (s.withdrawRatio == uint256(0)) {
-      ERC20(asset()).safeTransfer(VAULT(), balance);
+      ERC20(asset()).safeTransfer(address(VAULT()), balance);
     } else {
       transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
 
@@ -287,12 +305,12 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       }
 
       if (balance > 0) {
-        ERC20(asset()).safeTransfer(VAULT(), balance);
+        ERC20(asset()).safeTransfer(address(VAULT()), balance);
       }
     }
     s.finalAuctionEnd = 0;
 
-    emit Claimed(address(this), transferAmount, VAULT(), balance);
+    emit Claimed(address(this), transferAmount, address(VAULT()), balance);
   }
 
   function drain(

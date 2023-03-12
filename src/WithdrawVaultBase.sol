@@ -17,6 +17,7 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {Clone} from "create2-clones-with-immutable-args/Clone.sol";
+import "./interfaces/IPublicVault.sol";
 
 abstract contract WithdrawVaultBase is Clone, IWithdrawProxy {
   function name() public view virtual returns (string memory);
@@ -35,8 +36,8 @@ abstract contract WithdrawVaultBase is Clone, IWithdrawProxy {
     return _getArgAddress(21);
   }
 
-  function VAULT() public pure returns (address) {
-    return _getArgAddress(41);
+  function VAULT() public pure returns (IPublicVault) {
+    return IPublicVault(_getArgAddress(41));
   }
 
   function CLAIMABLE_EPOCH() public pure returns (uint64) {

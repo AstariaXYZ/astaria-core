@@ -311,32 +311,23 @@ interface ILienToken is IERC721 {
    */
   function file(File calldata file) external;
 
-  event AddLien(
-    uint256 indexed collateralId,
-    uint8 position,
-    uint8 stackLength,
-    Stack stack
+  event NewLien(uint256 indexed collateralId, Stack stack);
+  event AppendLien(uint256 newLienId, uint256 last);
+  event RemoveLien(uint256 removedLienId, uint256 next, uint256 last);
+  event ReplaceLien(
+    uint256 newLienId,
+    uint256 removedLienId,
+    uint256 next,
+    uint256 last
   );
 
-  event RemoveLien(uint256 indexed collateralId, uint8 position);
-
-  enum StackAction {
-    CLEAR,
-    ADD,
-    REMOVE,
-    REPLACE
-  }
-
-  event RemovedLiens(uint256 indexed collateralId);
   event Payment(uint256 indexed lienId, uint256 amount);
-  event BuyoutLien(address indexed buyer, uint256 lienId, uint256 buyout);
   event PayeeChanged(uint256 indexed lienId, address indexed payee);
 
   error InvalidFileData();
   error UnsupportedFile();
   error InvalidTokenId(uint256 tokenId);
   error InvalidBuyoutDetails(uint256 lienMaxAmount, uint256 owed);
-  error InvalidTerms();
   error InvalidRefinance();
   error InvalidRefinanceCollateral(uint256);
   error RefinanceBlocked();
@@ -363,5 +354,4 @@ interface ILienToken is IERC721 {
   }
 
   error InvalidState(InvalidStates);
-  error InvalidCollateralState(InvalidStates);
 }

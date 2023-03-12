@@ -320,6 +320,21 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     newStack[position] = newLien;
     _burn(oldLienId);
     delete s.lienMeta[oldLienId];
+
+    uint256 next;
+    uint256 last;
+    if (position != 0) {
+      last = stack[position - 1].point.lienId;
+    }
+    if (position != stack.length - 1) {
+      next = stack[position + 1].point.lienId;
+    }
+    emit ReplaceLien(
+      newStack[position].point.lienId,
+      stack[position].point.lienId,
+      next,
+      last
+    );
   }
 
   function getInterest(Stack calldata stack) public view returns (uint256) {
@@ -478,11 +493,13 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     );
 
     lienSlope = calculateSlope(newStackSlot);
-    emit AddLien(
-      params.lien.collateralId,
-      uint8(params.stack.length),
-      uint8(params.stack.length),
-      newStackSlot
+
+    emit NewLien(params.lien.collateralId, newStackSlot);
+    emit AppendLien(
+      lienId,
+      params.stack.length == 0
+        ? 0
+        : params.stack[params.stack.length - 1].point.lienId
     );
   }
 
@@ -960,7 +977,19 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       }
     }
 
-    emit RemoveLien(stack[position].lien.collateralId, position);
+    uint256 next;
+    uint256 last;
+    if (position == 0) {
+      last = 0;
+    } else {
+      last = stack[position - 1].point.lienId;
+    }
+    if (position == newStack.length) {
+      next = 0;
+    } else {
+      next = newStack[position].point.lienId;
+    }
+    emit RemoveLien(stack[position].point.lienId, next, last);
   }
 
   function _isPublicVault(
