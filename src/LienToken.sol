@@ -460,14 +460,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     super.transferFrom(from, to, id);
   }
 
-  function ASTARIA_ROUTER() public view returns (IAstariaRouter) {
-    return _loadLienStorageSlot().ASTARIA_ROUTER;
-  }
-
-  function COLLATERAL_TOKEN() public view returns (ICollateralToken) {
-    return _loadLienStorageSlot().COLLATERAL_TOKEN;
-  }
-
   function _exists(uint256 tokenId) internal view returns (bool) {
     return _loadERC721Slot()._ownerOf[tokenId] != address(0);
   }

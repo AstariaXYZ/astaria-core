@@ -114,10 +114,6 @@ interface ILienToken is IERC721 {
     Lien calldata lien
   ) external view returns (uint256 lienId);
 
-  function ASTARIA_ROUTER() external view returns (IAstariaRouter);
-
-  function COLLATERAL_TOKEN() external view returns (ICollateralToken);
-
   /**
    * @notice Computes the rate for a specified lien.
    * @param stack The Lien to compute the slope for.
