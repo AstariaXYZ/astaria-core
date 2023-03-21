@@ -183,6 +183,7 @@ interface IPublicVault is IVaultImplementation {
   event LiensOpenForEpochRemaining(uint64 epoch, uint256 liensOpenForEpoch);
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
+  event WithdrawProxyDeployed(uint256 epoch, address withdrawProxy);
   event LienOpen(uint256 lienId, uint256 epoch);
   event SlopeUpdated(uint256 newSlope);
 }

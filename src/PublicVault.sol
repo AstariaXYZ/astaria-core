@@ -231,6 +231,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         ),
         keccak256(abi.encodePacked(address(this), epoch))
       );
+      emit WithdrawProxyDeployed(epoch, s.epochData[epoch].withdrawProxy);
     }
   }
 
@@ -527,9 +528,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _mint(msg.sender, unclaimed);
   }
 
-  function beforePayment(
-    BeforePaymentParams calldata params
-  ) external onlyLienToken {
+  function beforePayment(BeforePaymentParams calldata params) external {
+    _onlyLienToken();
+
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
@@ -545,7 +546,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     emit SlopeUpdated(newSlope);
   }
 
-  function decreaseEpochLienCount(uint64 epoch) public onlyLienToken {
+  function decreaseEpochLienCount(uint64 epoch) public {
+    _onlyLienToken();
+
     _decreaseEpochLienCount(_loadStorageSlot(), epoch);
   }
 
@@ -573,7 +576,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function afterPayment(uint256 computedSlope) public onlyLienToken {
+  function afterPayment(uint256 computedSlope) public {
+    _onlyLienToken();
+
     VaultData storage s = _loadStorageSlot();
     s.slope += computedSlope;
     emit SlopeUpdated(s.slope);
@@ -619,16 +624,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function LIEN_TOKEN() public view returns (ILienToken) {
-    return ROUTER().LIEN_TOKEN();
-  }
-
   function handleLoseLienToBuyout(
     ILienToken.BuyoutLienParams calldata buyoutParams,
     uint256 buyoutFeeIfAny
-  ) public onlyLienToken {
+  ) public {
     VaultData storage s = _loadStorageSlot();
-
+    _onlyLienToken();
     _accrue(s);
     unchecked {
       uint256 newSlope = s.slope - buyoutParams.lienSlope;
@@ -653,8 +654,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       transferWithdrawReserve();
     }
     unchecked {
-      uint256 newSlope = s.slope + buyoutParams.lienSlope;
-      _setSlope(s, newSlope);
+      _setSlope(s, s.slope + buyoutParams.lienSlope);
     }
 
     _increaseOpenLiens(s, getLienEpoch(buyoutParams.lienEnd.safeCastTo64()));
@@ -664,7 +664,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
   function updateAfterLiquidationPayment(
     LiquidationPaymentParams calldata params
-  ) external onlyLienToken {
+  ) external {
+    _onlyLienToken();
+
     VaultData storage s = _loadStorageSlot();
     if (params.remaining > 0)
       _setYIntercept(s, s.yIntercept - params.remaining);
@@ -673,7 +675,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   function updateVaultAfterLiquidation(
     uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
-  ) public onlyLienToken returns (address withdrawProxyIfNearBoundary) {
+  ) public returns (address withdrawProxyIfNearBoundary) {
+    _onlyLienToken();
+
     VaultData storage s = _loadStorageSlot();
 
     _accrue(s);
@@ -709,9 +713,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _setYIntercept(s, s.yIntercept + amount);
   }
 
-  modifier onlyLienToken() {
-    require(msg.sender == address(LIEN_TOKEN()));
-    _;
+  function _onlyLienToken() internal view {
+    require(msg.sender == address(ROUTER().LIEN_TOKEN()));
   }
 
   function decreaseYIntercept(uint256 amount) public {

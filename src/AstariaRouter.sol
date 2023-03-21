@@ -586,7 +586,7 @@ contract AstariaRouter is
   function liquidate(
     ILienToken.Stack[] memory stack,
     uint8 position
-  ) public returns (OrderParameters memory listedOrder) {
+  ) public whenNotPaused returns (OrderParameters memory listedOrder) {
     if (!canLiquidate(stack[position])) {
       revert InvalidLienState(LienState.HEALTHY);
     }
