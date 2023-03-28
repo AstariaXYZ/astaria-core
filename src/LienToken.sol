@@ -808,12 +808,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
   function getMaxPotentialDebtForCollateral(
     Stack[] memory stack
-  )
-    public
-    view
-    validateStack(stack[0].lien.collateralId, stack)
-    returns (uint256 maxPotentialDebt)
-  {
+  ) public pure returns (uint256 maxPotentialDebt) {
     return _getMaxPotentialDebtForCollateralUpToNPositions(stack, stack.length);
   }
 
@@ -832,12 +827,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   function getMaxPotentialDebtForCollateral(
     Stack[] memory stack,
     uint256 end
-  )
-    public
-    view
-    validateStack(stack[0].lien.collateralId, stack)
-    returns (uint256 maxPotentialDebt)
-  {
+  ) public pure returns (uint256 maxPotentialDebt) {
     uint256 i;
     for (; i < stack.length; ) {
       maxPotentialDebt += _getOwed(stack[i], end);
