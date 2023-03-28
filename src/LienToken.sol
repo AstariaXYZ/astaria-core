@@ -735,6 +735,20 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     delete stack[position];
     _burn(lienId);
 
+    uint256 last;
+    uint256 next;
+    if (position == 0) {
+      last = 0;
+    } else {
+      last = stack[position - 1].lienId;
+    }
+    if (position == stack.length) {
+      next = 0;
+    } else {
+      next = stack[position].lienId;
+    }
+    emit RemoveLien(stack[position].lienId, next, last);
+
     if (_isPublicVault(s, payee)) {
       IPublicVault(payee).updateAfterLiquidationPayment(
         IPublicVault.LiquidationPaymentParams({remaining: remaining})

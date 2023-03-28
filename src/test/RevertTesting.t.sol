@@ -79,6 +79,64 @@ contract RevertTesting is TestHelpers {
     });
   }
 
+  function testFullExitWithLiquidation() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 50 ether,
+      isFirstLien: true
+    });
+
+    _signalWithdraw(bob, publicVault);
+
+    WithdrawProxy withdrawProxy = WithdrawProxy(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+    assertEq(
+      PublicVault(publicVault).getWithdrawReserve(),
+      withdrawProxy.getExpected()
+    );
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    vm.warp(block.timestamp + 11 days);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether);
+
+    skip(PublicVault(publicVault).timeToEpochEnd());
+
+    PublicVault(publicVault).processEpoch();
+
+    vm.warp(block.timestamp + 13 days);
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    vm.startPrank(bob);
+
+    uint256 vaultTokenBalance = withdrawProxy.balanceOf(bob);
+
+    withdrawProxy.redeem(vaultTokenBalance, bob, bob);
+
+    assertEq(WETH9.balanceOf(bob), uint(52260273972572000000));
+    vm.stopPrank();
+  }
+
   function testCannotEndAuctionWithWrongToken() public {
     address alice = address(1);
     address bob = address(2);
@@ -115,6 +173,9 @@ contract RevertTesting is TestHelpers {
       COLLATERAL_TOKEN.getClearingHouse(collateralId)
     );
     erc20s[0].transfer(address(clearingHouse), 1000 ether);
+    _deployBidderConduit(bidder);
+    vm.startPrank(address(bidderConduits[bidder].conduit));
+
     vm.expectRevert(
       abi.encodeWithSelector(
         ClearingHouse.InvalidRequest.selector,
@@ -161,6 +222,9 @@ contract RevertTesting is TestHelpers {
       COLLATERAL_TOKEN.getClearingHouse(collateralId)
     );
     deal(address(WETH9), address(clearingHouse), 1000 ether);
+    _deployBidderConduit(bidder);
+    vm.startPrank(address(bidderConduits[bidder].conduit));
+
     vm.expectRevert(
       abi.encodeWithSelector(
         ClearingHouse.InvalidRequest.selector,
@@ -174,6 +238,59 @@ contract RevertTesting is TestHelpers {
       1000 ether,
       "0x"
     );
+  }
+
+  //https://github.com/code-423n4/2023-01-astaria-findings/issues/488
+  function testFailsToMintSharesFromPublicVaultUsingRouterWhenSharePriceIsBiggerThanOne()
+    public
+  {
+    uint256 amountIn = 50 ether;
+    address alice = address(1);
+    address bob = address(2);
+    vm.deal(bob, amountIn);
+
+    TestNFT nft = new TestNFT(2);
+    _mintNoDepositApproveRouter(address(nft), 5);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // after alice deposits 50 ether WETH in publicVault, publicVault's share price becomes 1
+    _lendToVault(Lender({addr: alice, amountToLend: amountIn}), publicVault);
+
+    // the borrower borrows 10 ether WETH from publicVault
+    (, ILienToken.Stack[] memory stack1) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    // the borrower repays for the lien after 9 days, and publicVault's share price becomes bigger than 1
+    vm.warp(block.timestamp + 9 days);
+    _repay(stack1, 0, 100 ether, address(this));
+
+    vm.startPrank(bob);
+
+    // bob owns 50 ether WETH
+    WETH9.deposit{value: amountIn}();
+    WETH9.transfer(address(ASTARIA_ROUTER), amountIn);
+
+    // bob wants to mint 1 ether shares from publicVault using the router but fails
+    vm.expectRevert(bytes("TRANSFER_FROM_FAILED"));
+    ASTARIA_ROUTER.mint(IERC4626(publicVault), bob, 1 ether, type(uint256).max);
+
+    vm.stopPrank();
   }
 
   function testCannotRandomAccountIncrementNonce() public {

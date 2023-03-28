@@ -1041,35 +1041,40 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   mapping(address => Conduit) bidderConduits;
 
+  function _deployBidderConduit(address incomingBidder) internal {
+    vm.startPrank(incomingBidder);
+    (, , address conduitController) = SEAPORT.information();
+    bidderConduits[incomingBidder].conduitKey = Bytes32AddressLib
+      .fillLast12Bytes(address(incomingBidder));
+
+    bidderConduits[incomingBidder].conduit = ConduitControllerInterface(
+      conduitController
+    ).createConduit(
+        bidderConduits[incomingBidder].conduitKey,
+        address(incomingBidder)
+      );
+
+    ConduitControllerInterface(conduitController).updateChannel(
+      address(bidderConduits[incomingBidder].conduit),
+      address(SEAPORT),
+      true
+    );
+    vm.label(address(bidderConduits[incomingBidder].conduit), "bidder conduit");
+    vm.stopPrank();
+  }
+
   function _bid(
     Bidder memory incomingBidder,
     OrderParameters memory params,
     uint256 bidAmount
   ) internal {
     vm.deal(incomingBidder.bidder, bidAmount * 3);
-    vm.startPrank(incomingBidder.bidder);
 
     if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
-      (, , address conduitController) = SEAPORT.information();
-      bidderConduits[incomingBidder.bidder].conduitKey = Bytes32AddressLib
-        .fillLast12Bytes(address(incomingBidder.bidder));
-
-      bidderConduits[incomingBidder.bidder]
-        .conduit = ConduitControllerInterface(conduitController).createConduit(
-        bidderConduits[incomingBidder.bidder].conduitKey,
-        address(incomingBidder.bidder)
-      );
-
-      ConduitControllerInterface(conduitController).updateChannel(
-        address(bidderConduits[incomingBidder.bidder].conduit),
-        address(SEAPORT),
-        true
-      );
-      vm.label(
-        address(bidderConduits[incomingBidder.bidder].conduit),
-        "bidder conduit"
-      );
+      _deployBidderConduit(incomingBidder.bidder);
     }
+    vm.startPrank(incomingBidder.bidder);
+
     WETH9.deposit{value: bidAmount * 2}();
     WETH9.approve(bidderConduits[incomingBidder.bidder].conduit, bidAmount * 2);
 

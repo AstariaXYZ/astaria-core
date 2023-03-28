@@ -106,6 +106,14 @@ contract CollateralToken is
     return _loadCollateralSlot().SEAPORT;
   }
 
+  function CONDUIT_CONTROLLER()
+    public
+    view
+    returns (ConduitControllerInterface)
+  {
+    return _loadCollateralSlot().CONDUIT_CONTROLLER;
+  }
+
   function liquidatorNFTClaim(OrderParameters memory params) external {
     CollateralStorage storage s = _loadCollateralSlot();
 

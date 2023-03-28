@@ -28,6 +28,9 @@ import {AmountDeriver} from "seaport/lib/AmountDeriver.sol";
 import {Order} from "seaport/lib/ConsiderationStructs.sol";
 import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
+import {
+  ConsiderationInterface
+} from "seaport/interfaces/ConsiderationInterface.sol";
 
 contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   using Bytes32AddressLib for bytes32;
@@ -145,7 +148,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
       roundUp: true //we are a consideration we round up
     });
 
-    if (currentOfferPrice == 0) {
+    if (currentOfferPrice == 0 || block.timestamp > s.auctionData.endTime) {
       revert InvalidRequest(InvalidRequestReason.NO_AUCTION);
     }
     uint256 payment = paymentToken.balanceOf(address(this));
@@ -163,7 +166,12 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     payment -= liquidatorPayment;
     paymentToken.safeTransfer(s.auctionData.liquidator, liquidatorPayment);
 
-    paymentToken.approve(address(ASTARIA_ROUTER.TRANSFER_PROXY()), payment);
+    address transferProxy = address(ASTARIA_ROUTER.TRANSFER_PROXY());
+    // If existing approval is non-zero -> set it to zero
+    if (paymentToken.allowance(address(this), transferProxy) != 0) {
+      paymentToken.safeApprove(transferProxy, 0);
+    }
+    paymentToken.approve(address(transferProxy), payment);
 
     ASTARIA_ROUTER.LIEN_TOKEN().payDebtViaClearingHouse(
       address(paymentToken),
@@ -191,6 +199,16 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     bytes calldata data //empty from seaport
   ) public {
     //data is empty and useless
+    ConsiderationInterface seaport = ROUTER().COLLATERAL_TOKEN().SEAPORT();
+
+    ConduitControllerInterface conduitController = ROUTER()
+      .COLLATERAL_TOKEN()
+      .CONDUIT_CONTROLLER();
+    require(
+      msg.sender == address(seaport) ||
+        conduitController.ownerOf(msg.sender) != address(0),
+      "Must be seaport or a seaport conduit"
+    );
     _execute();
   }
 

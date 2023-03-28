@@ -142,6 +142,11 @@ interface ICollateralToken is IERC721 {
 
   function SEAPORT() external view returns (ConsiderationInterface);
 
+  function CONDUIT_CONTROLLER()
+    external
+    view
+    returns (ConduitControllerInterface);
+
   /**
    * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.
    * @param collateralId The ID of the CollateralToken wrapping the NFT.

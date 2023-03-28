@@ -260,8 +260,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       require(s.allowList[receiver]);
     }
 
-    uint256 assets = totalAssets();
-
     return super.deposit(amount, receiver);
   }
 
@@ -391,6 +389,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (currentWithdrawProxy != address(0)) {
       uint256 withdrawBalance = ERC20(asset()).balanceOf(address(this));
 
+      // Note: the else case is where 100% is being withdrawn to the withdrawal proxy and 100% of assets are being liquidated
+      // the if case is less than 100% being withdrawn to the withdrawal proxy and less than 100% of assets are being liquidated
+      // in both of these scenarios we need to check for a withdrawal reserve as some assets that need to be settled for epoch rollover
+      // https://github.com/code-423n4/2023-01-astaria-findings/issues/157
       // prevent transfer of more assets then are available
       if (s.withdrawReserve <= withdrawBalance) {
         withdrawBalance = s.withdrawReserve;
@@ -401,11 +403,13 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         }
       }
 
-      ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
-      WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
-        withdrawBalance
-      );
-      emit WithdrawReserveTransferred(withdrawBalance);
+      if (withdrawBalance > 0) {
+        ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+        WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
+          withdrawBalance
+        );
+        emit WithdrawReserveTransferred(withdrawBalance);
+      }
     }
 
     address withdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
