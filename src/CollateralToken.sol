@@ -106,6 +106,14 @@ contract CollateralToken is
     return _loadCollateralSlot().SEAPORT;
   }
 
+  function CONDUIT_CONTROLLER()
+    public
+    view
+    returns (ConduitControllerInterface)
+  {
+    return _loadCollateralSlot().CONDUIT_CONTROLLER;
+  }
+
   function liquidatorNFTClaim(OrderParameters memory params) external {
     CollateralStorage storage s = _loadCollateralSlot();
 
@@ -380,6 +388,11 @@ contract CollateralToken is
   function getConduit() public view returns (address) {
     CollateralStorage storage s = _loadCollateralSlot();
     return s.CONDUIT;
+  }
+
+  function hasFlashAction(uint256 collateralId) external view returns (bool) {
+    CollateralStorage storage s = _loadCollateralSlot();
+    return s.flashEnabled[s.idToUnderlying[collateralId].tokenContract];
   }
 
   /**

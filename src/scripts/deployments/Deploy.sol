@@ -360,6 +360,7 @@ contract Deploy is Script {
       )
     );
     if (testModeDisabled) {
+      ASTARIA_ROUTER.__emergencyPause();
       _setOwner();
       vm.stopBroadcast();
     }

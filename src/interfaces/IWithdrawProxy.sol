@@ -17,9 +17,10 @@ import {IERC165} from "core/interfaces/IERC165.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {IRouterBase} from "core/interfaces/IRouterBase.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 
 interface IWithdrawProxy is IRouterBase, IERC165, IERC4626 {
-  function VAULT() external pure returns (address);
+  function VAULT() external pure returns (IPublicVault);
 
   function CLAIMABLE_EPOCH() external pure returns (uint64);
 

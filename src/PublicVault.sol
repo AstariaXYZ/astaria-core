@@ -231,6 +231,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         ),
         keccak256(abi.encodePacked(address(this), epoch))
       );
+      emit WithdrawProxyDeployed(epoch, s.epochData[epoch].withdrawProxy);
     }
   }
 
@@ -258,8 +259,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (s.allowListEnabled) {
       require(s.allowList[receiver]);
     }
-
-    uint256 assets = totalAssets();
 
     return super.deposit(amount, receiver);
   }
@@ -390,6 +389,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if (currentWithdrawProxy != address(0)) {
       uint256 withdrawBalance = ERC20(asset()).balanceOf(address(this));
 
+      // Note: the else case is where 100% is being withdrawn to the withdrawal proxy and 100% of assets are being liquidated
+      // the if case is less than 100% being withdrawn to the withdrawal proxy and less than 100% of assets are being liquidated
+      // in both of these scenarios we need to check for a withdrawal reserve as some assets that need to be settled for epoch rollover
+      // https://github.com/code-423n4/2023-01-astaria-findings/issues/157
       // prevent transfer of more assets then are available
       if (s.withdrawReserve <= withdrawBalance) {
         withdrawBalance = s.withdrawReserve;
@@ -400,11 +403,13 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         }
       }
 
-      ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
-      WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
-        withdrawBalance
-      );
-      emit WithdrawReserveTransferred(withdrawBalance);
+      if (withdrawBalance > 0) {
+        ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+        WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
+          withdrawBalance
+        );
+        emit WithdrawReserveTransferred(withdrawBalance);
+      }
     }
 
     address withdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
@@ -527,9 +532,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _mint(msg.sender, unclaimed);
   }
 
-  function beforePayment(
-    BeforePaymentParams calldata params
-  ) external onlyLienToken {
+  function beforePayment(BeforePaymentParams calldata params) external {
+    _onlyLienToken();
+
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
@@ -545,7 +550,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     emit SlopeUpdated(newSlope);
   }
 
-  function decreaseEpochLienCount(uint64 epoch) public onlyLienToken {
+  function decreaseEpochLienCount(uint64 epoch) public {
+    _onlyLienToken();
+
     _decreaseEpochLienCount(_loadStorageSlot(), epoch);
   }
 
@@ -573,7 +580,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function afterPayment(uint256 computedSlope) public onlyLienToken {
+  function afterPayment(uint256 computedSlope) public {
+    _onlyLienToken();
+
     VaultData storage s = _loadStorageSlot();
     s.slope += computedSlope;
     emit SlopeUpdated(s.slope);
@@ -619,16 +628,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function LIEN_TOKEN() public view returns (ILienToken) {
-    return ROUTER().LIEN_TOKEN();
-  }
-
   function handleLoseLienToBuyout(
     ILienToken.BuyoutLienParams calldata buyoutParams,
     uint256 buyoutFeeIfAny
-  ) public onlyLienToken {
+  ) public {
     VaultData storage s = _loadStorageSlot();
-
+    _onlyLienToken();
     _accrue(s);
     unchecked {
       uint256 newSlope = s.slope - buyoutParams.lienSlope;
@@ -653,8 +658,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       transferWithdrawReserve();
     }
     unchecked {
-      uint256 newSlope = s.slope + buyoutParams.lienSlope;
-      _setSlope(s, newSlope);
+      _setSlope(s, s.slope + buyoutParams.lienSlope);
     }
 
     _increaseOpenLiens(s, getLienEpoch(buyoutParams.lienEnd.safeCastTo64()));
@@ -664,7 +668,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
   function updateAfterLiquidationPayment(
     LiquidationPaymentParams calldata params
-  ) external onlyLienToken {
+  ) external {
+    _onlyLienToken();
+
     VaultData storage s = _loadStorageSlot();
     if (params.remaining > 0)
       _setYIntercept(s, s.yIntercept - params.remaining);
@@ -673,7 +679,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   function updateVaultAfterLiquidation(
     uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
-  ) public onlyLienToken returns (address withdrawProxyIfNearBoundary) {
+  ) public returns (address withdrawProxyIfNearBoundary) {
+    _onlyLienToken();
+
     VaultData storage s = _loadStorageSlot();
 
     _accrue(s);
@@ -709,9 +717,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _setYIntercept(s, s.yIntercept + amount);
   }
 
-  modifier onlyLienToken() {
-    require(msg.sender == address(LIEN_TOKEN()));
-    _;
+  function _onlyLienToken() internal view {
+    require(msg.sender == address(ROUTER().LIEN_TOKEN()));
   }
 
   function decreaseYIntercept(uint256 amount) public {
@@ -733,9 +740,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return timeToEpochEnd(_loadStorageSlot().currentEpoch);
   }
 
-  function timeToEpochEnd(uint256 epoch) public view returns (uint256) {
-    uint256 epochEnd = START() + ((epoch + 1) * EPOCH_LENGTH());
+  function epochEndTimestamp(uint256 epoch) public pure returns (uint256) {
+    return START() + ((epoch + 1) * EPOCH_LENGTH());
+  }
 
+  function timeToEpochEnd(uint256 epoch) public view returns (uint256) {
+    uint256 epochEnd = epochEndTimestamp(epoch);
     if (block.timestamp >= epochEnd) {
       return uint256(0);
     }

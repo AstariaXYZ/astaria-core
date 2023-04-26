@@ -320,6 +320,21 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     newStack[position] = newLien;
     _burn(oldLienId);
     delete s.lienMeta[oldLienId];
+
+    uint256 next;
+    uint256 last;
+    if (position != 0) {
+      last = stack[position - 1].point.lienId;
+    }
+    if (position != stack.length - 1) {
+      next = stack[position + 1].point.lienId;
+    }
+    emit ReplaceLien(
+      newStack[position].point.lienId,
+      stack[position].point.lienId,
+      next,
+      last
+    );
   }
 
   function getInterest(Stack calldata stack) public view returns (uint256) {
@@ -445,14 +460,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     super.transferFrom(from, to, id);
   }
 
-  function ASTARIA_ROUTER() public view returns (IAstariaRouter) {
-    return _loadLienStorageSlot().ASTARIA_ROUTER;
-  }
-
-  function COLLATERAL_TOKEN() public view returns (ICollateralToken) {
-    return _loadLienStorageSlot().COLLATERAL_TOKEN;
-  }
-
   function _exists(uint256 tokenId) internal view returns (bool) {
     return _loadERC721Slot()._ownerOf[tokenId] != address(0);
   }
@@ -478,11 +485,13 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     );
 
     lienSlope = calculateSlope(newStackSlot);
-    emit AddLien(
-      params.lien.collateralId,
-      uint8(params.stack.length),
-      uint8(params.stack.length),
-      newStackSlot
+
+    emit NewLien(params.lien.collateralId, newStackSlot);
+    emit AppendLien(
+      lienId,
+      params.stack.length == 0
+        ? 0
+        : params.stack[params.stack.length - 1].point.lienId
     );
   }
 
@@ -714,19 +723,22 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     } else {
       payment = owing;
     }
-    if (payment > 0)
+    bool isPublicVault = _isPublicVault(s, payee);
+
+    if (payment > 0) {
       s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
         token,
         payer,
         payee,
         payment
       );
+    }
 
     delete s.lienMeta[lienId]; //full delete
     delete stack[position];
     _burn(lienId);
 
-    if (_isPublicVault(s, payee)) {
+    if (isPublicVault) {
       IPublicVault(payee).updateAfterLiquidationPayment(
         IPublicVault.LiquidationPaymentParams({remaining: remaining})
       );
@@ -785,12 +797,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
   function getMaxPotentialDebtForCollateral(
     Stack[] memory stack
-  )
-    public
-    view
-    validateStack(stack[0].lien.collateralId, stack)
-    returns (uint256 maxPotentialDebt)
-  {
+  ) public pure returns (uint256 maxPotentialDebt) {
     return _getMaxPotentialDebtForCollateralUpToNPositions(stack, stack.length);
   }
 
@@ -809,12 +816,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   function getMaxPotentialDebtForCollateral(
     Stack[] memory stack,
     uint256 end
-  )
-    public
-    view
-    validateStack(stack[0].lien.collateralId, stack)
-    returns (uint256 maxPotentialDebt)
-  {
+  ) public pure returns (uint256 maxPotentialDebt) {
     uint256 i;
     for (; i < stack.length; ) {
       maxPotentialDebt += _getOwed(stack[i], end);
@@ -960,7 +962,19 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       }
     }
 
-    emit RemoveLien(stack[position].lien.collateralId, position);
+    uint256 next;
+    uint256 last;
+    if (position == 0) {
+      last = 0;
+    } else {
+      last = stack[position - 1].point.lienId;
+    }
+    if (position == newStack.length) {
+      next = 0;
+    } else {
+      next = newStack[position].point.lienId;
+    }
+    emit RemoveLien(stack[position].point.lienId, next, last);
   }
 
   function _isPublicVault(

@@ -586,7 +586,7 @@ contract AstariaRouter is
   function liquidate(
     ILienToken.Stack[] memory stack,
     uint8 position
-  ) public returns (OrderParameters memory listedOrder) {
+  ) public whenNotPaused returns (OrderParameters memory listedOrder) {
     if (!canLiquidate(stack[position])) {
       revert InvalidLienState(LienState.HEALTHY);
     }
@@ -600,7 +600,7 @@ contract AstariaRouter is
       stack,
       msg.sender
     );
-    emit Liquidation(stack[position].lien.collateralId, position);
+    emit Liquidation(stack[position].lien.collateralId, position, msg.sender);
     listedOrder = s.COLLATERAL_TOKEN.auctionVault(
       ICollateralToken.AuctionVaultParams({
         settlementToken: stack[position].lien.token,

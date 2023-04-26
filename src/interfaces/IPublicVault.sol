@@ -16,6 +16,7 @@ pragma solidity =0.8.17;
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
+import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
 
 interface IPublicVault is IVaultImplementation {
   struct EpochData {
@@ -106,6 +107,8 @@ interface IPublicVault is IVaultImplementation {
 
   function timeToSecondEpochEnd() external view returns (uint256);
 
+  function epochEndTimestamp(uint epoch) external pure returns (uint256);
+
   /**
    * @notice Transfers funds from the PublicVault to the WithdrawProxy.
    */
@@ -127,6 +130,11 @@ interface IPublicVault is IVaultImplementation {
    * @param amount newYIntercept The decrease in yIntercept.
    */
   function decreaseYIntercept(uint256 amount) external;
+
+  /** @notice
+   * return the current epoch
+   */
+  function getCurrentEpoch() external view returns (uint64);
 
   /**
    * Hook to update the PublicVault's slope, YIntercept, and last timestamp when a LienToken is bought out. Also decreases the active lien count for the lien's expiring epoch.
@@ -175,6 +183,7 @@ interface IPublicVault is IVaultImplementation {
   event LiensOpenForEpochRemaining(uint64 epoch, uint256 liensOpenForEpoch);
   event YInterceptChanged(uint256 newYintercept);
   event WithdrawReserveTransferred(uint256 amount);
+  event WithdrawProxyDeployed(uint256 epoch, address withdrawProxy);
   event LienOpen(uint256 lienId, uint256 epoch);
   event SlopeUpdated(uint256 newSlope);
 }

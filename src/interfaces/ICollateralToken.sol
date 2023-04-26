@@ -142,6 +142,11 @@ interface ICollateralToken is IERC721 {
 
   function SEAPORT() external view returns (ConsiderationInterface);
 
+  function CONDUIT_CONTROLLER()
+    external
+    view
+    returns (ConduitControllerInterface);
+
   /**
    * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.
    * @param collateralId The ID of the CollateralToken wrapping the NFT.
@@ -163,6 +168,8 @@ interface ICollateralToken is IERC721 {
    * @param params The Seaport data from the liquidation.
    */
   function liquidatorNFTClaim(OrderParameters memory params) external;
+
+  function hasFlashAction(uint256 collateralId) external view returns (bool);
 
   error UnsupportedFile();
   error InvalidCollateral();
