@@ -317,10 +317,14 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 amount,
     address withdrawProxy
   ) public onlyVault returns (uint256) {
+    WPStorage storage s = _loadSlot();
+
     uint256 balance = ERC20(asset()).balanceOf(address(this));
     if (amount > balance) {
       amount = balance;
     }
+
+    s.expected -= amount;
     ERC20(asset()).safeTransfer(withdrawProxy, amount);
     return amount;
   }

@@ -335,7 +335,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if ((address(currentWithdrawProxy) != address(0))) {
       uint256 proxySupply = currentWithdrawProxy.totalSupply();
 
-      s.liquidationWithdrawRatio = proxySupply.mulDivDown(1e18, totalSupply());
+      s.liquidationWithdrawRatio = totalSupply() == 0 ? 0 : proxySupply.mulDivDown(1e18, totalSupply());
 
       currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
       uint256 expected = currentWithdrawProxy.getExpected();
@@ -414,7 +414,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
     address withdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
     if (
-      s.withdrawReserve > 0 &&
+      s.withdrawReserve > 0 && // only happens if previous withdrawProxy exists
       timeToEpochEnd() == 0 &&
       withdrawProxy != address(0)
     ) {

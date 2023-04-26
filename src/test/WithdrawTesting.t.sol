@@ -174,7 +174,6 @@ contract WithdrawTest is TestHelpers {
 
     _bid(Bidder(bidder, bidderPK), listedOrder2, 20 ether);
     vm.warp(withdrawProxy.getFinalAuctionEnd());
-    emit log_named_uint("finalAuctionEnd", block.timestamp);
     PublicVault(publicVault).processEpoch();
 
     skip(13 days);
@@ -559,6 +558,349 @@ contract WithdrawTest is TestHelpers {
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PUBLICVAULT STILL HAS ASSETS");
     assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault still has assets");
+  }
+
+  function testMultipleWithdrawsLiquidationOverbid() public {
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 5);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    vm.label(publicVault, "publicVault");
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+    vm.label(address(1), "lender 1");
+    _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 35 ether}),
+      publicVault
+    );
+    vm.label(address(2), "lender 2");
+
+    ILienToken.Details memory lien1 = standardLienDetails;
+    lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
+    lien1.maxAmount = 75 ether;
+    lien1.rate = 1;
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien1,
+      amount: 75 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+
+    _signalWithdrawAtFutureEpoch(address(2), publicVault, 1);
+
+    _lendToVault(
+      Lender({addr: address(3), amountToLend: 15 ether}),
+      publicVault
+    );
+    vm.label(address(3), "lender 3");
+
+    _warpToEpochEnd(publicVault);
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether);
+
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    PublicVault(publicVault).processEpoch();
+
+    _warpToEpochEnd(publicVault);
+    address withdrawProxy = address(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+
+    vm.startPrank(address(1));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    vm.stopPrank();
+    assertEq(WETH9.balanceOf(address(1)), 50000000000053364679, "Incorrect LP 1 WETH balance");
+
+    address withdrawProxy2 = address(
+      PublicVault(publicVault).getWithdrawProxy(1)
+    );
+    WithdrawProxy(withdrawProxy2).claim();
+
+    vm.startPrank(address(2));
+    WithdrawProxy(withdrawProxy2).redeem(
+      IERC20(withdrawProxy2).balanceOf(address(2)),
+      address(2),
+      address(2)
+    );
+    vm.stopPrank();
+
+    assertEq(WETH9.balanceOf(address(2)), 35000000000100859377, "Incorrect LP 2 WETH balance");
+  }
+
+  function testMultipleWithdrawsLiquidationUnderbid() public {
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 5);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    vm.label(publicVault, "publicVault");
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+    vm.label(address(1), "lender 1");
+    _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 35 ether}),
+      publicVault
+    );
+    vm.label(address(2), "lender 2");
+
+    ILienToken.Details memory lien1 = standardLienDetails;
+    lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
+    lien1.maxAmount = 75 ether;
+    lien1.rate = 1;
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien1,
+      amount: 75 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+
+    _signalWithdrawAtFutureEpoch(address(2), publicVault, 1);
+
+    _lendToVault(
+      Lender({addr: address(3), amountToLend: 15 ether}),
+      publicVault
+    );
+    vm.label(address(3), "lender 3");
+
+    _warpToEpochEnd(publicVault);
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    _bid(Bidder(bidder, bidderPK), listedOrder, 50 ether);
+
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    address withdrawProxy2 = address(
+      PublicVault(publicVault).getWithdrawProxy(1)
+    );
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        WithdrawProxy.InvalidState.selector,
+        WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
+      )
+    );
+    WithdrawProxy(withdrawProxy2).claim();
+
+    PublicVault(publicVault).processEpoch();
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    _warpToEpochEnd(publicVault);
+    address withdrawProxy = address(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+
+    vm.startPrank(address(1));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    vm.stopPrank();
+    assertEq(WETH9.balanceOf(address(1)), 50000000000053364679, "Incorrect LP 1 WETH balance");
+
+
+    WithdrawProxy(withdrawProxy2).claim();
+
+    vm.startPrank(address(2));
+    WithdrawProxy(withdrawProxy2).redeem(
+      IERC20(withdrawProxy2).balanceOf(address(2)),
+      address(2),
+      address(2)
+    );
+    vm.stopPrank();
+
+    assertEq(WETH9.balanceOf(address(2)), 11775231481447897052, "Incorrect LP 2 WETH balance");
+  }
+
+  function testFullWithdrawsOverbid() public {
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 5);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    vm.label(publicVault, "publicVault");
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+    vm.label(address(1), "lender 1");
+    _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
+
+    ILienToken.Details memory lien1 = standardLienDetails;
+    lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
+    lien1.maxAmount = 50 ether;
+    lien1.rate = 1;
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien1,
+      amount: 50 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+
+    _warpToEpochEnd(publicVault);
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether);
+
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    PublicVault(publicVault).processEpoch();
+
+    _warpToEpochEnd(publicVault);
+    address withdrawProxy = address(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+
+    vm.startPrank(address(1));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    vm.stopPrank();
+
+    assertEq(WETH9.balanceOf(address(1)), 50000000000060480050, "Incorrect LP 1 WETH balance");
+  }
+
+  function testFullWithdrawsUnderbid() public {
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 5);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    vm.label(publicVault, "publicVault");
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+    vm.label(address(1), "lender 1");
+    _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
+
+    ILienToken.Details memory lien1 = standardLienDetails;
+    lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
+    lien1.maxAmount = 50 ether;
+    lien1.rate = 1;
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien1,
+      amount: 50 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).transferWithdrawReserve();
+    PublicVault(publicVault).processEpoch();
+
+    _warpToEpochEnd(publicVault);
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    _bid(Bidder(bidder, bidderPK), listedOrder, 25 ether);
+
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    address withdrawProxy = address(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+
+    vm.startPrank(address(1));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    vm.stopPrank();
+    assertEq(WETH9.balanceOf(address(1)), 20071759259259260090, "Incorrect LP 1 WETH balance");
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IPublicVault.InvalidState.selector,
+        IPublicVault.InvalidStates.WITHDRAW_RESERVE_NOT_ZERO
+      )
+    );
+    PublicVault(publicVault).processEpoch();
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 50 ether}),
+      publicVault
+    );
+    PublicVault(publicVault).transferWithdrawReserve();
+    PublicVault(publicVault).processEpoch();
   }
 
   function testBlockingLiquidationsProcessEpoch() public {
