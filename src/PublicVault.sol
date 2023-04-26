@@ -409,7 +409,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
     address withdrawProxy = s.epochData[s.currentEpoch].withdrawProxy;
     if (
-      s.withdrawReserve > 0 &&
+      s.withdrawReserve > 0 && // only happens if previous withdrawProxy exists
       timeToEpochEnd() == 0 &&
       withdrawProxy != address(0)
     ) {

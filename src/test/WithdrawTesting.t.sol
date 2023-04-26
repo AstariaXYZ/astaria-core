@@ -561,6 +561,212 @@ contract WithdrawTest is TestHelpers {
     assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault still has assets");
   }
 
+  function testMultipleWithdrawsLiquidationOverbid() public {
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 5);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    vm.label(publicVault, "publicVault");
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+    vm.label(address(1), "lender 1");
+    _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 35 ether}),
+      publicVault
+    );
+    vm.label(address(2), "lender 2");
+
+    ILienToken.Details memory lien1 = standardLienDetails;
+    lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
+    lien1.maxAmount = 75 ether;
+    lien1.rate = 1;
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien1,
+      amount: 75 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+
+    _signalWithdrawAtFutureEpoch(address(2), publicVault, 1);
+
+    _lendToVault(
+      Lender({addr: address(3), amountToLend: 15 ether}),
+      publicVault
+    );
+    vm.label(address(3), "lender 3");
+
+    _warpToEpochEnd(publicVault);
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether);
+
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    PublicVault(publicVault).processEpoch();
+
+    _warpToEpochEnd(publicVault);
+    address withdrawProxy = address(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+
+    vm.startPrank(address(1));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    vm.stopPrank();
+    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 1 received no WETH");
+
+    address withdrawProxy2 = address(
+      PublicVault(publicVault).getWithdrawProxy(1)
+    );
+    WithdrawProxy(withdrawProxy2).claim();
+
+    vm.startPrank(address(2));
+    WithdrawProxy(withdrawProxy2).redeem(
+      IERC20(withdrawProxy2).balanceOf(address(2)),
+      address(2),
+      address(2)
+    );
+    vm.stopPrank();
+
+    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 2 received no WETH");
+  }
+
+  function testMultipleWithdrawsLiquidationUnderbid() public {
+    TestNFT nft = new TestNFT(2);
+    _mintAndDeposit(address(nft), 5);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    vm.label(publicVault, "publicVault");
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+    vm.label(address(1), "lender 1");
+    _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 35 ether}),
+      publicVault
+    );
+    vm.label(address(2), "lender 2");
+
+    ILienToken.Details memory lien1 = standardLienDetails;
+    lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
+    lien1.maxAmount = 75 ether;
+    lien1.rate = 1;
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: lien1,
+      amount: 75 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault);
+    PublicVault(publicVault).processEpoch();
+
+    _signalWithdrawAtFutureEpoch(address(2), publicVault, 1);
+
+    _lendToVault(
+      Lender({addr: address(3), amountToLend: 15 ether}),
+      publicVault
+    );
+    vm.label(address(3), "lender 3");
+
+    _warpToEpochEnd(publicVault);
+    uint256 collateralId = tokenContract.computeId(tokenId);
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
+      stack,
+      uint8(0)
+    );
+    _bid(Bidder(bidder, bidderPK), listedOrder, 50 ether);
+
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    address withdrawProxy2 = address(
+      PublicVault(publicVault).getWithdrawProxy(1)
+    );
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        WithdrawProxy.InvalidState.selector,
+        WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
+      )
+    );
+    WithdrawProxy(withdrawProxy2).claim();
+
+    PublicVault(publicVault).processEpoch();
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    _warpToEpochEnd(publicVault);
+    address withdrawProxy = address(
+      PublicVault(publicVault).getWithdrawProxy(0)
+    );
+
+    vm.startPrank(address(1));
+    WithdrawProxy(withdrawProxy).redeem(
+      IERC20(withdrawProxy).balanceOf(address(1)),
+      address(1),
+      address(1)
+    );
+    vm.stopPrank();
+    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 1 received no WETH");
+
+    emit log_named_uint("LP 1 balance", WETH9.balanceOf(address(1)));
+
+
+    emit log_named_uint(
+      "WithdrawProxy 2 balance",
+      WETH9.balanceOf(withdrawProxy2)
+    );
+
+    WithdrawProxy(withdrawProxy2).claim();
+
+    vm.startPrank(address(2));
+    WithdrawProxy(withdrawProxy2).redeem(
+      IERC20(withdrawProxy2).balanceOf(address(2)),
+      address(2),
+      address(2)
+    );
+    vm.stopPrank();
+
+    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 2 received no WETH");
+  }
+
   function testBlockingLiquidationsProcessEpoch() public {
     TestNFT nft = new TestNFT(2);
     _mintAndDeposit(address(nft), 5);
