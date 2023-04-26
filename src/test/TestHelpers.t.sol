@@ -424,7 +424,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     //warps to the first second after the epoch end
     assertTrue(
       block.timestamp <
-        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
+        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1,
+      "warp failed"
     );
     vm.warp(
       PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1
