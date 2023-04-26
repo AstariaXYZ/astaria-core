@@ -174,7 +174,6 @@ contract WithdrawTest is TestHelpers {
 
     _bid(Bidder(bidder, bidderPK), listedOrder2, 20 ether);
     vm.warp(withdrawProxy.getFinalAuctionEnd());
-    emit log_named_uint("finalAuctionEnd", block.timestamp);
     PublicVault(publicVault).processEpoch();
 
     skip(13 days);
@@ -637,7 +636,7 @@ contract WithdrawTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 1 received no WETH");
+    assertEq(WETH9.balanceOf(address(1)), 50000000000053364679, "Incorrect LP 1 WETH balance");
 
     address withdrawProxy2 = address(
       PublicVault(publicVault).getWithdrawProxy(1)
@@ -652,7 +651,7 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 2 received no WETH");
+    assertEq(WETH9.balanceOf(address(2)), 35000000000100859377, "Incorrect LP 2 WETH balance");
   }
 
   function testMultipleWithdrawsLiquidationUnderbid() public {
@@ -744,14 +743,8 @@ contract WithdrawTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 1 received no WETH");
+    assertEq(WETH9.balanceOf(address(1)), 50000000000053364679, "Incorrect LP 1 WETH balance");
 
-    emit log_named_uint("LP 1 balance", WETH9.balanceOf(address(1)));
-
-    emit log_named_uint(
-      "WithdrawProxy 2 balance",
-      WETH9.balanceOf(withdrawProxy2)
-    );
 
     WithdrawProxy(withdrawProxy2).claim();
 
@@ -763,7 +756,7 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 2 received no WETH");
+    assertEq(WETH9.balanceOf(address(2)), 11775231481447897052, "Incorrect LP 2 WETH balance");
   }
 
   function testFullWithdrawsOverbid() public {
@@ -815,7 +808,6 @@ contract WithdrawTest is TestHelpers {
     PublicVault(publicVault).transferWithdrawReserve();
 
     PublicVault(publicVault).processEpoch();
-    PublicVault(publicVault).transferWithdrawReserve();
 
     _warpToEpochEnd(publicVault);
     address withdrawProxy = address(
@@ -830,7 +822,7 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    emit log_named_uint("LP 1 balance", WETH9.balanceOf(address(1)));
+    assertEq(WETH9.balanceOf(address(1)), 50000000000060480050, "Incorrect LP 1 WETH balance");
   }
 
   function testFullWithdrawsUnderbid() public {
@@ -893,9 +885,7 @@ contract WithdrawTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertTrue(WETH9.balanceOf(address(1)) != 0, "LP 1 received no WETH");
-
-    emit log_named_uint("LP 1 balance", WETH9.balanceOf(address(1)));
+    assertEq(WETH9.balanceOf(address(1)), 20071759259259260090, "Incorrect LP 1 WETH balance");
 
     vm.expectRevert(
       abi.encodeWithSelector(
