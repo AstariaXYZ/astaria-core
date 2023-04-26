@@ -55,15 +55,6 @@ interface IPublicVault is IVaultImplementation {
     LiquidationPaymentParams calldata params
   ) external;
 
-  struct LiquidationBeforePaymentParams {
-    uint256 owed;
-    uint256 amount;
-  }
-
-  function updateBeforeLiquidationPayment(
-    LiquidationBeforePaymentParams calldata params
-  ) external;
-
   /**
    * @notice Signal a withdrawal of funds (redeeming for underlying asset) in an arbitrary future epoch.
    * @param shares The number of VaultToken shares to redeem.

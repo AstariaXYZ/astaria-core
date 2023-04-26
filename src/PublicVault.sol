@@ -676,18 +676,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       _setYIntercept(s, s.yIntercept - params.remaining);
   }
 
-  function updateBeforeLiquidationPayment(
-    LiquidationBeforePaymentParams calldata params
-  ) external {
-    _onlyLienToken();
-
-    _handleStrategistInterestReward(
-      _loadStorageSlot(),
-      params.owed,
-      params.amount
-    );
-  }
-
   function updateVaultAfterLiquidation(
     uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
