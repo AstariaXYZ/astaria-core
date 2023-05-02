@@ -186,7 +186,8 @@ interface ICollateralToken is IERC721 {
     FLASH_DISABLED,
     AUCTION_ACTIVE,
     INVALID_AUCTION_PARAMS,
-    ACTIVE_LIENS
+    ACTIVE_LIENS,
+    ESCROW_ACTIVE
   }
 
   error FlashActionCallbackFailed();

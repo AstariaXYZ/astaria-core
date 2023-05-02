@@ -659,6 +659,7 @@ contract AstariaTest is TestHelpers {
     vm.startPrank(strategistOne);
 
     Receiver(receiverCreated).withdraw(ERC20(address(token)), 10 ether);
+    vm.stopPrank();
   }
 
   function testEpochProcessionMultipleActors() public {
@@ -836,6 +837,177 @@ contract AstariaTest is TestHelpers {
       }
     }
     _;
+  }
+
+  function testReleaseToAddressAndReDeposit() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    // make sure the borrow was successful
+    assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
+
+    vm.warp(block.timestamp + 9 days);
+
+    _repay(stack, 0, 50 ether, address(this));
+
+    COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
+
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId
+    );
+
+    assertTrue(
+      address(
+        COLLATERAL_TOKEN.getClearingHouse(tokenContract.computeId(tokenId))
+      ) == ERC721(tokenContract).ownerOf(tokenId),
+      "bad second deposit"
+    );
+
+    // reborrow with same vault
+    (, ILienToken.Stack[] memory stack2) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    _repay(stack2, 0, 50 ether, address(this));
+
+    COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
+
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId
+    );
+
+    address publicVault2 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 50 ether}),
+      publicVault2
+    );
+
+    // reborrow with different vault
+    (, ILienToken.Stack[] memory stack3) = _commitToLien({
+      vault: publicVault2,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    _repay(stack3, 0, 50 ether, address(this));
+
+    COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
+
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId
+    );
+  }
+
+  function testPrankDoubleDeposit() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    // make sure the borrow was successful
+    assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
+
+    vm.warp(block.timestamp + 9 days);
+
+    _repay(stack, 0, 50 ether, address(this));
+
+    address clearingHouse = address(
+      COLLATERAL_TOKEN.getClearingHouse(collateralId)
+    );
+    vm.startPrank(clearingHouse);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        ICollateralToken.InvalidCollateralState.selector,
+        ICollateralToken.InvalidCollateralStates.ESCROW_ACTIVE
+      )
+    );
+    ERC721(tokenContract).safeTransferFrom(
+      clearingHouse,
+      address(COLLATERAL_TOKEN),
+      tokenId
+    );
+    vm.stopPrank();
   }
 
   // From C4 #408
