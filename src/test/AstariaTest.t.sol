@@ -659,6 +659,7 @@ contract AstariaTest is TestHelpers {
     vm.startPrank(strategistOne);
 
     Receiver(receiverCreated).withdraw(ERC20(address(token)), 10 ether);
+    vm.stopPrank();
   }
 
   function testEpochProcessionMultipleActors() public {
@@ -892,6 +893,61 @@ contract AstariaTest is TestHelpers {
         COLLATERAL_TOKEN.getClearingHouse(tokenContract.computeId(tokenId))
       ) == ERC721(tokenContract).ownerOf(tokenId),
       "bad second deposit"
+    );
+
+    // reborrow with same vault
+    (, ILienToken.Stack[] memory stack2) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    _repay(stack2, 0, 50 ether, address(this));
+
+    COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
+
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId
+    );
+
+    address publicVault2 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 50 ether}),
+      publicVault2
+    );
+
+    // reborrow with different vault
+    (, ILienToken.Stack[] memory stack3) = _commitToLien({
+      vault: publicVault2,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    _repay(stack3, 0, 50 ether, address(this));
+
+    COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
+
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId
     );
   }
 
