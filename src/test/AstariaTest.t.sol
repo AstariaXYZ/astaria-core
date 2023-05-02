@@ -838,6 +838,63 @@ contract AstariaTest is TestHelpers {
     _;
   }
 
+  function testReleaseToAddressAndReDeposit() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    // make sure the borrow was successful
+    assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
+
+    vm.warp(block.timestamp + 9 days);
+
+    _repay(stack, 0, 50 ether, address(this));
+
+    COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
+
+    ERC721(tokenContract).safeTransferFrom(
+      address(this),
+      address(COLLATERAL_TOKEN),
+      tokenId
+    );
+
+    assertTrue(
+      address(
+        COLLATERAL_TOKEN.getClearingHouse(tokenContract.computeId(tokenId))
+      ) == ERC721(tokenContract).ownerOf(tokenId),
+      "bad second deposit"
+    );
+  }
+
   // From C4 #408
   function testCompleteWithdrawAfterOneEpoch() public {
     TestNFT nft = new TestNFT(1);
