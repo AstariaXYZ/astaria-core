@@ -578,7 +578,7 @@ contract CollateralToken is
     uint256 collateralId = msg.sender.computeId(tokenId_);
 
     Asset storage incomingAsset = s.idToUnderlying[collateralId];
-    if (incomingAsset.tokenContract == address(0)) {
+    if (!incomingAsset.deposited) {
       require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
 
       if (incomingAsset.clearingHouse == address(0)) {
@@ -612,7 +612,7 @@ contract CollateralToken is
       emit Deposit721(msg.sender, tokenId_, collateralId, from_);
       return IERC721Receiver.onERC721Received.selector;
     } else {
-      revert();
+      revert InvalidCollateralState(InvalidCollateralStates.ESCROW_ACTIVE);
     }
   }
 
