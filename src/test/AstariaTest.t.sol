@@ -659,6 +659,7 @@ contract AstariaTest is TestHelpers {
     vm.startPrank(strategistOne);
 
     Receiver(receiverCreated).withdraw(ERC20(address(token)), 10 ether);
+    vm.stopPrank();
   }
 
   function testEpochProcessionMultipleActors() public {
