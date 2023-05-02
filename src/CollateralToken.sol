@@ -592,21 +592,21 @@ contract CollateralToken is
         );
 
         incomingAsset.clearingHouse = clearingHouse;
+        incomingAsset.tokenContract = msg.sender;
+        incomingAsset.tokenId = tokenId_;
       }
       ERC721(msg.sender).safeTransferFrom(
         address(this),
         incomingAsset.clearingHouse,
         tokenId_
       );
-      incomingAsset.deposited = true;
       if (msg.sender == address(this) || msg.sender == address(s.LIEN_TOKEN)) {
         revert InvalidCollateral();
       }
 
       _mint(from_, collateralId);
 
-      incomingAsset.tokenContract = msg.sender;
-      incomingAsset.tokenId = tokenId_;
+      incomingAsset.deposited = true;
 
       emit Deposit721(msg.sender, tokenId_, collateralId, from_);
       return IERC721Receiver.onERC721Received.selector;
