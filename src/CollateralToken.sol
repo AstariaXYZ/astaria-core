@@ -580,7 +580,6 @@ contract CollateralToken is
     Asset storage incomingAsset = s.idToUnderlying[collateralId];
     if (!incomingAsset.deposited) {
       require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
-
       if (incomingAsset.clearingHouse == address(0)) {
         address clearingHouse = Create2ClonesWithImmutableArgs.clone(
           s.ASTARIA_ROUTER.BEACON_PROXY_IMPLEMENTATION(),
@@ -599,7 +598,7 @@ contract CollateralToken is
         incomingAsset.clearingHouse,
         tokenId_
       );
-
+      incomingAsset.deposited = true;
       if (msg.sender == address(this) || msg.sender == address(s.LIEN_TOKEN)) {
         revert InvalidCollateral();
       }

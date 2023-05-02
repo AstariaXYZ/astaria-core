@@ -895,6 +895,64 @@ contract AstariaTest is TestHelpers {
     );
   }
 
+  function testPrankDoubleDeposit() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    // make sure the borrow was successful
+    assertEq(WETH9.balanceOf(address(this)), initialBalance + 10 ether);
+
+    vm.warp(block.timestamp + 9 days);
+
+    _repay(stack, 0, 50 ether, address(this));
+
+    address clearingHouse = address(
+      COLLATERAL_TOKEN.getClearingHouse(collateralId)
+    );
+    vm.startPrank(clearingHouse);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        ICollateralToken.InvalidCollateralState.selector,
+        ICollateralToken.InvalidCollateralStates.ESCROW_ACTIVE
+      )
+    );
+    ERC721(tokenContract).safeTransferFrom(
+      clearingHouse,
+      address(COLLATERAL_TOKEN),
+      tokenId
+    );
+  }
+
   // From C4 #408
   function testCompleteWithdrawAfterOneEpoch() public {
     TestNFT nft = new TestNFT(1);
