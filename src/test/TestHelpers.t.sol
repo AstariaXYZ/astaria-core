@@ -424,7 +424,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     //warps to the first second after the epoch end
     assertTrue(
       block.timestamp <
-        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) + 1,
+        PublicVault(vault).getEpochEnd(PublicVault(vault).getCurrentEpoch()) +
+          1,
       "warp failed"
     );
     vm.warp(
@@ -991,9 +992,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 amount,
     address payer
   ) internal returns (ILienToken.Stack[] memory newStack) {
+    vm.startPrank(payer);
     if (stack[0].lien.token == address(WETH9)) {
       vm.deal(payer, amount * 3);
-      vm.startPrank(payer);
       WETH9.deposit{value: amount * 2}();
       WETH9.approve(address(TRANSFER_PROXY), amount * 2);
       WETH9.approve(address(LIEN_TOKEN), amount * 2);
