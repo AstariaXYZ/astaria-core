@@ -951,6 +951,7 @@ contract AstariaTest is TestHelpers {
       address(COLLATERAL_TOKEN),
       tokenId
     );
+    vm.stopPrank();
   }
 
   // From C4 #408
