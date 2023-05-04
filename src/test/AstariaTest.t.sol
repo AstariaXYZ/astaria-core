@@ -131,7 +131,7 @@ contract AstariaTest is TestHelpers {
     VaultImplementation(privateVault).incrementNonce();
   }
 
-  function testBasicPublicVaultLoan() public {
+  function testBasicPublicVaultLoan2() public {
     TestNFT nft = new TestNFT(1);
     address tokenContract = address(nft);
     uint256 tokenId = uint256(0);

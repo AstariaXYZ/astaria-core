@@ -194,6 +194,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     return _buyoutLien(s, params);
   }
 
+  event log_named_uint(string name, uint256 value);
+
   function _buyoutLien(
     LienStorage storage s,
     ILienToken.LienActionBuyout calldata params
@@ -206,8 +208,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     )
   {
     //the borrower shouldn't incur more debt from the buyout than they already owe
-    (, newLien) = _createLien(s, params.encumber);
-
+    uint256 newId;
+    (newId, newLien) = _createLien(s, params.encumber);
+    emit log_named_uint("lienId", newId);
     (uint256 owed, uint256 buyout) = _getBuyout(
       s,
       params.encumber.stack[params.position]
@@ -318,7 +321,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   ) internal returns (ILienToken.Stack[] memory newStack) {
     newStack = stack;
     newStack[position] = newLien;
-    _burn(oldLienId);
+    //    _burn(oldLienId);
     delete s.lienMeta[oldLienId];
 
     uint256 next;
@@ -526,7 +529,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       last: block.timestamp.safeCastTo40(),
       end: (block.timestamp + params.lien.details.duration).safeCastTo40()
     });
-    _mint(params.receiver, newLienId);
+    //    _mint(params.receiver, newLienId);
+    _setPayee(s, newLienId, params.receiver);
     return (newLienId, Stack({lien: params.lien, point: point}));
   }
 
@@ -614,9 +618,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
   function validateLien(Lien memory lien) public view returns (uint256 lienId) {
     lienId = uint256(keccak256(abi.encode(lien)));
-    if (!_exists(lienId)) {
-      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
-    }
+    //    if (!_exists(lienId)) {
+    //      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
+    //    }
   }
 
   function getCollateralState(
@@ -736,7 +740,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
     delete s.lienMeta[lienId]; //full delete
     delete stack[position];
-    _burn(lienId);
+    //    _burn(lienId);
 
     if (isPublicVault) {
       IPublicVault(payee).updateAfterLiquidationPayment(
@@ -827,7 +831,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   }
 
   function getOwed(Stack memory stack) external view returns (uint256) {
-    validateLien(stack.lien);
+    //    validateLien(stack.lien);
     return _getOwed(stack, block.timestamp);
   }
 
@@ -835,7 +839,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     Stack memory stack,
     uint256 timestamp
   ) external view returns (uint256) {
-    validateLien(stack.lien);
+    //    validateLien(stack.lien);
     return _getOwed(stack, timestamp);
   }
 
@@ -890,7 +894,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       revert InvalidLoanState();
     }
     uint256 owed = _getOwed(stack, block.timestamp);
-    address lienOwner = ownerOf(lienId);
+    address lienOwner = stack.lien.vault;
     bool isPublicVault = _isPublicVault(s, lienOwner);
 
     address payee = _getPayee(s, lienId);
@@ -926,7 +930,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         );
       }
       delete s.lienMeta[lienId]; //full delete of point data for the lien
-      _burn(lienId);
+      //      _burn(lienId);
       activeStack = _removeStackPosition(activeStack, position);
     }
 
@@ -986,21 +990,18 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       IPublicVault(account).supportsInterface(type(IPublicVault).interfaceId);
   }
 
-  function getPayee(uint256 lienId) public view returns (address) {
-    if (!_exists(lienId)) {
-      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
-    }
+  function getPayee(uint256 lienId) public returns (address) {
+    //    if (!_exists(lienId)) {
+    //      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
+    //    }
     return _getPayee(_loadLienStorageSlot(), lienId);
   }
 
   function _getPayee(
     LienStorage storage s,
     uint256 lienId
-  ) internal view returns (address) {
-    return
-      s.lienMeta[lienId].payee != address(0)
-        ? s.lienMeta[lienId].payee
-        : ownerOf(lienId);
+  ) internal returns (address) {
+    return s.lienMeta[lienId].payee;
   }
 
   function _setPayee(

@@ -299,7 +299,7 @@ interface ILienToken is IERC721 {
    * @param lienId The ID of the Lien.
    * @return The address of the payee for the Lien.
    */
-  function getPayee(uint256 lienId) external view returns (address);
+  function getPayee(uint256 lienId) external returns (address);
 
   /**
    * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
