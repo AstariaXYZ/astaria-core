@@ -335,7 +335,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if ((address(currentWithdrawProxy) != address(0))) {
       uint256 proxySupply = currentWithdrawProxy.totalSupply();
 
-      s.liquidationWithdrawRatio = totalSupply() == 0 ? 0 : proxySupply.mulDivDown(1e18, totalSupply());
+      s.liquidationWithdrawRatio = totalSupply() == 0
+        ? 0
+        : proxySupply.mulDivDown(1e18, totalSupply());
 
       currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
       uint256 expected = currentWithdrawProxy.getExpected();
@@ -562,6 +564,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       epoch,
       s.epochData[epoch].liensOpenForEpoch
     );
+  }
+
+  function getEpochLienCount(uint64 epoch) public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+    return s.epochData[epoch].liensOpenForEpoch;
   }
 
   function getLienEpoch(uint64 end) public pure returns (uint64) {
