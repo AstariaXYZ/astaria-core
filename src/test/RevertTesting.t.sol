@@ -1074,4 +1074,116 @@ contract RevertTesting is TestHelpers {
     );
     ASTARIA_ROUTER.liquidate(stack, uint8(0));
   }
+
+    function testSmallRepaymentDebtCompound() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+    ASTARIA_ROUTER.file(
+      IAstariaRouter.File({
+        what: IAstariaRouter.FileType.MaxEpochLength,
+        data: abi.encode(365 days)
+      })
+    );
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 365 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 500 ether}),
+      publicVault
+    );
+
+    ILienToken.Details memory details1 = standardLienDetails;
+    details1.rate = (uint256(1e16) * 200) / (365 days) - 1; // max rate
+    details1.duration = 365 days;
+    ILienToken.Stack[] memory stack;
+    (, stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details1,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    ILienToken.Details memory details2 = standardLienDetails;
+    details2.maxPotentialDebt = 29999999999517760000;
+    details2.duration = 365 days;
+    (, stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details2,
+      amount: 10 ether,
+      isFirstLien: false,
+      stack: stack
+    });
+
+    ILienToken.Details memory details3 = standardLienDetails;
+    details3.maxPotentialDebt = 500 ether;
+    details3.duration = 365 days;
+    (, stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details3,
+      amount: 10 ether,
+      isFirstLien: false,
+      stack: stack
+    });
+
+    skip(100 days);
+    stack = _pay({stack: stack, position: 0, amount: 1, payer: address(this)});
+
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+    _lendToPrivateVault(
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
+      privateVault
+    );
+
+    ILienToken.Details memory details4 = standardLienDetails;
+    details4.duration = 365 days + 105 days;
+    details4.maxPotentialDebt = 10000 ether;
+    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: details4,
+      amount: 0,
+      stack: stack
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.DEBT_LIMIT
+      )
+    );
+    vm.startPrank(strategistTwo);
+    VaultImplementation(privateVault).buyoutLien(
+      stack,
+      uint8(2),
+      refinanceTerms
+    );
+    vm.stopPrank();
+  }
 }
