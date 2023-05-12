@@ -650,7 +650,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         ),
         endAmount: 0,
         startTime: start,
-        endTime: endtime,
+        endTime: endTime,
         roundUp: true
       });
   }
