@@ -695,4 +695,147 @@ contract RefinanceTesting is TestHelpers {
     );
     vm.stopPrank();
   }
+
+  function testRefinanceBackAndForth() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+    // skip(2 days);
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+    _lendToPrivateVault(
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
+      privateVault
+    );
+    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: refinanceLienDetails,
+      amount: 10 ether,
+      stack: stack
+    });
+    vm.startPrank(strategistTwo);
+    (stack, ) = VaultImplementation(privateVault).buyoutLien(
+      stack,
+      uint8(0),
+      refinanceTerms
+    );
+    vm.stopPrank();
+    skip(24 days);
+    ILienToken.Details memory refinanceLienDetails2 = refinanceLienDetails;
+    refinanceLienDetails2.rate = (uint256(1e16) * 100) / (365 days);
+    IAstariaRouter.Commitment memory refinanceTerms2 = _generateValidTerms({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: refinanceLienDetails2,
+      amount: 10 ether,
+      stack: stack
+    });
+    vm.startPrank(strategistTwo);
+    VaultImplementation(publicVault).buyoutLien(
+      stack,
+      uint8(0),
+      refinanceTerms2
+    );
+    vm.stopPrank();
+  }
+
+  function testPrivateVaultBuyoutPastDurationFeeCap() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    // lend 50 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    // borrow 10 eth against the dummy NFT
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    skip(9 days + 500);
+
+
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: refinanceLienDetails,
+      amount: 10 ether,
+      stack: stack
+    });
+
+    _lendToPrivateVault(
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
+      privateVault
+    );
+    vm.startPrank(strategistTwo);
+    VaultImplementation(privateVault).buyoutLien(
+      stack,
+      uint8(0),
+      refinanceTerms
+    );
+    vm.stopPrank();
+  }
 }
