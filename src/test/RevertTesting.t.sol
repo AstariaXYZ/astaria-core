@@ -391,6 +391,30 @@ contract RevertTesting is TestHelpers {
     });
   }
 
+  function testInvalidVaultFee() public {
+    ASTARIA_ROUTER.file(
+      IAstariaRouter.File({
+        what: IAstariaRouter.FileType.MaxStrategistFee,
+        data: abi.encode(uint256(5e17))
+      })
+    );
+    vm.startPrank(strategistOne);
+    //bps
+    vm.expectRevert(
+      abi.encodeWithSelector(IAstariaRouter.InvalidVaultFee.selector)
+    );
+    ASTARIA_ROUTER.newPublicVault(
+      uint(7 days),
+      strategistOne,
+      address(WETH9),
+      uint256(5e18),
+      false,
+      new address[](0),
+      uint256(0)
+    );
+    vm.stopPrank();
+  }
+
   function testInvalidFileData() public {
     vm.expectRevert(
       abi.encodeWithSelector(IAstariaRouter.InvalidFileData.selector)

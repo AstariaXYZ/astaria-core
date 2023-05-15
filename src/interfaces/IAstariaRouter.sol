@@ -30,7 +30,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     FeeTo,
     LiquidationFee,
     ProtocolFee,
-    StrategistFee,
+    MaxStrategistFee,
     MinEpochLength,
     MaxEpochLength,
     MinInterestRate,
@@ -73,6 +73,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     mapping(uint8 => address) implementations;
     //A strategist can have many deployed vaults
     mapping(address => bool) vaults;
+    uint256 maxStrategistFee; //4
   }
 
   enum ImplementationType {
@@ -270,6 +271,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidEpochLength(uint256);
   error InvalidRefinanceRate(uint256);
   error InvalidRefinanceDuration(uint256);
+  error InvalidVaultFee();
   error InvalidVaultState(VaultState);
   error InvalidSenderForCollateral(address, uint256);
   error InvalidLienState(LienState);
