@@ -492,13 +492,26 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address delegate,
     uint256 epochLength
   ) internal returns (address publicVault) {
+    return _createPublicVault(
+      strategist,
+      delegate,
+      epochLength,
+      0
+    );
+  }
+
+  function _createPublicVault(
+    address strategist,
+    address delegate,
+    uint256 epochLength,
+    uint256 vaultFee
+  ) internal returns (address publicVault) {
     vm.startPrank(strategist);
-    //bps
     publicVault = ASTARIA_ROUTER.newPublicVault(
       epochLength,
       delegate,
       address(WETH9),
-      uint256(0),
+      vaultFee,
       false,
       new address[](0),
       uint256(0)
