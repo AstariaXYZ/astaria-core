@@ -271,7 +271,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function setUp() public virtual override {
     testModeDisabled = false;
-    //    setupDefaultStrategies = true;
+    pauseAfterDeploy = false;
     super.setUp();
     SEAPORT = ConsiderationInterface(address(consideration));
     deploy();
