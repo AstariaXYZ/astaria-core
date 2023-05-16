@@ -634,21 +634,25 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
     uint256 start = end - duration;
 
+    uint256 endTime = start +
+      duration.mulDivDown(
+        s.durationFeeCapNumerator,
+        s.durationFeeCapDenominator
+      );
+
     // Buyout fees begin at (buyoutFee * remainingInterest) and decrease linearly until the durationFeeCap is reached.
-    fee = _locateCurrentAmount({
-      startAmount: remainingInterestIn.mulDivDown(
-        s.buyoutFeeNumerator,
-        s.buyoutFeeDenominator
-      ),
-      endAmount: 0,
-      startTime: start,
-      endTime: start +
-        duration.mulDivDown(
-          s.durationFeeCapNumerator,
-          s.durationFeeCapDenominator
+    fee = block.timestamp >= endTime
+      ? 0
+      : _locateCurrentAmount({
+        startAmount: remainingInterestIn.mulDivDown(
+          s.buyoutFeeNumerator,
+          s.buyoutFeeDenominator
         ),
-      roundUp: true
-    });
+        endAmount: 0,
+        startTime: start,
+        endTime: endTime,
+        roundUp: true
+      });
   }
 
   function getBuyout(

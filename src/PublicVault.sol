@@ -335,7 +335,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     if ((address(currentWithdrawProxy) != address(0))) {
       uint256 proxySupply = currentWithdrawProxy.totalSupply();
 
-      s.liquidationWithdrawRatio = totalSupply() == 0 ? 0 : proxySupply.mulDivDown(1e18, totalSupply());
+      s.liquidationWithdrawRatio = totalSupply() == 0
+        ? 0
+        : proxySupply.mulDivDown(1e18, totalSupply());
 
       currentWithdrawProxy.setWithdrawRatio(s.liquidationWithdrawRatio);
       uint256 expected = currentWithdrawProxy.getExpected();
@@ -632,7 +634,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   ) internal virtual {
     if (VAULT_FEE() != uint256(0)) {
       uint256 x = (amount > interestOwing) ? interestOwing : amount;
-      uint256 fee = x.mulDivDown(VAULT_FEE(), 10000);
+      uint256 fee = x.mulWadDown(VAULT_FEE());
       uint256 feeInShares = convertToShares(fee);
       s.strategistUnclaimedShares += feeInShares;
       emit StrategistFee(feeInShares);

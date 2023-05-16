@@ -297,6 +297,11 @@ contract AstariaRouter is
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.MaxInterestRate) {
       s.maxInterestRate = abi.decode(data, (uint256));
+    } else if (what == FileType.MaxStrategistFee) {
+      uint256 maxFee = abi.decode(data, (uint256));
+      //vaults process denominators of the fee as base 1e18
+      if (maxFee > 1e18) revert InvalidFileData();
+      s.maxStrategistFee = maxFee;
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
       if (addr == address(0)) revert InvalidFileData();
@@ -532,6 +537,10 @@ contract AstariaRouter is
       revert IPublicVault.InvalidState(
         IPublicVault.InvalidStates.EPOCH_TOO_HIGH
       );
+    }
+
+    if (vaultFee > s.maxStrategistFee) {
+      revert IAstariaRouter.InvalidVaultFee();
     }
     return
       _newVault(

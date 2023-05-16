@@ -1314,4 +1314,151 @@ contract AstariaTest is TestHelpers {
     PublicVault(publicVault).iterativeProcessEpoch(10);
     assertEq(PublicVault(publicVault).getCurrentEpoch(), 4, "Incorrect epoch");
   }
+  
+  function testWithdrawProxyDoesNotAffectInterest() public {
+    //     14 days epoch vault with 0% strategist fee
+
+    // LP1 - 25 ETH
+
+    // LP2 - 30 ETH
+
+    // commitToLiens 30 ETH, 200%, 1 day
+
+    // warp to epoch end
+
+    // Liquidate the lien
+
+    // Validate that the yIntercept matches
+
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    // uint256 tokenId = uint256(0);
+
+    address publicVault1 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 25 ether}),
+      publicVault1
+    );
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 30 ether}),
+      publicVault1
+    );
+
+    ILienToken.Details memory details = standardLienDetails;
+    details.duration = 1 days;
+    details.rate = (uint256(1e16) * 200) / (365 days);
+
+    (, ILienToken.Stack[] memory stack1) = _commitToLien({
+      vault: publicVault1,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: 0,
+      lienDetails: details,
+      amount: 30 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault1);
+    OrderParameters memory listedOrder1 = ASTARIA_ROUTER.liquidate(
+      stack1,
+      uint8(0)
+    );
+
+    uint256 yInterceptWithoutWithdrawals = PublicVault(publicVault1)
+      .getYIntercept();
+
+    address publicVault2 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 25 ether}),
+      publicVault2
+    );
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 30 ether}),
+      publicVault2
+    );
+
+    _signalWithdraw(address(1), publicVault2);
+
+    (, ILienToken.Stack[] memory stack2) = _commitToLien({
+      vault: publicVault2,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: 1,
+      lienDetails: details,
+      amount: 30 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault2);
+    OrderParameters memory listedOrder2 = ASTARIA_ROUTER.liquidate(
+      stack2,
+      uint8(0)
+    );
+
+    uint256 yInterceptWithPartialWithdrawal = PublicVault(publicVault2)
+      .getYIntercept();
+    assertEq(
+      yInterceptWithoutWithdrawals,
+      yInterceptWithPartialWithdrawal,
+      "YIntercepts do not match"
+    );
+
+    address publicVault3 = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 25 ether}),
+      publicVault3
+    );
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 30 ether}),
+      publicVault3
+    );
+
+    _signalWithdraw(address(1), publicVault3);
+    _signalWithdraw(address(2), publicVault3);
+
+    (, ILienToken.Stack[] memory stack3) = _commitToLien({
+      vault: publicVault3,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: 2,
+      lienDetails: details,
+      amount: 30 ether,
+      isFirstLien: true
+    });
+
+    _warpToEpochEnd(publicVault3);
+    OrderParameters memory listedOrder3 = ASTARIA_ROUTER.liquidate(
+      stack3,
+      uint8(0)
+    );
+
+    uint256 yInterceptWithFullWithdrawals = PublicVault(publicVault2)
+      .getYIntercept();
+    assertEq(
+      yInterceptWithoutWithdrawals,
+      yInterceptWithFullWithdrawals,
+      "YIntercepts do not match"
+    );
+  }
 }
