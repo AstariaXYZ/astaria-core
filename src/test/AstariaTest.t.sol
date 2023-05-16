@@ -1294,4 +1294,24 @@ contract AstariaTest is TestHelpers {
       "Borrower balance not correct"
     );
   }
+
+  function testIterativeProcessEpoch() public {
+    address publicVault = _createPublicVault({
+    strategist: strategistOne,
+    delegate: strategistTwo,
+    epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    skip((14 days) * 5);
+    PublicVault(publicVault).iterativeProcessEpoch(2);
+    assertEq(PublicVault(publicVault).getCurrentEpoch(), 2, "Incorrect epoch");
+
+    PublicVault(publicVault).iterativeProcessEpoch(10);
+    assertEq(PublicVault(publicVault).getCurrentEpoch(), 4, "Incorrect epoch");
+  }
 }
