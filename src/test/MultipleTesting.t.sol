@@ -198,13 +198,23 @@ contract MultipleTesting is TestHelpers {
     PublicVault(publicVault).claim();
     vm.stopPrank();
 
-    assertEq(ERC20(publicVault).balanceOf(strategistOne), 0, "Strategist was incorrectly given VaultToken fees");
+    assertEq(
+      ERC20(publicVault).balanceOf(strategistOne),
+      0,
+      "Strategist was incorrectly given VaultToken fees"
+    );
   }
 
-  function testMultipleLoansMinStrategistFee() public {
+  function testMultipleLoansMinStrategistFeeYieldsZero() public {
     TestNFT nft = new TestNFT(2);
 
     address tokenContract = address(nft);
+    ASTARIA_ROUTER.file(
+      IAstariaRouter.File({
+        what: IAstariaRouter.FileType.MaxStrategistFee,
+        data: abi.encode(5e17)
+      })
+    );
     address publicVault = _createPublicVault({
       strategist: strategistOne,
       delegate: strategistTwo,
@@ -269,18 +279,109 @@ contract MultipleTesting is TestHelpers {
     PublicVault(publicVault).claim();
     vm.stopPrank();
 
-    assertEq(ERC20(publicVault).balanceOf(strategistOne), 6159321218262, "Strategist received incorrect fee amount");
+    assertEq(
+      ERC20(publicVault).balanceOf(strategistOne),
+      0,
+      "Strategist received incorrect fee amount"
+    );
+  }
+
+  function testMultipleLoansHighPrecisionSmallStrategistFee() public {
+    TestNFT nft = new TestNFT(2);
+
+    address tokenContract = address(nft);
+    ASTARIA_ROUTER.file(
+      IAstariaRouter.File({
+        what: IAstariaRouter.FileType.MaxStrategistFee,
+        data: abi.encode(5e17)
+      })
+    );
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days,
+      vaultFee: 1e14
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    _lendToVault(
+      Lender({addr: address(2), amountToLend: 25 ether}),
+      publicVault
+    );
+
+    (, ILienToken.Stack[] memory stack1) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: 0,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    (, ILienToken.Stack[] memory stack2) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: 1,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    stack1 = _repay({
+      stack: stack1,
+      position: 0,
+      amount: 5 ether,
+      payer: address(this)
+    });
+
+    skip(1 days);
+    _repay({
+      stack: stack1,
+      position: 0,
+      amount: 100 ether,
+      payer: address(this)
+    });
+    _repay({
+      stack: stack2,
+      position: 0,
+      amount: 100 ether,
+      payer: address(this)
+    });
+
+    vm.startPrank(strategistOne);
+    PublicVault(publicVault).claim();
+    vm.stopPrank();
+
+    assertEq(
+      ERC20(publicVault).balanceOf(strategistOne),
+      6159321218262,
+      "Strategist received incorrect fee amount"
+    );
   }
 
   function testMultipleLoans001StrategistFee() public {
     TestNFT nft = new TestNFT(2);
 
     address tokenContract = address(nft);
+    ASTARIA_ROUTER.file(
+      IAstariaRouter.File({
+        what: IAstariaRouter.FileType.MaxStrategistFee,
+        data: abi.encode(5e17)
+      })
+    );
     address publicVault = _createPublicVault({
       strategist: strategistOne,
       delegate: strategistTwo,
       epochLength: 14 days,
-      vaultFee: 10 // .001%(?)
+      vaultFee: 1e15 // .001 (0.1%) (1e15/1e18) 10 / 10_000
     });
 
     _lendToVault(
@@ -340,18 +441,32 @@ contract MultipleTesting is TestHelpers {
     PublicVault(publicVault).claim();
     vm.stopPrank();
 
-    assertEq(ERC20(publicVault).balanceOf(strategistOne), 61593222299228, "Strategist received incorrect fee amount");
+    emit log_named_uint(
+      "strategistOne",
+      ERC20(publicVault).balanceOf(strategistOne)
+    );
+    assertEq(
+      ERC20(publicVault).balanceOf(strategistOne),
+      61593222299228,
+      "Strategist received incorrect fee amount"
+    );
   }
 
   function testMultipleLoans10StrategistFee() public {
     TestNFT nft = new TestNFT(2);
 
     address tokenContract = address(nft);
+    ASTARIA_ROUTER.file(
+      IAstariaRouter.File({
+        what: IAstariaRouter.FileType.MaxStrategistFee,
+        data: abi.encode(5e17)
+      })
+    );
     address publicVault = _createPublicVault({
       strategist: strategistOne,
       delegate: strategistTwo,
       epochLength: 14 days,
-      vaultFee: 1000 // 10%
+      vaultFee: 1e17 // 10%
     });
 
     _lendToVault(
@@ -411,9 +526,10 @@ contract MultipleTesting is TestHelpers {
     PublicVault(publicVault).claim();
     vm.stopPrank();
 
-    assertEq(ERC20(publicVault).balanceOf(strategistOne), 6159433512483246, "Strategist received incorrect fee amount");
+    assertEq(
+      ERC20(publicVault).balanceOf(strategistOne),
+      6159433512483246,
+      "Strategist received incorrect fee amount"
+    );
   }
-
-
-
 }
