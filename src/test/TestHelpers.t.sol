@@ -157,6 +157,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   string private checkpointLabel;
   uint256 private checkpointGasLeft = 1; // Start the slot warm.
 
+  WETH WETH9;
   ILienToken.Details public shortNSweet =
     ILienToken.Details({
       maxAmount: 150 ether,
@@ -270,6 +271,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function setUp() public virtual override {
     testModeDisabled = false;
+    //    setupDefaultStrategies = true;
     super.setUp();
     SEAPORT = ConsiderationInterface(address(consideration));
     deploy();
@@ -306,24 +308,12 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
     COLLATERAL_TOKEN.fileBatch(ctfiles);
 
-    //strategy unique
-    UniqueValidator UNIQUE_STRATEGY_VALIDATOR = new UniqueValidator();
-    //strategy collection
-    CollectionValidator COLLECTION_STRATEGY_VALIDATOR = new CollectionValidator();
     //strategy univ3
     UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
 
-    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](3);
+    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](1);
 
     files[0] = IAstariaRouter.File(
-      IAstariaRouter.FileType.StrategyValidator,
-      abi.encode(uint8(1), address(UNIQUE_STRATEGY_VALIDATOR))
-    );
-    files[1] = IAstariaRouter.File(
-      IAstariaRouter.FileType.StrategyValidator,
-      abi.encode(uint8(2), address(COLLECTION_STRATEGY_VALIDATOR))
-    );
-    files[2] = IAstariaRouter.File(
       IAstariaRouter.FileType.StrategyValidator,
       abi.encode(uint8(3), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     );
@@ -492,12 +482,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address delegate,
     uint256 epochLength
   ) internal returns (address publicVault) {
-    return _createPublicVault(
-      strategist,
-      delegate,
-      epochLength,
-      0
-    );
+    return _createPublicVault(strategist, delegate, epochLength, 0);
   }
 
   function _createPublicVault(
