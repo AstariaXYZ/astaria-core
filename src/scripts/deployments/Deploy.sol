@@ -434,12 +434,18 @@ contract Deploy is Script {
     } catch {
       revert("No guardian address set in .env file");
     }
+    address manager;
+    try vm.envAddress("PROTOCOL_MGR_ADDR") {
+      manager = vm.envAddress("PROTOCOL_MGR_ADDR");
+    } catch {
+      revert("No manager address set in .env file");
+    }
     ASTARIA_ROUTER.setNewGuardian(guardian);
     PROXY_ADMIN.transferOwnership(guardian);
     MRA.transferOwnership(guardian);
-    ASTARIA_ROUTER.transferOwnership(guardian);
-    LIEN_TOKEN.transferOwnership(guardian);
-    COLLATERAL_TOKEN.transferOwnership(guardian);
+    ASTARIA_ROUTER.transferOwnership(manager);
+    LIEN_TOKEN.transferOwnership(manager);
+    COLLATERAL_TOKEN.transferOwnership(manager);
   }
 
   function _setupDefaultStrategies() internal {
