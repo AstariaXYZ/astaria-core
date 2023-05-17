@@ -365,6 +365,19 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
+  function iterativeProcessEpoch(uint64 maxSteps) external {
+    uint64 correctEpoch = getLienEpoch(block.timestamp.safeCastTo64());
+
+    while (_loadStorageSlot().currentEpoch < correctEpoch && maxSteps > 0) {
+      transferWithdrawReserve();
+
+      processEpoch();
+      unchecked {
+        --maxSteps;
+      }
+    }
+  }
+
   function supportsInterface(
     bytes4 interfaceId
   ) public pure override(IERC165) returns (bool) {
