@@ -143,7 +143,7 @@ contract CollateralToken is
       revert InvalidCollateralState(InvalidCollateralStates.AUCTION_ACTIVE);
     }
 
-    Asset memory underlying = s.idToUnderlying[collateralId];
+    Asset storage underlying = s.idToUnderlying[collateralId];
     address tokenContract = underlying.tokenContract;
     uint256 tokenId = underlying.tokenId;
     ClearingHouse CH = ClearingHouse(
@@ -152,8 +152,6 @@ contract CollateralToken is
     CH.settleLiquidatorNFTClaim();
     _releaseToAddress(s, underlying, collateralId, liquidator);
     _settleAuction(s, collateralId);
-    s.idToUnderlying[collateralId].deposited = false;
-    _burn(collateralId);
   }
 
   function _loadCollateralSlot()
@@ -274,7 +272,9 @@ contract CollateralToken is
   }
 
   modifier onlyOwner(uint256 collateralId) {
-    require(ownerOf(collateralId) == msg.sender);
+    if (msg.sender != ownerOf(collateralId)) {
+      revert InvalidSender();
+    }
     _;
   }
 
@@ -346,15 +346,23 @@ contract CollateralToken is
     address releaseTo
   ) public releaseCheck(collateralId) onlyOwner(collateralId) {
     CollateralStorage storage s = _loadCollateralSlot();
+    _releaseToAddress(
+      s,
+      s.idToUnderlying[collateralId],
+      collateralId,
+      releaseTo
+    );
+  }
 
-    if (msg.sender != ownerOf(collateralId)) {
+  function releaseToOwner(
+    uint256 collateralId
+  ) public releaseCheck(collateralId) {
+    CollateralStorage storage s = _loadCollateralSlot();
+    address owner = ownerOf(collateralId);
+    if (msg.sender != owner && msg.sender != address(s.LIEN_TOKEN)) {
       revert InvalidSender();
     }
-    Asset storage underlying = s.idToUnderlying[collateralId];
-    address tokenContract = underlying.tokenContract;
-    _burn(collateralId);
-    underlying.deposited = false;
-    _releaseToAddress(s, underlying, collateralId, releaseTo);
+    _releaseToAddress(s, s.idToUnderlying[collateralId], collateralId, owner);
   }
 
   /**
@@ -363,10 +371,12 @@ contract CollateralToken is
    */
   function _releaseToAddress(
     CollateralStorage storage s,
-    Asset memory underlyingAsset,
+    Asset storage underlyingAsset,
     uint256 collateralId,
     address releaseTo
   ) internal {
+    _burn(collateralId);
+    underlyingAsset.deposited = false;
     ClearingHouse(s.idToUnderlying[collateralId].clearingHouse)
       .transferUnderlying(
         underlyingAsset.tokenContract,

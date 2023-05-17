@@ -790,6 +790,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   ) internal {
     if (stack.length == 0) {
       delete s.collateralStateHash[collateralId];
+      s.COLLATERAL_TOKEN.releaseToOwner(collateralId);
     } else {
       s.collateralStateHash[collateralId] = keccak256(abi.encode(stack));
     }

@@ -164,6 +164,12 @@ interface ICollateralToken is IERC721 {
   function releaseToAddress(uint256 collateralId, address releaseTo) external;
 
   /**
+   * @notice Unlocks the NFT for a CollateralToken and sends it to a specified address.
+   * @param collateralId The ID for the CollateralToken of the NFT to unlock.
+   */
+  function releaseToOwner(uint256 collateralId) external;
+
+  /**
    * @notice Permissionless hook which returns the underlying NFT for a CollateralToken to the liquidator after an auction.
    * @param params The Seaport data from the liquidation.
    */
