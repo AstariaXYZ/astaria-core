@@ -14,28 +14,27 @@ contract WithdrawKit {
   function redeem(WithdrawProxy withdrawProxy, uint256 minAmountOut) external {
     PublicVault publicVault = PublicVault(address(withdrawProxy.VAULT()));
 
-    //    ERC20 asset = publicVault.asset();
-
-    uint256 timedEpoch = getVaultEpochByBlockTime(publicVault);
-    uint256 currentEpoch = publicVault.getCurrentEpoch();
-    emit log_named_uint("currentEpoch", currentEpoch);
-    uint256 claimableEpoch = withdrawProxy.CLAIMABLE_EPOCH();
-    emit log_named_uint("claimableEpoch", claimableEpoch);
+    uint64 currentEpoch = publicVault.getCurrentEpoch();
+    uint64 claimableEpoch = withdrawProxy.CLAIMABLE_EPOCH();
     if (claimableEpoch > currentEpoch) {
-      uint256 epochDelta = withdrawProxy.CLAIMABLE_EPOCH() - currentEpoch;
-      //epoch delta is the length of the epochdata array
+      uint64 epochDelta = withdrawProxy.CLAIMABLE_EPOCH() - currentEpoch;
 
-      for (uint64 j = 0; j < epochDelta; j++) {
+      uint64 j;
+      for (; j < epochDelta; ) {
         (uint256 liensOpenForEpoch, ) = publicVault.getEpochData(
-          uint64(currentEpoch + j)
+          currentEpoch + j
         );
         //this is as far as we could get if we proceeded
         // if you cannot process epoch but have no liens open
         if (liensOpenForEpoch != 0) {
-          revert LiensOpenForEpoch(uint64(currentEpoch + j), liensOpenForEpoch);
+          revert LiensOpenForEpoch(currentEpoch + j, liensOpenForEpoch);
         }
         publicVault.transferWithdrawReserve();
         publicVault.processEpoch();
+
+        unchecked {
+            ++j;
+        }
       }
     }
     publicVault.transferWithdrawReserve();
@@ -58,14 +57,5 @@ contract WithdrawKit {
     ) {
       revert MinAmountError();
     }
-  }
-
-  function getVaultEpochByBlockTime(
-    PublicVault publicVault
-  ) internal view returns (uint256 epoch) {
-    uint256 start = publicVault.START();
-    uint256 epochLength = publicVault.EPOCH_LENGTH();
-
-    return (block.timestamp - start) / epochLength;
   }
 }
