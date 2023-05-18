@@ -6,8 +6,10 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 
 contract WithdrawKit {
   error MinAmountError();
-  error LiensOpenForEpoch(uint256 epoch);
+  error LiensOpenForEpoch(uint256 epoch, uint256 liensOpenForEpoch);
   error FinalAuctionNotEnded(uint256 finalAuctionEnd);
+
+  event log_named_uint(string name, uint256 value);
 
   function redeem(WithdrawProxy withdrawProxy, uint256 minAmountOut) external {
     PublicVault publicVault = PublicVault(address(withdrawProxy.VAULT()));
@@ -15,24 +17,26 @@ contract WithdrawKit {
     //    ERC20 asset = publicVault.asset();
 
     uint256 timedEpoch = getVaultEpochByBlockTime(publicVault);
+    uint256 currentEpoch = publicVault.getCurrentEpoch();
+    emit log_named_uint("currentEpoch", currentEpoch);
+    uint256 claimableEpoch = withdrawProxy.CLAIMABLE_EPOCH();
+    emit log_named_uint("claimableEpoch", claimableEpoch);
+    if (claimableEpoch > currentEpoch) {
+      uint256 epochDelta = withdrawProxy.CLAIMABLE_EPOCH() - currentEpoch;
+      //epoch delta is the length of the epochdata array
 
-    uint256 epochDelta = withdrawProxy.CLAIMABLE_EPOCH() -
-      publicVault.getCurrentEpoch();
-    //epoch delta is the length of the epochdata array
-    (uint256 currentEpoch, , , , uint256 withdrawReserve, , ) = publicVault
-      .getPublicVaultState();
-
-    for (uint64 j = 0; j < epochDelta; j++) {
-      uint64 targetEpoch = publicVault.getCurrentEpoch() + j;
-      (uint256 liensOpenForEpoch, ) = publicVault.getEpochData(targetEpoch);
-      //this is as far as we could get if we proceeded
-      // if you cannot process epoch but have no liens open
-      // if final auctionend is 0 you can call claim, if not, then you must wait before exiting
-      if (liensOpenForEpoch != 0) {
-        revert LiensOpenForEpoch(targetEpoch);
+      for (uint64 j = 0; j < epochDelta; j++) {
+        (uint256 liensOpenForEpoch, ) = publicVault.getEpochData(
+          uint64(currentEpoch + j)
+        );
+        //this is as far as we could get if we proceeded
+        // if you cannot process epoch but have no liens open
+        if (liensOpenForEpoch != 0) {
+          revert LiensOpenForEpoch(uint64(currentEpoch + j), liensOpenForEpoch);
+        }
+        publicVault.transferWithdrawReserve();
+        publicVault.processEpoch();
       }
-      publicVault.transferWithdrawReserve();
-      publicVault.processEpoch();
     }
     publicVault.transferWithdrawReserve();
 
@@ -40,7 +44,7 @@ contract WithdrawKit {
     if (block.timestamp < finalAuctionEnd) {
       revert FinalAuctionNotEnded(finalAuctionEnd);
     }
-
+    // if final auctionend is 0 you can call claim, if not, then you must wait before exiting
     if (finalAuctionEnd != 0) {
       withdrawProxy.claim();
     }
