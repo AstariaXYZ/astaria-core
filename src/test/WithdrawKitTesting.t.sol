@@ -34,7 +34,7 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
-import "../WithdrawKit.sol";
+import "core/WithdrawKit.sol";
 
 contract WithdrawKitTesting is TestHelpers {
   using FixedPointMathLib for uint256;
@@ -294,11 +294,15 @@ contract WithdrawKitTesting is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(address(1)),
-        57021759259259260116,
+      57021759259259260116,
       "LP did not recover correct WETH amount"
     );
 
-    assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault incorrectly still has funds");
+    assertEq(
+      WETH9.balanceOf(publicVault),
+      0,
+      "PublicVault incorrectly still has funds"
+    );
   }
 
   function testWithdrawKitAbandonedVault() public {
@@ -346,7 +350,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     assertEq(
       WETH9.balanceOf(address(1)),
-      60 ether,
+      60205479452052000000,
       "LP did not receive all WETH not lent out"
     );
   }

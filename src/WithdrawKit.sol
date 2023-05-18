@@ -1,49 +1,57 @@
-pragma solidity =0.8.17;
+pragma solidity 0.8.17;
 
-import {PublicVault} from "src/PublicVault.sol";
-import {WithdrawProxy} from "src/WithdrawProxy.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
+import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
 
 contract WithdrawKit {
+  error WithdrawReserveNotZero(uint64 epoch, uint256 reserve);
   error MinAmountError();
-  error LiensOpenForEpoch(uint256 epoch, uint256 liensOpenForEpoch);
+  error ProcessEpochError(uint64 epoch, bytes reason);
+  error LiensOpenForEpoch(uint64 epoch, uint256 liensOpenForEpoch);
   error FinalAuctionNotEnded(uint256 finalAuctionEnd);
 
-  event log_named_uint(string name, uint256 value);
-
-  function redeem(WithdrawProxy withdrawProxy, uint256 minAmountOut) external {
-    PublicVault publicVault = PublicVault(address(withdrawProxy.VAULT()));
-
+  function redeem(IWithdrawProxy withdrawProxy, uint256 minAmountOut) external {
+    IPublicVault publicVault = IPublicVault(address(withdrawProxy.VAULT()));
     uint64 currentEpoch = publicVault.getCurrentEpoch();
     uint64 claimableEpoch = withdrawProxy.CLAIMABLE_EPOCH();
-    if (claimableEpoch > currentEpoch) {
-      uint64 epochDelta = withdrawProxy.CLAIMABLE_EPOCH() - currentEpoch;
 
-      uint64 j;
-      for (; j < epochDelta; ) {
+    if (claimableEpoch > currentEpoch) {
+      uint64 epochDelta = claimableEpoch - currentEpoch;
+
+      for (uint64 j = 0; j < epochDelta; j++) {
         (uint256 liensOpenForEpoch, ) = publicVault.getEpochData(
           currentEpoch + j
         );
-        //this is as far as we could get if we proceeded
-        // if you cannot process epoch but have no liens open
         if (liensOpenForEpoch != 0) {
           revert LiensOpenForEpoch(currentEpoch + j, liensOpenForEpoch);
         }
-        publicVault.transferWithdrawReserve();
-        publicVault.processEpoch();
 
-        unchecked {
-            ++j;
+        publicVault.transferWithdrawReserve();
+        try publicVault.processEpoch() {} catch Error(string memory reason) {
+          revert(reason);
+        } catch (bytes memory reason) {
+          revert ProcessEpochError(currentEpoch + j, reason);
         }
       }
+    } else if (currentEpoch == claimableEpoch) {
+      (uint256 liensOpenForEpoch, ) = publicVault.getEpochData(currentEpoch);
+      if (liensOpenForEpoch != 0) {
+        revert LiensOpenForEpoch(currentEpoch, liensOpenForEpoch);
+      }
     }
+
     publicVault.transferWithdrawReserve();
 
     uint256 finalAuctionEnd = withdrawProxy.getFinalAuctionEnd();
-    if (block.timestamp < finalAuctionEnd) {
+    if (finalAuctionEnd > block.timestamp) {
       revert FinalAuctionNotEnded(finalAuctionEnd);
     }
-    // if final auctionend is 0 you can call claim, if not, then you must wait before exiting
+
+    (, , , , uint256 withdrawReserve, , ) = publicVault.getPublicVaultState();
+    if (withdrawReserve > 0) {
+      revert WithdrawReserveNotZero(claimableEpoch, withdrawReserve);
+    }
+
     if (finalAuctionEnd != 0) {
       withdrawProxy.claim();
     }
@@ -52,8 +60,7 @@ contract WithdrawKit {
     uint256 maxRedeem = withdrawProxy.maxRedeem(msg.sender);
     uint256 amountShares = maxRedeem < shareBalance ? maxRedeem : shareBalance;
     if (
-      (withdrawProxy.redeem(amountShares, msg.sender, msg.sender)) <
-      minAmountOut
+      withdrawProxy.redeem(amountShares, msg.sender, msg.sender) < minAmountOut
     ) {
       revert MinAmountError();
     }
