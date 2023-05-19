@@ -274,7 +274,7 @@ contract AstariaRouter is
     bytes memory data = incoming.data;
     if (what == FileType.AuctionWindow) {
       uint256 window = abi.decode(data, (uint256));
-      if (window > s.minEpochLength) revert InvalidFileData();
+      if (window >= s.minEpochLength) revert InvalidFileData();
       s.auctionWindow = window.safeCastTo32();
     } else if (what == FileType.LiquidationFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
@@ -294,7 +294,7 @@ contract AstariaRouter is
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinEpochLength) {
       uint256 minLength = abi.decode(data, (uint256));
-      if (minLength < s.auctionWindow) revert InvalidFileData();
+      if (minLength <= s.auctionWindow) revert InvalidFileData();
       s.minEpochLength = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.MaxEpochLength) {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
