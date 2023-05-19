@@ -492,8 +492,8 @@ contract AstariaTest is TestHelpers {
       isFirstLien: false,
       stack: stack,
       revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.EMPTY_STATE
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.EMPTY_STATE
       )
     });
   }

@@ -329,7 +329,7 @@ interface ILienToken is IERC721 {
   error RefinanceBlocked();
   error InvalidLoanState();
   error InvalidSender();
-  enum InvalidStates {
+  enum InvalidLienStates {
     NO_AUTHORITY,
     COLLATERAL_MISMATCH,
     ASSET_MISMATCH,
@@ -349,5 +349,5 @@ interface ILienToken is IERC721 {
     COLLATERAL_NOT_LIQUIDATED
   }
 
-  error InvalidState(InvalidStates);
+  error InvalidLienState(InvalidLienStates);
 }

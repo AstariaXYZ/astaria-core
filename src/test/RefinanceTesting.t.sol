@@ -250,8 +250,8 @@ contract RefinanceTesting is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.INVALID_HASH
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.INVALID_HASH
       )
     );
     VaultImplementation(privateVault).buyoutLien(

@@ -57,13 +57,13 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 withdrawReserveReceived; // amount received from PublicVault. The WETH balance of this contract - withdrawReserveReceived = amount received from liquidations.
   }
 
-  enum InvalidStates {
+  enum InvalidWithdrawStates {
     PROCESS_EPOCH_NOT_COMPLETE,
     FINAL_AUCTION_NOT_OVER,
     NOT_CLAIMED,
     CANT_CLAIM
   }
-  error InvalidState(InvalidStates);
+  error InvalidWithdrawState(InvalidWithdrawStates);
 
   function getState()
     public
@@ -188,7 +188,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     // but the PublicVault hasn't claimed its share, too much money will be sent to LPs
     if (s.finalAuctionEnd != 0) {
       // if finalAuctionEnd is 0, no auctions were added
-      revert InvalidState(InvalidStates.NOT_CLAIMED);
+      revert InvalidWithdrawState(InvalidWithdrawStates.NOT_CLAIMED);
     }
     _;
   }
@@ -271,14 +271,14 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     WPStorage storage s = _loadSlot();
 
     if (s.finalAuctionEnd == 0) {
-      revert InvalidState(InvalidStates.CANT_CLAIM);
+      revert InvalidWithdrawState(InvalidWithdrawStates.CANT_CLAIM);
     }
 
     if (VAULT().getCurrentEpoch() < CLAIMABLE_EPOCH()) {
-      revert InvalidState(InvalidStates.PROCESS_EPOCH_NOT_COMPLETE);
+      revert InvalidWithdrawState(InvalidWithdrawStates.PROCESS_EPOCH_NOT_COMPLETE);
     }
     if (block.timestamp < s.finalAuctionEnd) {
-      revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);
+      revert InvalidWithdrawState(InvalidWithdrawStates.FINAL_AUCTION_NOT_OVER);
     }
 
     uint256 transferAmount = 0;

@@ -529,13 +529,13 @@ contract AstariaRouter is
   ) public whenNotPaused returns (address) {
     RouterStorage storage s = _loadRouterSlot();
     if (s.minEpochLength > epochLength) {
-      revert IPublicVault.InvalidState(
-        IPublicVault.InvalidStates.EPOCH_TOO_LOW
+      revert IPublicVault.InvalidVaultState(
+        IPublicVault.InvalidVaultStates.EPOCH_TOO_LOW
       );
     }
     if (s.maxEpochLength < epochLength) {
-      revert IPublicVault.InvalidState(
-        IPublicVault.InvalidStates.EPOCH_TOO_HIGH
+      revert IPublicVault.InvalidVaultState(
+        IPublicVault.InvalidVaultStates.EPOCH_TOO_HIGH
       );
     }
 
