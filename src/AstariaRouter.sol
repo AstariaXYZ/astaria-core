@@ -541,10 +541,15 @@ contract AstariaRouter is
         IPublicVault.InvalidStates.EPOCH_TOO_HIGH
       );
     }
-
     if (vaultFee > s.maxStrategistFee) {
       revert IAstariaRouter.InvalidVaultFee();
     }
+    if (epochLength <= s.auctionWindow) {
+      revert IPublicVault.InvalidState(
+        IPublicVault.InvalidStates.EPOCH_TOO_LOW
+      );
+    }
+
     return
       _newVault(
         s,
