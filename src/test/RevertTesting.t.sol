@@ -53,17 +53,17 @@ contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
 
-  enum InvalidStates {
-    NO_AUTHORITY,
-    NOT_ENOUGH_FUNDS,
-    INVALID_LIEN_ID,
-    COLLATERAL_AUCTION,
-    COLLATERAL_NOT_DEPOSITED,
-    LIEN_NO_DEBT,
-    EXPIRED_LIEN,
-    DEBT_LIMIT,
-    MAX_LIENS
-  }
+//  enum InvalidStates {
+//    NO_AUTHORITY,
+//    NOT_ENOUGH_FUNDS,
+//    INVALID_LIEN_ID,
+//    COLLATERAL_AUCTION,
+//    COLLATERAL_NOT_DEPOSITED,
+//    LIEN_NO_DEBT,
+//    EXPIRED_LIEN,
+//    DEBT_LIMIT,
+//    MAX_LIENS
+//  }
 
   function testCannotDeployUnderlyingWithNoCode() public {
     vm.expectRevert(
@@ -652,8 +652,8 @@ contract RevertTesting is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
       )
     );
     PublicVault(publicVault).processEpoch();
@@ -705,8 +705,8 @@ contract RevertTesting is TestHelpers {
       isFirstLien: false,
       stack: stack,
       revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.DEBT_LIMIT
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.DEBT_LIMIT
       )
     });
   }
@@ -714,8 +714,8 @@ contract RevertTesting is TestHelpers {
   function testCannotExceedMinMaxPublicVaultEpochLength() public {
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.EPOCH_TOO_LOW
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.EPOCH_TOO_LOW
       )
     );
     _createPublicVault({
@@ -725,8 +725,8 @@ contract RevertTesting is TestHelpers {
     });
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.EPOCH_TOO_HIGH
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.EPOCH_TOO_HIGH
       )
     );
     _createPublicVault({
@@ -850,8 +850,8 @@ contract RevertTesting is TestHelpers {
       isFirstLien: true,
       stack: new ILienToken.Stack[](0),
       revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.INVALID_LIQUIDATION_INITIAL_ASK
       )
     });
   }
@@ -891,8 +891,8 @@ contract RevertTesting is TestHelpers {
       isFirstLien: true,
       stack: new ILienToken.Stack[](0),
       revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.INVALID_LIQUIDATION_INITIAL_ASK
       )
     });
   }
@@ -1028,8 +1028,8 @@ contract RevertTesting is TestHelpers {
       isFirstLien: false,
       stack: stack,
       revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.INITIAL_ASK_EXCEEDED
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.INITIAL_ASK_EXCEEDED
       )
     });
   }
@@ -1174,8 +1174,8 @@ contract RevertTesting is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.DEBT_LIMIT
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.DEBT_LIMIT
       )
     );
     vm.startPrank(strategistTwo);

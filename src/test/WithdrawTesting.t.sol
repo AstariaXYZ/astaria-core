@@ -283,8 +283,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
       )
     );
     PublicVault(publicVault).processEpoch();
@@ -478,8 +478,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.WITHDRAW_RESERVE_NOT_ZERO
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.WITHDRAW_RESERVE_NOT_ZERO
       )
     );
     PublicVault(publicVault).processEpoch();
@@ -722,8 +722,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        WithdrawProxy.InvalidState.selector,
-        WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
+        WithdrawProxy.InvalidWithdrawState.selector,
+        WithdrawProxy.InvalidWithdrawStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
     WithdrawProxy(withdrawProxy2).claim();
@@ -889,8 +889,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.WITHDRAW_RESERVE_NOT_ZERO
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.WITHDRAW_RESERVE_NOT_ZERO
       )
     );
     PublicVault(publicVault).processEpoch();
@@ -960,8 +960,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        WithdrawProxy.InvalidState.selector,
-        WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
+        WithdrawProxy.InvalidWithdrawState.selector,
+        WithdrawProxy.InvalidWithdrawStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
     withdrawProxy.claim();
@@ -975,8 +975,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        WithdrawProxy.InvalidState.selector,
-        WithdrawProxy.InvalidStates.PROCESS_EPOCH_NOT_COMPLETE
+        WithdrawProxy.InvalidWithdrawState.selector,
+        WithdrawProxy.InvalidWithdrawStates.PROCESS_EPOCH_NOT_COMPLETE
       )
     );
     withdrawProxy.claim();

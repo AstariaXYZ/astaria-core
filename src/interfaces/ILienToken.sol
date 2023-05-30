@@ -329,25 +329,25 @@ interface ILienToken is IERC721 {
   error RefinanceBlocked();
   error InvalidLoanState();
   error InvalidSender();
-  enum InvalidStates {
-    NO_AUTHORITY,
-    COLLATERAL_MISMATCH,
-    ASSET_MISMATCH,
-    NOT_ENOUGH_FUNDS,
-    INVALID_LIEN_ID,
-    COLLATERAL_AUCTION,
-    COLLATERAL_NOT_DEPOSITED,
-    LIEN_NO_DEBT,
-    EXPIRED_LIEN,
-    DEBT_LIMIT,
-    MAX_LIENS,
-    INVALID_HASH,
-    INVALID_LIQUIDATION_INITIAL_ASK,
-    INITIAL_ASK_EXCEEDED,
-    EMPTY_STATE,
-    PUBLIC_VAULT_RECIPIENT,
-    COLLATERAL_NOT_LIQUIDATED
+  enum InvalidLienStates {
+    NO_AUTHORITY, // 0
+    COLLATERAL_MISMATCH, // 1
+    ASSET_MISMATCH, // 2
+    NOT_ENOUGH_FUNDS, // 3
+    INVALID_LIEN_ID, // 4
+    COLLATERAL_AUCTION, // 5
+    COLLATERAL_NOT_DEPOSITED, // 6
+    LIEN_NO_DEBT, // 7
+    EXPIRED_LIEN, // 8
+    DEBT_LIMIT, // 9
+    MAX_LIENS, // 10
+    INVALID_HASH, // 11
+    INVALID_LIQUIDATION_INITIAL_ASK, // 12
+    INITIAL_ASK_EXCEEDED, // 13
+    EMPTY_STATE, // 14
+    PUBLIC_VAULT_RECIPIENT, // 15
+    COLLATERAL_NOT_LIQUIDATED  // 16
   }
 
-  error InvalidState(InvalidStates);
+  error InvalidLienState(InvalidLienStates);
 }

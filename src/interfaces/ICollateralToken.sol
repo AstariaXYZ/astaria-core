@@ -181,13 +181,13 @@ interface ICollateralToken is IERC721 {
   error InvalidZone();
 
   enum InvalidCollateralStates {
-    NO_AUTHORITY,
-    NO_AUCTION,
-    FLASH_DISABLED,
-    AUCTION_ACTIVE,
-    INVALID_AUCTION_PARAMS,
-    ACTIVE_LIENS,
-    ESCROW_ACTIVE
+    NO_AUTHORITY, // 0
+    NO_AUCTION, // 1
+    FLASH_DISABLED, // 2
+    AUCTION_ACTIVE, // 3
+    INVALID_AUCTION_PARAMS, // 4
+    ACTIVE_LIENS, // 5
+    ESCROW_ACTIVE // 6
   }
 
   error FlashActionCallbackFailed();
