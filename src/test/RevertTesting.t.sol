@@ -977,6 +977,44 @@ contract RevertTesting is TestHelpers {
     _repay(stack, 0, 10 ether, address(this));
   }
 
+  function testRevertMinDurationNotMet() public {
+    TestNFT nft = new TestNFT(2);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    _lendToPrivateVault(
+      PrivateLender({
+        token: address(WETH9),
+        addr: strategistOne,
+        amountToLend: 50 ether
+      }),
+      privateVault
+    );
+    standardLienDetails.duration = 30 minutes;
+    _commitToLien({
+      vault: privateVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true,
+      stack: new ILienToken.Stack[](0),
+      revertMessage: abi.encodeWithSelector(
+        ILienToken.InvalidState.selector,
+        ILienToken.InvalidStates.MIN_DURATION_NOT_MET
+      )
+    });
+  }
+
   function testRevertInstantLiquidateAttack() public {
     //    IVaultImplementation victimVault = IVaultImplementation(
     //      0xE5149D099B992E3dC897F3F4c88824EAC2a6A59D

@@ -74,6 +74,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     s.durationFeeCapDenominator = uint32(1000);
     s.minDurationIncrease = uint32(5 days);
     s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
+    s.minLoanDuration = uint32(1 hours);
   }
 
   function _loadLienStorageSlot()
@@ -510,6 +511,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
     if (params.amount == 0) {
       revert InvalidState(InvalidStates.AMOUNT_ZERO);
+    }
+    if (params.lien.details.duration < s.minLoanDuration) {
+      revert InvalidState(InvalidStates.MIN_DURATION_NOT_MET);
     }
     if (
       params.lien.details.liquidationInitialAsk < params.amount ||
