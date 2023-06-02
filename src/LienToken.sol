@@ -74,6 +74,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     s.durationFeeCapDenominator = uint32(1000);
     s.minDurationIncrease = uint32(5 days);
     s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
+    s.minLoanDuration = uint32(1 hours);
   }
 
   function _loadLienStorageSlot()
@@ -118,6 +119,12 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     } else if (what == FileType.MinDurationIncrease) {
       uint256 value = abi.decode(data, (uint256));
       s.minDurationIncrease = value.safeCastTo32();
+    } else if (what == FileType.MinLoanDuration) {
+      uint256 value = abi.decode(data, (uint256));
+      s.minLoanDuration = value.safeCastTo32();
+    } else if (what == FileType.MaxLiens) {
+      uint256 value = abi.decode(data, (uint256));
+      s.maxLiens = value.safeCastTo8();
     } else {
       revert UnsupportedFile();
     }
@@ -166,11 +173,10 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       s.minDurationIncrease &&
       newLien.details.rate <= stack[position].lien.details.rate);
 
-    bool hasNotDecreasedInitialAsk = newLien.details.liquidationInitialAsk >=
+    bool initialAskMatch = newLien.details.liquidationInitialAsk ==
       stack[position].lien.details.liquidationInitialAsk;
 
-    return
-      (hasImprovedRate || hasImprovedDuration) && hasNotDecreasedInitialAsk;
+    return (hasImprovedRate || hasImprovedDuration) && initialAskMatch;
   }
 
   function buyoutLien(
@@ -501,6 +507,13 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
     if (s.collateralStateHash[params.lien.collateralId] == ACTIVE_AUCTION) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
+    }
+
+    if (params.amount == 0) {
+      revert InvalidState(InvalidStates.AMOUNT_ZERO);
+    }
+    if (params.lien.details.duration < s.minLoanDuration) {
+      revert InvalidState(InvalidStates.MIN_DURATION_NOT_MET);
     }
     if (
       params.lien.details.liquidationInitialAsk < params.amount ||

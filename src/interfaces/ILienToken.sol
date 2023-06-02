@@ -28,7 +28,9 @@ interface ILienToken is IERC721 {
     BuyoutFee,
     BuyoutFeeDurationCap,
     MinInterestBPS,
-    MinDurationIncrease
+    MinDurationIncrease,
+    MaxLiens,
+    MinLoanDuration
   }
 
   struct File {
@@ -51,6 +53,7 @@ interface ILienToken is IERC721 {
     uint32 durationFeeCapDenominator;
     uint32 minDurationIncrease;
     uint32 minInterestBPS;
+    uint32 minLoanDuration;
   }
 
   struct LienMeta {
@@ -346,7 +349,9 @@ interface ILienToken is IERC721 {
     INITIAL_ASK_EXCEEDED,
     EMPTY_STATE,
     PUBLIC_VAULT_RECIPIENT,
-    COLLATERAL_NOT_LIQUIDATED
+    COLLATERAL_NOT_LIQUIDATED,
+    AMOUNT_ZERO,
+    MIN_DURATION_NOT_MET
   }
 
   error InvalidState(InvalidStates);
