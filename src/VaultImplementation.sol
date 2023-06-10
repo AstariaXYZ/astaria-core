@@ -368,7 +368,9 @@ abstract contract VaultImplementation is
         InvalidRequestReason.INSUFFICIENT_FUNDS
       );
     }
-
+    if (incomingTerms.lienRequest.strategy.vault != address(this)) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
+    }
     _validateSignature(incomingTerms);
 
     ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
