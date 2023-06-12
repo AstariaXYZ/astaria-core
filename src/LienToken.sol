@@ -260,13 +260,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       );
     }
 
-    s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
-      params.encumber.stack[params.position].lien.token,
-      msg.sender,
-      payee,
-      buyout
-    );
-
     newStack = _replaceStackAtPositionWithNewLien(
       s,
       params.encumber.stack,
@@ -284,6 +277,13 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
     s.collateralStateHash[params.encumber.lien.collateralId] = keccak256(
       abi.encode(newStack)
+    );
+
+    s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
+      params.encumber.stack[params.position].lien.token,
+      msg.sender,
+      payee,
+      buyout
     );
   }
 
@@ -718,7 +718,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   {
     LienStorage storage s = _loadLienStorageSlot();
     (newStack, ) = _payment(s, stack, position, amount, msg.sender);
-    _updateCollateralStateHash(s, collateralId, newStack);
   }
 
   function _paymentAH(
@@ -742,15 +741,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     }
     bool isPublicVault = _isPublicVault(s, payee);
 
-    if (payment > 0) {
-      s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
-        token,
-        payer,
-        payee,
-        payment
-      );
-    }
-
     delete s.lienMeta[lienId]; //full delete
     delete stack[position];
     _burn(lienId);
@@ -758,6 +748,14 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     if (isPublicVault) {
       IPublicVault(payee).updateAfterLiquidationPayment(
         IPublicVault.LiquidationPaymentParams({remaining: remaining})
+      );
+    }
+    if (payment > 0) {
+      s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
+        token,
+        payer,
+        payee,
+        payment
       );
     }
     emit Payment(lienId, payment);
@@ -793,7 +791,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         }
       }
     }
-    _updateCollateralStateHash(s, stack[0].lien.collateralId, newStack);
   }
 
   function _updateCollateralStateHash(
@@ -923,29 +920,18 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       );
     }
 
-    //bring the point up to block.timestamp, compute the owed
-    stack.point.amount = owed;
-    stack.point.last = block.timestamp.safeCastTo40();
-
-    if (stack.point.amount > amount) {
-      stack.point.amount -= amount;
-      //      // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
-      if (isPublicVault) {
-        IPublicVault(lienOwner).afterPayment(calculateSlope(stack));
-      }
-    } else {
-      amount = stack.point.amount;
-      if (isPublicVault) {
-        // since the openLiens count is only positive when there are liens that haven't been paid off
-        // that should be liquidated, this lien should not be counted anymore
-        IPublicVault(lienOwner).decreaseEpochLienCount(
-          IPublicVault(lienOwner).getLienEpoch(end)
-        );
-      }
-      delete s.lienMeta[lienId]; //full delete of point data for the lien
-      _burn(lienId);
-      activeStack = _removeStackPosition(activeStack, position);
+    amount = owed;
+    if (isPublicVault) {
+      // since the openLiens count is only positive when there are liens that haven't been paid off
+      // that should be liquidated, this lien should not be counted anymore
+      IPublicVault(lienOwner).decreaseEpochLienCount(
+        IPublicVault(lienOwner).getLienEpoch(end)
+      );
     }
+    delete s.lienMeta[lienId]; //full delete of point data for the lien
+    _burn(lienId);
+    activeStack = _removeStackPosition(activeStack, position);
+    _updateCollateralStateHash(s, stack.lien.collateralId, activeStack);
 
     s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
       stack.lien.token,
