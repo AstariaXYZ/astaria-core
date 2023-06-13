@@ -170,7 +170,7 @@ contract AstariaTest is TestHelpers {
 
     vm.warp(block.timestamp + 9 days);
 
-    _repay(stack, 0, 10 ether, address(this));
+    _repay(stack, 0, 11 ether, address(this));
   }
 
   function testBasicPrivateVaultLoan() public {

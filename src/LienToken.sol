@@ -190,6 +190,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       ILienToken.BuyoutLienParams memory buyoutParams
     )
   {
+    if (true) {
+      revert("Refinancing Unsupported");
+    }
     if (block.timestamp >= params.encumber.stack[params.position].point.end) {
       revert InvalidState(InvalidStates.EXPIRED_LIEN);
     }
@@ -920,17 +923,30 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       );
     }
 
-    amount = owed;
-    if (isPublicVault) {
-      // since the openLiens count is only positive when there are liens that haven't been paid off
-      // that should be liquidated, this lien should not be counted anymore
-      IPublicVault(lienOwner).decreaseEpochLienCount(
-        IPublicVault(lienOwner).getLienEpoch(end)
-      );
+    //bring the point up to block.timestamp, compute the owed
+    stack.point.amount = owed;
+    stack.point.last = block.timestamp.safeCastTo40();
+
+    if (stack.point.amount > amount) {
+      revert("Partial payments Unsupported");
+      stack.point.amount -= amount;
+      //      // slope does not need to be updated if paying off the rest, since we neutralize slope in beforePayment()
+      if (isPublicVault) {
+        IPublicVault(lienOwner).afterPayment(calculateSlope(stack));
+      }
+    } else {
+      amount = stack.point.amount;
+      if (isPublicVault) {
+        // since the openLiens count is only positive when there are liens that haven't been paid off
+        // that should be liquidated, this lien should not be counted anymore
+        IPublicVault(lienOwner).decreaseEpochLienCount(
+          IPublicVault(lienOwner).getLienEpoch(end)
+        );
+      }
+      delete s.lienMeta[lienId]; //full delete of point data for the lien
+      _burn(lienId);
+      activeStack = _removeStackPosition(activeStack, position);
     }
-    delete s.lienMeta[lienId]; //full delete of point data for the lien
-    _burn(lienId);
-    activeStack = _removeStackPosition(activeStack, position);
     _updateCollateralStateHash(s, stack.lien.collateralId, activeStack);
 
     s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
