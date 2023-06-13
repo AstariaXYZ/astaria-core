@@ -3,6 +3,7 @@ pragma solidity =0.8.17;
 pragma experimental ABIEncoderV2;
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
+import "forge-std/console.sol";
 
 /// @title Interface for WETH9
 interface IWETH9 is IERC20 {
@@ -14,9 +15,9 @@ interface IWETH9 is IERC20 {
 }
 
 contract RepaymentHelper {
-  IWETH9 WETH;
-  ILienToken lienToken;
-  address transferProxy;
+  IWETH9 public immutable WETH;
+  ILienToken public lienToken;
+  address public transferProxy;
 
   constructor(address _WETH9, address _lienToken, address _transferProxy) {
     WETH = IWETH9(_WETH9);
@@ -28,22 +29,19 @@ contract RepaymentHelper {
     uint256 collateralId,
     ILienToken.Stack[] calldata stack
   ) external payable returns (ILienToken.Stack[] memory newStack) {
-    try WETH.deposit{value: msg.value}() {
-      WETH.approve(transferProxy, msg.value);
-      WETH.approve(address(lienToken), msg.value);
+    uint256 owing = lienToken.getOwed(stack[0]);
+    if (owing > msg.value) {
+      revert("not enough funds");
+    }
 
+    try WETH.deposit{value: owing}() {
+      WETH.approve(transferProxy, owing);
       // make payment
-      newStack = lienToken.makePayment(collateralId, stack, msg.value);
-
+      newStack = lienToken.makePayment(collateralId, stack, owing);
       // check balance
-      uint256 balance = WETH.balanceOf(address(this));
-
-      if (balance > 0) {
+      if (address(this).balance > 0) {
         // withdraw
-        WETH.withdraw(balance);
-
-        // transfer
-        payable(msg.sender).transfer(balance);
+        payable(msg.sender).transfer(address(this).balance);
       }
     } catch {
       revert();

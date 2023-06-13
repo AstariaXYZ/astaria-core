@@ -1335,8 +1335,9 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 9 days);
 
     // uint256 collateralId = tokenContract.computeId(tokenId);
-    vm.deal(address(this), 10 ether);
-    REPAYMENT_HELPER.makePayment{value: 10 ether}(collateralId, stack);
+    vm.deal(address(this), 20 ether);
+    assertEq(address(WETH9), address(REPAYMENT_HELPER.WETH()));
+    REPAYMENT_HELPER.makePayment{value: 20 ether}(collateralId, stack);
     // _repay(stack, 0, 10 ether, address(this));
   }
 
