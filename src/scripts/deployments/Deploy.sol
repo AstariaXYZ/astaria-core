@@ -37,6 +37,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 import {BeaconProxy} from "core/BeaconProxy.sol";
 import {ClearingHouse} from "core/ClearingHouse.sol";
+import {RepaymentHelper} from "core/RepaymentHelper.sol";
 import {
   ConsiderationInterface
 } from "seaport/interfaces/ConsiderationInterface.sol";
@@ -72,6 +73,7 @@ contract Deploy is Script {
   MultiRolesAuthority MRA;
   ConsiderationInterface SEAPORT;
   ProxyAdmin PROXY_ADMIN;
+  RepaymentHelper REPAYMENT_HELPER;
 
   bool testModeDisabled = true;
 
@@ -241,6 +243,24 @@ contract Deploy is Script {
           )
         );
       }
+    }
+
+    REPAYMENT_HELPER = new RepaymentHelper(
+      address(WETH9),
+      address(LIEN_TOKEN),
+      address(TRANSFER_PROXY)
+    );
+
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "REPAYMENT_HELPER=",
+            vm.toString(address(REPAYMENT_HELPER))
+          )
+        )
+      );
     }
 
     SOLO_IMPLEMENTATION = new Vault();

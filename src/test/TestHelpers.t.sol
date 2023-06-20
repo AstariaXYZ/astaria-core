@@ -274,7 +274,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
     SEAPORT = ConsiderationInterface(address(consideration));
     deploy();
 
-    WETH9 = new WETH();
     vm.label(address(WETH9), "WETH9");
     vm.label(address(MRA), "MRA");
     vm.label(address(TRANSFER_PROXY), "TRANSFER_PROXY");
@@ -492,12 +491,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address delegate,
     uint256 epochLength
   ) internal returns (address publicVault) {
-    return _createPublicVault(
-      strategist,
-      delegate,
-      epochLength,
-      0
-    );
+    return _createPublicVault(strategist, delegate, epochLength, 0);
   }
 
   function _createPublicVault(
