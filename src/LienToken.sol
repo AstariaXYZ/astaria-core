@@ -316,7 +316,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   function payDebtViaClearingHouse(
     address token,
     uint256 collateralId,
-    uint256 payment,
+    uint256 payment, //how much you actually can spend
     ClearingHouse.AuctionStack memory auctionStack
   ) external {
     LienStorage storage s = _loadLienStorageSlot();
