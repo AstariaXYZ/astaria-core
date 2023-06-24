@@ -47,14 +47,6 @@ interface IPublicVault is IVaultImplementation {
     uint40 lienEnd;
   }
 
-  struct LiquidationPaymentParams {
-    uint256 remaining;
-  }
-
-  function updateAfterLiquidationPayment(
-    LiquidationPaymentParams calldata params
-  ) external;
-
   /**
    * @notice Signal a withdrawal of funds (redeeming for underlying asset) in an arbitrary future epoch.
    * @param shares The number of VaultToken shares to redeem.
@@ -98,8 +90,6 @@ interface IPublicVault is IVaultImplementation {
    * @return Seconds until the current epoch ends.
    */
   function timeToEpochEnd() external view returns (uint256);
-
-  function timeToSecondEpochEnd() external view returns (uint256);
 
   function epochEndTimestamp(uint epoch) external pure returns (uint256);
 

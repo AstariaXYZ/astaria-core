@@ -41,6 +41,7 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
 import {Initializable} from "./utils/Initializable.sol";
+import "forge-std/console.sol";
 
 /**
  * @title AstariaRouter
@@ -464,8 +465,8 @@ contract AstariaRouter is
     });
   }
 
-  function commitToLiens(
-    IAstariaRouter.Commitment[] memory commitments
+  function commitToLien(
+    IAstariaRouter.Commitment calldata commitments
   )
     public
     whenNotPaused
@@ -475,14 +476,84 @@ contract AstariaRouter is
 
     _transferAndDepositAssetIfAble(
       s,
-      commitments[0].tokenContract,
-      commitments[0].tokenId
+      commitments.tokenContract,
+      commitments.tokenId
     );
 
-    (lienId, stack) = _executeCommitment(s, commitments[0]);
+    // uint256 i;
+    // for (; i < commitments.length; ) {
+    //   if (i != 0) {
+    //     commitments[i].lienRequest.stack = stack;
+    //   }
+    //   (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
+    //   totalBorrowed += stack[stack.length - 1].point.amount;
+    //   unchecked {
+    //     ++i;
+    //   }
+    // }
 
-    ERC20(IAstariaVaultBase(commitments[0].lienRequest.strategy.vault).asset())
-      .safeTransfer(msg.sender, stack.point.amount);
+    (lienId, stack) = _executeCommitment(s, commitments);
+
+    uint256 totalBorrowed = _handleProtocolFee(
+      s,
+      stack.lien.token,
+      stack.point.amount
+    );
+
+    //todo: is this guarded safely?
+    ERC20(stack.lien.token).safeTransfer(msg.sender, totalBorrowed);
+  }
+
+  function _handleProtocolFee(
+    RouterStorage storage s,
+    address token,
+    uint256 amount
+  ) internal returns (uint256) {
+    address feeTo = s.feeTo;
+    bool feeOn = feeTo != address(0);
+    if (feeOn) {
+      uint256 fee = _getProtocolFee(s, amount);
+
+      unchecked {
+        amount -= fee;
+      }
+      ERC20(token).safeTransfer(feeTo, fee);
+    }
+    return amount;
+  }
+
+  /**
+   * @dev Validates the incoming request for a lien
+   * Who is requesting the borrow, is it a smart contract? or is it a user?
+   * if a smart contract, then ensure that the contract is approved to borrow and is also receiving the funds.
+   * if a user, then ensure that the user is approved to borrow and is also receiving the funds.
+   * The terms are hashed and signed by the borrower, and the signature validated against the strategist's address
+   * lien details are decoded from the obligation data and validated the collateral
+   *
+   * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
+   */
+  function _validateRequest(
+    IAstariaRouter.Commitment calldata params
+  ) internal view {
+    //    if (params.lienRequest.strategy.vault != address(this)) {
+    //      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
+    //    }
+
+    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
+    ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
+    address holder = CT.ownerOf(collateralId);
+    address operator = CT.getApproved(collateralId);
+    if (
+      msg.sender != holder &&
+      msg.sender != operator &&
+      !CT.isApprovedForAll(holder, msg.sender)
+    ) {
+      revert InvalidSender();
+    }
+
+    if (block.timestamp > params.lienRequest.strategy.deadline) {
+      revert StrategyExpired();
+    }
   }
 
   function newVault(
@@ -552,24 +623,24 @@ contract AstariaRouter is
     validVault(msg.sender)
     returns (uint256, ILienToken.Stack memory, uint256)
   {
-    RouterStorage storage s = _loadRouterSlot();
-
-    return
-      s.LIEN_TOKEN.createLien(
-        ILienToken.LienActionEncumber({
-          lien: _validateCommitment({
-            s: s,
-            commitment: params,
-            timeToSecondEpochEnd: IPublicVault(msg.sender).supportsInterface(
-              type(IPublicVault).interfaceId
-            )
-              ? IPublicVault(msg.sender).timeToSecondEpochEnd()
-              : 0
-          }),
-          amount: params.lienRequest.amount,
-          receiver: receiver
-        })
-      );
+    //    RouterStorage storage s = _loadRouterSlot();
+    //
+    //    return
+    //      s.LIEN_TOKEN.createLien(
+    //        ILienToken.LienActionEncumber({
+    //          lien: _validateCommitment({
+    //            s: s,
+    //            commitment: params,
+    //            timeToSecondEpochEnd: IPublicVault(msg.sender).supportsInterface(
+    //              type(IPublicVault).interfaceId
+    //            )
+    //              ? IPublicVault(msg.sender).timeToSecondEpochEnd()
+    //              : 0
+    //          }),
+    //          amount: params.lienRequest.amount,
+    //          receiver: receiver
+    //        })
+    //      );
   }
 
   function canLiquidate(
@@ -607,9 +678,16 @@ contract AstariaRouter is
     );
   }
 
-  function getProtocolFee(uint256 amountIn) external view returns (uint256) {
+  function getProtocolFee(uint256 amountIn) public view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
 
+    return _getProtocolFee(s, amountIn);
+  }
+
+  function _getProtocolFee(
+    RouterStorage storage s,
+    uint256 amountIn
+  ) internal view returns (uint256) {
     return
       amountIn.mulDivDown(s.protocolFeeNumerator, s.protocolFeeDenominator);
   }
@@ -693,8 +771,8 @@ contract AstariaRouter is
 
   function _executeCommitment(
     RouterStorage storage s,
-    IAstariaRouter.Commitment memory c
-  ) internal returns (uint256, ILienToken.Stack memory stack) {
+    IAstariaRouter.Commitment calldata c
+  ) internal returns (uint256 lienId, ILienToken.Stack memory stack) {
     uint256 collateralId = c.tokenContract.computeId(c.tokenId);
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
@@ -705,7 +783,30 @@ contract AstariaRouter is
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
     //router must be approved for the collateral to take a loan,
-    return IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(c);
+    uint256 slope;
+    (lienId, stack, slope) = s.LIEN_TOKEN.createLien(
+      ILienToken.LienActionEncumber({
+        lien: _validateCommitment({
+          s: s,
+          commitment: c,
+          timeToSecondEpochEnd: IPublicVault(c.lienRequest.strategy.vault)
+            .timeToSecondEpochEnd()
+        }),
+        amount: c.lienRequest.amount,
+        receiver: c.lienRequest.strategy.vault
+      })
+    );
+    // uint256 lienId,
+    //    uint256 lienEnd,
+    //    uint256 slopeAddition
+
+    _validateRequest(c);
+    IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
+      c,
+      lienId,
+      stack.point.end,
+      slope
+    );
   }
 
   function _transferAndDepositAssetIfAble(

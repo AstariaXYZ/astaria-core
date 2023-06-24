@@ -39,7 +39,6 @@ import {Math} from "core/utils/Math.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
-import "forge-std/console.sol";
 
 /*
  * @title PublicVault
@@ -354,8 +353,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         s,
         totalAssets().mulDivDown(1e18 - s.liquidationWithdrawRatio, 1e18)
       );
-      console.log("processEpoch after setYIntercept");
-      console.log("yIntercept", s.yIntercept);
+
       s.last = block.timestamp.safeCastTo40();
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
@@ -549,9 +547,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       _decreaseEpochLienCount(s, getLienEpoch(params.lienEnd));
     } else if (params.decreaseInYIntercept > 0) {
       // we are a liquidation and not a withdraw proxy
-      uint256 newYIntercept = s.yIntercept - params.decreaseInYIntercept;
-
-      _setYIntercept(s, newYIntercept);
+      _setYIntercept(s, s.yIntercept - params.decreaseInYIntercept);
     }
     _handleStrategistInterestReward(s, params.interestPaid);
   }
@@ -628,16 +624,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function updateAfterLiquidationPayment(
-    LiquidationPaymentParams calldata params
-  ) external {
-    _onlyLienToken();
-
-    VaultData storage s = _loadStorageSlot();
-    if (params.remaining > 0)
-      _setYIntercept(s, s.yIntercept - params.remaining);
-  }
-
   function updateVaultAfterLiquidation(
     uint256 maxAuctionWindow,
     AfterLiquidationParams calldata params
@@ -646,8 +632,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
     VaultData storage s = _loadStorageSlot();
 
-    console.log("updateVaultAfterLiquidation");
-    console.log("yIntercept", s.yIntercept);
     _accrue(s);
     unchecked {
       _setSlope(s, s.slope - params.lienSlope);
@@ -719,9 +703,5 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     returns (uint256 timeToSecondEpochEnd)
   {
     return timeToEpochEnd() + EPOCH_LENGTH();
-  }
-
-  function timeToSecondEpochEnd() public view returns (uint256) {
-    return _timeToSecondEndIfPublic();
   }
 }

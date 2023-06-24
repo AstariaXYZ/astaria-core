@@ -309,7 +309,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       last: block.timestamp.safeCastTo40(),
       end: (block.timestamp + params.lien.details.duration).safeCastTo40()
     });
-    _mint(params.receiver, newLienId);
+    _safeMint(params.receiver, newLienId);
     return (newLienId, Stack({lien: params.lien, point: point}));
   }
 

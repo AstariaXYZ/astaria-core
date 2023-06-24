@@ -84,8 +84,11 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function incrementNonce() external;
 
   function commitToLien(
-    IAstariaRouter.Commitment calldata params
-  ) external returns (uint256 lienId, ILienToken.Stack memory stack);
+    IAstariaRouter.Commitment calldata params,
+    uint256,
+    uint40,
+    uint256
+  ) external;
 
   function recipient() external view returns (address);
 
@@ -103,6 +106,8 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function modifyDepositCap(uint256 newCap) external;
 
   function getStrategistNonce() external view returns (uint256);
+
+  function timeToSecondEpochEnd() external view returns (uint256);
 
   function STRATEGY_TYPEHASH() external view returns (bytes32);
 }

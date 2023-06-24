@@ -168,8 +168,8 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @param commitments The commitment proofs and requested loan data for each loan.
    * @return lienIds the lienIds for each loan.
    */
-  function commitToLiens(
-    Commitment[] memory commitments
+  function commitToLien(
+    Commitment memory commitments
   ) external returns (uint256, ILienToken.Stack memory);
 
   /**
@@ -277,6 +277,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   error InvalidStrategy(uint16);
   error InvalidVault(address);
   error InvalidUnderlying(address);
+  error InvalidSender();
+  error StrategyExpired();
   error UnsupportedFile();
 
   enum LienState {

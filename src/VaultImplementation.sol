@@ -148,7 +148,7 @@ abstract contract VaultImplementation is
     address, // from_
     uint256, // tokenId_
     bytes calldata // data_
-  ) external pure override returns (bytes4) {
+  ) external virtual override returns (bytes4) {
     return ERC721TokenReceiver.onERC721Received.selector;
   }
 
@@ -289,6 +289,9 @@ abstract contract VaultImplementation is
     IAstariaRouter.Commitment calldata params
   ) internal view {
     VIData storage s = _loadVISlot();
+    if (params.lienRequest.strategy.vault != address(this)) {
+      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
+    }
     address recovered = ecrecover(
       keccak256(
         _encodeStrategyData(
@@ -326,19 +329,24 @@ abstract contract VaultImplementation is
    * Origination consists of a few phases: pre-commitment validation, lien token issuance, strategist reward, and after commitment actions
    * Starts by depositing collateral and take optimized-out a lien against it. Next, verifies the merkle proof for a loan commitment. Vault owners are then rewarded fees for successful loan origination.
    * @param params Commitment data for the incoming lien request
-   * @return lienId The id of the newly minted lien token.
    */
   function commitToLien(
-    IAstariaRouter.Commitment calldata params
-  )
-    external
-    whenNotPaused
-    returns (uint256 lienId, ILienToken.Stack memory stack)
-  {
+    IAstariaRouter.Commitment calldata params,
+    uint256 lienId,
+    uint40 lienEnd,
+    uint256 slopeAddition
+  ) external {
+    if (msg.sender != address(ROUTER())) {
+      revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
+    }
+    if (_loadVISlot().isShutdown) {
+      revert InvalidRequest(InvalidRequestReason.SHUTDOWN);
+    }
     _beforeCommitToLien(params);
-    uint256 slopeAddition;
-    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(params);
-    _afterCommitToLien(stack.point.end, lienId, slopeAddition);
+    //    uint256 slopeAddition;
+    //    (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(params);
+    _issuePayout(params);
+    _afterCommitToLien(lienEnd, lienId, slopeAddition);
   }
 
   function _timeToSecondEndIfPublic()
@@ -348,6 +356,10 @@ abstract contract VaultImplementation is
     returns (uint256 timeToSecondEpochEnd)
   {
     return 0;
+  }
+
+  function timeToSecondEpochEnd() public view returns (uint256) {
+    return _timeToSecondEndIfPublic();
   }
 
   /**
@@ -370,31 +382,9 @@ abstract contract VaultImplementation is
    * @dev Generates a Lien for a valid loan commitment proof and sends the loan amount to the borrower.
    * @param c The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
    */
-  function _requestLienAndIssuePayout(
-    IAstariaRouter.Commitment calldata c
-  )
-    internal
-    returns (uint256 newLienId, ILienToken.Stack memory stack, uint256 slope)
-  {
-    address receiver = _validateRequest(c);
-    (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());
-    ERC20(asset()).safeTransfer(
-      receiver,
-      _handleProtocolFee(c.lienRequest.amount)
-    );
-  }
-
-  function _handleProtocolFee(uint256 amount) internal returns (uint256) {
-    address feeTo = ROUTER().feeTo();
-    bool feeOn = feeTo != address(0);
-    if (feeOn) {
-      uint256 fee = ROUTER().getProtocolFee(amount);
-
-      unchecked {
-        amount -= fee;
-      }
-      ERC20(asset()).safeTransfer(feeTo, fee);
-    }
-    return amount;
+  function _issuePayout(IAstariaRouter.Commitment calldata c) internal {
+    //    _validateRequest(c);
+    _validateSignature(c);
+    ERC20(asset()).safeTransfer(msg.sender, c.lienRequest.amount);
   }
 }

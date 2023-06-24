@@ -14,16 +14,29 @@
 pragma solidity =0.8.17;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
+import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 
 /**
  * @title Vault
  */
 contract Vault is VaultImplementation {
   using SafeTransferLib for ERC20;
+
+  function onERC721Received(
+    address operator,
+    address from,
+    uint256 tokenId,
+    bytes calldata data
+  ) external override returns (bytes4) {
+    //send token to the owner
+    ERC721(msg.sender).safeTransferFrom(address(this), owner(), tokenId, data);
+    return this.onERC721Received.selector;
+  }
 
   function name()
     public
