@@ -99,15 +99,14 @@ contract RevertTesting is TestHelpers {
     });
 
     _lendToVault(Lender({addr: bob, amountToLend: 50 ether}), publicVault);
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: blueChipDetails,
-      amount: 50 ether,
-      isFirstLien: true
+      amount: 50 ether
     });
 
     _signalWithdraw(bob, publicVault);
@@ -121,10 +120,7 @@ contract RevertTesting is TestHelpers {
     );
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
     _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether);
 
     skip(PublicVault(publicVault).timeToEpochEnd());
@@ -157,23 +153,19 @@ contract RevertTesting is TestHelpers {
     });
 
     _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: blueChipDetails,
-      amount: 100 ether,
-      isFirstLien: true
+      amount: 100 ether
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     vm.warp(block.timestamp + 11 days);
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
 
     erc20s[0].mint(address(this), 1000 ether);
     ClearingHouse clearingHouse = ClearingHouse(
@@ -211,15 +203,14 @@ contract RevertTesting is TestHelpers {
     });
 
     _lendToVault(Lender({addr: bob, amountToLend: 150 ether}), publicVault);
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: blueChipDetails,
-      amount: 100 ether,
-      isFirstLien: true
+      amount: 100 ether
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
@@ -271,21 +262,20 @@ contract RevertTesting is TestHelpers {
     _lendToVault(Lender({addr: alice, amountToLend: amountIn}), publicVault);
 
     // the borrower borrows 10 ether WETH from publicVault
-    (, ILienToken.Stack[] memory stack1) = _commitToLien({
+    (, ILienToken.Stack memory stack1) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     // the borrower repays for the lien after 9 days, and publicVault's share price becomes bigger than 1
     vm.warp(block.timestamp + 9 days);
-    _repay(stack1, 0, 100 ether, address(this));
+    _repay(stack1, 100 ether, address(this));
 
     vm.startPrank(bob);
 
@@ -346,8 +336,7 @@ contract RevertTesting is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      stack: new ILienToken.Stack[](0)
+      amount: 10 ether
     });
 
     ERC721(tokenContract).safeTransferFrom(
@@ -489,8 +478,7 @@ contract RevertTesting is TestHelpers {
       tokenContract: tokenContract,
       tokenId: 1,
       lienDetails: standardLienDetails,
-      amount: amount,
-      stack: new ILienToken.Stack[](0)
+      amount: amount
     });
 
     // Attack starts here
@@ -539,8 +527,7 @@ contract RevertTesting is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      stack: new ILienToken.Stack[](0)
+      amount: 10 ether
     });
 
     ERC721(tokenContract).safeTransferFrom(
@@ -603,7 +590,7 @@ contract RevertTesting is TestHelpers {
     ILienToken.Details memory details = standardLienDetails;
     details.maxAmount = 10 ether;
 
-    ILienToken.Stack[] memory stack;
+    ILienToken.Stack memory stack;
     // borrow 10 eth against the dummy NFT
     (, stack) = _commitToLien({
       vault: publicVault,
@@ -613,8 +600,6 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: details,
       amount: 11 ether,
-      isFirstLien: true,
-      stack: stack,
       revertMessage: abi.encodeWithSelector(
         IAstariaRouter.InvalidCommitmentState.selector,
         IAstariaRouter.CommitmentState.INVALID_AMOUNT
@@ -651,8 +636,7 @@ contract RevertTesting is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     vm.warp(block.timestamp + 15 days);
@@ -664,58 +648,6 @@ contract RevertTesting is TestHelpers {
       )
     );
     PublicVault(publicVault).processEpoch();
-  }
-
-  function testCannotBorrowMoreThanMaxPotentialDebt() public {
-    TestNFT nft = new TestNFT(1);
-    address tokenContract = address(nft);
-    uint256 tokenId = uint256(0);
-
-    uint256 initialBalance = WETH9.balanceOf(address(this));
-
-    // create a PublicVault with a 14-day epoch
-    address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 14 days
-    });
-
-    // lend 50 ether to the PublicVault as address(1)
-    _lendToVault(
-      Lender({addr: address(1), amountToLend: 100 ether}),
-      publicVault
-    );
-
-    ILienToken.Stack[] memory stack;
-
-    // borrow 10 eth against the dummy NFT
-    (, stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: standardLienDetails,
-      amount: 50 ether,
-      isFirstLien: true,
-      stack: stack
-    });
-
-    _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: standardLienDetails2,
-      amount: 10 ether,
-      isFirstLien: false,
-      stack: stack,
-      revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.DEBT_LIMIT
-      )
-    });
   }
 
   function testCannotExceedMinMaxPublicVaultEpochLength() public {
@@ -767,15 +699,14 @@ contract RevertTesting is TestHelpers {
     zeroDuration.duration = 0;
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: zeroDuration,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
   }
 
@@ -802,7 +733,7 @@ contract RevertTesting is TestHelpers {
     ILienToken.Details memory zeroRate = standardLienDetails;
     zeroRate.rate = 0;
 
-    ILienToken.Stack[] memory stack;
+    ILienToken.Stack memory stack;
     // borrow 10 eth against the dummy NFT
     (, stack) = _commitToLien({
       vault: publicVault,
@@ -812,8 +743,6 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: zeroRate,
       amount: 10 ether,
-      isFirstLien: true,
-      stack: stack,
       revertMessage: abi.encodeWithSelector(
         IAstariaRouter.InvalidCommitmentState.selector,
         IAstariaRouter.CommitmentState.INVALID_RATE
@@ -846,7 +775,7 @@ contract RevertTesting is TestHelpers {
     standardLien.maxAmount = 10 ether;
 
     // borrow amount over liquidation initial ask
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -854,8 +783,6 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: standardLien,
       amount: 7.5 ether,
-      isFirstLien: true,
-      stack: new ILienToken.Stack[](0),
       revertMessage: abi.encodeWithSelector(
         ILienToken.InvalidState.selector,
         ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
@@ -887,7 +814,7 @@ contract RevertTesting is TestHelpers {
     zeroInitAsk.liquidationInitialAsk = 0;
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -895,8 +822,6 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: zeroInitAsk,
       amount: 10 ether,
-      isFirstLien: true,
-      stack: new ILienToken.Stack[](0),
       revertMessage: abi.encodeWithSelector(
         ILienToken.InvalidState.selector,
         ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
@@ -920,7 +845,7 @@ contract RevertTesting is TestHelpers {
     );
 
     uint256 balanceBefore = WETH9.balanceOf(address(this));
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
@@ -928,8 +853,6 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: standardLienDetails,
       amount: 10 ether,
-      isFirstLien: true,
-      stack: new ILienToken.Stack[](0),
       revertMessage: abi.encodeWithSelector(
         IVaultImplementation.InvalidRequest.selector,
         IVaultImplementation.InvalidRequestReason.EXPIRED
@@ -957,24 +880,23 @@ contract RevertTesting is TestHelpers {
       publicVault
     );
 
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     vm.warp(block.timestamp + 14 days);
 
-    ASTARIA_ROUTER.liquidate(stack, uint8(0));
+    ASTARIA_ROUTER.liquidate(stack);
 
-    _repay(stack, 0, 10 ether, address(this));
+    _repay(stack, 10 ether, address(this));
   }
 
   function testRevertMinDurationNotMet() public {
@@ -1006,8 +928,6 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: standardLienDetails,
       amount: 10 ether,
-      isFirstLien: true,
-      stack: new ILienToken.Stack[](0),
       revertMessage: abi.encodeWithSelector(
         ILienToken.InvalidState.selector,
         ILienToken.InvalidStates.MIN_DURATION_NOT_MET
@@ -1015,218 +935,218 @@ contract RevertTesting is TestHelpers {
     });
   }
 
-  function testRevertInstantLiquidateAttack() public {
-    //    IVaultImplementation victimVault = IVaultImplementation(
-    //      0xE5149D099B992E3dC897F3F4c88824EAC2a6A59D
-    //    );
-    //    IAstariaRouter router = IAstariaRouter(
-    //      0x197Bb6Cd6cC9E9ABBFdaBff23DE7435c51d1B7BE
-    //    );
-    //    ICollateralToken ct = ICollateralToken(
-    //      0x455AD0f677628ed40E7397Fb41818f474e0E5afE
-    //    );
-
-    //    ERC20 weth = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    uint256 forkedBlock = 17338696 - 1;
-    vm.createSelectFork("https://eth.llamarpc.com", forkedBlock);
-    // `victimVault` will have their WETH stolen
-
-    //    uint256 initialVaultBalance = weth.balanceOf(address(victimVault));
-
-    // The attacker
-    // `adversaryKey` is not used in this script, but was used to sign two messages that will be used later.
-    // One message is for the strategies for a new created vault.
-    // One message is for fullfilling OpenSea orders.
-    //    PublicVaultFixed newPV = new PublicVaultFixed();
-    LienToken lienToken = new LienToken();
-    (address adversary, uint256 adversaryKey) = makeAddrAndKey("adversary");
-    deal(
-      address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2), // weth
-      address(adversary),
-      0.1 ether
-    );
-
-    //upgrade the router to the new implementation and then try
-
-    {
-      vm.startPrank(address(0x369d7114Ab316Cb37826c0871520BDB2C58D410E));
-
-      // make an array of IAstariaRouter.File
-
-      //ProxyManager upgrade
-
-      ProxyAdmin(0xf28289fAdc53942C8E0175A8a3DaeE79a2593BF9).upgrade(
-        TransparentUpgradeableProxy(
-          payable(0x0B77C649A7AD34f1e4c6be68E523B35716a69fB1)
-        ),
-        address(lienToken)
-      );
-      vm.stopPrank();
-    }
-
-    //    log_bytes(address(targetAddr).code);
-    // Vaults accept specific NFTs to use as collateral
-    // The strategist/delegate of the vault signs a message with a merkle proof for each one
-
-    // To demonstrate the attack: Acquire one of the NFTs that can be used as collateral
-    // Use the strategist/delegate signature for this NFT. This signature is generated off-chain
-    // The signature is valid for any borrower as `borrower == address(0)`
-    // Taken from: https://etherscan.io/tx/0x6b1e184b606994ab011faf1d4a533fc6fdf9ef1b44a337a273364f588791c262
-    address originalOwner = address(0x86d3ee9ff0983Bc33b93cc8983371a500f873446);
-
-    bytes
-      memory originalCommitmentsBytes = hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000646fcf97000000000000000000000000e5149d099b992e3dc897f3f4c88824eac2a6a59d0000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000000000000000000000000000025bda02e2fc77c30000000000000000000000000000000000000000000000000000000000000001cc2f3afc064e9193a5cd232daa210422418b0544aa93abbd1ace226c7ec84bc7f5c4ff5551165e2bbda8e39dec1faa2bf2f8b4bbf1bd41605632d9a4aff2b38540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000010000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025bda02e2fc77c300000000000000000000000000000000000000000000000000000000273dff9c1000000000000000000000000000000000000000000000000000000000023988000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003ac5be0fdfc780006780d074988bff96e3027f75266c43b79f89f94bfc900baf67545cccd501f633000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000118577e12415e0340f6864b50e43c9225030de210e01fdd67ee2ac5a8ea2a5bd0059eb3dda37191d96e2babff0f128a2eb2b42644646cec5e76fa66059cded6a9348767bc9b91cca521a6ffa385c07325e7d0d9f847691810e69ad27b2b8f4236504247026092c83b82a449484cdfcd61008bba99bbce26c0f8136a941744eee5b7dffe19a4b48495a9b220df8cc11413ae6b454cabc9071701ba60c7069d30b6046def5adbe306d1f2263c473640dc7cba16e18af04b68601ee68d48285c09277a5781fb8a04982f3b380ac0de7076e52f5df10906f354aa757a39a262d9ec83e8604396b389fd6ca93d84dc61c03b9dcee29b950de7c85eaa7a9ab5a1515d163bbd4b060e7f077c36080e003443949e59191d7b9515b12a164ab7343e076192b580a16536ab788a9260a7bf66e26c5b299785b7b7d6e4ae0e868922f70693d65387432b59525a23279ddeabbbb0aac40486c37fd08184e33854957580b1f95cecefde8670a951a6d05ed668dc9cc43379bddc912e58114b5a2081cb6c35a1a1883c6d21c65225d6dcd3fd0e45fbe64b423427e4a137d465651a8ca8c4d2d12df0525d3f2ce5df47c0223bfbf7fcd6b8129282fcf7e346105f3ee9f2989d87f7e22d291638325d702ff4ce1fd56493432f137e671d744880708000e22df40a754e77101e9cf2112bf04940471bb7bed02aaa56845f39e8aedea6d2a94a683698a878452ac976573bff58a18a7133d262b9a475d9bf7e2552b9cb715e3362cb508";
-    IAstariaRouter.Commitment[] memory originalCommitments = abi.decode(
-      originalCommitmentsBytes,
-      (IAstariaRouter.Commitment[])
-    );
-    IAstariaRouter.Commitment memory originalCommitment = originalCommitments[
-      0
-    ];
-    address borrower = abi
-      .decode(
-        originalCommitment.lienRequest.nlrDetails,
-        (IUniqueValidator.Details)
-      )
-      .borrower;
-    assertEq(borrower, address(0)); // Any borrower is valid
-
-    vm.prank(originalOwner);
-    ERC721(originalCommitment.tokenContract).safeTransferFrom(
-      originalOwner,
-      adversary,
-      originalCommitment.tokenId
-    );
-
-    // The signature has a deadline. In this case, it will expire after 756 seconds from the forked block/time.
-    // For simplicity of the POC, only one signature will be used to demonstrate the attack.
-
-    // This will cap the max stolen assets on this proof, as at least one second has to pass for each attack iteration.
-    // Note that this POC performs increments on a 1 second basis for demonstration (instead of 12 sec/block increments as on Ethereum)
-    // Nevertheless if an attacker uses multiple NFTs as collateral in parallel, and/or obtains fresh signatures,
-    //   the attack can continue until all funds are stolen.
-    uint256 timeToDeadline = originalCommitment.lienRequest.strategy.deadline -
-      block.timestamp;
-    assertEq(timeToDeadline, 756);
-
-    // PERFORM THE ATTACK 750 times, each time 0.29 WETH will be stolen
-    uint256 repeatAttack = 1;
-    //    address token = originalCommitment.tokenContract;
-    //    uint256 tokenId = originalCommitment.tokenId;
-
-    ConsiderationInterface consideration = ICollateralToken(
-      0x455AD0f677628ed40E7397Fb41818f474e0E5afE
-    ).SEAPORT();
-    {
-      bytes32 conduitKey = ICollateralToken(
-        0x455AD0f677628ed40E7397Fb41818f474e0E5afE
-      ).getConduitKey();
-
-      vm.startPrank(adversary);
-
-      ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2).approve(
-        ICollateralToken(0x455AD0f677628ed40E7397Fb41818f474e0E5afE)
-          .getConduit(),
-        type(uint256).max
-      );
-    } // Aprove funds to be used to fullfill OpenSea orders
-    {
-      // Create a new vault with liens that will expiry after 1 second
-      IVaultImplementation pocVault = IVaultImplementation(
-        IAstariaRouter(0x197Bb6Cd6cC9E9ABBFdaBff23DE7435c51d1B7BE)
-          .newPublicVault(
-            14 days,
-            adversary,
-            address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2), // weth
-            0,
-            false,
-            new address[](0),
-            uint256(0)
-          )
-      );
-
-      // Commitment for a lien of `amount = 0` that will expire after 1 second, and a `liquidationInitialAsk` value slightly bigger than the original `amount`
-      // This "empty" commitment is used to trick the system into liquidating the asset ASAP, paying the minimum interest
-      //      IAstariaRouter.Commitment memory emptyCommitment = abi.decode(
-      //        hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000647cfba30000000000000000000000005da5d251540c6723142b6a7df74ab4e346ffecd50000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001b81b74b124a06a188d9d00598159df1774492258e901f95e464fdf0033cb9b18c6a7a12c49359ccdc4f4be8fb2d1482797be75168ff797e5c6965f6cc43c6253f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000010000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002b5e3af16b188000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000026b650cf3e0e7c3010cbb634d0a52d8ebf2f581eef3c722b9cfb32990e35a6bd4be137cbe04a463900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000",
-      //        (IAstariaRouter.Commitment)
-      //      );
-
-      // Perform the attack
-      // 1. Transfer the NFT to the CollateralToken contract
-      // 2. Create an "empty" commitment on the newly created vault (amount is zero and will default after one second)
-      // 3. Add the commitment from the victim vault (WETH is transfered to the adversary)
-      // 4. Wait 1 second for the loan to default
-      // 5. Create an auction for the defaulted loan (via `liquidate()`), with the position `0` as it will bear the least interest
-      // 6. Fullfill the OpenSea order on the same block
-      // 7. Repeat
-      // Liquidation fees are higher than the interest rate, so the `adversary` makes profit on each attack (around 0.29 WETH in this case)
-      // As the loan is liquidated by the `adversary`, the NFT is recovered
-      ILienToken.Stack[] memory stack;
-      for (uint256 i; i < repeatAttack; i++) {
-        ERC721(originalCommitment.tokenContract).safeTransferFrom(
-          adversary,
-          address(0x455AD0f677628ed40E7397Fb41818f474e0E5afE), //CT
-          originalCommitment.tokenId
-        );
-
-        vm.expectRevert(
-          abi.encodeWithSelector(
-            ILienToken.InvalidState.selector,
-            ILienToken.InvalidStates.AMOUNT_ZERO
-          )
-        );
-        //commit to empty commitment
-        (, stack) = pocVault.commitToLien(
-          abi.decode(
-            hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000647cfba30000000000000000000000005da5d251540c6723142b6a7df74ab4e346ffecd50000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001b81b74b124a06a188d9d00598159df1774492258e901f95e464fdf0033cb9b18c6a7a12c49359ccdc4f4be8fb2d1482797be75168ff797e5c6965f6cc43c6253f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000010000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002b5e3af16b188000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000026b650cf3e0e7c3010cbb634d0a52d8ebf2f581eef3c722b9cfb32990e35a6bd4be137cbe04a463900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000",
-            (IAstariaRouter.Commitment)
-          )
-        );
-
-        //      since we block the rouge commit the rest doesnt run
-        //
-        //      originalCommitment.lienRequest.stack = stack;
-        //      (, stack) = victimVault.commitToLien(originalCommitment);
-        //      //block 1
-        //      vm.warp(block.timestamp + 1);
-        //      //amount != 0
-        //      //block 2
-        //      uint8 position = 0;
-        //      OrderParameters memory listedOrder = router.liquidate(stack, position);
-        //
-        //      // Signed by the adversary to fulfill OpenSea orders. Can be reused.
-        //      bytes
-        //        memory adversaryFullfillSignature = hex"2adb5898f07650db8b646da138c5a2964c450e8cd381c49c79c5bf51e3657bd067b3288c62a36a6e0da6f025c1e69e4484092239fb2981d6bfb8ef4b2b369b1c1b";
-        //
-        //      consideration.fulfillAdvancedOrder(
-        //        AdvancedOrder(listedOrder, 1, 1, adversaryFullfillSignature, ""),
-        //        new CriteriaResolver[](0),
-        //        conduitKey,
-        //        address(0)
-        //      );
-      }
-    }
-
-    //    uint256 amountStolenPerAttack = 0.2926357631301847 ether;
-    //    uint256 amountStolen = amountStolenPerAttack * repeatAttack;
-    //    assertGt(amountStolen, 136 ether); // 136 WETH will be stolen. (The total funds can be stolen with more NFTs and/or signatures)
-    //
-    //    // Funds are stolen from the `victimVault`
-    //    assertEq(
-    //      weth.balanceOf(address(victimVault)),
-    //      initialVaultBalance - amountStolen
-    //    );
-    //
-    //    // Funds are added to the `adversary`
-    //    assertGt(weth.balanceOf(adversary), amountStolen);
-    //
-    //    // The `adversary` still owns the NFT
-    //    address ownerOfNFT = ERC721(originalCommitment.tokenContract).ownerOf(
-    //      originalCommitment.tokenId
-    //    );
-    //    assertEq(ownerOfNFT, adversary);
-  }
+  //  function testRevertInstantLiquidateAttack() public {
+  //    //    IVaultImplementation victimVault = IVaultImplementation(
+  //    //      0xE5149D099B992E3dC897F3F4c88824EAC2a6A59D
+  //    //    );
+  //    //    IAstariaRouter router = IAstariaRouter(
+  //    //      0x197Bb6Cd6cC9E9ABBFdaBff23DE7435c51d1B7BE
+  //    //    );
+  //    //    ICollateralToken ct = ICollateralToken(
+  //    //      0x455AD0f677628ed40E7397Fb41818f474e0E5afE
+  //    //    );
+  //
+  //    //    ERC20 weth = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+  //    uint256 forkedBlock = 17338696 - 1;
+  //    vm.createSelectFork("https://eth.llamarpc.com", forkedBlock);
+  //    // `victimVault` will have their WETH stolen
+  //
+  //    //    uint256 initialVaultBalance = weth.balanceOf(address(victimVault));
+  //
+  //    // The attacker
+  //    // `adversaryKey` is not used in this script, but was used to sign two messages that will be used later.
+  //    // One message is for the strategies for a new created vault.
+  //    // One message is for fullfilling OpenSea orders.
+  //    //    PublicVaultFixed newPV = new PublicVaultFixed();
+  //    LienToken lienToken = new LienToken();
+  //    (address adversary, uint256 adversaryKey) = makeAddrAndKey("adversary");
+  //    deal(
+  //      address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2), // weth
+  //      address(adversary),
+  //      0.1 ether
+  //    );
+  //
+  //    //upgrade the router to the new implementation and then try
+  //
+  //    {
+  //      vm.startPrank(address(0x369d7114Ab316Cb37826c0871520BDB2C58D410E));
+  //
+  //      // make an array of IAstariaRouter.File
+  //
+  //      //ProxyManager upgrade
+  //
+  //      ProxyAdmin(0xf28289fAdc53942C8E0175A8a3DaeE79a2593BF9).upgrade(
+  //        TransparentUpgradeableProxy(
+  //          payable(0x0B77C649A7AD34f1e4c6be68E523B35716a69fB1)
+  //        ),
+  //        address(lienToken)
+  //      );
+  //      vm.stopPrank();
+  //    }
+  //
+  //    //    log_bytes(address(targetAddr).code);
+  //    // Vaults accept specific NFTs to use as collateral
+  //    // The strategist/delegate of the vault signs a message with a merkle proof for each one
+  //
+  //    // To demonstrate the attack: Acquire one of the NFTs that can be used as collateral
+  //    // Use the strategist/delegate signature for this NFT. This signature is generated off-chain
+  //    // The signature is valid for any borrower as `borrower == address(0)`
+  //    // Taken from: https://etherscan.io/tx/0x6b1e184b606994ab011faf1d4a533fc6fdf9ef1b44a337a273364f588791c262
+  //    address originalOwner = address(0x86d3ee9ff0983Bc33b93cc8983371a500f873446);
+  //
+  //    bytes
+  //      memory originalCommitmentsBytes = hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000646fcf97000000000000000000000000e5149d099b992e3dc897f3f4c88824eac2a6a59d0000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000000000000000000000000000025bda02e2fc77c30000000000000000000000000000000000000000000000000000000000000001cc2f3afc064e9193a5cd232daa210422418b0544aa93abbd1ace226c7ec84bc7f5c4ff5551165e2bbda8e39dec1faa2bf2f8b4bbf1bd41605632d9a4aff2b38540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000010000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025bda02e2fc77c300000000000000000000000000000000000000000000000000000000273dff9c1000000000000000000000000000000000000000000000000000000000023988000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003ac5be0fdfc780006780d074988bff96e3027f75266c43b79f89f94bfc900baf67545cccd501f633000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000118577e12415e0340f6864b50e43c9225030de210e01fdd67ee2ac5a8ea2a5bd0059eb3dda37191d96e2babff0f128a2eb2b42644646cec5e76fa66059cded6a9348767bc9b91cca521a6ffa385c07325e7d0d9f847691810e69ad27b2b8f4236504247026092c83b82a449484cdfcd61008bba99bbce26c0f8136a941744eee5b7dffe19a4b48495a9b220df8cc11413ae6b454cabc9071701ba60c7069d30b6046def5adbe306d1f2263c473640dc7cba16e18af04b68601ee68d48285c09277a5781fb8a04982f3b380ac0de7076e52f5df10906f354aa757a39a262d9ec83e8604396b389fd6ca93d84dc61c03b9dcee29b950de7c85eaa7a9ab5a1515d163bbd4b060e7f077c36080e003443949e59191d7b9515b12a164ab7343e076192b580a16536ab788a9260a7bf66e26c5b299785b7b7d6e4ae0e868922f70693d65387432b59525a23279ddeabbbb0aac40486c37fd08184e33854957580b1f95cecefde8670a951a6d05ed668dc9cc43379bddc912e58114b5a2081cb6c35a1a1883c6d21c65225d6dcd3fd0e45fbe64b423427e4a137d465651a8ca8c4d2d12df0525d3f2ce5df47c0223bfbf7fcd6b8129282fcf7e346105f3ee9f2989d87f7e22d291638325d702ff4ce1fd56493432f137e671d744880708000e22df40a754e77101e9cf2112bf04940471bb7bed02aaa56845f39e8aedea6d2a94a683698a878452ac976573bff58a18a7133d262b9a475d9bf7e2552b9cb715e3362cb508";
+  //    IAstariaRouter.Commitment[] memory originalCommitments = abi.decode(
+  //      originalCommitmentsBytes,
+  //      (IAstariaRouter.Commitment[])
+  //    );
+  //    IAstariaRouter.Commitment memory originalCommitment = originalCommitments[
+  //      0
+  //    ];
+  //    address borrower = abi
+  //      .decode(
+  //        originalCommitment.lienRequest.nlrDetails,
+  //        (IUniqueValidator.Details)
+  //      )
+  //      .borrower;
+  //    assertEq(borrower, address(0)); // Any borrower is valid
+  //
+  //    vm.prank(originalOwner);
+  //    ERC721(originalCommitment.tokenContract).safeTransferFrom(
+  //      originalOwner,
+  //      adversary,
+  //      originalCommitment.tokenId
+  //    );
+  //
+  //    // The signature has a deadline. In this case, it will expire after 756 seconds from the forked block/time.
+  //    // For simplicity of the POC, only one signature will be used to demonstrate the attack.
+  //
+  //    // This will cap the max stolen assets on this proof, as at least one second has to pass for each attack iteration.
+  //    // Note that this POC performs increments on a 1 second basis for demonstration (instead of 12 sec/block increments as on Ethereum)
+  //    // Nevertheless if an attacker uses multiple NFTs as collateral in parallel, and/or obtains fresh signatures,
+  //    //   the attack can continue until all funds are stolen.
+  //    uint256 timeToDeadline = originalCommitment.lienRequest.strategy.deadline -
+  //      block.timestamp;
+  //    assertEq(timeToDeadline, 756);
+  //
+  //    // PERFORM THE ATTACK 750 times, each time 0.29 WETH will be stolen
+  //    uint256 repeatAttack = 1;
+  //    //    address token = originalCommitment.tokenContract;
+  //    //    uint256 tokenId = originalCommitment.tokenId;
+  //
+  //    ConsiderationInterface consideration = ICollateralToken(
+  //      0x455AD0f677628ed40E7397Fb41818f474e0E5afE
+  //    ).SEAPORT();
+  //    {
+  //      bytes32 conduitKey = ICollateralToken(
+  //        0x455AD0f677628ed40E7397Fb41818f474e0E5afE
+  //      ).getConduitKey();
+  //
+  //      vm.startPrank(adversary);
+  //
+  //      ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2).approve(
+  //        ICollateralToken(0x455AD0f677628ed40E7397Fb41818f474e0E5afE)
+  //          .getConduit(),
+  //        type(uint256).max
+  //      );
+  //    } // Aprove funds to be used to fullfill OpenSea orders
+  //    {
+  //      // Create a new vault with liens that will expiry after 1 second
+  //      IVaultImplementation pocVault = IVaultImplementation(
+  //        IAstariaRouter(0x197Bb6Cd6cC9E9ABBFdaBff23DE7435c51d1B7BE)
+  //          .newPublicVault(
+  //            14 days,
+  //            adversary,
+  //            address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2), // weth
+  //            0,
+  //            false,
+  //            new address[](0),
+  //            uint256(0)
+  //          )
+  //      );
+  //
+  //      // Commitment for a lien of `amount = 0` that will expire after 1 second, and a `liquidationInitialAsk` value slightly bigger than the original `amount`
+  //      // This "empty" commitment is used to trick the system into liquidating the asset ASAP, paying the minimum interest
+  //      //      IAstariaRouter.Commitment memory emptyCommitment = abi.decode(
+  //      //        hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000647cfba30000000000000000000000005da5d251540c6723142b6a7df74ab4e346ffecd50000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001b81b74b124a06a188d9d00598159df1774492258e901f95e464fdf0033cb9b18c6a7a12c49359ccdc4f4be8fb2d1482797be75168ff797e5c6965f6cc43c6253f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000010000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002b5e3af16b188000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000026b650cf3e0e7c3010cbb634d0a52d8ebf2f581eef3c722b9cfb32990e35a6bd4be137cbe04a463900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000",
+  //      //        (IAstariaRouter.Commitment)
+  //      //      );
+  //
+  //      // Perform the attack
+  //      // 1. Transfer the NFT to the CollateralToken contract
+  //      // 2. Create an "empty" commitment on the newly created vault (amount is zero and will default after one second)
+  //      // 3. Add the commitment from the victim vault (WETH is transfered to the adversary)
+  //      // 4. Wait 1 second for the loan to default
+  //      // 5. Create an auction for the defaulted loan (via `liquidate()`), with the position `0` as it will bear the least interest
+  //      // 6. Fullfill the OpenSea order on the same block
+  //      // 7. Repeat
+  //      // Liquidation fees are higher than the interest rate, so the `adversary` makes profit on each attack (around 0.29 WETH in this case)
+  //      // As the loan is liquidated by the `adversary`, the NFT is recovered
+  //      ILienToken.Stack memory stack;
+  //      for (uint256 i; i < repeatAttack; i++) {
+  //        ERC721(originalCommitment.tokenContract).safeTransferFrom(
+  //          adversary,
+  //          address(0x455AD0f677628ed40E7397Fb41818f474e0E5afE), //CT
+  //          originalCommitment.tokenId
+  //        );
+  //
+  //        vm.expectRevert(
+  //          abi.encodeWithSelector(
+  //            ILienToken.InvalidState.selector,
+  //            ILienToken.InvalidStates.AMOUNT_ZERO
+  //          )
+  //        );
+  //        //commit to empty commitment
+  //        (, stack) = pocVault.commitToLien(
+  //          abi.decode(
+  //            hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000647cfba30000000000000000000000005da5d251540c6723142b6a7df74ab4e346ffecd50000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001b81b74b124a06a188d9d00598159df1774492258e901f95e464fdf0033cb9b18c6a7a12c49359ccdc4f4be8fb2d1482797be75168ff797e5c6965f6cc43c6253f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000010000000000000000000000005af0d9827e0c53e4799bb226655a1de152a425a500000000000000000000000000000000000000000000000000000000000020de0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002b5e3af16b188000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000026b650cf3e0e7c3010cbb634d0a52d8ebf2f581eef3c722b9cfb32990e35a6bd4be137cbe04a463900000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000",
+  //            (IAstariaRouter.Commitment)
+  //          )
+  //        );
+  //
+  //        //      since we block the rouge commit the rest doesnt run
+  //        //
+  //        //      originalCommitment.lienRequest.stack = stack;
+  //        //      (, stack) = victimVault.commitToLien(originalCommitment);
+  //        //      //block 1
+  //        //      vm.warp(block.timestamp + 1);
+  //        //      //amount != 0
+  //        //      //block 2
+  //        //      uint8 position = 0;
+  //        //      OrderParameters memory listedOrder = router.liquidate(stack, position);
+  //        //
+  //        //      // Signed by the adversary to fulfill OpenSea orders. Can be reused.
+  //        //      bytes
+  //        //        memory adversaryFullfillSignature = hex"2adb5898f07650db8b646da138c5a2964c450e8cd381c49c79c5bf51e3657bd067b3288c62a36a6e0da6f025c1e69e4484092239fb2981d6bfb8ef4b2b369b1c1b";
+  //        //
+  //        //      consideration.fulfillAdvancedOrder(
+  //        //        AdvancedOrder(listedOrder, 1, 1, adversaryFullfillSignature, ""),
+  //        //        new CriteriaResolver[](0),
+  //        //        conduitKey,
+  //        //        address(0)
+  //        //      );
+  //      }
+  //    }
+  //
+  //    //    uint256 amountStolenPerAttack = 0.2926357631301847 ether;
+  //    //    uint256 amountStolen = amountStolenPerAttack * repeatAttack;
+  //    //    assertGt(amountStolen, 136 ether); // 136 WETH will be stolen. (The total funds can be stolen with more NFTs and/or signatures)
+  //    //
+  //    //    // Funds are stolen from the `victimVault`
+  //    //    assertEq(
+  //    //      weth.balanceOf(address(victimVault)),
+  //    //      initialVaultBalance - amountStolen
+  //    //    );
+  //    //
+  //    //    // Funds are added to the `adversary`
+  //    //    assertGt(weth.balanceOf(adversary), amountStolen);
+  //    //
+  //    //    // The `adversary` still owns the NFT
+  //    //    address ownerOfNFT = ERC721(originalCommitment.tokenContract).ownerOf(
+  //    //      originalCommitment.tokenId
+  //    //    );
+  //    //    assertEq(ownerOfNFT, adversary);
+  //  }
 
   function testCannotCommitToLienPotentialDebtExceedsLiquidationInitialAsk()
     public
@@ -1261,7 +1181,7 @@ contract RevertTesting is TestHelpers {
 
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](2);
-    ILienToken.Stack[] memory stack;
+    ILienToken.Stack memory stack;
 
     (, stack) = _commitToLien({
       vault: publicVault,
@@ -1270,9 +1190,7 @@ contract RevertTesting is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: details1,
-      amount: 50 ether,
-      isFirstLien: true,
-      stack: stack
+      amount: 50 ether
     });
 
     _commitToLien({
@@ -1283,8 +1201,6 @@ contract RevertTesting is TestHelpers {
       tokenId: tokenId,
       lienDetails: details2,
       amount: 50 ether,
-      isFirstLien: false,
-      stack: stack,
       revertMessage: abi.encodeWithSelector(
         ILienToken.InvalidState.selector,
         ILienToken.InvalidStates.INITIAL_ASK_EXCEEDED
@@ -1313,15 +1229,14 @@ contract RevertTesting is TestHelpers {
     );
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     vm.expectRevert(
@@ -1330,118 +1245,6 @@ contract RevertTesting is TestHelpers {
         IAstariaRouter.LienState.HEALTHY
       )
     );
-    ASTARIA_ROUTER.liquidate(stack, uint8(0));
-  }
-
-  function testSmallRepaymentDebtCompound() public {
-    TestNFT nft = new TestNFT(1);
-    address tokenContract = address(nft);
-    uint256 tokenId = uint256(0);
-    ASTARIA_ROUTER.file(
-      IAstariaRouter.File({
-        what: IAstariaRouter.FileType.MaxEpochLength,
-        data: abi.encode(365 days)
-      })
-    );
-
-    address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 365 days
-    });
-
-    _lendToVault(
-      Lender({addr: address(1), amountToLend: 500 ether}),
-      publicVault
-    );
-
-    ILienToken.Details memory details1 = standardLienDetails;
-    details1.rate = (uint256(1e16) * 200) / (365 days) - 1; // max rate
-    details1.duration = 365 days;
-    ILienToken.Stack[] memory stack;
-    (, stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: details1,
-      amount: 10 ether,
-      isFirstLien: true
-    });
-
-    ILienToken.Details memory details2 = standardLienDetails;
-    details2.maxPotentialDebt = 29999999999517760000;
-    details2.duration = 365 days;
-    (, stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: details2,
-      amount: 10 ether,
-      isFirstLien: false,
-      stack: stack
-    });
-
-    ILienToken.Details memory details3 = standardLienDetails;
-    details3.maxPotentialDebt = 500 ether;
-    details3.duration = 365 days;
-    (, stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: details3,
-      amount: 10 ether,
-      isFirstLien: false,
-      stack: stack
-    });
-
-    skip(100 days);
-    stack = _pay({stack: stack, position: 0, amount: 1, payer: address(this)});
-
-    address privateVault = _createPrivateVault({
-      strategist: strategistOne,
-      delegate: strategistTwo
-    });
-    _lendToPrivateVault(
-      PrivateLender({
-        addr: strategistOne,
-        token: address(WETH9),
-        amountToLend: 50 ether
-      }),
-      privateVault
-    );
-
-    ILienToken.Details memory details4 = standardLienDetails;
-    details4.duration = 365 days + 105 days;
-    details4.maxPotentialDebt = 10000 ether;
-    IAstariaRouter.Commitment memory refinanceTerms = _generateValidTerms({
-      vault: privateVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: details4,
-      amount: 0,
-      stack: stack
-    });
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.DEBT_LIMIT
-      )
-    );
-    vm.startPrank(strategistTwo);
-    VaultImplementation(privateVault).buyoutLien(
-      stack,
-      uint8(2),
-      refinanceTerms
-    );
-    vm.stopPrank();
+    ASTARIA_ROUTER.liquidate(stack);
   }
 }

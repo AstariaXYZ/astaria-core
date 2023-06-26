@@ -67,25 +67,21 @@ contract WithdrawTest is TestHelpers {
     lien.duration = 1 days;
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lien,
-      amount: 50 ether,
-      isFirstLien: true
+      amount: 50 ether
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     vm.warp(block.timestamp + lien.duration);
 
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
 
     vm.warp(block.timestamp + 2 days); // end of auction
 
@@ -128,26 +124,24 @@ contract WithdrawTest is TestHelpers {
       "minted supply to LPs not equal"
     );
 
-    (, ILienToken.Stack[] memory stack1) = _commitToLien({
+    (, ILienToken.Stack memory stack1) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
-    (, ILienToken.Stack[] memory stack2) = _commitToLien({
+    (, ILienToken.Stack memory stack2) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: uint256(5),
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     uint256 collateralId = tokenContract.computeId(tokenId);
@@ -161,14 +155,8 @@ contract WithdrawTest is TestHelpers {
 
     skip(14 days);
 
-    OrderParameters memory listedOrder1 = ASTARIA_ROUTER.liquidate(
-      stack1,
-      uint8(0)
-    );
-    OrderParameters memory listedOrder2 = ASTARIA_ROUTER.liquidate(
-      stack2,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder1 = ASTARIA_ROUTER.liquidate(stack1);
+    OrderParameters memory listedOrder2 = ASTARIA_ROUTER.liquidate(stack2);
 
     //TODO: figure out how to do multiple bids here properly
 
@@ -252,9 +240,9 @@ contract WithdrawTest is TestHelpers {
 
     ILienToken.Details memory lien1 = standardLienDetails;
     lien1.duration = 13 days; // will set payee to WithdrawProxy
-    ILienToken.Stack[][] memory stacks = new ILienToken.Stack[][](2);
-    uint256[][] memory liens = new uint256[][](2);
+    uint256[] memory liens = new uint256[](2);
 
+    ILienToken.Stack[] memory stacks = new ILienToken.Stack[](2); // hold multiple loans
     (liens[0], stacks[0]) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
@@ -262,8 +250,7 @@ contract WithdrawTest is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId1,
       lienDetails: lien1,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     ILienToken.Details memory lien2 = standardLienDetails;
@@ -275,8 +262,7 @@ contract WithdrawTest is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId2,
       lienDetails: lien2,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     _warpToEpochEnd(publicVault);
@@ -289,15 +275,12 @@ contract WithdrawTest is TestHelpers {
     );
     PublicVault(publicVault).processEpoch();
 
-    OrderParameters memory listedOrder1 = ASTARIA_ROUTER.liquidate(
-      stacks[0],
-      uint8(0)
-    );
+    OrderParameters memory listedOrder1 = ASTARIA_ROUTER.liquidate(stacks[0]);
 
     WithdrawProxy withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
-      LIEN_TOKEN.getPayee(liens[0][0]),
+      LIEN_TOKEN.getPayee(liens[0]),
       address(withdrawProxy1),
       "First lien not pointing to first WithdrawProxy"
     );
@@ -309,15 +292,12 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + 14 days);
 
-    OrderParameters memory listedOrder2 = ASTARIA_ROUTER.liquidate(
-      stacks[1],
-      uint8(0)
-    );
+    OrderParameters memory listedOrder2 = ASTARIA_ROUTER.liquidate(stacks[1]);
 
     WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
 
     assertEq(
-      LIEN_TOKEN.getPayee(liens[1][0]),
+      LIEN_TOKEN.getPayee(liens[1]),
       address(withdrawProxy2),
       "Second lien not pointing to second WithdrawProxy"
     );
@@ -421,15 +401,14 @@ contract WithdrawTest is TestHelpers {
     ILienToken.Details memory lien1 = standardLienDetails;
     lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
     lien1.maxAmount = 100 ether;
-    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+    (uint256 liens, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lien1,
-      amount: 100 ether,
-      isFirstLien: true
+      amount: 100 ether
     });
 
     assertEq(
@@ -457,10 +436,7 @@ contract WithdrawTest is TestHelpers {
     _warpToEpochEnd(publicVault);
 
     uint256 collateralId = tokenContract.computeId(tokenId);
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
     _bid(Bidder(bidder, bidderPK), listedOrder, 150 ether);
 
     assertEq(
@@ -590,15 +566,14 @@ contract WithdrawTest is TestHelpers {
     lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
     lien1.maxAmount = 75 ether;
     lien1.rate = 1;
-    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+    (uint256 liens, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lien1,
-      amount: 75 ether,
-      isFirstLien: true
+      amount: 75 ether
     });
 
     _warpToEpochEnd(publicVault);
@@ -614,10 +589,7 @@ contract WithdrawTest is TestHelpers {
 
     _warpToEpochEnd(publicVault);
     uint256 collateralId = tokenContract.computeId(tokenId);
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
     _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether);
 
     PublicVault(publicVault).transferWithdrawReserve();
@@ -636,7 +608,11 @@ contract WithdrawTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertEq(WETH9.balanceOf(address(1)), 50000000000053364679, "Incorrect LP 1 WETH balance");
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50000000000053364679,
+      "Incorrect LP 1 WETH balance"
+    );
 
     address withdrawProxy2 = address(
       PublicVault(publicVault).getWithdrawProxy(1)
@@ -651,7 +627,11 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(address(2)), 35000000000100859377, "Incorrect LP 2 WETH balance");
+    assertEq(
+      WETH9.balanceOf(address(2)),
+      35000000000100859377,
+      "Incorrect LP 2 WETH balance"
+    );
   }
 
   function testMultipleWithdrawsLiquidationUnderbid() public {
@@ -684,15 +664,14 @@ contract WithdrawTest is TestHelpers {
     lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
     lien1.maxAmount = 75 ether;
     lien1.rate = 1;
-    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+    (uint256 liens, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lien1,
-      amount: 75 ether,
-      isFirstLien: true
+      amount: 75 ether
     });
 
     _warpToEpochEnd(publicVault);
@@ -708,10 +687,7 @@ contract WithdrawTest is TestHelpers {
 
     _warpToEpochEnd(publicVault);
     uint256 collateralId = tokenContract.computeId(tokenId);
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
     _bid(Bidder(bidder, bidderPK), listedOrder, 50 ether);
 
     PublicVault(publicVault).transferWithdrawReserve();
@@ -743,8 +719,11 @@ contract WithdrawTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertEq(WETH9.balanceOf(address(1)), 50000000000053364679, "Incorrect LP 1 WETH balance");
-
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50000000000053364679,
+      "Incorrect LP 1 WETH balance"
+    );
 
     WithdrawProxy(withdrawProxy2).claim();
 
@@ -756,7 +735,11 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(address(2)), 11775231481447897052, "Incorrect LP 2 WETH balance");
+    assertEq(
+      WETH9.balanceOf(address(2)),
+      11775231481447897052,
+      "Incorrect LP 2 WETH balance"
+    );
   }
 
   function testFullWithdrawsOverbid() public {
@@ -783,15 +766,14 @@ contract WithdrawTest is TestHelpers {
     lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
     lien1.maxAmount = 50 ether;
     lien1.rate = 1;
-    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+    (uint256 liens, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lien1,
-      amount: 50 ether,
-      isFirstLien: true
+      amount: 50 ether
     });
 
     _warpToEpochEnd(publicVault);
@@ -799,10 +781,7 @@ contract WithdrawTest is TestHelpers {
 
     _warpToEpochEnd(publicVault);
     uint256 collateralId = tokenContract.computeId(tokenId);
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
     _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether);
 
     PublicVault(publicVault).transferWithdrawReserve();
@@ -822,7 +801,11 @@ contract WithdrawTest is TestHelpers {
     );
     vm.stopPrank();
 
-    assertEq(WETH9.balanceOf(address(1)), 50000000000060480050, "Incorrect LP 1 WETH balance");
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50000000000060480050,
+      "Incorrect LP 1 WETH balance"
+    );
   }
 
   function testFullWithdrawsUnderbid() public {
@@ -849,15 +832,14 @@ contract WithdrawTest is TestHelpers {
     lien1.duration = 28 days; // payee will be set to WithdrawProxy at liquidation
     lien1.maxAmount = 50 ether;
     lien1.rate = 1;
-    (uint256[] memory liens, ILienToken.Stack[] memory stack) = _commitToLien({
+    (uint256 liens, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lien1,
-      amount: 50 ether,
-      isFirstLien: true
+      amount: 50 ether
     });
 
     _warpToEpochEnd(publicVault);
@@ -866,10 +848,7 @@ contract WithdrawTest is TestHelpers {
 
     _warpToEpochEnd(publicVault);
     uint256 collateralId = tokenContract.computeId(tokenId);
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
     _bid(Bidder(bidder, bidderPK), listedOrder, 25 ether);
 
     PublicVault(publicVault).transferWithdrawReserve();
@@ -885,7 +864,11 @@ contract WithdrawTest is TestHelpers {
       address(1)
     );
     vm.stopPrank();
-    assertEq(WETH9.balanceOf(address(1)), 20071759259259260090, "Incorrect LP 1 WETH balance");
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      20071759259259260090,
+      "Incorrect LP 1 WETH balance"
+    );
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -921,8 +904,8 @@ contract WithdrawTest is TestHelpers {
       publicVault
     );
     _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
-    uint256[][] memory liens = new uint256[][](2);
-    ILienToken.Stack[][] memory stacks = new ILienToken.Stack[][](2);
+    uint256[] memory liens = new uint256[](2);
+    ILienToken.Stack[] memory stacks = new ILienToken.Stack[](2);
 
     (liens[0], stacks[0]) = _commitToLien({
       vault: publicVault,
@@ -931,8 +914,7 @@ contract WithdrawTest is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId1,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     (liens[1], stacks[1]) = _commitToLien({
@@ -942,17 +924,13 @@ contract WithdrawTest is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId2,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     _warpToEpochEnd(publicVault);
 
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
-    OrderParameters memory listedOrder1 = ASTARIA_ROUTER.liquidate(
-      stacks[0],
-      uint8(0)
-    );
+    OrderParameters memory listedOrder1 = ASTARIA_ROUTER.liquidate(stacks[0]);
 
     _bid(Bidder(bidder, bidderPK), listedOrder1, 10000 ether);
 
@@ -967,10 +945,7 @@ contract WithdrawTest is TestHelpers {
     withdrawProxy.claim();
 
     uint256 collateralId2 = tokenContract.computeId(tokenId2);
-    OrderParameters memory listedOrder2 = ASTARIA_ROUTER.liquidate(
-      stacks[1],
-      uint8(0)
-    );
+    OrderParameters memory listedOrder2 = ASTARIA_ROUTER.liquidate(stacks[1]);
     _bid(Bidder(bidder, bidderPK), listedOrder2, 10000 ether);
 
     vm.expectRevert(
@@ -1038,8 +1013,8 @@ contract WithdrawTest is TestHelpers {
     );
     uint256 initialVaultSupply = PublicVault(publicVault).totalSupply();
     _signalWithdrawAtFutureEpoch(address(1), publicVault, 0);
-    uint256[][] memory liens = new uint256[][](2);
-    ILienToken.Stack[][] memory stacks = new ILienToken.Stack[][](2);
+    uint256[] memory liens = new uint256[](2);
+    ILienToken.Stack[] memory stacks = new ILienToken.Stack[](2);
     (liens[0], stacks[0]) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
@@ -1047,11 +1022,10 @@ contract WithdrawTest is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId1,
       lienDetails: standardLienDetails,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
-    _repay(stacks[0], 0, 10 ether, address(this));
+    _repay(stacks[0], 10 ether, address(this));
 
     _warpToEpochEnd(publicVault);
 
@@ -1104,8 +1078,7 @@ contract WithdrawTest is TestHelpers {
       tokenContract: tokenContract,
       tokenId: tokenId2,
       lienDetails: lien2,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     vm.warp(
@@ -1114,7 +1087,7 @@ contract WithdrawTest is TestHelpers {
       ) - 1
     );
 
-    _repay(stacks[1], 0, 10575342465745600000, address(this)); // TODO update to precise val
+    _repay(stacks[1], 10575342465745600000, address(this)); // TODO update to precise val
     assertEq(
       initialVaultSupply,
       PublicVault(publicVault).totalSupply(),
@@ -1190,29 +1163,25 @@ contract WithdrawTest is TestHelpers {
     details.duration = 13 days;
 
     // borrow 10 eth against the dummy NFT
-    (, ILienToken.Stack[] memory stack) = _commitToLien({
+    (, ILienToken.Stack memory stack) = _commitToLien({
       vault: publicVault,
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: details,
-      amount: 10 ether,
-      isFirstLien: true
+      amount: 10 ether
     });
 
     vm.warp(block.timestamp + 13 days);
     uint256 collateralId = tokenContract.computeId(tokenId);
     assertEq(
-      LIEN_TOKEN.getOwed(stack[0]),
+      LIEN_TOKEN.getOwed(stack),
       uint192(10534246575335200000),
       "Incorrect lien interest"
     );
 
-    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(
-      stack,
-      uint8(0)
-    );
+    OrderParameters memory listedOrder = ASTARIA_ROUTER.liquidate(stack);
 
     _bid(Bidder(bidder, bidderPK), listedOrder, 6.96 ether);
     WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);

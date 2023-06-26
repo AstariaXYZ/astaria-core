@@ -25,11 +25,8 @@ contract RepaymentHelper {
     transferProxy = _transferProxy;
   }
 
-  function makePayment(
-    uint256 collateralId,
-    ILienToken.Stack[] calldata stack
-  ) external payable returns (ILienToken.Stack[] memory newStack) {
-    uint256 owing = lienToken.getOwed(stack[0]);
+  function makePayment(ILienToken.Stack calldata stack) external payable {
+    uint256 owing = lienToken.getOwed(stack);
     if (owing > msg.value) {
       revert("not enough funds");
     }
@@ -37,7 +34,7 @@ contract RepaymentHelper {
     try WETH.deposit{value: owing}() {
       WETH.approve(transferProxy, owing);
       // make payment
-      newStack = lienToken.makePayment(collateralId, stack, owing);
+      lienToken.makePayment(stack);
       // check balance
       if (address(this).balance > 0) {
         // withdraw

@@ -333,73 +333,13 @@ abstract contract VaultImplementation is
   )
     external
     whenNotPaused
-    returns (uint256 lienId, ILienToken.Stack[] memory stack)
+    returns (uint256 lienId, ILienToken.Stack memory stack)
   {
     _beforeCommitToLien(params);
     uint256 slopeAddition;
     (lienId, stack, slopeAddition) = _requestLienAndIssuePayout(params);
-    _afterCommitToLien(
-      stack[stack.length - 1].point.end,
-      lienId,
-      slopeAddition
-    );
+    _afterCommitToLien(stack.point.end, lienId, slopeAddition);
   }
-
-  /**
-   * @notice Buy optimized-out a lien to replace it with new terms.
-   * @param position The position of the specified lien.
-   * @param incomingTerms The loan terms of the new lien.
-   */
-  function buyoutLien(
-    ILienToken.Stack[] calldata stack,
-    uint8 position,
-    IAstariaRouter.Commitment calldata incomingTerms
-  )
-    external
-    whenNotPaused
-    returns (ILienToken.Stack[] memory stacks, ILienToken.Stack memory newStack)
-  {
-    LienToken lienToken = LienToken(address(ROUTER().LIEN_TOKEN()));
-
-    (uint256 owed, uint256 buyout) = lienToken.getBuyout(stack[position]);
-
-    if (buyout > ERC20(asset()).balanceOf(address(this))) {
-      revert IVaultImplementation.InvalidRequest(
-        InvalidRequestReason.INSUFFICIENT_FUNDS
-      );
-    }
-    if (incomingTerms.lienRequest.strategy.vault != address(this)) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
-    }
-    _validateSignature(incomingTerms);
-
-    ERC20(asset()).safeApprove(address(ROUTER().TRANSFER_PROXY()), buyout);
-
-    ILienToken.BuyoutLienParams memory buyoutParams;
-
-    (stacks, newStack, buyoutParams) = lienToken.buyoutLien(
-      ILienToken.LienActionBuyout({
-        chargeable: (!_isPublicVault() &&
-          (msg.sender == owner() || msg.sender == _loadVISlot().delegate)),
-        position: position,
-        encumber: ILienToken.LienActionEncumber({
-          amount: owed,
-          receiver: recipient(),
-          lien: ROUTER().validateCommitment({
-            commitment: incomingTerms,
-            timeToSecondEpochEnd: _timeToSecondEndIfPublic()
-          }),
-          stack: stack
-        })
-      })
-    );
-
-    _handleReceiveBuyout(buyoutParams);
-  }
-
-  function _handleReceiveBuyout(
-    ILienToken.BuyoutLienParams memory buyoutParams
-  ) internal virtual {}
 
   function _timeToSecondEndIfPublic()
     internal
@@ -434,7 +374,7 @@ abstract contract VaultImplementation is
     IAstariaRouter.Commitment calldata c
   )
     internal
-    returns (uint256 newLienId, ILienToken.Stack[] memory stack, uint256 slope)
+    returns (uint256 newLienId, ILienToken.Stack memory stack, uint256 slope)
   {
     address receiver = _validateRequest(c);
     (newLienId, stack, slope) = ROUTER().requestLienPosition(c, recipient());

@@ -582,14 +582,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function afterPayment(uint256 computedSlope) public {
-    _onlyLienToken();
-
-    VaultData storage s = _loadStorageSlot();
-    s.slope += computedSlope;
-    emit SlopeUpdated(s.slope);
-  }
-
   /**
    * @notice After-deposit hook to update the yIntercept of the PublicVault to reflect a capital contribution.
    * @param assets The amount of assets deposited to the PublicVault.
@@ -628,44 +620,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       s.strategistUnclaimedShares += feeInShares;
       emit StrategistFee(feeInShares);
     }
-  }
-
-  function handleLoseLienToBuyout(
-    ILienToken.BuyoutLienParams calldata buyoutParams,
-    uint256 buyoutFeeIfAny
-  ) public {
-    VaultData storage s = _loadStorageSlot();
-    _onlyLienToken();
-    _accrue(s);
-    unchecked {
-      uint256 newSlope = s.slope - buyoutParams.lienSlope;
-      _setSlope(s, newSlope);
-      s.yIntercept += buyoutFeeIfAny;
-    }
-
-    _decreaseEpochLienCount(
-      s,
-      getLienEpoch(buyoutParams.lienEnd.safeCastTo64())
-    );
-    emit YInterceptChanged(s.yIntercept);
-  }
-
-  function _handleReceiveBuyout(
-    ILienToken.BuyoutLienParams memory buyoutParams
-  ) internal virtual override {
-    VaultData storage s = _loadStorageSlot();
-
-    _accrue(s);
-    if (s.withdrawReserve > uint256(0)) {
-      transferWithdrawReserve();
-    }
-    unchecked {
-      _setSlope(s, s.slope + buyoutParams.lienSlope);
-    }
-
-    _increaseOpenLiens(s, getLienEpoch(buyoutParams.lienEnd.safeCastTo64()));
-
-    emit YInterceptChanged(s.yIntercept);
   }
 
   function updateAfterLiquidationPayment(

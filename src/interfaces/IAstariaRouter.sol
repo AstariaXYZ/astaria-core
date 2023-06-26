@@ -103,7 +103,6 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   struct NewLienRequest {
     StrategyDetailsParam strategy;
-    ILienToken.Stack[] stack;
     bytes nlrDetails;
     MerkleData merkle;
     uint256 amount;
@@ -171,7 +170,7 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function commitToLiens(
     Commitment[] memory commitments
-  ) external returns (uint256[] memory, ILienToken.Stack[] memory);
+  ) external returns (uint256, ILienToken.Stack memory);
 
   /**
    * @notice Create a new lien against a CollateralToken.
@@ -181,7 +180,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   function requestLienPosition(
     IAstariaRouter.Commitment calldata params,
     address recipient
-  ) external returns (uint256, ILienToken.Stack[] memory, uint256);
+  ) external returns (uint256, ILienToken.Stack memory, uint256);
 
   function LIEN_TOKEN() external view returns (ILienToken);
 
@@ -209,12 +208,10 @@ interface IAstariaRouter is IPausable, IBeacon {
   /**
    * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
    * @param stack the stack being liquidated
-   * @param position The position of the defaulted lien.
    * @return reserve The amount owed on all liens for against the collateral being liquidated, including accrued interest.
    */
   function liquidate(
-    ILienToken.Stack[] calldata stack,
-    uint8 position
+    ILienToken.Stack calldata stack
   ) external returns (OrderParameters memory);
 
   /**
@@ -259,7 +256,7 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function getImpl(uint8 implType) external view returns (address impl);
 
-  event Liquidation(uint256 collateralId, uint256 position, address liquidator);
+  event Liquidation(uint256 collateralId, address liquidator);
   event NewVault(
     address strategist,
     address delegate,

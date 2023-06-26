@@ -48,7 +48,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     uint48 endTime;
     address liquidator;
     address token;
-    AuctionStack[] stack;
+    AuctionStack stack;
   }
 
   struct ClearingHouseStorage {
@@ -159,7 +159,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
     uint256 collateralId = COLLATERAL_ID();
     // pay liquidator fees here
 
-    AuctionStack[] storage stack = s.auctionData.stack;
+    AuctionStack memory stack = s.auctionData.stack;
 
     uint256 liquidatorPayment = ASTARIA_ROUTER.getLiquidatorFee(payment);
 
@@ -177,7 +177,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
       address(paymentToken),
       collateralId,
       payment,
-      s.auctionData.stack
+      stack
     );
 
     uint256 remainingBalance = paymentToken.balanceOf(address(this));

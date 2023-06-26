@@ -63,86 +63,86 @@ contract ForkedTesting is TestHelpers {
 
   //run with blocknumber 15919113
   //matic weth pair
-  function testClaimFeesAgainstV3Liquidity() public {
-    address tokenContract = V3_NFT_ADDRESS;
-    // fork mainnet on this block 15934974
-    uint256 tokenId = uint256(349999);
-    _hijackNFT(tokenContract, tokenId);
-
-    ClaimFees claimFees = new ClaimFees(V3_NFT_ADDRESS);
-
-    address privateVault = _createPrivateVault({
-      strategist: strategistOne,
-      delegate: strategistTwo
-    });
-
-    _lendToPrivateVault(
-      PrivateLender({
-        token: address(WETH9),
-        addr: strategistOne,
-        amountToLend: 50 ether
-      }),
-      privateVault
-    );
-    address[] memory assets;
-    {
-      (
-        ,
-        ,
-        address token0,
-        address token1,
-        uint24 fee,
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 liquidity,
-        ,
-        ,
-        uint128 tokensOwed0,
-        uint128 tokensOwed1
-      ) = IV3PositionManager(tokenContract).positions(tokenId);
-
-      assets = new address[](2);
-      assets[0] = token0;
-      assets[1] = token1;
-      _commitToV3Lien({
-        params: V3LienParams({
-          assets: assets,
-          fee: fee,
-          borrower: address(0),
-          tickLower: tickLower,
-          tickUpper: tickUpper,
-          liquidity: liquidity,
-          strategist: strategistOne,
-          strategistPK: strategistOnePK,
-          tokenContract: tokenContract,
-          amount0Min: tokensOwed0,
-          amount1Min: tokensOwed1,
-          tokenId: tokenId,
-          details: standardLienDetails
-        }),
-        vault: privateVault,
-        amount: 10 ether,
-        stack: new ILienToken.Stack[](0),
-        isFirstLien: true
-      });
-    }
-
-    COLLATERAL_TOKEN.file(
-      ICollateralToken.File(
-        ICollateralToken.FileType.FlashEnabled,
-        abi.encode(V3_NFT_ADDRESS, true)
-      )
-    );
-
-    uint256 balance0Before = IERC20(assets[0]).balanceOf(address(this));
-    uint256 balance1Before = IERC20(assets[1]).balanceOf(address(this));
-
-    COLLATERAL_TOKEN.flashAction(
-      IFlashAction(claimFees),
-      tokenContract.computeId(tokenId),
-      abi.encode(address(this))
-    );
-    assert(IERC20(assets[0]).balanceOf(address(this)) > balance0Before);
-    assert(IERC20(assets[1]).balanceOf(address(this)) > balance1Before);
-  }
+  //  function testClaimFeesAgainstV3Liquidity() public {
+  //    address tokenContract = V3_NFT_ADDRESS;
+  //    // fork mainnet on this block 15934974
+  //    uint256 tokenId = uint256(349999);
+  //    _hijackNFT(tokenContract, tokenId);
+  //
+  //    ClaimFees claimFees = new ClaimFees(V3_NFT_ADDRESS);
+  //
+  //    address privateVault = _createPrivateVault({
+  //      strategist: strategistOne,
+  //      delegate: strategistTwo
+  //    });
+  //
+  //    _lendToPrivateVault(
+  //      PrivateLender({
+  //        token: address(WETH9),
+  //        addr: strategistOne,
+  //        amountToLend: 50 ether
+  //      }),
+  //      privateVault
+  //    );
+  //    address[] memory assets;
+  //    {
+  //      (
+  //        ,
+  //        ,
+  //        address token0,
+  //        address token1,
+  //        uint24 fee,
+  //        int24 tickLower,
+  //        int24 tickUpper,
+  //        uint128 liquidity,
+  //        ,
+  //        ,
+  //        uint128 tokensOwed0,
+  //        uint128 tokensOwed1
+  //      ) = IV3PositionManager(tokenContract).positions(tokenId);
+  //
+  //      assets = new address[](2);
+  //      assets[0] = token0;
+  //      assets[1] = token1;
+  //      _commitToV3Lien({
+  //        params: V3LienParams({
+  //          assets: assets,
+  //          fee: fee,
+  //          borrower: address(0),
+  //          tickLower: tickLower,
+  //          tickUpper: tickUpper,
+  //          liquidity: liquidity,
+  //          strategist: strategistOne,
+  //          strategistPK: strategistOnePK,
+  //          tokenContract: tokenContract,
+  //          amount0Min: tokensOwed0,
+  //          amount1Min: tokensOwed1,
+  //          tokenId: tokenId,
+  //          details: standardLienDetails
+  //        }),
+  //        vault: privateVault,
+  //        amount: 10 ether,
+  //        stack: new ILienToken.Stack(0),
+  //        isFirstLien: true
+  //      });
+  //    }
+  //
+  //    COLLATERAL_TOKEN.file(
+  //      ICollateralToken.File(
+  //        ICollateralToken.FileType.FlashEnabled,
+  //        abi.encode(V3_NFT_ADDRESS, true)
+  //      )
+  //    );
+  //
+  //    uint256 balance0Before = IERC20(assets[0]).balanceOf(address(this));
+  //    uint256 balance1Before = IERC20(assets[1]).balanceOf(address(this));
+  //
+  //    COLLATERAL_TOKEN.flashAction(
+  //      IFlashAction(claimFees),
+  //      tokenContract.computeId(tokenId),
+  //      abi.encode(address(this))
+  //    );
+  //    assert(IERC20(assets[0]).balanceOf(address(this)) > balance0Before);
+  //    assert(IERC20(assets[1]).balanceOf(address(this)) > balance1Before);
+  //  }
 }

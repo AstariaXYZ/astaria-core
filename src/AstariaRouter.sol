@@ -469,32 +469,20 @@ contract AstariaRouter is
   )
     public
     whenNotPaused
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory stack)
+    returns (uint256 lienId, ILienToken.Stack memory stack)
   {
     RouterStorage storage s = _loadRouterSlot();
 
-    uint256 totalBorrowed;
-    lienIds = new uint256[](commitments.length);
     _transferAndDepositAssetIfAble(
       s,
       commitments[0].tokenContract,
       commitments[0].tokenId
     );
 
-    uint256 i;
-    for (; i < commitments.length; ) {
-      if (i != 0) {
-        commitments[i].lienRequest.stack = stack;
-      }
-      (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
-      totalBorrowed += stack[stack.length - 1].point.amount;
-      unchecked {
-        ++i;
-      }
-    }
+    (lienId, stack) = _executeCommitment(s, commitments[0]);
 
     ERC20(IAstariaVaultBase(commitments[0].lienRequest.strategy.vault).asset())
-      .safeTransfer(msg.sender, totalBorrowed);
+      .safeTransfer(msg.sender, stack.point.amount);
   }
 
   function newVault(
@@ -562,7 +550,7 @@ contract AstariaRouter is
     external
     whenNotPaused
     validVault(msg.sender)
-    returns (uint256, ILienToken.Stack[] memory, uint256)
+    returns (uint256, ILienToken.Stack memory, uint256)
   {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -579,7 +567,6 @@ contract AstariaRouter is
               : 0
           }),
           amount: params.lienRequest.amount,
-          stack: params.lienRequest.stack,
           receiver: receiver
         })
       );
@@ -588,15 +575,13 @@ contract AstariaRouter is
   function canLiquidate(
     ILienToken.Stack memory stack
   ) public view returns (bool) {
-    RouterStorage storage s = _loadRouterSlot();
     return (stack.point.end <= block.timestamp);
   }
 
   function liquidate(
-    ILienToken.Stack[] memory stack,
-    uint8 position
+    ILienToken.Stack memory stack
   ) public whenNotPaused returns (OrderParameters memory listedOrder) {
-    if (!canLiquidate(stack[position])) {
+    if (!canLiquidate(stack)) {
       revert InvalidLienState(LienState.HEALTHY);
     }
 
@@ -604,18 +589,19 @@ contract AstariaRouter is
     uint256 auctionWindowMax = s.auctionWindow;
 
     s.LIEN_TOKEN.stopLiens(
-      stack[position].lien.collateralId,
+      stack.lien.collateralId,
       auctionWindowMax,
       stack,
       msg.sender
     );
-    emit Liquidation(stack[position].lien.collateralId, position, msg.sender);
+
+    emit Liquidation(stack.lien.collateralId, msg.sender);
     listedOrder = s.COLLATERAL_TOKEN.auctionVault(
       ICollateralToken.AuctionVaultParams({
-        settlementToken: stack[position].lien.token,
-        collateralId: stack[position].lien.collateralId,
+        settlementToken: stack.lien.token,
+        collateralId: stack.lien.collateralId,
         maxDuration: auctionWindowMax,
-        startingPrice: stack[0].lien.details.liquidationInitialAsk,
+        startingPrice: stack.lien.details.liquidationInitialAsk,
         endingPrice: 1_000 wei
       })
     );
@@ -708,12 +694,13 @@ contract AstariaRouter is
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment memory c
-  ) internal returns (uint256, ILienToken.Stack[] memory stack) {
+  ) internal returns (uint256, ILienToken.Stack memory stack) {
     uint256 collateralId = c.tokenContract.computeId(c.tokenId);
 
     if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
       revert InvalidSenderForCollateral(msg.sender, collateralId);
     }
+
     if (!s.vaults[c.lienRequest.strategy.vault]) {
       revert InvalidVault(c.lienRequest.strategy.vault);
     }

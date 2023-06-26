@@ -90,12 +90,6 @@ interface IPublicVault is IVaultImplementation {
   function getLienEpoch(uint64 end) external view returns (uint64);
 
   /**
-   * @notice Hook to recalculate the slope of a lien after a payment has been made.
-   * @param computedSlope The ID of the lien.
-   */
-  function afterPayment(uint256 computedSlope) external;
-
-  /**
    * @notice Mints earned fees by the strategist to the strategist address.
    */
   function claim() external;
@@ -135,16 +129,6 @@ interface IPublicVault is IVaultImplementation {
    * return the current epoch
    */
   function getCurrentEpoch() external view returns (uint64);
-
-  /**
-   * Hook to update the PublicVault's slope, YIntercept, and last timestamp when a LienToken is bought out. Also decreases the active lien count for the lien's expiring epoch.
-   * @param buyoutParams The lien buyout parameters (lienSlope, lienEnd, and yInterceptChange)
-   * @param buyoutFeeIfAny The buyout fee if the target vault is a PrivateVault and the lien is being bought out before feeDurationCap has passed.
-   */
-  function handleLoseLienToBuyout(
-    ILienToken.BuyoutLienParams calldata buyoutParams,
-    uint256 buyoutFeeIfAny
-  ) external;
 
   /**
    * Hook to update the PublicVault owner of a LienToken when it is sent to liquidation.

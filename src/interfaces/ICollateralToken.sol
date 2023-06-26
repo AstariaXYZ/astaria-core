@@ -68,7 +68,7 @@ interface ICollateralToken is IERC721 {
   }
 
   struct ListUnderlyingForSaleParams {
-    ILienToken.Stack[] stack;
+    ILienToken.Stack stack;
     uint256 listPrice;
     uint56 maxDuration;
   }

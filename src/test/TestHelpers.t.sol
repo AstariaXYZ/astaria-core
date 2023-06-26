@@ -344,7 +344,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function setupLiquidation(
     address borrower
-  ) public returns (address publicVault, ILienToken.Stack[] memory stack) {
+  ) public returns (address publicVault, ILienToken.Stack memory stack) {
     TestNFT nft = new TestNFT(0);
     _mintNoDepositApproveRouterSpecific(borrower, address(nft), 99);
     address tokenContract = address(nft);
@@ -377,8 +377,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lien,
-      amount: 50 ether,
-      isFirstLien: true
+      amount: 50 ether
     });
     vm.stopPrank();
 
@@ -390,7 +389,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 royaltyPercentage,
     uint256 liquidatorPercentage,
     uint256 lenderAmountOwed
-  ) public returns (Fees memory fees) {
+  ) public pure returns (Fees memory fees) {
     uint256 remainder = bid;
     fees = Fees({
       liquidator: bid.mulDivDown(liquidatorPercentage, 1e18),
@@ -556,9 +555,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address tokenContract, // original NFT address
     uint256 tokenId, // original NFT id
     ILienToken.Details memory lienDetails, // loan information
-    uint256 amount, // requested amount
-    bool isFirstLien
-  ) internal returns (uint256[] memory, ILienToken.Stack[] memory stack) {
+    uint256 amount // requested amount
+  ) internal returns (uint256, ILienToken.Stack memory stack) {
     return
       _commitToLien({
         vault: vault,
@@ -568,8 +566,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
         tokenId: tokenId,
         lienDetails: lienDetails,
         amount: amount,
-        isFirstLien: isFirstLien,
-        stack: new ILienToken.Stack[](0),
         revertMessage: new bytes(0)
       });
   }
@@ -577,15 +573,12 @@ contract TestHelpers is Deploy, ConsiderationTester {
   function _executeCommitments(
     IAstariaRouter.Commitment[] memory commitments,
     bytes memory revertMessage
-  )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
-  {
+  ) internal returns (uint256 lienId, ILienToken.Stack memory newStack) {
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
     if (revertMessage.length > 0) {
       vm.expectRevert(revertMessage);
     }
-    (lienIds, newStack) = ASTARIA_ROUTER.commitToLiens(commitments);
+    (lienId, newStack) = ASTARIA_ROUTER.commitToLiens(commitments);
   }
 
   struct V3LienParams {
@@ -607,26 +600,18 @@ contract TestHelpers is Deploy, ConsiderationTester {
   function _commitToV3Lien(
     V3LienParams memory params,
     address vault,
-    uint256 amount,
-    ILienToken.Stack[] memory stack,
-    bool isFirstLien
-  )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
-  {
+    uint256 amount
+  ) internal returns (uint256 lienId, ILienToken.Stack memory newStack) {
     IAstariaRouter.Commitment memory terms = _generateValidV3Terms({
       params: params,
       amount: amount,
-      vault: vault,
-      stack: stack
+      vault: vault
     });
 
-    if (isFirstLien) {
-      ERC721(params.tokenContract).setApprovalForAll(
-        address(ASTARIA_ROUTER),
-        true
-      );
-    }
+    ERC721(params.tokenContract).setApprovalForAll(
+      address(ASTARIA_ROUTER),
+      true
+    );
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
@@ -645,42 +630,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 tokenId, // original NFT id
     ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
-    bool isFirstLien,
-    ILienToken.Stack[] memory stack
-  )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
-  {
-    return
-      _commitToLien({
-        vault: vault,
-        strategist: strategist,
-        strategistPK: strategistPK,
-        tokenContract: tokenContract,
-        tokenId: tokenId,
-        lienDetails: lienDetails,
-        amount: amount,
-        isFirstLien: isFirstLien,
-        stack: stack,
-        revertMessage: new bytes(0)
-      });
-  }
-
-  function _commitToLien(
-    address vault, // address of deployed Vault
-    address strategist,
-    uint256 strategistPK,
-    address tokenContract, // original NFT address
-    uint256 tokenId, // original NFT id
-    ILienToken.Details memory lienDetails, // loan information
-    uint256 amount, // requested amount
-    bool isFirstLien,
-    ILienToken.Stack[] memory stack,
     bytes memory revertMessage
-  )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
-  {
+  ) internal returns (uint256 lienId, ILienToken.Stack memory newStack) {
     return
       _commitToLien({
         vault: vault,
@@ -690,8 +641,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
         tokenId: tokenId,
         lienDetails: lienDetails,
         amount: amount,
-        isFirstLien: isFirstLien,
-        stack: stack,
         revertMessage: revertMessage,
         beforeExecution: this.beforeExecutionMock
       });
@@ -707,14 +656,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 tokenId, // original NFT id
     ILienToken.Details memory lienDetails, // loan information
     uint256 amount, // requested amount
-    bool isFirstLien,
-    ILienToken.Stack[] memory stack,
     bytes memory revertMessage,
     function() external beforeExecution
-  )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
-  {
+  ) internal returns (uint256 lienId, ILienToken.Stack memory newStack) {
     IAstariaRouter.Commitment memory terms = _generateValidTerms({
       vault: vault,
       strategist: strategist,
@@ -722,13 +666,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
       tokenContract: tokenContract,
       tokenId: tokenId,
       lienDetails: lienDetails,
-      amount: amount,
-      stack: stack
+      amount: amount
     });
 
-    if (isFirstLien) {
-      ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
-    }
+    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
     IAstariaRouter.Commitment[]
       memory commitments = new IAstariaRouter.Commitment[](1);
     commitments[0] = terms;
@@ -765,8 +706,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   function _generateValidV3Terms(
     V3LienParams memory params,
     uint256 amount, // requested amount
-    address vault,
-    ILienToken.Stack[] memory stack
+    address vault
   ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUNI_V3Validator.Details({
@@ -815,8 +755,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
           strategyDetails: strategyDetails,
           validatorDetails: validatorDetails,
           amount: amount,
-          merkleProof: merkleProof,
-          stack: stack
+          merkleProof: merkleProof
         })
       );
   }
@@ -828,8 +767,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address tokenContract, // original NFT address
     uint256 tokenId, // original NFT id
     ILienToken.Details memory lienDetails, // loan information
-    uint256 amount, // requested amount
-    ILienToken.Stack[] memory stack
+    uint256 amount // requested amount
   ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUniqueValidator.Details({
@@ -871,8 +809,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
           validatorDetails: validatorDetails,
           nlrType: uint8(IAstariaRouter.LienRequestType.UNIQUE),
           amount: amount,
-          merkleProof: merkleProof,
-          stack: stack
+          merkleProof: merkleProof
         })
       );
   }
@@ -884,7 +821,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
     bytes32 rootHash;
     uint256 pk;
     IAstariaRouter.StrategyDetailsParam strategyDetails;
-    ILienToken.Stack[] stack;
     bytes validatorDetails;
     uint8 nlrType;
     bytes32[] merkleProof;
@@ -926,7 +862,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
             root: params.rootHash,
             proof: params.merkleProof
           }),
-          stack: params.stack,
           amount: params.amount,
           v: v,
           r: r,
@@ -994,47 +929,35 @@ contract TestHelpers is Deploy, ConsiderationTester {
   }
 
   function _repay(
-    ILienToken.Stack[] memory stack,
-    uint8 position,
+    ILienToken.Stack memory stack,
     uint256 amount,
     address payer
-  ) internal returns (ILienToken.Stack[] memory newStack) {
+  ) internal returns (ILienToken.Stack memory newStack) {
     vm.startPrank(payer);
-    if (stack[0].lien.token == address(WETH9)) {
+    if (stack.lien.token == address(WETH9)) {
       vm.deal(payer, amount * 3);
       WETH9.deposit{value: amount * 2}();
       WETH9.approve(address(TRANSFER_PROXY), amount * 2);
       WETH9.approve(address(LIEN_TOKEN), amount * 2);
     } else {
-      ERC20(stack[0].lien.token).approve(address(TRANSFER_PROXY), amount);
+      ERC20(stack.lien.token).approve(address(TRANSFER_PROXY), amount);
     }
 
-    newStack = LIEN_TOKEN.makePayment(
-      stack[position].lien.collateralId,
-      stack,
-      position,
-      amount
-    );
+    LIEN_TOKEN.makePayment(stack);
     vm.stopPrank();
   }
 
   function _pay(
-    ILienToken.Stack[] memory stack,
-    uint8 position,
+    ILienToken.Stack memory stack,
     uint256 amount,
     address payer
-  ) internal returns (ILienToken.Stack[] memory newStack) {
+  ) internal {
     vm.deal(payer, amount);
     vm.startPrank(payer);
     WETH9.deposit{value: amount}();
     WETH9.approve(address(TRANSFER_PROXY), amount);
     WETH9.approve(address(LIEN_TOKEN), amount);
-    newStack = LIEN_TOKEN.makePayment(
-      stack[0].lien.collateralId,
-      stack,
-      position,
-      amount
-    );
+    LIEN_TOKEN.makePayment(stack);
     vm.stopPrank();
   }
 
@@ -1348,39 +1271,5 @@ contract TestHelpers is Deploy, ConsiderationTester {
     );
     ERC20(address(withdrawProxy)).safeApprove(address(this), type(uint256).max);
     vm.stopPrank();
-  }
-
-  function _commitToLiensSameCollateral(
-    address[] memory vaults, // address of deployed Vault
-    address strategist,
-    uint256 strategistPK,
-    address tokenContract, // original NFT address
-    uint256 tokenId, // original NFT id
-    ILienToken.Details[] memory lienDetails // loan information
-  )
-    internal
-    returns (uint256[] memory lienIds, ILienToken.Stack[] memory newStack)
-  {
-    require(vaults.length == lienDetails.length, "vaults not equal to liens");
-
-    IAstariaRouter.Commitment[]
-      memory commitments = new IAstariaRouter.Commitment[](vaults.length);
-    ILienToken.Stack[] memory stack = new ILienToken.Stack[](0);
-    for (uint256 i; i < vaults.length; i++) {
-      commitments[i] = _generateValidTerms({
-        vault: vaults[i],
-        strategist: strategist,
-        strategistPK: strategistPK,
-        tokenContract: tokenContract,
-        tokenId: tokenId,
-        lienDetails: lienDetails[i],
-        amount: (i + 1) * 1 ether,
-        stack: stack
-      });
-    }
-
-    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
-    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
-    return ASTARIA_ROUTER.commitToLiens(commitments);
   }
 }

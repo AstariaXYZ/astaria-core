@@ -31,7 +31,6 @@ import {ERC721} from "gpl/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
-import {ZoneInterface} from "seaport/interfaces/ZoneInterface.sol";
 import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {
   Create2ClonesWithImmutableArgs
@@ -64,8 +63,7 @@ contract CollateralToken is
   AuthInitializable,
   ERC721,
   IERC721Receiver,
-  ICollateralToken,
-  ZoneInterface
+  ICollateralToken
 {
   using SafeTransferLib for ERC20;
   using CollateralLookup for address;
@@ -166,34 +164,6 @@ contract CollateralToken is
     assembly {
       s.slot := slot
     }
-  }
-
-  function isValidOrder(
-    bytes32 orderHash,
-    address caller,
-    address offerer,
-    bytes32 zoneHash
-  ) external view returns (bytes4 validOrderMagicValue) {
-    CollateralStorage storage s = _loadCollateralSlot();
-    return
-      s.collateralIdToAuction[uint256(zoneHash)] == orderHash
-        ? ZoneInterface.isValidOrder.selector
-        : bytes4(0xffffffff);
-  }
-
-  // Called by Consideration whenever any extraData is provided by the caller.
-  function isValidOrderIncludingExtraData(
-    bytes32 orderHash,
-    address caller,
-    AdvancedOrder calldata order,
-    bytes32[] calldata priorOrderHashes,
-    CriteriaResolver[] calldata criteriaResolvers
-  ) external view returns (bytes4 validOrderMagicValue) {
-    CollateralStorage storage s = _loadCollateralSlot();
-    return
-      s.collateralIdToAuction[uint256(order.parameters.zoneHash)] == orderHash
-        ? ZoneInterface.isValidOrder.selector
-        : bytes4(0xffffffff);
   }
 
   function supportsInterface(
@@ -440,7 +410,7 @@ contract CollateralToken is
     uint256 collateralId,
     uint256[] memory prices,
     uint256 maxDuration
-  ) internal returns (OrderParameters memory orderParameters) {
+  ) internal view returns (OrderParameters memory orderParameters) {
     OfferItem[] memory offer = new OfferItem[](1);
 
     Asset memory underlying = s.idToUnderlying[collateralId];
@@ -473,19 +443,19 @@ contract CollateralToken is
 
     orderParameters = OrderParameters({
       offerer: s.idToUnderlying[collateralId].clearingHouse,
-      zone: address(this), // 0x20
+      zone: address(0),
       offer: offer,
       consideration: considerationItems,
       orderType: OrderType.FULL_OPEN,
       startTime: uint256(block.timestamp),
       endTime: uint256(block.timestamp + maxDuration),
-      zoneHash: bytes32(collateralId),
+      zoneHash: bytes32(0),
       salt: uint256(
         keccak256(
           abi.encodePacked(collateralId, uint256(blockhash(block.number - 1)))
         )
       ),
-      conduitKey: s.CONDUIT_KEY, // 0x120
+      conduitKey: s.CONDUIT_KEY,
       totalOriginalConsiderationItems: considerationItems.length
     });
   }
@@ -522,9 +492,6 @@ contract CollateralToken is
 
     if (listingOrder.parameters.conduitKey != s.CONDUIT_KEY) {
       revert InvalidConduitKey();
-    }
-    if (listingOrder.parameters.zone != address(this)) {
-      revert InvalidZone();
     }
 
     ClearingHouse(s.idToUnderlying[collateralId].clearingHouse).validateOrder(
