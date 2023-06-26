@@ -303,14 +303,24 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     }
 
     newLienId = uint256(keccak256(abi.encode(params.lien)));
+    uint40 lienEnd = (block.timestamp + params.lien.details.duration)
+      .safeCastTo40();
     Point memory point = Point({
       lienId: newLienId,
       amount: params.amount,
       last: block.timestamp.safeCastTo40(),
-      end: (block.timestamp + params.lien.details.duration).safeCastTo40()
+      end: lienEnd
     });
-    _safeMint(params.receiver, newLienId);
-    return (newLienId, Stack({lien: params.lien, point: point}));
+    //    IAstariaRouter.Commitment calldata params,
+    //    uint256 lienId,
+    //    uint40 lienEnd,
+    //    uint256 slopeAddition
+    newSlot = Stack({lien: params.lien, point: point});
+    _safeMint(
+      params.receiver,
+      newLienId,
+      abi.encode(newLienId, params.amount, lienEnd, calculateSlope(newSlot))
+    );
   }
 
   function payDebtViaClearingHouse(

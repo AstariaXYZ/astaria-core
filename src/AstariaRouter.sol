@@ -535,10 +535,6 @@ contract AstariaRouter is
   function _validateRequest(
     IAstariaRouter.Commitment calldata params
   ) internal view {
-    //    if (params.lienRequest.strategy.vault != address(this)) {
-    //      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
-    //    }
-
     uint256 collateralId = params.tokenContract.computeId(params.tokenId);
     ERC721 CT = ERC721(address(COLLATERAL_TOKEN()));
     address holder = CT.ownerOf(collateralId);
@@ -553,6 +549,14 @@ contract AstariaRouter is
 
     if (block.timestamp > params.lienRequest.strategy.deadline) {
       revert StrategyExpired();
+    }
+
+    if (
+      IVaultImplementation(params.lienRequest.strategy.vault).validateStrategy(
+        params.lienRequest
+      ) != IVaultImplementation.validateStrategy.selector
+    ) {
+      //      revert InvalidStrategy(c.lienRequest.strategy.vault);
     }
   }
 
@@ -783,8 +787,10 @@ contract AstariaRouter is
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
     //router must be approved for the collateral to take a loan,
-    uint256 slope;
-    (lienId, stack, slope) = s.LIEN_TOKEN.createLien(
+    //    uint256 slope;
+    _validateRequest(c);
+
+    (lienId, stack, ) = s.LIEN_TOKEN.createLien(
       ILienToken.LienActionEncumber({
         lien: _validateCommitment({
           s: s,
@@ -800,13 +806,12 @@ contract AstariaRouter is
     //    uint256 lienEnd,
     //    uint256 slopeAddition
 
-    _validateRequest(c);
-    IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
-      c,
-      lienId,
-      stack.point.end,
-      slope
-    );
+    //    IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
+    //      c,
+    //      lienId,
+    //      stack.point.end,
+    //      slope
+    //    );
   }
 
   function _transferAndDepositAssetIfAble(

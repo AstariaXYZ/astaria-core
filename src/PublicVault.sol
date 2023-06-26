@@ -39,6 +39,7 @@ import {Math} from "core/utils/Math.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
+import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 
 /*
  * @title PublicVault
@@ -436,18 +437,47 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
+  function onERC721Received(
+    address operator, // operator_
+    address from, // from_
+    uint256 tokenId, // tokenId_
+    bytes calldata data // data_
+  ) external virtual override returns (bytes4) {
+    if (
+      operator == address(ROUTER()) &&
+      msg.sender == address(ROUTER().LIEN_TOKEN())
+    ) {
+      VaultData storage s = _loadStorageSlot();
+      //    abi.encode(newLienId, params.amount, lienEnd, calculateSlope(newSlot))
+
+      (uint256 lienId, uint256 amount, uint40 lienEnd, uint256 lienSlope) = abi
+        .decode(data, (uint256, uint256, uint40, uint256));
+      if (s.withdrawReserve > uint256(0)) {
+        transferWithdrawReserve();
+      }
+      if (timeToEpochEnd() == uint256(0)) {
+        processEpoch();
+      }
+
+      _issuePayout(operator, amount);
+      _accrue(s);
+      unchecked {
+        uint256 newSlope = s.slope + lienSlope;
+        _setSlope(s, newSlope);
+      }
+
+      uint64 epoch = getLienEpoch(lienEnd);
+
+      _increaseOpenLiens(s, epoch);
+      emit LienOpen(lienId, epoch);
+    }
+
+    return IERC721Receiver.onERC721Received.selector;
+  }
+
   function _beforeCommitToLien(
     IAstariaRouter.Commitment calldata params
-  ) internal virtual override(VaultImplementation) {
-    VaultData storage s = _loadStorageSlot();
-
-    if (s.withdrawReserve > uint256(0)) {
-      transferWithdrawReserve();
-    }
-    if (timeToEpochEnd() == uint256(0)) {
-      processEpoch();
-    }
-  }
+  ) internal virtual override(VaultImplementation) {}
 
   function _loadStorageSlot() internal pure returns (VaultData storage s) {
     uint256 slot = PUBLIC_VAULT_SLOT;
@@ -468,16 +498,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     VaultData storage s = _loadStorageSlot();
 
     // increment slope for the new lien
-    _accrue(s);
-    unchecked {
-      uint256 newSlope = s.slope + lienSlope;
-      _setSlope(s, newSlope);
-    }
-
-    uint64 epoch = getLienEpoch(lienEnd);
-
-    _increaseOpenLiens(s, epoch);
-    emit LienOpen(lienId, epoch);
   }
 
   function accrue() public returns (uint256) {

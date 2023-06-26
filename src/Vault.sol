@@ -34,7 +34,22 @@ contract Vault is VaultImplementation {
     bytes calldata data
   ) external override returns (bytes4) {
     //send token to the owner
-    ERC721(msg.sender).safeTransferFrom(address(this), owner(), tokenId, data);
+    if (
+      operator == address(ROUTER()) &&
+      msg.sender == address(ROUTER().LIEN_TOKEN())
+    ) {
+      (uint256 lienId, uint256 amount, , ) = abi.decode(
+        data,
+        (uint256, uint256, uint40, uint256)
+      );
+      _issuePayout(operator, amount);
+      ERC721(msg.sender).safeTransferFrom(
+        address(this),
+        owner(),
+        tokenId,
+        data
+      );
+    }
     return this.onERC721Received.selector;
   }
 
