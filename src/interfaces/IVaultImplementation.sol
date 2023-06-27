@@ -83,13 +83,6 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
 
   function incrementNonce() external;
 
-  //  function commitToLien(
-  //    IAstariaRouter.Commitment calldata params,
-  //    uint256,
-  //    uint40,
-  //    uint256
-  //  ) external;
-
   function validateStrategy(
     IAstariaRouter.NewLienRequest calldata params
   ) external view returns (bytes4);
