@@ -479,18 +479,6 @@ contract AstariaRouter is
       commitments.tokenId
     );
 
-    // uint256 i;
-    // for (; i < commitments.length; ) {
-    //   if (i != 0) {
-    //     commitments[i].lienRequest.stack = stack;
-    //   }
-    //   (lienIds[i], stack) = _executeCommitment(s, commitments[i]);
-    //   totalBorrowed += stack[stack.length - 1].point.amount;
-    //   unchecked {
-    //     ++i;
-    //   }
-    // }
-
     (lienId, stack) = _executeCommitment(s, commitments);
 
     uint256 totalBorrowed = _handleProtocolFee(
@@ -615,35 +603,6 @@ contract AstariaRouter is
         allowList,
         depositCap
       );
-  }
-
-  function requestLienPosition(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
-  )
-    external
-    whenNotPaused
-    validVault(msg.sender)
-    returns (uint256, ILienToken.Stack memory, uint256)
-  {
-    //    RouterStorage storage s = _loadRouterSlot();
-    //
-    //    return
-    //      s.LIEN_TOKEN.createLien(
-    //        ILienToken.LienActionEncumber({
-    //          lien: _validateCommitment({
-    //            s: s,
-    //            commitment: params,
-    //            timeToSecondEpochEnd: IPublicVault(msg.sender).supportsInterface(
-    //              type(IPublicVault).interfaceId
-    //            )
-    //              ? IPublicVault(msg.sender).timeToSecondEpochEnd()
-    //              : 0
-    //          }),
-    //          amount: params.lienRequest.amount,
-    //          receiver: receiver
-    //        })
-    //      );
   }
 
   function canLiquidate(
@@ -785,8 +744,6 @@ contract AstariaRouter is
     if (!s.vaults[c.lienRequest.strategy.vault]) {
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
-    //router must be approved for the collateral to take a loan,
-    //    uint256 slope;
     _validateRequest(c);
 
     (lienId, stack, ) = s.LIEN_TOKEN.createLien(
@@ -801,16 +758,6 @@ contract AstariaRouter is
         receiver: c.lienRequest.strategy.vault
       })
     );
-    // uint256 lienId,
-    //    uint256 lienEnd,
-    //    uint256 slopeAddition
-
-    //    IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(
-    //      c,
-    //      lienId,
-    //      stack.point.end,
-    //      slope
-    //    );
   }
 
   function _transferAndDepositAssetIfAble(

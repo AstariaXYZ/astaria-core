@@ -448,7 +448,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       msg.sender == address(ROUTER().LIEN_TOKEN())
     ) {
       VaultData storage s = _loadStorageSlot();
-      //    abi.encode(newLienId, params.amount, lienEnd, calculateSlope(newSlot))
 
       (uint256 lienId, uint256 amount, uint40 lienEnd, uint256 lienSlope) = abi
         .decode(data, (uint256, uint256, uint40, uint256));
