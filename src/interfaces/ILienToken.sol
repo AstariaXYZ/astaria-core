@@ -57,7 +57,6 @@ interface ILienToken is IERC721 {
   }
 
   struct LienMeta {
-    address payee;
     bool atLiquidation;
   }
 
@@ -219,13 +218,6 @@ interface ILienToken is IERC721 {
   ) external view returns (address liquidator);
 
   /**
-   * @notice Retrieve the payee (address that receives payments and auction funds) for a specified Lien.
-   * @param lienId The ID of the Lien.
-   * @return The address of the payee for the Lien.
-   */
-  function getPayee(uint256 lienId) external view returns (address);
-
-  /**
    * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
    * @param file The incoming file to handle.
    */
@@ -242,7 +234,6 @@ interface ILienToken is IERC721 {
   );
 
   event Payment(uint256 indexed lienId, uint256 amount);
-  event PayeeChanged(uint256 indexed lienId, address indexed payee);
 
   error InvalidFileData();
   error UnsupportedFile();

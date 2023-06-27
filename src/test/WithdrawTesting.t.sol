@@ -280,7 +280,7 @@ contract WithdrawTest is TestHelpers {
     WithdrawProxy withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(0);
 
     assertEq(
-      LIEN_TOKEN.getPayee(liens[0]),
+      LIEN_TOKEN.ownerOf(liens[0]),
       address(withdrawProxy1),
       "First lien not pointing to first WithdrawProxy"
     );
@@ -297,7 +297,7 @@ contract WithdrawTest is TestHelpers {
     WithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(1);
 
     assertEq(
-      LIEN_TOKEN.getPayee(liens[1]),
+      LIEN_TOKEN.ownerOf(liens[1]),
       address(withdrawProxy2),
       "Second lien not pointing to second WithdrawProxy"
     );

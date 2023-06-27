@@ -43,7 +43,6 @@ interface IPublicVault is IVaultImplementation {
 
   struct AfterLiquidationParams {
     uint256 lienSlope;
-    uint256 newAmount;
     uint40 lienEnd;
   }
 

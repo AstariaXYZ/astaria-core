@@ -18,7 +18,7 @@ pragma experimental ABIEncoderV2;
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-import {ERC721} from "gpl/ERC721.sol";
+import {ERC721, ERC721TokenReceiver} from "gpl/ERC721.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
@@ -200,22 +200,26 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         amountOwed: owed
       });
     s.lienMeta[auctionStack.lienId].atLiquidation = true;
-
-    address payee = _getPayee(s, auctionStack.lienId);
-    if (_isPublicVault(s, payee)) {
+    address owner = ownerOf(auctionStack.lienId);
+    if (_isPublicVault(s, owner)) {
       // update the public vault state and get the liquidation accountant back if any
-      address withdrawProxyIfNearBoundary = IPublicVault(payee)
+      address withdrawProxyIfNearBoundary = IPublicVault(owner)
         .updateVaultAfterLiquidation(
           auctionWindow,
           IPublicVault.AfterLiquidationParams({
             lienSlope: calculateSlope(stack),
-            newAmount: owed,
             lienEnd: stack.point.end
           })
         );
 
       if (withdrawProxyIfNearBoundary != address(0)) {
-        _setPayee(s, auctionStack.lienId, withdrawProxyIfNearBoundary);
+        _safeTransferFromInLiquidation(
+          owner,
+          withdrawProxyIfNearBoundary,
+          stack.point.lienId,
+          owed,
+          auctionWindow
+        );
       }
     }
     s.collateralStateHash[collateralId] = ACTIVE_AUCTION;
@@ -255,8 +259,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     if (s.lienMeta[id].atLiquidation) {
       revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
     }
-    delete s.lienMeta[id].payee;
-    emit PayeeChanged(id, address(0));
     super.transferFrom(from, to, id);
   }
 
@@ -392,7 +394,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     uint256 end = stack.end;
     uint256 owing = stack.amountOwed;
     //checks the lien exists
-    address payee = _getPayee(s, lienId);
+    address owner = ownerOf(lienId);
     uint256 remaining = 0;
     if (owing > payment) {
       remaining = owing - payment;
@@ -406,12 +408,12 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
         token,
         payer,
-        payee,
+        owner,
         payment
       );
     }
-    if (_isPublicVault(s, payee)) {
-      IPublicVault(payee).updateAfterLiquidationPayment(
+    if (_isPublicVault(s, owner)) {
+      IPublicVault(owner).updateAfterLiquidationPayment(
         IPublicVault.LiquidationPaymentParams({remaining: remaining})
       );
     }
@@ -492,7 +494,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     address lienOwner = ownerOf(lienId);
     bool isPublicVault = _isPublicVault(s, lienOwner);
 
-    address payee = _getPayee(s, lienId);
+    address owner = ownerOf(lienId);
 
     if (isPublicVault) {
       IPublicVault(lienOwner).beforePayment(
@@ -513,12 +515,35 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
         stack.lien.token,
         payer,
-        payee,
+        owner,
         owed
       );
     }
   }
 
+  function _safeTransferFromInLiquidation(
+    address from,
+    address to,
+    uint256 id,
+    uint256 expected,
+    uint256 auctionEnd
+  ) internal virtual {
+    _transfer(from, to, id);
+
+    require(
+      to.code.length == 0 ||
+        ERC721TokenReceiver(to).onERC721Received(
+          address(this),
+          from,
+          id,
+          abi.encode(expected, auctionEnd)
+        ) ==
+        ERC721TokenReceiver.onERC721Received.selector,
+      "UNSAFE_RECIPIENT"
+    );
+  }
+
+  //TODO: rename to remove lien
   function _removeLienAndClearState(
     LienStorage storage s,
     uint256 lienId,
@@ -536,31 +561,5 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     return
       s.ASTARIA_ROUTER.isValidVault(account) &&
       IPublicVault(account).supportsInterface(type(IPublicVault).interfaceId);
-  }
-
-  function getPayee(uint256 lienId) public view returns (address) {
-    if (!_exists(lienId)) {
-      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
-    }
-    return _getPayee(_loadLienStorageSlot(), lienId);
-  }
-
-  function _getPayee(
-    LienStorage storage s,
-    uint256 lienId
-  ) internal view returns (address) {
-    return
-      s.lienMeta[lienId].payee != address(0)
-        ? s.lienMeta[lienId].payee
-        : ownerOf(lienId);
-  }
-
-  function _setPayee(
-    LienStorage storage s,
-    uint256 lienId,
-    address newPayee
-  ) internal {
-    s.lienMeta[lienId].payee = newPayee;
-    emit PayeeChanged(lienId, newPayee);
   }
 }

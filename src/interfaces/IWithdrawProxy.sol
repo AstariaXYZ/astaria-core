@@ -31,16 +31,6 @@ interface IWithdrawProxy is IRouterBase, IERC165, IERC4626 {
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) external;
 
   /**
-   * @notice Adds an auction scheduled to end in a new epoch to this WithdrawProxy, to ensure that withdrawing LPs get a proportional share of auction returns.
-   * @param newLienExpectedValue The expected auction value for the lien being auctioned.
-   * @param finalAuctionDelta The timestamp by which the auction being added is guaranteed to end. As new auctions are added to the WithdrawProxy, this value will strictly increase as all auctions have the same maximum duration.
-   */
-  function handleNewLiquidation(
-    uint256 newLienExpectedValue,
-    uint256 finalAuctionDelta
-  ) external;
-
-  /**
    * @notice Called by PublicVault if previous epoch's withdrawReserve hasn't been met.
    * @param amount The amount to attempt to drain from the WithdrawProxy.
    * @param withdrawProxy The address of the withdrawProxy to drain to.

@@ -24,6 +24,7 @@ import {PublicVault} from "core/PublicVault.sol";
 import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {LibString} from "solmate/utils/LibString.sol";
+import {ERC721TokenReceiver} from "gpl/ERC721.sol";
 
 /**
  * @title WithdrawProxy
@@ -336,7 +337,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   function handleNewLiquidation(
     uint256 newLienExpectedValue,
     uint256 finalAuctionDelta
-  ) public onlyVault {
+  ) internal {
     WPStorage storage s = _loadSlot();
 
     unchecked {
@@ -344,5 +345,28 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       uint40 auctionEnd = (block.timestamp + finalAuctionDelta).safeCastTo40();
       if (auctionEnd > s.finalAuctionEnd) s.finalAuctionEnd = auctionEnd;
     }
+  }
+
+  function onERC721Received(
+    address _operator,
+    address _from,
+    uint256 tokenId,
+    bytes calldata _data
+  ) external virtual returns (bytes4) {
+    require(
+      msg.sender == address(VAULT().ROUTER().LIEN_TOKEN()),
+      "lientoken not msg.sender"
+    );
+    require(_from == address(VAULT()), "only vault can call");
+    require(
+      address(this) == VAULT().ROUTER().LIEN_TOKEN().ownerOf(tokenId),
+      "token not transferred"
+    );
+
+    uint256 expected;
+    uint256 auctionEnd;
+    (expected, auctionEnd) = abi.decode(_data, (uint256, uint256));
+    handleNewLiquidation(expected, auctionEnd);
+    return ERC721TokenReceiver.onERC721Received.selector;
   }
 }
