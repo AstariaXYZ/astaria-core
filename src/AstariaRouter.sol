@@ -41,7 +41,6 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
 import {Initializable} from "./utils/Initializable.sol";
-import "forge-std/console.sol";
 
 /**
  * @title AstariaRouter
@@ -556,7 +555,7 @@ contract AstariaRouter is
         params.lienRequest
       ) != IVaultImplementation.validateStrategy.selector
     ) {
-      //      revert InvalidStrategy(c.lienRequest.strategy.vault);
+      revert InvalidVault(params.lienRequest.strategy.vault);
     }
   }
 
