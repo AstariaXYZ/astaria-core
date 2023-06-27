@@ -571,14 +571,14 @@ contract TestHelpers is Deploy, ConsiderationTester {
   }
 
   function _executeCommitments(
-    IAstariaRouter.Commitment[] memory commitments,
+    IAstariaRouter.Commitment memory commitment,
     bytes memory revertMessage
   ) internal returns (uint256 lienId, ILienToken.Stack memory newStack) {
     COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
     if (revertMessage.length > 0) {
       vm.expectRevert(revertMessage);
     }
-    (lienId, newStack) = ASTARIA_ROUTER.commitToLiens(commitments);
+    (lienId, newStack) = ASTARIA_ROUTER.commitToLien(commitment);
   }
 
   struct V3LienParams {
@@ -612,14 +612,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
       address(ASTARIA_ROUTER),
       true
     );
-    IAstariaRouter.Commitment[]
-      memory commitments = new IAstariaRouter.Commitment[](1);
-    commitments[0] = terms;
     return
-      _executeCommitments({
-        commitments: commitments,
-        revertMessage: new bytes(0)
-      });
+      _executeCommitments({commitment: terms, revertMessage: new bytes(0)});
   }
 
   function _commitToLien(
@@ -670,15 +664,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
     });
 
     ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
-    IAstariaRouter.Commitment[]
-      memory commitments = new IAstariaRouter.Commitment[](1);
-    commitments[0] = terms;
     beforeExecution();
     return
-      _executeCommitments({
-        commitments: commitments,
-        revertMessage: revertMessage
-      });
+      _executeCommitments({commitment: terms, revertMessage: revertMessage});
   }
 
   function _generateEncodedStrategyData(

@@ -562,7 +562,7 @@ contract CollateralToken is
         incomingAsset.tokenContract = msg.sender;
         incomingAsset.tokenId = tokenId_;
       }
-      ERC721(msg.sender).safeTransferFrom(
+      ERC721(msg.sender).transferFrom(
         address(this),
         incomingAsset.clearingHouse,
         tokenId_

@@ -93,17 +93,6 @@ interface ILienToken is IERC721 {
     ILienToken.Lien lien;
   }
 
-  struct LienActionBuyout {
-    bool chargeable;
-    uint8 position;
-    LienActionEncumber encumber;
-  }
-
-  struct BuyoutLienParams {
-    uint256 lienSlope;
-    uint256 lienEnd;
-  }
-
   /**
    * @notice Removes all liens for a given CollateralToken.
    * @param lien The Lien.

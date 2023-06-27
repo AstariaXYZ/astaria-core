@@ -624,26 +624,7 @@ contract AstariaTest is TestHelpers {
       "bad second deposit"
     );
 
-    // reborrow with same vault
-    (, ILienToken.Stack memory stack2) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: standardLienDetails,
-      amount: 10 ether
-    });
-
-    _repay(stack2, 50 ether, address(this));
-
     COLLATERAL_TOKEN.releaseToAddress(collateralId, address(this));
-
-    ERC721(tokenContract).safeTransferFrom(
-      address(this),
-      address(COLLATERAL_TOKEN),
-      tokenId
-    );
 
     address publicVault2 = _createPublicVault({
       strategist: strategistOne,

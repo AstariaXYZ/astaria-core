@@ -338,17 +338,10 @@ contract RevertTesting is TestHelpers {
       amount: 10 ether
     });
 
-    ERC721(tokenContract).safeTransferFrom(
-      address(this),
-      address(COLLATERAL_TOKEN),
-      tokenId,
-      ""
-    );
-
-    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
 
     uint256 balanceOfBefore = ERC20(WETH9).balanceOf(address(this));
-    (uint256 lienId, ) = VaultImplementation(privateVault).commitToLien(terms);
+    (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(terms);
 
     address underlying = address(WETH9);
     uint256 epochLength = 10 days;
@@ -461,12 +454,7 @@ contract RevertTesting is TestHelpers {
     );
 
     // Send the NFT to Collateral contract and receive Collateral token
-    ERC721(tokenContract).safeTransferFrom(
-      address(this),
-      address(COLLATERAL_TOKEN),
-      1,
-      ""
-    );
+    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
 
     // generate valid terms
     uint256 amount = 50 ether; // amount to borrow
@@ -498,7 +486,7 @@ contract RevertTesting is TestHelpers {
         IVaultImplementation.InvalidRequestReason.INVALID_VAULT
       )
     );
-    IVaultImplementation(privateVault).commitToLien(c);
+    ASTARIA_ROUTER.commitToLien(c);
   }
 
   function testCannotCommitWithInvalidSignature() public {
@@ -529,14 +517,7 @@ contract RevertTesting is TestHelpers {
       amount: 10 ether
     });
 
-    ERC721(tokenContract).safeTransferFrom(
-      address(this),
-      address(COLLATERAL_TOKEN),
-      tokenId,
-      ""
-    );
-
-    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -544,7 +525,7 @@ contract RevertTesting is TestHelpers {
         IVaultImplementation.InvalidRequestReason.INVALID_SIGNATURE
       )
     );
-    VaultImplementation(privateVault).commitToLien(terms);
+    ASTARIA_ROUTER.commitToLien(terms);
   }
 
   // Only strategists for PrivateVaults can supply capital
@@ -853,8 +834,7 @@ contract RevertTesting is TestHelpers {
       lienDetails: standardLienDetails,
       amount: 10 ether,
       revertMessage: abi.encodeWithSelector(
-        IVaultImplementation.InvalidRequest.selector,
-        IVaultImplementation.InvalidRequestReason.EXPIRED
+        IAstariaRouter.StrategyExpired.selector
       ),
       beforeExecution: this._skip11DaysToFailStrategyDeadlineCheck
     });

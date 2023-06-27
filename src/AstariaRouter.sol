@@ -464,8 +464,8 @@ contract AstariaRouter is
     });
   }
 
-  function commitToLiens(
-    IAstariaRouter.Commitment[] memory commitments
+  function commitToLien(
+    IAstariaRouter.Commitment calldata commitments
   )
     public
     whenNotPaused
@@ -473,16 +473,65 @@ contract AstariaRouter is
   {
     RouterStorage storage s = _loadRouterSlot();
 
-    _transferAndDepositAssetIfAble(
-      s,
-      commitments[0].tokenContract,
-      commitments[0].tokenId
+    (lienId, stack) = _executeCommitment(s, commitments);
+
+    _handleProtocolFee(s, stack.lien.token, stack.point.amount);
+
+    ERC20(stack.lien.token).safeTransfer(
+      msg.sender,
+      ERC20(stack.lien.token).balanceOf(address(this))
+    );
+  }
+
+  function _handleProtocolFee(
+    RouterStorage storage s,
+    address token,
+    uint256 amount
+  ) internal {
+    address feeTo = s.feeTo;
+    bool feeOn = feeTo != address(0);
+    if (feeOn) {
+      uint256 fee = _getProtocolFee(s, amount);
+
+      unchecked {
+        amount -= fee;
+      }
+      ERC20(token).safeTransfer(feeTo, fee);
+    }
+  }
+
+  /**
+   * @dev Validates the incoming request for a lien
+   * Who is requesting the borrow, is it a smart contract? or is it a user?
+   * if a smart contract, then ensure that the contract is approved to borrow and is also receiving the funds.
+   * if a user, then ensure that the user is approved to borrow and is also receiving the funds.
+   * The terms are hashed and signed by the borrower, and the signature validated against the strategist's address
+   * lien details are decoded from the obligation data and validated the collateral
+   *
+   * @param params The Commitment information containing the loan parameters and the merkle proof for the strategy supporting the requested loan.
+   */
+  function _validateRequest(
+    RouterStorage storage s,
+    IAstariaRouter.Commitment calldata params
+  ) internal returns (uint256 epochEnd) {
+    if (!s.vaults[params.lienRequest.strategy.vault]) {
+      revert InvalidVault(params.lienRequest.strategy.vault);
+    }
+    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
+    ERC721 token = ERC721(params.tokenContract);
+    token.safeTransferFrom(
+      msg.sender,
+      address(s.COLLATERAL_TOKEN),
+      params.tokenId,
+      ""
     );
 
-    (lienId, stack) = _executeCommitment(s, commitments[0]);
+    if (block.timestamp > params.lienRequest.strategy.deadline) {
+      revert StrategyExpired();
+    }
 
-    ERC20(IAstariaVaultBase(commitments[0].lienRequest.strategy.vault).asset())
-      .safeTransfer(msg.sender, stack.point.amount);
+    epochEnd = IVaultImplementation(params.lienRequest.strategy.vault)
+      .validateStrategy(params.lienRequest);
   }
 
   function newVault(
@@ -543,35 +592,6 @@ contract AstariaRouter is
       );
   }
 
-  function requestLienPosition(
-    IAstariaRouter.Commitment calldata params,
-    address receiver
-  )
-    external
-    whenNotPaused
-    validVault(msg.sender)
-    returns (uint256, ILienToken.Stack memory, uint256)
-  {
-    RouterStorage storage s = _loadRouterSlot();
-
-    return
-      s.LIEN_TOKEN.createLien(
-        ILienToken.LienActionEncumber({
-          lien: _validateCommitment({
-            s: s,
-            commitment: params,
-            timeToSecondEpochEnd: IPublicVault(msg.sender).supportsInterface(
-              type(IPublicVault).interfaceId
-            )
-              ? IPublicVault(msg.sender).timeToSecondEpochEnd()
-              : 0
-          }),
-          amount: params.lienRequest.amount,
-          receiver: receiver
-        })
-      );
-  }
-
   function canLiquidate(
     ILienToken.Stack memory stack
   ) public view returns (bool) {
@@ -607,9 +627,16 @@ contract AstariaRouter is
     );
   }
 
-  function getProtocolFee(uint256 amountIn) external view returns (uint256) {
+  function getProtocolFee(uint256 amountIn) public view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
 
+    return _getProtocolFee(s, amountIn);
+  }
+
+  function _getProtocolFee(
+    RouterStorage storage s,
+    uint256 amountIn
+  ) internal view returns (uint256) {
     return
       amountIn.mulDivDown(s.protocolFeeNumerator, s.protocolFeeDenominator);
   }
@@ -693,34 +720,20 @@ contract AstariaRouter is
 
   function _executeCommitment(
     RouterStorage storage s,
-    IAstariaRouter.Commitment memory c
-  ) internal returns (uint256, ILienToken.Stack memory stack) {
-    uint256 collateralId = c.tokenContract.computeId(c.tokenId);
+    IAstariaRouter.Commitment calldata c
+  ) internal returns (uint256 lienId, ILienToken.Stack memory stack) {
+    uint256 timeToSecondEpochEnd = _validateRequest(s, c);
 
-    if (msg.sender != s.COLLATERAL_TOKEN.ownerOf(collateralId)) {
-      revert InvalidSenderForCollateral(msg.sender, collateralId);
-    }
-
-    if (!s.vaults[c.lienRequest.strategy.vault]) {
-      revert InvalidVault(c.lienRequest.strategy.vault);
-    }
-    //router must be approved for the collateral to take a loan,
-    return IVaultImplementation(c.lienRequest.strategy.vault).commitToLien(c);
-  }
-
-  function _transferAndDepositAssetIfAble(
-    RouterStorage storage s,
-    address tokenContract,
-    uint256 tokenId
-  ) internal {
-    ERC721 token = ERC721(tokenContract);
-    if (token.ownerOf(tokenId) == msg.sender) {
-      token.safeTransferFrom(
-        msg.sender,
-        address(s.COLLATERAL_TOKEN),
-        tokenId,
-        ""
-      );
-    }
+    (lienId, stack, ) = s.LIEN_TOKEN.createLien(
+      ILienToken.LienActionEncumber({
+        lien: _validateCommitment({
+          s: s,
+          commitment: c,
+          timeToSecondEpochEnd: timeToSecondEpochEnd
+        }),
+        amount: c.lienRequest.amount,
+        receiver: c.lienRequest.strategy.vault
+      })
+    );
   }
 }

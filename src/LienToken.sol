@@ -303,20 +303,27 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     }
 
     newLienId = uint256(keccak256(abi.encode(params.lien)));
+    uint40 lienEnd = (block.timestamp + params.lien.details.duration)
+      .safeCastTo40();
     Point memory point = Point({
       lienId: newLienId,
       amount: params.amount,
       last: block.timestamp.safeCastTo40(),
-      end: (block.timestamp + params.lien.details.duration).safeCastTo40()
+      end: lienEnd
     });
-    _mint(params.receiver, newLienId);
-    return (newLienId, Stack({lien: params.lien, point: point}));
+
+    newSlot = Stack({lien: params.lien, point: point});
+    _safeMint(
+      params.receiver,
+      newLienId,
+      abi.encode(newLienId, params.amount, lienEnd, calculateSlope(newSlot))
+    );
   }
 
   function payDebtViaClearingHouse(
     address token,
     uint256 collateralId,
-    uint256 payment,
+    uint256 payment, //how much you actually can spend
     ClearingHouse.AuctionStack memory auctionStack
   ) external {
     LienStorage storage s = _loadLienStorageSlot();

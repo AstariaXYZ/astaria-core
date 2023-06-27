@@ -39,6 +39,7 @@ import {Math} from "core/utils/Math.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
+import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 
 /*
  * @title PublicVault
@@ -353,6 +354,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         s,
         totalAssets().mulDivDown(1e18 - s.liquidationWithdrawRatio, 1e18)
       );
+
       s.last = block.timestamp.safeCastTo40();
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
@@ -419,12 +421,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       timeToEpochEnd() == 0 &&
       withdrawProxy != address(0)
     ) {
-      address currentWithdrawProxy = s
-        .epochData[s.currentEpoch - 1]
-        .withdrawProxy;
       uint256 drainBalance = WithdrawProxy(withdrawProxy).drain(
         s.withdrawReserve,
-        s.epochData[s.currentEpoch - 1].withdrawProxy
+        currentWithdrawProxy
       );
       unchecked {
         s.withdrawReserve -= drainBalance;
@@ -435,17 +434,39 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
   }
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params
-  ) internal virtual override(VaultImplementation) {
-    VaultData storage s = _loadStorageSlot();
+  function onERC721Received(
+    address operator, // operator_
+    address from, // from_
+    uint256 tokenId, // tokenId_
+    bytes calldata data // data_
+  ) external virtual override returns (bytes4) {
+    if (
+      operator == address(ROUTER()) &&
+      msg.sender == address(ROUTER().LIEN_TOKEN())
+    ) {
+      VaultData storage s = _loadStorageSlot();
 
-    if (s.withdrawReserve > uint256(0)) {
-      transferWithdrawReserve();
+      (uint256 lienId, uint256 amount, uint40 lienEnd, uint256 lienSlope) = abi
+        .decode(data, (uint256, uint256, uint40, uint256));
+      if (s.withdrawReserve > uint256(0)) {
+        transferWithdrawReserve();
+      }
+      if (timeToEpochEnd() == uint256(0)) {
+        processEpoch();
+      }
+
+      _issuePayout(operator, amount);
+      _accrue(s);
+      uint256 newSlope = s.slope + lienSlope;
+      _setSlope(s, newSlope);
+
+      uint64 epoch = getLienEpoch(lienEnd);
+
+      _increaseOpenLiens(s, epoch);
+      emit LienOpen(lienId, epoch);
     }
-    if (timeToEpochEnd() == uint256(0)) {
-      processEpoch();
-    }
+
+    return IERC721Receiver.onERC721Received.selector;
   }
 
   function _loadStorageSlot() internal pure returns (VaultData storage s) {
@@ -453,30 +474,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     assembly {
       s.slot := slot
     }
-  }
-
-  /**
-   * @dev Hook for updating the slope of the PublicVault after a LienToken is issued.
-   * @param lienId The ID of the lien.
-   */
-  function _afterCommitToLien(
-    uint40 lienEnd,
-    uint256 lienId,
-    uint256 lienSlope
-  ) internal virtual override {
-    VaultData storage s = _loadStorageSlot();
-
-    // increment slope for the new lien
-    _accrue(s);
-    unchecked {
-      uint256 newSlope = s.slope + lienSlope;
-      _setSlope(s, newSlope);
-    }
-
-    uint64 epoch = getLienEpoch(lienEnd);
-
-    _increaseOpenLiens(s, epoch);
-    emit LienOpen(lienId, epoch);
   }
 
   function accrue() public returns (uint256) {
@@ -546,9 +543,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       _decreaseEpochLienCount(s, getLienEpoch(params.lienEnd));
     } else if (params.decreaseInYIntercept > 0) {
       // we are a liquidation and not a withdraw proxy
-      uint256 newYIntercept = s.yIntercept - params.decreaseInYIntercept;
-
-      _setYIntercept(s, newYIntercept);
+      _setYIntercept(s, s.yIntercept - params.decreaseInYIntercept);
     }
     _handleStrategistInterestReward(s, params.interestPaid);
   }
@@ -623,16 +618,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       s.strategistUnclaimedShares += feeInShares;
       emit StrategistFee(feeInShares);
     }
-  }
-
-  function updateAfterLiquidationPayment(
-    LiquidationPaymentParams calldata params
-  ) external {
-    _onlyLienToken();
-
-    VaultData storage s = _loadStorageSlot();
-    if (params.remaining > 0)
-      _setYIntercept(s, s.yIntercept - params.remaining);
   }
 
   function updateVaultAfterLiquidation(
@@ -714,9 +699,5 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     returns (uint256 timeToSecondEpochEnd)
   {
     return timeToEpochEnd() + EPOCH_LENGTH();
-  }
-
-  function timeToSecondEpochEnd() public view returns (uint256) {
-    return _timeToSecondEndIfPublic();
   }
 }
