@@ -487,7 +487,6 @@ contract AstariaRouter is
       stack.point.amount
     );
 
-    //todo: is this guarded safely?
     ERC20(stack.lien.token).safeTransfer(msg.sender, totalBorrowed);
   }
 

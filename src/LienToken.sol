@@ -311,10 +311,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       last: block.timestamp.safeCastTo40(),
       end: lienEnd
     });
-    //    IAstariaRouter.Commitment calldata params,
-    //    uint256 lienId,
-    //    uint40 lienEnd,
-    //    uint256 slopeAddition
+
     newSlot = Stack({lien: params.lien, point: point});
     _safeMint(
       params.receiver,
