@@ -481,13 +481,12 @@ contract AstariaRouter is
 
     (lienId, stack) = _executeCommitment(s, commitments);
 
-    uint256 totalBorrowed = _handleProtocolFee(
-      s,
-      stack.lien.token,
-      stack.point.amount
-    );
+    _handleProtocolFee(s, stack.lien.token, stack.point.amount);
 
-    ERC20(stack.lien.token).safeTransfer(msg.sender, totalBorrowed);
+    ERC20(stack.lien.token).safeTransfer(
+      msg.sender,
+      ERC20(stack.lien.token).balanceOf(address(this))
+    );
   }
 
   function _handleProtocolFee(
