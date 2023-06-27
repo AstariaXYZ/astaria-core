@@ -421,12 +421,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       timeToEpochEnd() == 0 &&
       withdrawProxy != address(0)
     ) {
-      address currentWithdrawProxy = s
-        .epochData[s.currentEpoch - 1]
-        .withdrawProxy;
       uint256 drainBalance = WithdrawProxy(withdrawProxy).drain(
         s.withdrawReserve,
-        s.epochData[s.currentEpoch - 1].withdrawProxy
+        currentWithdrawProxy
       );
       unchecked {
         s.withdrawReserve -= drainBalance;
@@ -460,10 +457,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
       _issuePayout(operator, amount);
       _accrue(s);
-      unchecked {
-        uint256 newSlope = s.slope + lienSlope;
-        _setSlope(s, newSlope);
-      }
+      uint256 newSlope = s.slope + lienSlope;
+      _setSlope(s, newSlope);
 
       uint64 epoch = getLienEpoch(lienEnd);
 
@@ -474,29 +469,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return IERC721Receiver.onERC721Received.selector;
   }
 
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata params
-  ) internal virtual override(VaultImplementation) {}
-
   function _loadStorageSlot() internal pure returns (VaultData storage s) {
     uint256 slot = PUBLIC_VAULT_SLOT;
     assembly {
       s.slot := slot
     }
-  }
-
-  /**
-   * @dev Hook for updating the slope of the PublicVault after a LienToken is issued.
-   * @param lienId The ID of the lien.
-   */
-  function _afterCommitToLien(
-    uint40 lienEnd,
-    uint256 lienId,
-    uint256 lienSlope
-  ) internal virtual override {
-    VaultData storage s = _loadStorageSlot();
-
-    // increment slope for the new lien
   }
 
   function accrue() public returns (uint256) {
