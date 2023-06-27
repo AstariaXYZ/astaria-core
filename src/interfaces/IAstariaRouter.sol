@@ -172,16 +172,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     Commitment memory commitments
   ) external returns (uint256, ILienToken.Stack memory);
 
-  /**
-   * @notice Create a new lien against a CollateralToken.
-   * @param params The valid proof and lien details for the new loan.
-   * @return The ID of the created lien.
-   */
-  function requestLienPosition(
-    IAstariaRouter.Commitment calldata params,
-    address recipient
-  ) external returns (uint256, ILienToken.Stack memory, uint256);
-
   function LIEN_TOKEN() external view returns (ILienToken);
 
   function TRANSFER_PROXY() external view returns (ITransferProxy);

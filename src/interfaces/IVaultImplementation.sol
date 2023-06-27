@@ -85,7 +85,7 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
 
   function validateStrategy(
     IAstariaRouter.NewLienRequest calldata params
-  ) external view returns (bytes4);
+  ) external view returns (uint256);
 
   function recipient() external view returns (address);
 

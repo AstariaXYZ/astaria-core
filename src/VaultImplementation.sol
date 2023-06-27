@@ -241,9 +241,9 @@ abstract contract VaultImplementation is
 
   function validateStrategy(
     IAstariaRouter.NewLienRequest calldata params
-  ) external view returns (bytes4 selector) {
+  ) external view returns (uint256 timeToEpochEnd) {
     _validateSignature(params);
-    selector = IVaultImplementation.validateStrategy.selector;
+    timeToEpochEnd = _timeToSecondEndIfPublic();
   }
 
   function _validateSignature(
