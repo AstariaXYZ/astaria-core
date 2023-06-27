@@ -14,7 +14,6 @@
 pragma solidity =0.8.17;
 
 pragma experimental ABIEncoderV2;
-
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
@@ -67,7 +66,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     __initERC721("Astaria Lien Token", "ALT");
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
-    s.maxLiens = uint8(5);
     s.buyoutFeeNumerator = uint32(100);
     s.buyoutFeeDenominator = uint32(1000);
     s.durationFeeCapNumerator = uint32(900);
@@ -122,9 +120,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     } else if (what == FileType.MinLoanDuration) {
       uint256 value = abi.decode(data, (uint256));
       s.minLoanDuration = value.safeCastTo32();
-    } else if (what == FileType.MaxLiens) {
-      uint256 value = abi.decode(data, (uint256));
-      s.maxLiens = value.safeCastTo8();
     } else {
       revert UnsupportedFile();
     }
@@ -159,8 +154,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
   modifier validateCollateralState(uint256 collateralId, bytes32 incomingHash) {
     LienStorage storage s = _loadLienStorageSlot();
-    bytes32 stateHash = s.collateralStateHash[collateralId];
-    if (stateHash != bytes32(0) && incomingHash != stateHash) {
+    if (incomingHash != s.collateralStateHash[collateralId]) {
       revert InvalidState(InvalidStates.INVALID_HASH);
     }
     _;
@@ -197,7 +191,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       .AuctionStack({
         lienId: stack.point.lienId,
         end: stack.point.end,
-        amountOwed: owed
+        amountOwed: owed,
+        principal: stack.point.amount
       });
     s.lienMeta[auctionStack.lienId].atLiquidation = true;
     address owner = ownerOf(auctionStack.lienId);
@@ -275,7 +270,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     returns (uint256 lienId, Stack memory newStack, uint256 lienSlope)
   {
     LienStorage storage s = _loadLienStorageSlot();
-    //0 - 4 are valid
     (lienId, newStack) = _createLien(s, params);
 
     s.collateralStateHash[params.lien.collateralId] = keccak256(
@@ -330,7 +324,24 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       msg.sender == address(s.COLLATERAL_TOKEN.getClearingHouse(collateralId))
     );
 
-    _paymentAH(s, token, auctionStack, payment, msg.sender, collateralId);
+    payment = payment > auctionStack.amountOwed
+      ? auctionStack.amountOwed
+      : payment;
+    uint256 remaining = auctionStack.amountOwed - payment;
+    uint256 interestPaid = payment > auctionStack.principal
+      ? payment - auctionStack.principal
+      : 0;
+    _payment(
+      s,
+      auctionStack.lienId,
+      auctionStack.end,
+      payment, //amount paid
+      interestPaid,
+      collateralId,
+      token,
+      remaining, // decrease in y intercept
+      uint256(0) // decrease in slope
+    );
   }
 
   function getAuctionData(
@@ -379,57 +390,25 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       keccak256(abi.encode(stack))
     )
   {
-    _payment(_loadLienStorageSlot(), stack, msg.sender);
-  }
+    {
+      uint256 amountOwing = _getOwed(stack, block.timestamp);
 
-  function _paymentAH(
-    LienStorage storage s,
-    address token,
-    ClearingHouse.AuctionStack memory stack,
-    uint256 payment,
-    address payer,
-    uint256 collateralId
-  ) internal returns (uint256) {
-    uint256 lienId = stack.lienId;
-    uint256 end = stack.end;
-    uint256 owing = stack.amountOwed;
-    //checks the lien exists
-    address owner = ownerOf(lienId);
-    uint256 remaining = 0;
-    if (owing > payment) {
-      remaining = owing - payment;
-    } else {
-      payment = owing;
-    }
-    emit Payment(lienId, payment);
-    _removeLienAndClearState(s, lienId, collateralId);
-
-    if (payment > 0) {
-      s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
-        token,
-        payer,
-        owner,
-        payment
+      _payment(
+        _loadLienStorageSlot(),
+        stack.point.lienId,
+        stack.point.end,
+        amountOwing,
+        amountOwing - stack.point.amount,
+        stack.lien.collateralId,
+        stack.lien.token,
+        amountOwing,
+        calculateSlope(stack)
       );
     }
-    if (_isPublicVault(s, owner)) {
-      IPublicVault(owner).updateAfterLiquidationPayment(
-        IPublicVault.LiquidationPaymentParams({remaining: remaining})
-      );
-    }
-
-    return payment;
   }
 
   function calculateSlope(Stack memory stack) public pure returns (uint256) {
     return stack.lien.details.rate.mulWadDown(stack.point.amount);
-  }
-
-  function getMaxPotentialDebtForCollateral(
-    Stack memory stack,
-    uint256 end
-  ) public pure returns (uint256 maxPotentialDebt) {
-    maxPotentialDebt += _getOwed(stack, end);
   }
 
   function getOwed(Stack memory stack) external view returns (uint256) {
@@ -458,65 +437,40 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   }
 
   /**
-   * @dev Computes the interest still owed to a Lien.
-   * @param s active storage slot
-   * @param stack the lien
-   * @return The WETH still owed in interest to the Lien.
-   */
-  function _getRemainingInterest(
-    LienStorage storage s,
-    Stack memory stack
-  ) internal view returns (uint256) {
-    uint256 delta_t = stack.point.end - block.timestamp;
-    return (delta_t * stack.lien.details.rate).mulWadDown(stack.point.amount);
-  }
-
-  /**
    * @dev Make a payment from a payer to a specific lien against a CollateralToken.
-   * @param payer The address to make the payment.
    */
   function _payment(
     LienStorage storage s,
-    Stack memory stack,
-    address payer
+    uint256 lienId,
+    uint64 end,
+    uint256 amountOwed,
+    uint256 interestPaid,
+    uint256 collateralId,
+    address token,
+    uint256 decreaseYIntercept, //remaining unpaid owed amount
+    uint256 decreaseInSlope
   ) internal {
-    uint256 lienId = stack.point.lienId;
-
-    if (s.lienMeta[lienId].atLiquidation) {
-      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
-    }
-    uint64 end = stack.point.end;
-    // Blocking off payments for a lien that has exceeded the lien.end to prevent repayment unless the msg.sender() is the AuctionHouse
-    if (block.timestamp >= end) {
-      revert InvalidLoanState();
-    }
-    uint256 owed = _getOwed(stack, block.timestamp);
-    address lienOwner = ownerOf(lienId);
-    bool isPublicVault = _isPublicVault(s, lienOwner);
-
     address owner = ownerOf(lienId);
 
-    if (isPublicVault) {
-      IPublicVault(lienOwner).beforePayment(
-        IPublicVault.BeforePaymentParams({
-          interestOwed: owed - stack.point.amount,
-          amount: stack.point.amount,
-          lienSlope: calculateSlope(stack)
+    if (_isPublicVault(s, owner)) {
+      IPublicVault(owner).updateVault(
+        IPublicVault.UpdateVaultParams({
+          decreaseInYIntercept: decreaseYIntercept, //if the lien owner is not the payee then we are not decreasing the y intercept
+          interestPaid: interestPaid,
+          decreaseInSlope: decreaseInSlope,
+          lienEnd: end
         })
-      );
-      IPublicVault(lienOwner).decreaseEpochLienCount(
-        IPublicVault(lienOwner).getLienEpoch(end)
       );
     }
 
-    _removeLienAndClearState(s, lienId, stack.lien.collateralId);
-    emit Payment(lienId, owed);
-    if (owed > 0) {
+    _removeLien(s, lienId, collateralId);
+    emit Payment(lienId, amountOwed);
+    if (amountOwed > 0) {
       s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
-        stack.lien.token,
-        payer,
+        token,
+        msg.sender,
         owner,
-        owed
+        amountOwed
       );
     }
   }
@@ -543,12 +497,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     );
   }
 
-  //TODO: rename to remove lien
-  function _removeLienAndClearState(
+  function _removeLien(
     LienStorage storage s,
     uint256 lienId,
     uint256 collateralId
-  ) internal returns (Stack memory newStack) {
+  ) internal {
     _burn(lienId);
     delete s.lienMeta[lienId]; //full delete of point data for the lien
     delete s.collateralStateHash[collateralId];

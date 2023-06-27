@@ -29,7 +29,6 @@ interface ILienToken is IERC721 {
     BuyoutFeeDurationCap,
     MinInterestBPS,
     MinDurationIncrease,
-    MaxLiens,
     MinLoanDuration
   }
 
@@ -41,7 +40,6 @@ interface ILienToken is IERC721 {
   event FileUpdated(FileType what, bytes data);
 
   struct LienStorage {
-    uint8 maxLiens;
     ITransferProxy TRANSFER_PROXY;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;

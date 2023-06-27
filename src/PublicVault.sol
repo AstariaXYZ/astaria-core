@@ -302,7 +302,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       revert InvalidState(InvalidStates.EPOCH_NOT_OVER);
     }
     VaultData storage s = _loadStorageSlot();
-
     if (s.withdrawReserve > 0) {
       revert InvalidState(InvalidStates.WITHDRAW_RESERVE_NOT_ZERO);
     }
@@ -534,17 +533,24 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _mint(msg.sender, unclaimed);
   }
 
-  function beforePayment(BeforePaymentParams calldata params) external {
+  function updateVault(UpdateVaultParams calldata params) external {
     _onlyLienToken();
 
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
-    unchecked {
-      uint256 newSlope = s.slope - params.lienSlope;
+    //we are a payment
+    if (params.decreaseInSlope > 0) {
+      uint256 newSlope = s.slope - params.decreaseInSlope;
       _setSlope(s, newSlope);
+      _decreaseEpochLienCount(s, getLienEpoch(params.lienEnd));
+    } else if (params.decreaseInYIntercept > 0) {
+      // we are a liquidation and not a withdraw proxy
+      uint256 newYIntercept = s.yIntercept - params.decreaseInYIntercept;
+
+      _setYIntercept(s, newYIntercept);
     }
-    _handleStrategistInterestReward(s, params.interestOwed, params.amount);
+    _handleStrategistInterestReward(s, params.interestPaid);
   }
 
   function _setSlope(VaultData storage s, uint256 newSlope) internal {
@@ -605,17 +611,14 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
   /**
    * @dev Handles the dilutive fees (on lien repayments) for strategists in VaultTokens.
-   * @param interestOwing the owingInterest for the lien
-   * @param amount The amount that was paid.
+   * @param interestPaid The amount that was paid.
    */
   function _handleStrategistInterestReward(
     VaultData storage s,
-    uint256 interestOwing,
-    uint256 amount
+    uint256 interestPaid
   ) internal virtual {
     if (VAULT_FEE() != uint256(0)) {
-      uint256 x = (amount > interestOwing) ? interestOwing : amount;
-      uint256 fee = x.mulWadDown(VAULT_FEE());
+      uint256 fee = interestPaid.mulWadDown(VAULT_FEE());
       uint256 feeInShares = convertToShares(fee);
       s.strategistUnclaimedShares += feeInShares;
       emit StrategistFee(feeInShares);

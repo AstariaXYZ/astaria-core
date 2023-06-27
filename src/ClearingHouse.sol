@@ -38,6 +38,7 @@ contract ClearingHouse is AmountDeriver, Clone, IERC1155, IERC721Receiver {
   struct AuctionStack {
     uint256 lienId;
     uint256 amountOwed;
+    uint256 principal;
     uint40 end;
   }
 

@@ -35,10 +35,11 @@ interface IPublicVault is IVaultImplementation {
     mapping(uint64 => EpochData) epochData;
   }
 
-  struct BeforePaymentParams {
-    uint256 lienSlope;
-    uint256 amount;
-    uint256 interestOwed;
+  struct UpdateVaultParams {
+    uint256 decreaseInSlope;
+    uint256 interestPaid;
+    uint256 decreaseInYIntercept;
+    uint64 lienEnd;
   }
 
   struct AfterLiquidationParams {
@@ -74,7 +75,7 @@ interface IPublicVault is IVaultImplementation {
    * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
    * @param params The params to adjust things
    */
-  function beforePayment(BeforePaymentParams calldata params) external;
+  function updateVault(UpdateVaultParams calldata params) external;
 
   /** @notice
    * hook to modify the liens open for then given epoch

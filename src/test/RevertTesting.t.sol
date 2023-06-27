@@ -68,8 +68,7 @@ contract RevertTesting is TestHelpers {
     COLLATERAL_NOT_DEPOSITED,
     LIEN_NO_DEBT,
     EXPIRED_LIEN,
-    DEBT_LIMIT,
-    MAX_LIENS
+    DEBT_LIMIT
   }
 
   function testCannotDeployUnderlyingWithNoCode() public {
@@ -1147,66 +1146,6 @@ contract RevertTesting is TestHelpers {
   //    //    );
   //    //    assertEq(ownerOfNFT, adversary);
   //  }
-
-  function testCannotCommitToLienPotentialDebtExceedsLiquidationInitialAsk()
-    public
-  {
-    TestNFT nft = new TestNFT(1);
-    address tokenContract = address(nft);
-    uint256 tokenId = uint256(0);
-
-    uint256 initialBalance = WETH9.balanceOf(address(this));
-
-    // create a PublicVault with a 14-day epoch
-    address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 30 days
-    });
-
-    _lendToVault(
-      Lender({addr: address(1), amountToLend: 500 ether}),
-      publicVault
-    );
-
-    ILienToken.Details memory details1 = standardLienDetails;
-    details1.duration = 14 days;
-    details1.liquidationInitialAsk = 100 ether;
-    details1.maxPotentialDebt = 1000 ether;
-
-    ILienToken.Details memory details2 = standardLienDetails;
-    details2.duration = 25 days;
-    details2.liquidationInitialAsk = 100 ether;
-    details2.maxPotentialDebt = 1000 ether;
-
-    IAstariaRouter.Commitment[]
-      memory commitments = new IAstariaRouter.Commitment[](2);
-    ILienToken.Stack memory stack;
-
-    (, stack) = _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: details1,
-      amount: 50 ether
-    });
-
-    _commitToLien({
-      vault: publicVault,
-      strategist: strategistOne,
-      strategistPK: strategistOnePK,
-      tokenContract: tokenContract,
-      tokenId: tokenId,
-      lienDetails: details2,
-      amount: 50 ether,
-      revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.INITIAL_ASK_EXCEEDED
-      )
-    });
-  }
 
   function testCannotSelfLiquidateBeforeExpiration() public {
     TestNFT nft = new TestNFT(1);
