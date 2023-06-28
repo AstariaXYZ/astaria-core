@@ -41,9 +41,6 @@ abstract contract VaultImplementation is
   using CollateralLookup for address;
   using FixedPointMathLib for uint256;
 
-  bytes32 public constant STRATEGY_TYPEHASH =
-    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
-
   bytes32 constant EIP_DOMAIN =
     keccak256(
       "EIP712Domain(string version,uint256 chainId,address verifyingContract)"
@@ -65,15 +62,18 @@ abstract contract VaultImplementation is
     external
     view
     virtual
-    returns (uint, address, bool, bool, uint)
+    returns (uint256, address, address, bool, bool, uint256, uint256, bytes32)
   {
     VIData storage s = _loadVISlot();
     return (
       s.depositCap,
       s.delegate,
+      owner(),
       s.allowListEnabled,
       s.isShutdown,
-      s.strategistNonce
+      s.strategistNonce,
+      _timeToSecondEndIfPublic(),
+      domainSeparator()
     );
   }
 
@@ -185,32 +185,6 @@ abstract contract VaultImplementation is
       );
   }
 
-  /*
-   * @notice encodes the data for a 712 signature
-   * @param tokenContract The address of the token contract
-   * @param tokenId The id of the token
-   * @param amount The amount of the token
-   */
-  function encodeStrategyData(
-    IAstariaRouter.StrategyDetailsParam calldata strategy,
-    bytes32 root
-  ) external view returns (bytes memory) {
-    VIData storage s = _loadVISlot();
-    return _encodeStrategyData(s, strategy, root);
-  }
-
-  function _encodeStrategyData(
-    VIData storage s,
-    IAstariaRouter.StrategyDetailsParam calldata strategy,
-    bytes32 root
-  ) internal view returns (bytes memory) {
-    bytes32 hash = keccak256(
-      abi.encode(STRATEGY_TYPEHASH, s.strategistNonce, strategy.deadline, root)
-    );
-    return
-      abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), hash);
-  }
-
   function init(InitParams calldata params) external virtual {
     require(msg.sender == address(ROUTER()));
     VIData storage s = _loadVISlot();
@@ -238,46 +212,6 @@ abstract contract VaultImplementation is
     emit DelegateUpdated(delegate_);
     emit AllowListUpdated(delegate_, true);
   }
-
-  function validateStrategy(
-    IAstariaRouter.NewLienRequest calldata params
-  ) external view returns (uint256 timeToEpochEnd) {
-    _validateSignature(params);
-    timeToEpochEnd = _timeToSecondEndIfPublic();
-  }
-
-  function _validateSignature(
-    IAstariaRouter.NewLienRequest calldata params
-  ) internal view {
-    VIData storage s = _loadVISlot();
-    if (params.strategy.vault != address(this)) {
-      revert InvalidRequest(InvalidRequestReason.INVALID_VAULT);
-    }
-    address recovered = ecrecover(
-      keccak256(_encodeStrategyData(s, params.strategy, params.merkle.root)),
-      params.v,
-      params.r,
-      params.s
-    );
-    if (
-      (recovered != owner() && recovered != s.delegate) ||
-      recovered == address(0)
-    ) {
-      revert IVaultImplementation.InvalidRequest(
-        InvalidRequestReason.INVALID_SIGNATURE
-      );
-    }
-  }
-
-  function _afterCommitToLien(
-    uint40 end,
-    uint256 lienId,
-    uint256 slope
-  ) internal virtual {}
-
-  function _beforeCommitToLien(
-    IAstariaRouter.Commitment calldata
-  ) internal virtual {}
 
   function _timeToSecondEndIfPublic()
     internal
@@ -308,12 +242,26 @@ abstract contract VaultImplementation is
     return IMPL_TYPE() == uint8(IAstariaRouter.ImplementationType.PublicVault);
   }
 
+  function _handleProtocolFee(address feeTo, uint256 feeRake) internal {
+    bool feeOn = feeTo != address(0);
+    if (feeOn) {
+      ERC20(asset()).safeTransfer(feeTo, feeRake);
+    }
+  }
+
   /**
    * @dev Generates a Lien for a valid loan commitment proof and sends the loan amount to the borrower.
-   * @param receiver the address being paid
+   * @param borrower the address being paid
    * @param amount the amount being paid
    */
-  function _issuePayout(address receiver, uint256 amount) internal {
-    ERC20(asset()).safeTransfer(receiver, amount);
+  function _issuePayout(
+    address borrower,
+    uint256 amount,
+    address feeTo,
+    uint256 feeRake
+  ) internal {
+    _handleProtocolFee(feeTo, feeRake);
+
+    ERC20(asset()).safeTransfer(borrower, amount - feeRake);
   }
 }

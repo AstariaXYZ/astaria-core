@@ -67,13 +67,7 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function getState()
     external
     view
-    returns (
-      uint depositCap,
-      address delegate,
-      bool allowListEnabled,
-      bool isShutdown,
-      uint strategistNonce
-    );
+    returns (uint256, address, address, bool, bool, uint256, uint256, bytes32);
 
   function getAllowList(address depositor) external view returns (bool);
 
@@ -83,20 +77,11 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
 
   function incrementNonce() external;
 
-  function validateStrategy(
-    IAstariaRouter.NewLienRequest calldata params
-  ) external view returns (uint256);
-
   function recipient() external view returns (address);
 
   function setDelegate(address delegate_) external;
 
   function init(InitParams calldata params) external;
-
-  function encodeStrategyData(
-    IAstariaRouter.StrategyDetailsParam calldata strategy,
-    bytes32 root
-  ) external view returns (bytes memory);
 
   function domainSeparator() external view returns (bytes32);
 
@@ -105,6 +90,4 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function getStrategistNonce() external view returns (uint256);
 
   function timeToSecondEpochEnd() external view returns (uint256);
-
-  function STRATEGY_TYPEHASH() external view returns (bytes32);
 }

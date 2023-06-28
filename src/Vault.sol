@@ -38,11 +38,19 @@ contract Vault is VaultImplementation {
       operator == address(ROUTER()) &&
       msg.sender == address(ROUTER().LIEN_TOKEN())
     ) {
-      (uint256 lienId, uint256 amount, , ) = abi.decode(
-        data,
-        (uint256, uint256, uint40, uint256)
-      );
-      _issuePayout(operator, amount);
+      (
+        address borrower,
+        uint256 lienId,
+        uint256 amount,
+        ,
+        ,
+        address feeTo,
+        uint256 feeRake
+      ) = abi.decode(
+          data,
+          (address, uint256, uint256, uint40, uint256, address, uint256)
+        );
+      _issuePayout(borrower, amount, feeTo, feeRake);
       ERC721(msg.sender).safeTransferFrom(
         address(this),
         owner(),

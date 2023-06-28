@@ -446,8 +446,18 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     ) {
       VaultData storage s = _loadStorageSlot();
 
-      (uint256 lienId, uint256 amount, uint40 lienEnd, uint256 lienSlope) = abi
-        .decode(data, (uint256, uint256, uint40, uint256));
+      (
+        address borrower,
+        uint256 lienId,
+        uint256 amount,
+        uint40 lienEnd,
+        uint256 lienSlope,
+        address feeTo,
+        uint256 feeRake
+      ) = abi.decode(
+          data,
+          (address, uint256, uint256, uint40, uint256, address, uint256)
+        );
       if (s.withdrawReserve > uint256(0)) {
         transferWithdrawReserve();
       }
@@ -455,7 +465,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         processEpoch();
       }
 
-      _issuePayout(operator, amount);
+      _issuePayout(borrower, amount, feeTo, feeRake);
       _accrue(s);
       uint256 newSlope = s.slope + lienSlope;
       _setSlope(s, newSlope);

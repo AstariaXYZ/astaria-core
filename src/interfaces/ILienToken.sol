@@ -45,13 +45,6 @@ interface ILienToken is IERC721 {
     ICollateralToken COLLATERAL_TOKEN;
     mapping(uint256 => bytes32) collateralStateHash;
     mapping(uint256 => LienMeta) lienMeta;
-    uint32 buyoutFeeNumerator;
-    uint32 buyoutFeeDenominator;
-    uint32 durationFeeCapNumerator;
-    uint32 durationFeeCapDenominator;
-    uint32 minDurationIncrease;
-    uint32 minInterestBPS;
-    uint32 minLoanDuration;
   }
 
   struct LienMeta {
@@ -88,9 +81,12 @@ interface ILienToken is IERC721 {
   }
 
   struct LienActionEncumber {
+    address borrower;
     uint256 amount;
     address receiver;
     ILienToken.Lien lien;
+    address feeTo;
+    uint256 fee;
   }
 
   /**

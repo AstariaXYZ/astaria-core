@@ -60,7 +60,8 @@ contract AstariaRouter is
 
   uint256 private constant ROUTER_SLOT =
     uint256(keccak256("xyz.astaria.AstariaRouter.storage.location")) - 1;
-
+  bytes32 public constant STRATEGY_TYPEHASH =
+    keccak256("StrategyDetails(uint256 nonce,uint256 deadline,bytes32 root)");
   // cast --to-bytes32 $(cast sig "OutOfBoundError()")
   uint256 private constant OUTOFBOUND_ERROR_SELECTOR =
     0x571e08d100000000000000000000000000000000000000000000000000000000;
@@ -302,6 +303,10 @@ contract AstariaRouter is
       //vaults process denominators of the fee as base 1e18
       if (maxFee > 1e18) revert InvalidFileData();
       s.maxStrategistFee = maxFee;
+    } else if (what == FileType.MinLoanDuration) {
+      uint256 minLoanDuration = abi.decode(data, (uint256));
+      //vaults process denominators of the fee as base 1e18
+      s.minLoanDuration = minLoanDuration;
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
       if (addr == address(0)) revert InvalidFileData();
@@ -425,9 +430,7 @@ contract AstariaRouter is
       strategyValidator
     ).validateAndParse(
         commitment.lienRequest,
-        s.COLLATERAL_TOKEN.ownerOf(
-          commitment.tokenContract.computeId(commitment.tokenId)
-        ),
+        msg.sender,
         commitment.tokenContract,
         commitment.tokenId
       );
@@ -474,30 +477,6 @@ contract AstariaRouter is
     RouterStorage storage s = _loadRouterSlot();
 
     (lienId, stack) = _executeCommitment(s, commitments);
-
-    _handleProtocolFee(s, stack.lien.token, stack.point.amount);
-
-    ERC20(stack.lien.token).safeTransfer(
-      msg.sender,
-      ERC20(stack.lien.token).balanceOf(address(this))
-    );
-  }
-
-  function _handleProtocolFee(
-    RouterStorage storage s,
-    address token,
-    uint256 amount
-  ) internal {
-    address feeTo = s.feeTo;
-    bool feeOn = feeTo != address(0);
-    if (feeOn) {
-      uint256 fee = _getProtocolFee(s, amount);
-
-      unchecked {
-        amount -= fee;
-      }
-      ERC20(token).safeTransfer(feeTo, fee);
-    }
   }
 
   /**
@@ -512,26 +491,34 @@ contract AstariaRouter is
    */
   function _validateRequest(
     RouterStorage storage s,
-    IAstariaRouter.Commitment calldata params
-  ) internal returns (uint256 epochEnd) {
+    IAstariaRouter.Commitment calldata params,
+    ILienToken.Stack memory newStack
+  ) internal {
     if (!s.vaults[params.lienRequest.strategy.vault]) {
       revert InvalidVault(params.lienRequest.strategy.vault);
     }
-    uint256 collateralId = params.tokenContract.computeId(params.tokenId);
-    ERC721 token = ERC721(params.tokenContract);
-    token.safeTransferFrom(
-      msg.sender,
-      address(s.COLLATERAL_TOKEN),
-      params.tokenId,
-      ""
-    );
+
+    if (params.lienRequest.amount == 0) {
+      revert ILienToken.InvalidState(ILienToken.InvalidStates.AMOUNT_ZERO);
+    }
+    if (newStack.lien.details.duration < s.minLoanDuration) {
+      revert ILienToken.InvalidState(
+        ILienToken.InvalidStates.MIN_DURATION_NOT_MET
+      );
+    }
+    if (
+      newStack.lien.details.liquidationInitialAsk <
+      s.LIEN_TOKEN.getOwed(newStack) ||
+      newStack.lien.details.liquidationInitialAsk == 0
+    ) {
+      revert ILienToken.InvalidState(
+        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+      );
+    }
 
     if (block.timestamp > params.lienRequest.strategy.deadline) {
       revert StrategyExpired();
     }
-
-    epochEnd = IVaultImplementation(params.lienRequest.strategy.vault)
-      .validateStrategy(params.lienRequest);
   }
 
   function newVault(
@@ -718,22 +705,91 @@ contract AstariaRouter is
     return vaultAddr;
   }
 
+  function _validateSignature(
+    IAstariaRouter.NewLienRequest calldata params,
+    uint256 nonce,
+    bytes32 domainSepatator,
+    address strategist,
+    address delegate
+  ) internal pure {
+    address recovered = ecrecover(
+      keccak256(
+        _encodeStrategyData(
+          params.strategy,
+          nonce,
+          domainSepatator,
+          params.merkle.root
+        )
+      ),
+      params.v,
+      params.r,
+      params.s
+    );
+    if (
+      (recovered != strategist && recovered != delegate) ||
+      recovered == address(0)
+    ) {
+      revert IVaultImplementation.InvalidRequest(
+        IVaultImplementation.InvalidRequestReason.INVALID_SIGNATURE
+      );
+    }
+  }
+
+  function _encodeStrategyData(
+    IAstariaRouter.StrategyDetailsParam calldata strategy,
+    uint256 nonce,
+    bytes32 domainSeparator,
+    bytes32 root
+  ) internal pure returns (bytes memory) {
+    return
+      abi.encodePacked(
+        bytes1(0x19),
+        bytes1(0x01),
+        domainSeparator,
+        keccak256(abi.encode(STRATEGY_TYPEHASH, nonce, strategy.deadline, root))
+      );
+  }
+
   function _executeCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment calldata c
   ) internal returns (uint256 lienId, ILienToken.Stack memory stack) {
-    uint256 timeToSecondEpochEnd = _validateRequest(s, c);
+    (
+      ,
+      address delegate,
+      address owner,
+      ,
+      ,
+      uint256 nonce,
+      uint256 timeToSecondEndIfPublic,
+      bytes32 domainSeparator
+    ) = IVaultImplementation(c.lienRequest.strategy.vault).getState();
+    ERC721 token = ERC721(c.tokenContract);
+    token.safeTransferFrom(
+      msg.sender,
+      address(s.COLLATERAL_TOKEN),
+      c.tokenId,
+      ""
+    );
+    _validateSignature(c.lienRequest, nonce, domainSeparator, owner, delegate);
 
+    uint feeRake = s.feeTo == address(0)
+      ? 0
+      : _getProtocolFee(s, c.lienRequest.amount);
     (lienId, stack, ) = s.LIEN_TOKEN.createLien(
       ILienToken.LienActionEncumber({
         lien: _validateCommitment({
           s: s,
           commitment: c,
-          timeToSecondEpochEnd: timeToSecondEpochEnd
+          timeToSecondEpochEnd: timeToSecondEndIfPublic
         }),
+        borrower: msg.sender,
         amount: c.lienRequest.amount,
-        receiver: c.lienRequest.strategy.vault
+        receiver: c.lienRequest.strategy.vault,
+        feeTo: s.feeTo,
+        fee: feeRake
       })
     );
+    _validateRequest(s, c, stack);
   }
 }

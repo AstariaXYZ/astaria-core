@@ -676,7 +676,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   ) internal view returns (bytes memory) {
     bytes32 hash = keccak256(
       abi.encode(
-        VaultImplementation(vault).STRATEGY_TYPEHASH(),
+        ASTARIA_ROUTER.STRATEGY_TYPEHASH(),
         VaultImplementation(vault).getStrategistNonce(),
         deadline,
         root

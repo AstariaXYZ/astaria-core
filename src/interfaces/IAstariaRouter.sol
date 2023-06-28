@@ -35,6 +35,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     MaxEpochLength,
     MinInterestRate,
     MaxInterestRate,
+    MinLoanDuration,
     AuctionWindow,
     StrategyValidator,
     Implementation,
@@ -74,6 +75,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     //A strategist can have many deployed vaults
     mapping(address => bool) vaults;
     uint256 maxStrategistFee; //4
+    uint256 minLoanDuration;
   }
 
   enum ImplementationType {
@@ -116,6 +118,8 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint256 tokenId;
     NewLienRequest lienRequest;
   }
+
+  function STRATEGY_TYPEHASH() external view returns (bytes32);
 
   /**
    * @notice Validates the incoming loan commitment.

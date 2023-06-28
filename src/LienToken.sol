@@ -66,13 +66,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     __initERC721("Astaria Lien Token", "ALT");
     LienStorage storage s = _loadLienStorageSlot();
     s.TRANSFER_PROXY = _TRANSFER_PROXY;
-    s.buyoutFeeNumerator = uint32(100);
-    s.buyoutFeeDenominator = uint32(1000);
-    s.durationFeeCapNumerator = uint32(900);
-    s.durationFeeCapDenominator = uint32(1000);
-    s.minDurationIncrease = uint32(5 days);
-    s.minInterestBPS = uint32((uint256(1e15) * 5) / (365 days));
-    s.minLoanDuration = uint32(1 hours);
   }
 
   function _loadLienStorageSlot()
@@ -95,31 +88,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       s.COLLATERAL_TOKEN = ICollateralToken(abi.decode(data, (address)));
     } else if (what == FileType.AstariaRouter) {
       s.ASTARIA_ROUTER = IAstariaRouter(abi.decode(data, (address)));
-    } else if (what == FileType.BuyoutFee) {
-      (uint256 numerator, uint256 denominator) = abi.decode(
-        data,
-        (uint256, uint256)
-      );
-      if (denominator < numerator) revert InvalidFileData();
-      s.buyoutFeeNumerator = numerator.safeCastTo32();
-      s.buyoutFeeDenominator = denominator.safeCastTo32();
-    } else if (what == FileType.BuyoutFeeDurationCap) {
-      (uint256 numerator, uint256 denominator) = abi.decode(
-        data,
-        (uint256, uint256)
-      );
-      if (denominator < numerator) revert InvalidFileData();
-      s.durationFeeCapNumerator = numerator.safeCastTo32();
-      s.durationFeeCapDenominator = denominator.safeCastTo32();
-    } else if (what == FileType.MinInterestBPS) {
-      uint256 value = abi.decode(data, (uint256));
-      s.minInterestBPS = value.safeCastTo32();
-    } else if (what == FileType.MinDurationIncrease) {
-      uint256 value = abi.decode(data, (uint256));
-      s.minDurationIncrease = value.safeCastTo32();
-    } else if (what == FileType.MinLoanDuration) {
-      uint256 value = abi.decode(data, (uint256));
-      s.minLoanDuration = value.safeCastTo32();
     } else {
       revert UnsupportedFile();
     }
@@ -276,8 +244,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       abi.encode(newStack)
     );
 
-    lienSlope = calculateSlope(newStack);
-
     emit NewLien(params.lien.collateralId, newStack);
   }
 
@@ -285,23 +251,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     LienStorage storage s,
     ILienToken.LienActionEncumber calldata params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
-    if (s.collateralStateHash[params.lien.collateralId] == ACTIVE_AUCTION) {
-      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
-    }
-
-    if (params.amount == 0) {
-      revert InvalidState(InvalidStates.AMOUNT_ZERO);
-    }
-    if (params.lien.details.duration < s.minLoanDuration) {
-      revert InvalidState(InvalidStates.MIN_DURATION_NOT_MET);
-    }
-    if (
-      params.lien.details.liquidationInitialAsk < params.amount ||
-      params.lien.details.liquidationInitialAsk == 0
-    ) {
-      revert InvalidState(InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK);
-    }
-
     newLienId = uint256(keccak256(abi.encode(params.lien)));
     uint40 lienEnd = (block.timestamp + params.lien.details.duration)
       .safeCastTo40();
@@ -316,7 +265,15 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     _safeMint(
       params.receiver,
       newLienId,
-      abi.encode(newLienId, params.amount, lienEnd, calculateSlope(newSlot))
+      abi.encode(
+        params.borrower,
+        newLienId,
+        params.amount,
+        lienEnd,
+        calculateSlope(newSlot),
+        params.feeTo,
+        params.fee
+      )
     );
   }
 
