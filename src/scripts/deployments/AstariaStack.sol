@@ -21,7 +21,7 @@ import {
 import {TransferProxy} from "core/TransferProxy.sol";
 import {CollateralToken} from "core/CollateralToken.sol";
 import {LienToken} from "core/LienToken.sol";
-import {Consideration} from "seaport/lib/Consideration.sol";
+import {Consideration} from "seaport-core/src/lib/Consideration.sol";
 
 //goerli deployments
 contract AstariaStack is Script {

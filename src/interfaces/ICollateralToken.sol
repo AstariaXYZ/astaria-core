@@ -17,16 +17,17 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-import {IFlashAction} from "core/interfaces/IFlashAction.sol";
 import {
   ConsiderationInterface
-} from "seaport/interfaces/ConsiderationInterface.sol";
+} from "seaport-types/src/interfaces/ConsiderationInterface.sol";
 import {
   ConduitControllerInterface
-} from "seaport/interfaces/ConduitControllerInterface.sol";
+} from "seaport-types/src/interfaces/ConduitControllerInterface.sol";
 import {IERC1155} from "core/interfaces/IERC1155.sol";
-import {Order, OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
-import {ClearingHouse} from "core/ClearingHouse.sol";
+import {
+  Order,
+  OrderParameters
+} from "seaport-types/src/lib/ConsiderationStructs.sol";
 
 interface ICollateralToken is IERC721 {
   event ListedOnSeaport(uint256 collateralId, Order listingOrder);
@@ -45,7 +46,6 @@ interface ICollateralToken is IERC721 {
 
   struct Asset {
     bool deposited;
-    address clearingHouse;
     address tokenContract;
     uint256 tokenId;
     bytes32 auctionHash;
@@ -59,12 +59,8 @@ interface ICollateralToken is IERC721 {
     ConduitControllerInterface CONDUIT_CONTROLLER;
     address CONDUIT;
     bytes32 CONDUIT_KEY;
-    mapping(uint256 => bytes32) collateralIdToAuction;
-    mapping(address => bool) flashEnabled;
     //mapping of the collateralToken ID and its underlying asset
     mapping(uint256 => Asset) idToUnderlying;
-    //mapping of a security token hook for an nft's token contract address
-    mapping(address => address) securityHooks;
   }
 
   struct ListUnderlyingForSaleParams {
@@ -76,9 +72,8 @@ interface ICollateralToken is IERC721 {
   enum FileType {
     NotSupported,
     AstariaRouter,
-    SecurityHook,
-    FlashEnabled,
-    Seaport
+    Seaport,
+    CloseChannel
   }
 
   struct File {
@@ -98,25 +93,9 @@ interface ICollateralToken is IERC721 {
    */
   function file(File calldata incoming) external;
 
-  /**
-   * @notice Executes a FlashAction using locked collateral. A valid FlashAction performs a specified action with the collateral within a single transaction and must end with the collateral being returned to the Vault it was locked in.
-   * @param receiver The FlashAction to execute.
-   * @param collateralId The ID of the CollateralToken to temporarily unwrap.
-   * @param data Input data used in the FlashAction.
-   */
-  function flashAction(
-    IFlashAction receiver,
-    uint256 collateralId,
-    bytes calldata data
-  ) external;
-
-  function securityHooks(address) external view returns (address);
-
   function getConduit() external view returns (address);
 
   function getConduitKey() external view returns (bytes32);
-
-  function getClearingHouse(uint256) external view returns (ClearingHouse);
 
   struct AuctionVaultParams {
     address settlementToken;
@@ -133,12 +112,6 @@ interface ICollateralToken is IERC721 {
   function auctionVault(
     AuctionVaultParams calldata params
   ) external returns (OrderParameters memory);
-
-  /**
-   * @notice Clears the auction for a CollateralToken.
-   * @param collateralId The ID of the CollateralToken.
-   */
-  function settleAuction(uint256 collateralId) external;
 
   function SEAPORT() external view returns (ConsiderationInterface);
 
@@ -157,23 +130,25 @@ interface ICollateralToken is IERC721 {
   ) external view returns (address, uint256);
 
   /**
-   * @notice Unlocks the NFT for a CollateralToken and sends it to a specified address.
+   * @notice Unlocks the NFT for a CollateralToken and sends it to the owner on repayment
    * @param collateralId The ID for the CollateralToken of the NFT to unlock.
-   * @param releaseTo The address to send the NFT to.
    */
-  function releaseToAddress(uint256 collateralId, address releaseTo) external;
+  function release(uint256 collateralId) external;
 
   /**
    * @notice Permissionless hook which returns the underlying NFT for a CollateralToken to the liquidator after an auction.
    * @param params The Seaport data from the liquidation.
    */
-  function liquidatorNFTClaim(OrderParameters memory params) external;
-
-  function hasFlashAction(uint256 collateralId) external view returns (bool);
+  function liquidatorNFTClaim(
+    ILienToken.Stack memory stack,
+    OrderParameters memory params,
+    uint
+  ) external;
 
   error UnsupportedFile();
   error InvalidCollateral();
   error InvalidSender();
+  error InvalidOrder();
   error InvalidCollateralState(InvalidCollateralStates);
   error ProtocolPaused();
   error ListPriceTooLow();
@@ -183,14 +158,9 @@ interface ICollateralToken is IERC721 {
   enum InvalidCollateralStates {
     NO_AUTHORITY,
     NO_AUCTION,
-    FLASH_DISABLED,
     AUCTION_ACTIVE,
     INVALID_AUCTION_PARAMS,
     ACTIVE_LIENS,
     ESCROW_ACTIVE
   }
-
-  error FlashActionCallbackFailed();
-  error FlashActionSecurityCheckFailed();
-  error FlashActionNFTNotReturned();
 }

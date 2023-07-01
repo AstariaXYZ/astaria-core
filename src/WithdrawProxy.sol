@@ -44,7 +44,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   event Claimed(
     address withdrawProxy,
     uint256 withdrawProxyAmount,
-    address publicVault,
+    address payable publicVault,
     uint256 publicVaultAmount
   );
 
@@ -297,7 +297,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     }
 
     if (s.withdrawRatio == uint256(0)) {
-      ERC20(asset()).safeTransfer(address(VAULT()), balance);
+      ERC20(asset()).safeTransfer(payable(address(VAULT())), balance);
     } else {
       transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
 
@@ -306,12 +306,17 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       }
 
       if (balance > 0) {
-        ERC20(asset()).safeTransfer(address(VAULT()), balance);
+        ERC20(asset()).safeTransfer(payable(address(VAULT())), balance);
       }
     }
     s.finalAuctionEnd = 0;
 
-    emit Claimed(address(this), transferAmount, address(VAULT()), balance);
+    emit Claimed(
+      address(this),
+      transferAmount,
+      payable(address(VAULT())),
+      balance
+    );
   }
 
   function drain(
@@ -355,7 +360,7 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
   ) external virtual returns (bytes4) {
     require(
       msg.sender == address(VAULT().ROUTER().LIEN_TOKEN()),
-      "lientoken not msg.sender"
+      "LienToken not msg.sender"
     );
     require(_from == address(VAULT()), "only vault can call");
     require(

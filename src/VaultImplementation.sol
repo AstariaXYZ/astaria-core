@@ -12,7 +12,6 @@
  */
 
 pragma solidity =0.8.17;
-
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721, ERC721TokenReceiver} from "solmate/tokens/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -26,6 +25,7 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
+import {IWETH9} from "gpl/interfaces/IWETH9.sol";
 
 /**
  * @title VaultImplementation
@@ -140,18 +140,6 @@ abstract contract VaultImplementation is
     emit AllowListEnabled(true);
   }
 
-  /**
-   * @notice receive hook for ERC721 tokens, nothing special done
-   */
-  function onERC721Received(
-    address operator, // operator_
-    address from, // from_
-    uint256 tokenId, // tokenId_
-    bytes calldata data // data_
-  ) external virtual override returns (bytes4) {
-    return ERC721TokenReceiver.onERC721Received.selector;
-  }
-
   modifier whenNotPaused() {
     if (ROUTER().paused()) {
       revert InvalidRequest(InvalidRequestReason.PAUSED);
@@ -210,7 +198,6 @@ abstract contract VaultImplementation is
     VIData storage s = _loadVISlot();
     s.delegate = delegate_;
     emit DelegateUpdated(delegate_);
-    emit AllowListUpdated(delegate_, true);
   }
 
   function _timeToSecondEndIfPublic()
@@ -262,6 +249,20 @@ abstract contract VaultImplementation is
   ) internal {
     _handleProtocolFee(feeTo, feeRake);
 
-    ERC20(asset()).safeTransfer(borrower, amount - feeRake);
+    uint256 newAmount = amount - feeRake;
+
+    if (asset() == WETH()) {
+      IWETH9 wethContract = IWETH9(asset());
+
+      wethContract.withdraw(newAmount);
+
+      payable(borrower).transfer(newAmount);
+    } else {
+      ERC20(asset()).safeTransfer(borrower, newAmount);
+    }
   }
+
+  receive() external payable {}
+
+  fallback() external payable {}
 }

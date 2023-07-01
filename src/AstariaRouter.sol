@@ -38,7 +38,7 @@ import {Pausable} from "core/utils/Pausable.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {ERC4626Router} from "gpl/ERC4626Router.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
-import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
+import {OrderParameters} from "seaport-types/src/lib/ConsiderationStructs.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
 import {Initializable} from "./utils/Initializable.sol";
 
@@ -89,7 +89,7 @@ contract AstariaRouter is
     address _SOLO_IMPL,
     address _WITHDRAW_IMPL,
     address _BEACON_PROXY_IMPL,
-    address _CLEARING_HOUSE_IMPL
+    address _WETH
   ) external initializer {
     __initAuth(msg.sender, address(_AUTHORITY));
     RouterStorage storage s = _loadRouterSlot();
@@ -100,9 +100,6 @@ contract AstariaRouter is
     s.implementations[uint8(ImplementationType.PrivateVault)] = _SOLO_IMPL;
     s.implementations[uint8(ImplementationType.PublicVault)] = _VAULT_IMPL;
     s.implementations[uint8(ImplementationType.WithdrawProxy)] = _WITHDRAW_IMPL;
-    s.implementations[
-      uint8(ImplementationType.ClearingHouse)
-    ] = _CLEARING_HOUSE_IMPL;
     s.BEACON_PROXY_IMPLEMENTATION = _BEACON_PROXY_IMPL;
     s.auctionWindow = uint32(3 days);
 
@@ -111,8 +108,11 @@ contract AstariaRouter is
     s.minEpochLength = uint32(7 days);
     s.maxEpochLength = uint32(45 days);
     s.maxInterestRate = ((uint256(1e16) * 200) / (365 days));
+    s.maxStrategistFee = uint256(50e17);
     //63419583966; // 200% apy / second
     s.guardian = msg.sender;
+    s.minLoanDuration = 1 hours;
+    s.WETH = _WETH;
   }
 
   function mint(
@@ -273,6 +273,7 @@ contract AstariaRouter is
     RouterStorage storage s = _loadRouterSlot();
     FileType what = incoming.what;
     bytes memory data = incoming.data;
+
     if (what == FileType.AuctionWindow) {
       uint256 window = abi.decode(data, (uint256));
       s.auctionWindow = window.safeCastTo32();
@@ -304,9 +305,8 @@ contract AstariaRouter is
       if (maxFee > 1e18) revert InvalidFileData();
       s.maxStrategistFee = maxFee;
     } else if (what == FileType.MinLoanDuration) {
-      uint256 minLoanDuration = abi.decode(data, (uint256));
       //vaults process denominators of the fee as base 1e18
-      s.minLoanDuration = minLoanDuration;
+      s.minLoanDuration = abi.decode(data, (uint256)).safeCastTo32();
     } else if (what == FileType.FeeTo) {
       address addr = abi.decode(data, (address));
       if (addr == address(0)) revert InvalidFileData();
@@ -320,6 +320,11 @@ contract AstariaRouter is
     }
 
     emit FileUpdated(what, data);
+  }
+
+  function WETH() external returns (address) {
+    RouterStorage storage s = _loadRouterSlot();
+    return s.WETH;
   }
 
   function setNewGuardian(address _guardian) external {
@@ -416,6 +421,17 @@ contract AstariaRouter is
       _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
   }
 
+  function getStrategyValidator(
+    IAstariaRouter.Commitment calldata commitment
+  ) external view returns (address strategyValidator) {
+    uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
+    RouterStorage storage s = _loadRouterSlot();
+    strategyValidator = s.strategyValidators[nlrType];
+    if (strategyValidator == address(0)) {
+      revert InvalidStrategy(nlrType);
+    }
+  }
+
   function _validateCommitment(
     RouterStorage storage s,
     IAstariaRouter.Commitment calldata commitment,
@@ -445,8 +461,8 @@ contract AstariaRouter is
 
     if (
       !MerkleProofLib.verify(
-        commitment.lienRequest.merkle.proof,
-        commitment.lienRequest.merkle.root,
+        commitment.lienRequest.proof,
+        commitment.lienRequest.root,
         leaf
       )
     ) {
@@ -460,7 +476,7 @@ contract AstariaRouter is
     lien = ILienToken.Lien({
       collateralType: nlrType,
       details: details,
-      strategyRoot: commitment.lienRequest.merkle.root,
+      strategyRoot: commitment.lienRequest.root,
       collateralId: commitment.tokenContract.computeId(commitment.tokenId),
       vault: commitment.lienRequest.strategy.vault,
       token: IAstariaVaultBase(commitment.lienRequest.strategy.vault).asset()
@@ -492,12 +508,9 @@ contract AstariaRouter is
   function _validateRequest(
     RouterStorage storage s,
     IAstariaRouter.Commitment calldata params,
-    ILienToken.Stack memory newStack
+    ILienToken.Stack memory newStack,
+    uint256 owingAtEnd
   ) internal {
-    if (!s.vaults[params.lienRequest.strategy.vault]) {
-      revert InvalidVault(params.lienRequest.strategy.vault);
-    }
-
     if (params.lienRequest.amount == 0) {
       revert ILienToken.InvalidState(ILienToken.InvalidStates.AMOUNT_ZERO);
     }
@@ -507,8 +520,7 @@ contract AstariaRouter is
       );
     }
     if (
-      newStack.lien.details.liquidationInitialAsk <
-      s.LIEN_TOKEN.getOwed(newStack) ||
+      newStack.lien.details.liquidationInitialAsk < owingAtEnd ||
       newStack.lien.details.liquidationInitialAsk == 0
     ) {
       revert ILienToken.InvalidState(
@@ -532,13 +544,15 @@ contract AstariaRouter is
     return
       _newVault(
         s,
-        underlying,
-        uint256(0),
-        delegate,
-        uint256(0),
-        true,
-        allowList,
-        uint256(0)
+        NewVaultParams(
+          underlying,
+          uint256(0),
+          delegate,
+          uint256(0),
+          true,
+          allowList,
+          uint256(0)
+        )
       );
   }
 
@@ -569,13 +583,15 @@ contract AstariaRouter is
     return
       _newVault(
         s,
-        underlying,
-        epochLength,
-        delegate,
-        vaultFee,
-        allowListEnabled,
-        allowList,
-        depositCap
+        NewVaultParams(
+          underlying,
+          epochLength,
+          delegate,
+          vaultFee,
+          allowListEnabled,
+          allowList,
+          depositCap
+        )
       );
   }
 
@@ -595,14 +611,18 @@ contract AstariaRouter is
     RouterStorage storage s = _loadRouterSlot();
     uint256 auctionWindowMax = s.auctionWindow;
 
-    s.LIEN_TOKEN.stopLiens(
+    s.LIEN_TOKEN.handleLiquidation(
       stack.lien.collateralId,
       auctionWindowMax,
       stack,
       msg.sender
     );
 
-    emit Liquidation(stack.lien.collateralId, msg.sender);
+    emit Liquidation(
+      stack.lien.collateralId,
+      msg.sender,
+      s.COLLATERAL_TOKEN.SEAPORT().getCounter(address(s.COLLATERAL_TOKEN))
+    );
     listedOrder = s.COLLATERAL_TOKEN.auctionVault(
       ICollateralToken.AuctionVaultParams({
         settlementToken: stack.lien.token,
@@ -642,29 +662,31 @@ contract AstariaRouter is
     return _loadRouterSlot().vaults[vault];
   }
 
+  struct NewVaultParams {
+    address underlying;
+    uint256 epochLength;
+    address delegate;
+    uint256 vaultFee;
+    bool allowListEnabled;
+    address[] allowList;
+    uint256 depositCap;
+  }
+
   /**
    * @dev Deploys a new Vault.
-   * @param epochLength The length of each epoch for a new PublicVault. If 0, deploys a PrivateVault.
-   * @param delegate The address of the Vault delegate.
-   * @param allowListEnabled Whether or not the Vault has an LP whitelist.
+   * @param params The parameters for the new Vault.
    * @return vaultAddr The address for the new Vault.
    */
   function _newVault(
     RouterStorage storage s,
-    address underlying,
-    uint256 epochLength,
-    address delegate,
-    uint256 vaultFee,
-    bool allowListEnabled,
-    address[] memory allowList,
-    uint256 depositCap
+    NewVaultParams memory params
   ) internal returns (address vaultAddr) {
     uint8 vaultType;
 
-    if (underlying.code.length == 0) {
-      revert InvalidUnderlying(underlying);
+    if (params.underlying.code.length == 0) {
+      revert InvalidUnderlying(params.underlying);
     }
-    if (epochLength > uint256(0)) {
+    if (params.epochLength > uint256(0)) {
       vaultType = uint8(ImplementationType.PublicVault);
     } else {
       vaultType = uint8(ImplementationType.PrivateVault);
@@ -677,10 +699,11 @@ contract AstariaRouter is
         address(this),
         vaultType,
         msg.sender,
-        underlying,
+        params.underlying,
         block.timestamp,
-        epochLength,
-        vaultFee
+        params.epochLength,
+        params.vaultFee,
+        address(s.WETH)
       ),
       keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1)))
     );
@@ -691,18 +714,16 @@ contract AstariaRouter is
     //mutable data
     IVaultImplementation(vaultAddr).init(
       IVaultImplementation.InitParams({
-        delegate: delegate,
-        allowListEnabled: allowListEnabled,
-        allowList: allowList,
-        depositCap: depositCap
+        delegate: params.delegate,
+        allowListEnabled: params.allowListEnabled,
+        allowList: params.allowList,
+        depositCap: params.depositCap
       })
     );
 
     s.vaults[vaultAddr] = true;
 
-    emit NewVault(msg.sender, delegate, vaultAddr, vaultType);
-
-    return vaultAddr;
+    emit NewVault(msg.sender, params.delegate, vaultAddr, vaultType);
   }
 
   function _validateSignature(
@@ -718,7 +739,7 @@ contract AstariaRouter is
           params.strategy,
           nonce,
           domainSepatator,
-          params.merkle.root
+          params.root
         )
       ),
       params.v,
@@ -754,6 +775,9 @@ contract AstariaRouter is
     RouterStorage storage s,
     IAstariaRouter.Commitment calldata c
   ) internal returns (uint256 lienId, ILienToken.Stack memory stack) {
+    if (!s.vaults[c.lienRequest.strategy.vault]) {
+      revert InvalidVault(c.lienRequest.strategy.vault);
+    }
     (
       ,
       address delegate,
@@ -764,8 +788,7 @@ contract AstariaRouter is
       uint256 timeToSecondEndIfPublic,
       bytes32 domainSeparator
     ) = IVaultImplementation(c.lienRequest.strategy.vault).getState();
-    ERC721 token = ERC721(c.tokenContract);
-    token.safeTransferFrom(
+    ERC721(c.tokenContract).safeTransferFrom(
       msg.sender,
       address(s.COLLATERAL_TOKEN),
       c.tokenId,
@@ -773,10 +796,8 @@ contract AstariaRouter is
     );
     _validateSignature(c.lienRequest, nonce, domainSeparator, owner, delegate);
 
-    uint feeRake = s.feeTo == address(0)
-      ? 0
-      : _getProtocolFee(s, c.lienRequest.amount);
-    (lienId, stack, ) = s.LIEN_TOKEN.createLien(
+    uint256 owingAtEnd;
+    (lienId, stack, owingAtEnd) = s.LIEN_TOKEN.createLien(
       ILienToken.LienActionEncumber({
         lien: _validateCommitment({
           s: s,
@@ -787,9 +808,11 @@ contract AstariaRouter is
         amount: c.lienRequest.amount,
         receiver: c.lienRequest.strategy.vault,
         feeTo: s.feeTo,
-        fee: feeRake
+        fee: s.feeTo == address(0)
+          ? 0
+          : _getProtocolFee(s, c.lienRequest.amount)
       })
     );
-    _validateRequest(s, c, stack);
+    _validateRequest(s, c, stack, owingAtEnd);
   }
 }

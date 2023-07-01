@@ -45,6 +45,16 @@ interface IWithdrawProxy is IRouterBase, IERC165, IERC4626 {
    */
   function claim() external;
 
+  function getState()
+    external
+    view
+    returns (
+      uint256 withdrawRatio,
+      uint256 expected,
+      uint40 finalAuctionEnd,
+      uint256 withdrawReserveReceived
+    );
+
   /**
    * @notice Called when PublicVault sends a payment to the WithdrawProxy
    * to track how much of its WETH balance is from withdrawReserve payments instead of auction repayments

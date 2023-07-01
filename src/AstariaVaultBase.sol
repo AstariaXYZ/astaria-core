@@ -34,7 +34,7 @@ abstract contract AstariaVaultBase is Clone, IAstariaVaultBase {
   }
 
   function owner() public pure returns (address) {
-    return _getArgAddress(21); //ends at 44
+    return _getArgAddress(21); //ends at 41
   }
 
   function asset()
@@ -44,19 +44,23 @@ abstract contract AstariaVaultBase is Clone, IAstariaVaultBase {
     override(IAstariaVaultBase)
     returns (address)
   {
-    return _getArgAddress(41); //ends at 64
+    return _getArgAddress(41); //ends at 41
   }
 
   function START() public pure returns (uint256) {
-    return _getArgUint256(61);
+    return _getArgUint256(61); // ends at 93
   }
 
   function EPOCH_LENGTH() public pure returns (uint256) {
-    return _getArgUint256(93); //ends at 116
+    return _getArgUint256(93); //ends at 125
   }
 
   function VAULT_FEE() public pure returns (uint256) {
-    return _getArgUint256(125);
+    return _getArgUint256(125); //ends at 157
+  }
+
+  function WETH() public pure returns (address) {
+    return _getArgAddress(157); //ends at 177
   }
 
   function COLLATERAL_TOKEN() public view returns (ICollateralToken) {

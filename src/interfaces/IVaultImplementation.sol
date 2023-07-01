@@ -22,7 +22,6 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   enum InvalidRequestReason {
     NO_AUTHORITY,
     OPERATOR_NO_CODE,
-    INVALID_VAULT,
     INVALID_SIGNATURE,
     INVALID_COMMITMENT,
     INVALID_AMOUNT,

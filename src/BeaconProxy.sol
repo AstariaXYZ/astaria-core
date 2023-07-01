@@ -17,6 +17,12 @@ import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {Clone} from "create2-clones-with-immutable-args/Clone.sol";
 
 contract BeaconProxy is Clone {
+  address public immutable me;
+
+  constructor() {
+    me = address(this);
+  }
+
   function _getBeacon() internal pure returns (IBeacon) {
     return IBeacon(_getArgAddress(0));
   }
@@ -84,5 +90,11 @@ contract BeaconProxy is Clone {
    *
    * If overridden should call `super._beforeFallback()`.
    */
-  function _beforeFallback() internal virtual {}
+  function _beforeFallback() internal virtual {
+    if (address(this) == me) {
+      revert InvalidSender();
+    }
+  }
+
+  error InvalidSender();
 }

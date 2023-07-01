@@ -35,7 +35,7 @@ import {IStrategyValidator} from "core/interfaces/IStrategyValidator.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {
   ConduitControllerInterface
-} from "seaport/interfaces/ConduitControllerInterface.sol";
+} from "seaport-types/src/interfaces/ConduitControllerInterface.sol";
 import {
   ICollectionValidator,
   CollectionValidator
@@ -56,7 +56,7 @@ import {LienToken} from "../LienToken.sol";
 import {TransferProxy} from "../TransferProxy.sol";
 import {PublicVault} from "../PublicVault.sol";
 import {Vault} from "../Vault.sol";
-import {WithdrawProxy} from "../WithdrawProxy.sol";
+import {IWithdrawProxy} from "src/interfaces/IWithdrawProxy.sol";
 import {Strings2} from "./utils/Strings2.sol";
 import {BeaconProxy} from "../BeaconProxy.sol";
 
@@ -66,7 +66,7 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {
   ConsiderationInterface
-} from "seaport/interfaces/ConsiderationInterface.sol";
+} from "seaport-types/src/interfaces/ConsiderationInterface.sol";
 import {
   OrderParameters,
   OrderComponents,
@@ -78,13 +78,17 @@ import {
   OrderType,
   Fulfillment,
   FulfillmentComponent
-} from "seaport/lib/ConsiderationStructs.sol";
-import {ClearingHouse} from "core/ClearingHouse.sol";
-import {ConduitController} from "seaport/conduit/ConduitController.sol";
-import {Conduit} from "seaport/conduit/Conduit.sol";
-import {Consideration} from "seaport/lib/Consideration.sol";
+} from "seaport-types/src/lib/ConsiderationStructs.sol";
+import {
+  ConduitController
+} from "seaport-core/src/conduit/ConduitController.sol";
+import {AmountDeriver} from "seaport-core/src/lib/AmountDeriver.sol";
+import {Conduit} from "seaport-core/src/conduit/Conduit.sol";
+import {
+  ReferenceConsideration as Consideration
+} from "lib/seaport/reference/ReferenceConsideration.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
-
+import {BaseSeaportTest} from "./utils/BaseSeaportTest.sol";
 string constant weth9Artifact = "src/test/WETH9.json";
 
 contract TestNFT is MockERC721 {
@@ -94,9 +98,48 @@ contract TestNFT is MockERC721 {
     }
   }
 }
-import {BaseOrderTest} from "lib/seaport/test/foundry/utils/BaseOrderTest.sol";
 
-contract ConsiderationTester is BaseOrderTest {
+enum CallerMode {
+  None,
+  Broadcast,
+  RecurrentBroadcast,
+  Prank,
+  RecurrentPrank
+}
+
+interface VMExtra {
+  function readCallers()
+    external
+    returns (CallerMode callerMode, address msgSender, address txOrigin);
+}
+
+//import {BaseOrderTest} from "lib/seaport/test/foundry/utils/BaseOrderTest.sol";
+
+contract ConsiderationTester is BaseSeaportTest, AmountDeriver {
+  /**
+   * @dev return OrderComponents for a given OrderParameters and offerer
+   *      counter
+   */
+  function getOrderComponents(
+    OrderParameters memory parameters,
+    uint256 counter
+  ) internal pure returns (OrderComponents memory) {
+    return
+      OrderComponents(
+        parameters.offerer,
+        parameters.zone,
+        parameters.offer,
+        parameters.consideration,
+        parameters.orderType,
+        parameters.startTime,
+        parameters.endTime,
+        parameters.zoneHash,
+        parameters.salt,
+        parameters.conduitKey,
+        counter
+      );
+  }
+
   function _deployAndConfigureConsideration() public {
     conduitController = new ConduitController();
     consideration = new Consideration(address(conduitController));
@@ -112,25 +155,12 @@ contract ConsiderationTester is BaseOrderTest {
     );
   }
 
-  function setUp() public virtual override(BaseOrderTest) {
+  function setUp() public virtual override(BaseSeaportTest) {
     conduitKeyOne = bytes32(uint256(uint160(address(this))) << 96);
     _deployAndConfigureConsideration();
+    super.setUp();
 
-    vm.label(address(conduitController), "conduitController");
-    vm.label(address(consideration), "consideration");
-    vm.label(address(conduit), "conduit");
     vm.label(address(this), "testContract");
-
-    _deployTestTokenContracts();
-    erc20s = [token1, token2, token3];
-    erc721s = [test721_1, test721_2, test721_3];
-    erc1155s = [test1155_1, test1155_2, test1155_3];
-
-    // allocate funds and tokens to test addresses
-    allocateTokensAndApprovals(address(this), uint128(MAX_INT));
-    allocateTokensAndApprovals(alice, uint128(MAX_INT));
-    allocateTokensAndApprovals(bob, uint128(MAX_INT));
-    allocateTokensAndApprovals(cal, uint128(MAX_INT));
   }
 }
 
@@ -256,7 +286,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   event NewTermCommitment(bytes32 vault, uint256 collateralId, uint256 amount);
   event Repayment(bytes32 vault, uint256 collateralId, uint256 amount);
-  event Liquidation(bytes32 vault, uint256 collateralId);
+  event Liquidation(bytes32 vault, uint256 collateralId, uint256 offererNonce);
   event NewVault(
     address strategist,
     bytes32 vault,
@@ -286,21 +316,11 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
     vm.label(address(ASTARIA_ROUTER), "ASTARIA_ROUTER");
 
-    V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(
-      address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88)
-    );
-
-    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](2);
+    CollateralToken.File[] memory ctfiles = new CollateralToken.File[](1);
 
     ctfiles[0] = ICollateralToken.File({
       what: ICollateralToken.FileType.AstariaRouter,
       data: abi.encode(address(ASTARIA_ROUTER))
-    });
-
-    address UNI_V3_NFT = address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
-    ctfiles[1] = ICollateralToken.File({
-      what: ICollateralToken.FileType.SecurityHook,
-      data: abi.encode(UNI_V3_NFT, address(V3_SECURITY_HOOK))
     });
 
     COLLATERAL_TOKEN.fileBatch(ctfiles);
@@ -309,10 +329,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     UniqueValidator UNIQUE_STRATEGY_VALIDATOR = new UniqueValidator();
     //strategy collection
     CollectionValidator COLLECTION_STRATEGY_VALIDATOR = new CollectionValidator();
-    //strategy univ3
-    UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
 
-    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](3);
+    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](2);
 
     files[0] = IAstariaRouter.File(
       IAstariaRouter.FileType.StrategyValidator,
@@ -321,10 +339,6 @@ contract TestHelpers is Deploy, ConsiderationTester {
     files[1] = IAstariaRouter.File(
       IAstariaRouter.FileType.StrategyValidator,
       abi.encode(uint8(2), address(COLLECTION_STRATEGY_VALIDATOR))
-    );
-    files[2] = IAstariaRouter.File(
-      IAstariaRouter.FileType.StrategyValidator,
-      abi.encode(uint8(3), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     );
 
     ASTARIA_ROUTER.fileBatch(files);
@@ -344,7 +358,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function setupLiquidation(
     address borrower
-  ) public returns (address publicVault, ILienToken.Stack memory stack) {
+  )
+    public
+    returns (address payable publicVault, ILienToken.Stack memory stack)
+  {
     TestNFT nft = new TestNFT(0);
     _mintNoDepositApproveRouterSpecific(borrower, address(nft), 99);
     address tokenContract = address(nft);
@@ -360,10 +377,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
     // lend 50 ether to the PublicVault as address(1)
     _lendToVault(
       Lender({addr: address(1), amountToLend: 50 ether}),
-      publicVault
+      payable(publicVault)
     );
 
-    _signalWithdraw(address(1), publicVault);
+    _signalWithdraw(address(1), payable(publicVault));
 
     ILienToken.Details memory lien = standardLienDetails;
     lien.duration = 14 days;
@@ -371,7 +388,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     // borrow 10 eth against the dummy NFT
     vm.startPrank(borrower);
     (, stack) = _commitToLien({
-      vault: publicVault,
+      vault: payable(publicVault),
       strategist: strategistOne,
       strategistPK: strategistOnePK,
       tokenContract: tokenContract,
@@ -418,7 +435,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     );
   }
 
-  function _warpToEpochEnd(address vault) internal {
+  function _warpToEpochEnd(address payable vault) internal {
     //warps to the first second after the epoch end
     assertTrue(
       block.timestamp <
@@ -489,7 +506,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address strategist,
     address delegate,
     uint256 epochLength
-  ) internal returns (address publicVault) {
+  ) internal returns (address payable publicVault) {
     return _createPublicVault(strategist, delegate, epochLength, 0);
   }
 
@@ -498,16 +515,18 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address delegate,
     uint256 epochLength,
     uint256 vaultFee
-  ) internal returns (address publicVault) {
+  ) internal returns (address payable publicVault) {
     vm.startPrank(strategist);
-    publicVault = ASTARIA_ROUTER.newPublicVault(
-      epochLength,
-      delegate,
-      address(WETH9),
-      vaultFee,
-      false,
-      new address[](0),
-      uint256(0)
+    publicVault = payable(
+      ASTARIA_ROUTER.newPublicVault(
+        epochLength,
+        delegate,
+        address(WETH9),
+        vaultFee,
+        false,
+        new address[](0),
+        uint256(0)
+      )
     );
     vm.stopPrank();
   }
@@ -549,7 +568,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   }
 
   function _commitToLien(
-    address vault, // address of deployed Vault
+    address payable vault, // address of deployed Vault
     address strategist,
     uint256 strategistPK,
     address tokenContract, // original NFT address
@@ -570,15 +589,139 @@ contract TestHelpers is Deploy, ConsiderationTester {
       });
   }
 
+  struct LoanInvariants {
+    uint256 borrowerDebtBalance;
+    uint256 vaultDebtBalance;
+    uint256 slope;
+    uint256 liensOpen;
+    uint256 unclaimedShares;
+  }
+
   function _executeCommitments(
     IAstariaRouter.Commitment memory commitment,
     bytes memory revertMessage
   ) internal returns (uint256 lienId, ILienToken.Stack memory newStack) {
-    COLLATERAL_TOKEN.setApprovalForAll(address(ASTARIA_ROUTER), true);
+    //get ERC20 balance of borrower before
+    address msgSender;
+    {
+      (CallerMode callerMode, address trueSender, ) = VMExtra(address(vm))
+        .readCallers();
+      msgSender = (callerMode == CallerMode.Prank ||
+        callerMode == CallerMode.RecurrentPrank)
+        ? trueSender
+        : address(this);
+    }
+
+    LoanInvariants memory before;
+    before.borrowerDebtBalance = VaultImplementation(
+      commitment.lienRequest.strategy.vault
+    ).asset() == address(WETH9)
+      ? msgSender.balance
+      : ERC20(
+        VaultImplementation(commitment.lienRequest.strategy.vault).asset()
+      ).balanceOf(msgSender);
+    before.vaultDebtBalance = ERC20(
+      VaultImplementation(commitment.lienRequest.strategy.vault).asset()
+    ).balanceOf(commitment.lienRequest.strategy.vault);
+
+    bool isPublic = VaultImplementation(commitment.lienRequest.strategy.vault)
+      .supportsInterface(type(IPublicVault).interfaceId);
+
+    if (isPublic) {
+      before.slope = IPublicVault(commitment.lienRequest.strategy.vault)
+        .getSlope();
+
+      (, ILienToken.Details memory details) = IStrategyValidator(
+        ASTARIA_ROUTER.getStrategyValidator(commitment)
+      ).validateAndParse(
+          commitment.lienRequest,
+          msg.sender,
+          commitment.tokenContract,
+          commitment.tokenId
+        );
+
+      (uint256 liensOpen, ) = IPublicVault(
+        commitment.lienRequest.strategy.vault
+      ).getEpochData(
+          IPublicVault(commitment.lienRequest.strategy.vault).getLienEpoch(
+            uint64(block.timestamp + details.duration)
+          )
+        );
+      before.liensOpen = liensOpen;
+    }
+
+    assertEq(
+      ERC721(commitment.tokenContract).ownerOf(commitment.tokenId),
+      address(msgSender),
+      "nft was not deposited"
+    );
     if (revertMessage.length > 0) {
       vm.expectRevert(revertMessage);
     }
     (lienId, newStack) = ASTARIA_ROUTER.commitToLien(commitment);
+    //get ERC20 balance of borrower after
+    LoanInvariants memory afterEffect;
+    afterEffect.borrowerDebtBalance = VaultImplementation(
+      commitment.lienRequest.strategy.vault
+    ).asset() == address(WETH9)
+      ? msgSender.balance
+      : ERC20(
+        VaultImplementation(commitment.lienRequest.strategy.vault).asset()
+      ).balanceOf(msgSender);
+    afterEffect.vaultDebtBalance = ERC20(
+      VaultImplementation(commitment.lienRequest.strategy.vault).asset()
+    ).balanceOf(commitment.lienRequest.strategy.vault);
+
+    if (revertMessage.length == 0) {
+      //assert that the slope has increased by the slope of the loan issued
+      if (isPublic) {
+        afterEffect.slope = IPublicVault(commitment.lienRequest.strategy.vault)
+          .getSlope();
+        (uint256 liensOpen, ) = IPublicVault(
+          commitment.lienRequest.strategy.vault
+        ).getEpochData(
+            IPublicVault(commitment.lienRequest.strategy.vault).getLienEpoch(
+              newStack.point.end
+            )
+          );
+
+        afterEffect.liensOpen = liensOpen;
+        assertEq(
+          afterEffect.slope,
+          before.slope + LIEN_TOKEN.calculateSlope(newStack),
+          "slope not increased by the slope of the loan issued"
+        );
+        assertEq(afterEffect.liensOpen, before.liensOpen + 1, "liens not open");
+      }
+      assertEq(
+        ERC721(commitment.tokenContract).ownerOf(commitment.tokenId),
+        address(COLLATERAL_TOKEN),
+        "nft was not deposited"
+      );
+      assertEq(
+        afterEffect.borrowerDebtBalance,
+        before.borrowerDebtBalance + commitment.lienRequest.amount,
+        "borrower not paid their debt"
+      );
+      assertEq(
+        afterEffect.vaultDebtBalance,
+        before.vaultDebtBalance - commitment.lienRequest.amount,
+        "borrower not paid their debt"
+      );
+
+      assertEq(
+        COLLATERAL_TOKEN.ownerOf(
+          commitment.tokenContract.computeId(commitment.tokenId)
+        ),
+        msgSender,
+        "CT not transferred"
+      );
+      assertEq(
+        LIEN_TOKEN.ownerOf(uint256(keccak256(abi.encode(newStack)))),
+        VaultImplementation(commitment.lienRequest.strategy.vault).recipient(),
+        "LT not issued"
+      );
+    }
   }
 
   struct V3LienParams {
@@ -599,7 +742,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function _commitToV3Lien(
     V3LienParams memory params,
-    address vault,
+    address payable vault,
     uint256 amount
   ) internal returns (uint256 lienId, ILienToken.Stack memory newStack) {
     IAstariaRouter.Commitment memory terms = _generateValidV3Terms({
@@ -617,7 +760,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   }
 
   function _commitToLien(
-    address vault, // address of deployed Vault
+    address payable vault, // address of deployed Vault
     address strategist,
     uint256 strategistPK,
     address tokenContract, // original NFT address
@@ -643,7 +786,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   function beforeExecutionMock() public {}
 
   function _commitToLien(
-    address vault, // address of deployed Vault
+    address payable vault, // address of deployed Vault
     address strategist,
     uint256 strategistPK,
     address tokenContract, // original NFT address
@@ -670,7 +813,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   }
 
   function _generateEncodedStrategyData(
-    address vault,
+    address payable vault,
     uint256 deadline,
     bytes32 root
   ) internal view returns (bytes memory) {
@@ -694,7 +837,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   function _generateValidV3Terms(
     V3LienParams memory params,
     uint256 amount, // requested amount
-    address vault
+    address payable vault
   ) internal returns (IAstariaRouter.Commitment memory) {
     bytes memory validatorDetails = abi.encode(
       IUNI_V3Validator.Details({
@@ -749,7 +892,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
   }
 
   function _generateValidTerms(
-    address vault, // address of deployed Vault
+    address payable vault, // address of deployed Vault
     address strategist,
     uint256 strategistPK,
     address tokenContract, // original NFT address
@@ -846,10 +989,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
         lienRequest: IAstariaRouter.NewLienRequest({
           strategy: params.strategyDetails,
           nlrDetails: params.validatorDetails,
-          merkle: IAstariaRouter.MerkleData({
-            root: params.rootHash,
-            proof: params.merkleProof
-          }),
+          root: params.rootHash,
+          proof: params.merkleProof,
           amount: params.amount,
           v: v,
           r: r,
@@ -868,24 +1009,70 @@ contract TestHelpers is Deploy, ConsiderationTester {
     address token;
   }
 
-  function _lendToVault(Lender memory lender, address vault) internal {
+  function _lendToVault(Lender memory lender, address payable vault) internal {
     vm.deal(lender.addr, lender.amountToLend);
     vm.startPrank(lender.addr);
     WETH9.deposit{value: lender.amountToLend}();
     WETH9.approve(address(TRANSFER_PROXY), lender.amountToLend);
     //min slippage on the deposit
+
+    uint256 lenderDebtTokenBalanceBefore = WETH9.balanceOf(lender.addr);
+    uint256 vaultDebtTokenBalanceBefore = WETH9.balanceOf(vault);
+
+    //get lender vault shares
+
+    uint256 lenderVaultSharesBefore = ERC20(vault).balanceOf(lender.addr);
+
+    uint256 lenderDepositPreview = IERC4626(vault).previewDeposit(
+      lender.amountToLend
+    );
+
+    //vault total supply
+
+    uint256 vaultTotalSupplyBefore = ERC20(vault).totalSupply();
+
     ASTARIA_ROUTER.depositToVault(
       IERC4626(vault),
       lender.addr,
       lender.amountToLend,
       uint256(0)
     );
+
+    uint256 lenderDebtTokenBalanceAfter = WETH9.balanceOf(lender.addr);
+    uint256 vaultDebtTokenBalanceAfter = WETH9.balanceOf(vault);
+
+    uint256 lenderVaultSharesAfter = ERC20(vault).balanceOf(lender.addr);
+    uint256 vaultTotalSupplyAfter = ERC20(vault).totalSupply();
+
+    assertEq(
+      vaultTotalSupplyAfter,
+      vaultTotalSupplyBefore + lenderDepositPreview,
+      "vault should have more total supply after lending"
+    );
+    assertEq(
+      lenderVaultSharesAfter,
+      lenderVaultSharesBefore + lenderDepositPreview,
+      "lender should have more vault shares after lending"
+    );
+
+    assertEq(
+      lenderDebtTokenBalanceAfter,
+      lenderDebtTokenBalanceBefore - lender.amountToLend,
+      "lender should have less debt tokens after lending"
+    );
+
+    assertEq(
+      vaultDebtTokenBalanceAfter,
+      vaultDebtTokenBalanceBefore + lender.amountToLend,
+      "vault should have more debt tokens after lending"
+    );
+
     vm.stopPrank();
   }
 
   function _lendToPrivateVault(
     PrivateLender memory lender,
-    address vault
+    address payable vault
   ) internal {
     vm.startPrank(lender.addr);
 
@@ -897,7 +1084,30 @@ contract TestHelpers is Deploy, ConsiderationTester {
       ERC20(lender.token).approve(vault, type(uint256).max);
     }
     //min slippage on the deposit
+
+    uint256 lenderDebtTokenBalanceBefore = ERC20(lender.token).balanceOf(
+      lender.addr
+    );
+    uint256 vaultDebtTokenBalanceBefore = ERC20(lender.token).balanceOf(vault);
+
     Vault(vault).deposit(lender.amountToLend, lender.addr);
+
+    uint256 lenderDebtTokenBalanceAfter = ERC20(lender.token).balanceOf(
+      lender.addr
+    );
+    uint256 vaultDebtTokenBalanceAfter = ERC20(lender.token).balanceOf(vault);
+
+    assertEq(
+      lenderDebtTokenBalanceAfter,
+      lenderDebtTokenBalanceBefore - lender.amountToLend,
+      "lender should have less debt tokens after lending"
+    );
+
+    assertEq(
+      vaultDebtTokenBalanceAfter,
+      vaultDebtTokenBalanceBefore + lender.amountToLend,
+      "vault should have more debt tokens after lending"
+    );
 
     vm.stopPrank();
   }
@@ -910,7 +1120,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 timestamp;
   }
 
-  function _lendToVault(Lender[] memory lenders, address vault) internal {
+  function _lendToVault(
+    Lender[] memory lenders,
+    address payable vault
+  ) internal {
     for (uint256 i = 0; i < lenders.length; i++) {
       _lendToVault(lenders[i], vault);
     }
@@ -930,8 +1143,126 @@ contract TestHelpers is Deploy, ConsiderationTester {
     } else {
       ERC20(stack.lien.token).approve(address(TRANSFER_PROXY), amount);
     }
+    //makePayment
+    //
+    //    PublicVault slope –
+    //    Borrower CollateralToken –
+    //    PublicVault LienToken –
+    //    PublicVault WETH ++
+    //    Borrower WETH –
+    //    CollateralToken NFT –
+    //    Borrower NFT ++
+    //    PublicVault lienCount –
+    //    Strategist vault shares ++
+    //    PublicVault lienCount ++
+
+    uint256 owingBeforePayment = LIEN_TOKEN.getOwed(stack);
+    //    address debtHolder = COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId);
+    LoanInvariants memory before;
+    before.borrowerDebtBalance = ERC20(
+      VaultImplementation(stack.lien.vault).asset()
+    ).balanceOf(payer);
+    before.vaultDebtBalance = ERC20(
+      VaultImplementation(stack.lien.vault).asset()
+    ).balanceOf(stack.lien.vault);
+
+    bool isPublic = VaultImplementation(stack.lien.vault).supportsInterface(
+      type(IPublicVault).interfaceId
+    );
+
+    if (isPublic) {
+      before.slope = IPublicVault(stack.lien.vault).getSlope();
+
+      (uint256 liensOpen, ) = IPublicVault(stack.lien.vault).getEpochData(
+        IPublicVault(stack.lien.vault).getLienEpoch(uint64(stack.point.end))
+      );
+      (, , , , , , uint256 shares) = IPublicVault(stack.lien.vault)
+        .getPublicVaultState();
+      before.unclaimedShares = shares;
+      before.liensOpen = liensOpen;
+    }
+
+    //assert ownership
+
+    assertEq(
+      LIEN_TOKEN.ownerOf(uint256(keccak256(abi.encode(stack)))),
+      VaultImplementation(stack.lien.vault).recipient(),
+      "vault is not owner of lien"
+    );
 
     LIEN_TOKEN.makePayment(stack);
+    vm.expectRevert("NOT_MINTED");
+    assertEq(
+      LIEN_TOKEN.ownerOf(uint256(keccak256(abi.encode(stack)))),
+      address(0),
+      "lien was not burned"
+    );
+    vm.expectRevert("NOT_MINTED");
+    assertEq(
+      COLLATERAL_TOKEN.ownerOf(stack.lien.collateralId),
+      address(0),
+      "CT was not burned"
+    );
+
+    (address tokenContract, uint256 tokenId) = COLLATERAL_TOKEN.getUnderlying(
+      stack.lien.collateralId
+    );
+    assertEq(
+      ERC721(tokenContract).ownerOf(tokenId),
+      address(this),
+      "debt holder didnt get the collateral back"
+    );
+
+    LoanInvariants memory afterEffects;
+    afterEffects.borrowerDebtBalance = ERC20(
+      VaultImplementation(stack.lien.vault).asset()
+    ).balanceOf(payer);
+    afterEffects.vaultDebtBalance = ERC20(
+      VaultImplementation(stack.lien.vault).asset()
+    ).balanceOf(stack.lien.vault);
+
+    if (isPublic) {
+      afterEffects.slope = IPublicVault(stack.lien.vault).getSlope();
+
+      (uint256 liensOpen, ) = IPublicVault(stack.lien.vault).getEpochData(
+        IPublicVault(stack.lien.vault).getLienEpoch(uint64(stack.point.end))
+      );
+      (, , , , , , uint256 shares) = IPublicVault(stack.lien.vault)
+        .getPublicVaultState();
+      afterEffects.unclaimedShares = shares;
+      afterEffects.liensOpen = liensOpen;
+
+      if (VaultImplementation(stack.lien.vault).VAULT_FEE() > 0) {
+        assertTrue(
+          (afterEffects.unclaimedShares > before.unclaimedShares),
+          "strategist unclaimedShares didnt increase"
+        );
+      }
+
+      assertEq(
+        afterEffects.slope,
+        before.slope - LIEN_TOKEN.calculateSlope(stack),
+        "slope didnt decrease as expected"
+      );
+
+      assertEq(
+        afterEffects.liensOpen,
+        before.liensOpen - 1,
+        "liens didnt decrease as expected"
+      );
+
+      assertEq(
+        afterEffects.borrowerDebtBalance,
+        before.borrowerDebtBalance - owingBeforePayment,
+        "borrowerDebtBalance didnt decrease as expected"
+      );
+
+      assertEq(
+        afterEffects.vaultDebtBalance,
+        before.vaultDebtBalance + owingBeforePayment,
+        "vaultDebtBalance didnt increase as expected"
+      );
+    }
     vm.stopPrank();
   }
 
@@ -983,11 +1314,150 @@ contract TestHelpers is Deploy, ConsiderationTester {
     vm.stopPrank();
   }
 
+  function getSignatureComponents(
+    ConsiderationInterface _consideration,
+    uint256 _pkOfSigner,
+    bytes32 _orderHash
+  ) internal returns (bytes32, bytes32, uint8) {
+    (, bytes32 domainSeparator, ) = _consideration.information();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+      _pkOfSigner,
+      keccak256(abi.encodePacked(bytes2(0x1901), domainSeparator, _orderHash))
+    );
+    return (r, s, v);
+  }
+
+  function signOrder(
+    ConsiderationInterface _consideration,
+    uint256 _pkOfSigner,
+    bytes32 _orderHash
+  ) internal returns (bytes memory) {
+    (bytes32 r, bytes32 s, uint8 v) = getSignatureComponents(
+      _consideration,
+      _pkOfSigner,
+      _orderHash
+    );
+    return abi.encodePacked(r, s, v);
+  }
+
+  receive() external payable {}
+
+  fallback() external {}
+
+  function _liquidate(
+    ILienToken.Stack memory stack
+  ) internal returns (OrderParameters memory listedOrder) {
+    return _liquidate(stack, "");
+  }
+
+  function _liquidate(
+    ILienToken.Stack memory stack,
+    bytes memory revertMessage
+  ) internal returns (OrderParameters memory listedOrder) {
+    bool isPublic = VaultImplementation(stack.lien.vault).supportsInterface(
+      type(IPublicVault).interfaceId
+    );
+
+    bool hasWP = (isPublic &&
+      (address(
+        IPublicVault(stack.lien.vault).getWithdrawProxy(
+          IPublicVault(stack.lien.vault).getCurrentEpoch() + 1
+        )
+      ) != address(0)));
+
+    uint256 finalAuctionEndBefore = isPublic && hasWP
+      ? IWithdrawProxy(
+        address(
+          IPublicVault(stack.lien.vault).getWithdrawProxy(
+            IPublicVault(stack.lien.vault).getCurrentEpoch() + 1
+          )
+        )
+      ).getFinalAuctionEnd()
+      : 0;
+
+    uint256 WPExpectedBefore = isPublic && hasWP
+      ? IWithdrawProxy(
+        address(
+          IPublicVault(stack.lien.vault).getWithdrawProxy(
+            IPublicVault(stack.lien.vault).getCurrentEpoch() + 1
+          )
+        )
+      ).getExpected()
+      : 0;
+    //
+    //    finalAuctionEnd++
+    //    s.expected ++
+    LoanInvariants memory before;
+    if (isPublic) {
+      before.slope = IPublicVault(stack.lien.vault).getSlope();
+      (uint256 liensOpen, ) = IPublicVault(stack.lien.vault).getEpochData(
+        IPublicVault(stack.lien.vault).getLienEpoch(uint64(stack.point.end))
+      );
+      before.liensOpen = liensOpen;
+    }
+    if (revertMessage.length > 0) {
+      vm.expectRevert(revertMessage);
+    }
+    listedOrder = ASTARIA_ROUTER.liquidate(stack);
+
+    LoanInvariants memory afterEffects;
+
+    if (revertMessage.length == 0) {
+      if (isPublic) {
+        afterEffects.slope = IPublicVault(stack.lien.vault).getSlope();
+        (uint256 liensOpen, ) = IPublicVault(stack.lien.vault).getEpochData(
+          IPublicVault(stack.lien.vault).getLienEpoch(uint64(stack.point.end))
+        );
+        afterEffects.liensOpen = liensOpen;
+
+        if (hasWP) {
+          uint256 WPExpectedAfter = IWithdrawProxy(
+            address(
+              IPublicVault(stack.lien.vault).getWithdrawProxy(
+                IPublicVault(stack.lien.vault).getCurrentEpoch() + 1
+              )
+            )
+          ).getExpected();
+          console.log(WPExpectedAfter);
+          assertEq(
+            WPExpectedAfter,
+            WPExpectedBefore + LIEN_TOKEN.getOwed(stack),
+            "WPExpected didnt increase as expected"
+          );
+
+          assertEq(
+            block.timestamp + ASTARIA_ROUTER.getAuctionWindow(),
+            IWithdrawProxy(
+              address(
+                IPublicVault(stack.lien.vault).getWithdrawProxy(
+                  IPublicVault(stack.lien.vault).getCurrentEpoch() + 1
+                )
+              )
+            ).getFinalAuctionEnd(),
+            "finalAuctionEnd didnt increase as expected"
+          );
+        }
+        assertEq(
+          afterEffects.slope,
+          before.slope - LIEN_TOKEN.calculateSlope(stack),
+          "slope didnt decrease as expected"
+        );
+
+        assertEq(
+          afterEffects.liensOpen,
+          before.liensOpen - 1,
+          "liens didnt decrease as expected"
+        );
+      }
+    }
+  }
+
   function _bid(
     Bidder memory incomingBidder,
     OrderParameters memory params,
-    uint256 bidAmount
-  ) internal {
+    uint256 bidAmount,
+    ILienToken.Stack memory stack
+  ) internal returns (uint256 executionPrice) {
     vm.deal(incomingBidder.bidder, bidAmount * 3);
 
     if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
@@ -1006,8 +1476,8 @@ contract TestHelpers is Deploy, ConsiderationTester {
     );
     emit log_order(mirror);
 
-    Order[] memory orders = new Order[](2);
-    orders[0] = Order(params, new bytes(0));
+    AdvancedOrder[] memory orders = new AdvancedOrder[](2);
+    orders[0] = AdvancedOrder(params, 1, 1, new bytes(0), abi.encode(stack));
 
     OrderComponents memory matchOrderComponents = getOrderComponents(
       mirror,
@@ -1021,7 +1491,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
       incomingBidder.bidderPK,
       consideration.getOrderHash(matchOrderComponents)
     );
-    orders[1] = Order(mirror, mirrorSignature);
+    orders[1] = AdvancedOrder(mirror, 1, 1, mirrorSignature, new bytes(0));
 
     //order 0 - 1 offer 3 consideration
 
@@ -1058,35 +1528,218 @@ contract TestHelpers is Deploy, ConsiderationTester {
     secondFulfillment.considerationComponents = fulfillmentComponents;
     fulfillments.push(secondFulfillment); // 1,0
 
-    // offer 1,1
-    delete fulfillmentComponents;
-    fulfillmentComponent = FulfillmentComponent(1, 1);
-    fulfillmentComponents.push(fulfillmentComponent);
-    thirdFulfillment.offerComponents = fulfillmentComponents;
+    //    // offer 1,1
+    //    delete fulfillmentComponents;
+    //    fulfillmentComponent = FulfillmentComponent(1, 1);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //    thirdFulfillment.offerComponents = fulfillmentComponents;
+    //
+    //    delete fulfillmentComponents;
+    //    fulfillmentComponent = FulfillmentComponent(0, 1);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //
+    //    //for each fulfillment we need to match them up
+    //    thirdFulfillment.considerationComponents = fulfillmentComponents;
+    //    fulfillments.push(thirdFulfillment); // 1,1
+
+    //offer 1,2
+    //    delete fulfillmentComponents;
+
+    //royalty stuff, setup
+    //    fulfillmentComponent = FulfillmentComponent(1, 2);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //    fourthFulfillment.offerComponents = fulfillmentComponents;
+    //    delete fulfillmentComponents;
+    //    fulfillmentComponent = FulfillmentComponent(0, 2);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //    fourthFulfillment.considerationComponents = fulfillmentComponents;
+    //
+    //    if (params.consideration.length == uint8(3)) {
+    //      fulfillments.push(fourthFulfillment); // 1,2
+    //    }
 
     delete fulfillmentComponents;
-    fulfillmentComponent = FulfillmentComponent(0, 1);
+
+    uint256 currentPrice = _locateCurrentAmount(
+      params.consideration[0].startAmount,
+      params.consideration[0].endAmount,
+      params.startTime,
+      params.endTime,
+      true
+    );
+    if (bidAmount < currentPrice) {
+      uint256 warp = _computeWarp(
+        currentPrice,
+        bidAmount,
+        params.startTime,
+        params.endTime
+      );
+
+      emit log_named_uint("start", params.consideration[0].startAmount);
+      emit log_named_uint("amount", bidAmount);
+      emit log_named_uint("warping", warp);
+      skip(warp);
+      executionPrice = _locateCurrentAmount(
+        orders[0].parameters.consideration[0].startAmount,
+        orders[0].parameters.consideration[0].endAmount,
+        orders[0].parameters.startTime,
+        orders[0].parameters.endTime,
+        true
+      );
+      //      emit log_named_uint("currentAmount asset", currentAmount);
+      emit log_fills(fulfillments);
+      emit log_named_uint("length", fulfillments.length);
+
+      //   /**
+      //         * @custom:name advancedOrders
+      //         */
+      //        AdvancedOrder[] calldata,
+      //        /**
+      //         * @custom:name criteriaResolvers
+      //         */
+      //        CriteriaResolver[] calldata,
+      //        /**
+      //         * @custom:name fulfillments
+      //         */
+      //        Fulfillment[] calldata,
+      //        address recipient
+
+      consideration.matchAdvancedOrders(
+        orders,
+        new CriteriaResolver[](0),
+        fulfillments,
+        address(this)
+      );
+    } else {
+      consideration.fulfillAdvancedOrder(
+        AdvancedOrder(
+          orders[0].parameters,
+          1,
+          1,
+          orders[0].signature,
+          abi.encode(stack)
+        ),
+        new CriteriaResolver[](0),
+        bidderConduits[incomingBidder.bidder].conduitKey,
+        address(this)
+      );
+    }
+    delete fulfillments;
+    vm.stopPrank();
+  }
+
+  function _bidAsPirate(
+    Bidder memory incomingBidder,
+    OrderParameters memory params,
+    OrderParameters memory paramsPirate,
+    uint256 bidAmount,
+    ILienToken.Stack memory stack
+  ) internal {
+    vm.deal(incomingBidder.bidder, bidAmount * 3);
+
+    if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
+      _deployBidderConduit(incomingBidder.bidder);
+    }
+    vm.startPrank(incomingBidder.bidder);
+
+    WETH9.deposit{value: bidAmount * 2}();
+    WETH9.approve(bidderConduits[incomingBidder.bidder].conduit, bidAmount * 2);
+
+    OrderParameters memory mirror = _createMirrorOrderParameters(
+      params,
+      payable(incomingBidder.bidder),
+      params.zone,
+      bidderConduits[incomingBidder.bidder].conduitKey
+    );
+    emit log_order(mirror);
+
+    AdvancedOrder[] memory orders = new AdvancedOrder[](2);
+    orders[0] = AdvancedOrder(
+      paramsPirate,
+      1,
+      1,
+      new bytes(0),
+      abi.encode(stack)
+    );
+
+    OrderComponents memory matchOrderComponents = getOrderComponents(
+      mirror,
+      consideration.getCounter(incomingBidder.bidder)
+    );
+
+    emit log_order(mirror);
+
+    bytes memory mirrorSignature = signOrder(
+      SEAPORT,
+      incomingBidder.bidderPK,
+      consideration.getOrderHash(matchOrderComponents)
+    );
+    orders[1] = AdvancedOrder(mirror, 1, 1, mirrorSignature, new bytes(0));
+
+    //order 0 - 1 offer 3 consideration
+
+    // order 1 - 3 offer 1 consideration
+
+    //offers    fulfillments
+    // 0,0      1,0
+    // 1,0      0,0
+    // 1,1      0,1
+    // 1,2      0,2
+
+    // offer 0,0
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(0, 0);
     fulfillmentComponents.push(fulfillmentComponent);
 
     //for each fulfillment we need to match them up
-    thirdFulfillment.considerationComponents = fulfillmentComponents;
-    fulfillments.push(thirdFulfillment); // 1,1
+    firstFulfillment.offerComponents = fulfillmentComponents;
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(1, 0);
+    fulfillmentComponents.push(fulfillmentComponent);
+    firstFulfillment.considerationComponents = fulfillmentComponents;
+    fulfillments.push(firstFulfillment); // 0,0
+
+    // offer 1,0
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(1, 0);
+    fulfillmentComponents.push(fulfillmentComponent);
+    secondFulfillment.offerComponents = fulfillmentComponents;
+
+    delete fulfillmentComponents;
+    fulfillmentComponent = FulfillmentComponent(0, 0);
+    fulfillmentComponents.push(fulfillmentComponent);
+    secondFulfillment.considerationComponents = fulfillmentComponents;
+    fulfillments.push(secondFulfillment); // 1,0
+
+    //    // offer 1,1
+    //    delete fulfillmentComponents;
+    //    fulfillmentComponent = FulfillmentComponent(1, 1);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //    thirdFulfillment.offerComponents = fulfillmentComponents;
+    //
+    //    delete fulfillmentComponents;
+    //    fulfillmentComponent = FulfillmentComponent(0, 1);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //
+    //    //for each fulfillment we need to match them up
+    //    thirdFulfillment.considerationComponents = fulfillmentComponents;
+    //    fulfillments.push(thirdFulfillment); // 1,1
 
     //offer 1,2
-    delete fulfillmentComponents;
+    //    delete fulfillmentComponents;
 
     //royalty stuff, setup
-    fulfillmentComponent = FulfillmentComponent(1, 2);
-    fulfillmentComponents.push(fulfillmentComponent);
-    fourthFulfillment.offerComponents = fulfillmentComponents;
-    delete fulfillmentComponents;
-    fulfillmentComponent = FulfillmentComponent(0, 2);
-    fulfillmentComponents.push(fulfillmentComponent);
-    fourthFulfillment.considerationComponents = fulfillmentComponents;
-
-    if (params.consideration.length == uint8(3)) {
-      fulfillments.push(fourthFulfillment); // 1,2
-    }
+    //    fulfillmentComponent = FulfillmentComponent(1, 2);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //    fourthFulfillment.offerComponents = fulfillmentComponents;
+    //    delete fulfillmentComponents;
+    //    fulfillmentComponent = FulfillmentComponent(0, 2);
+    //    fulfillmentComponents.push(fulfillmentComponent);
+    //    fourthFulfillment.considerationComponents = fulfillmentComponents;
+    //
+    //    if (params.consideration.length == uint8(3)) {
+    //      fulfillments.push(fourthFulfillment); // 1,2
+    //    }
 
     delete fulfillmentComponents;
 
@@ -1104,36 +1757,53 @@ contract TestHelpers is Deploy, ConsiderationTester {
         params.startTime,
         params.endTime
       );
-      emit log_named_uint("start", params.consideration[0].startAmount);
-      emit log_named_uint("amount", bidAmount);
-      emit log_named_uint("warping", warp);
+      //      emit log_named_uint("start", params.consideration[0].startAmount);
+      //      emit log_named_uint("amount", bidAmount);
+      //      emit log_named_uint("warping", warp);
       skip(warp + 1000);
-      uint256 currentAmount = _locateCurrentAmount(
-        orders[0].parameters.consideration[0].startAmount,
-        orders[0].parameters.consideration[0].endAmount,
-        orders[0].parameters.startTime,
-        orders[0].parameters.endTime,
-        false
-      );
-      emit log_named_uint("currentAmount asset", currentAmount);
-      uint256 currentAmountFee = _locateCurrentAmount(
-        orders[0].parameters.consideration[1].startAmount,
-        orders[0].parameters.consideration[1].endAmount,
-        orders[0].parameters.startTime,
-        orders[0].parameters.endTime,
-        false
-      );
-      emit log_named_uint("currentAmount fee", currentAmountFee);
-      emit log_fills(fulfillments);
-      emit log_named_uint("length", fulfillments.length);
+      //      uint256 currentAmount = _locateCurrentAmount(
+      //        orders[0].parameters.consideration[0].startAmount,
+      //        orders[0].parameters.consideration[0].endAmount,
+      //        orders[0].parameters.startTime,
+      //        orders[0].parameters.endTime,
+      //        false
+      //      );
+      //      emit log_named_uint("currentAmount asset", currentAmount);
+      //      emit log_fills(fulfillments);
+      //      emit log_named_uint("length", fulfillments.length);
 
-      consideration.matchOrders(orders, fulfillments);
+      //   /**
+      //         * @custom:name advancedOrders
+      //         */
+      //        AdvancedOrder[] calldata,
+      //        /**
+      //         * @custom:name criteriaResolvers
+      //         */
+      //        CriteriaResolver[] calldata,
+      //        /**
+      //         * @custom:name fulfillments
+      //         */
+      //        Fulfillment[] calldata,
+      //        address recipient
+
+      consideration.matchAdvancedOrders(
+        orders,
+        new CriteriaResolver[](0),
+        fulfillments,
+        address(this)
+      );
     } else {
       consideration.fulfillAdvancedOrder(
-        AdvancedOrder(orders[0].parameters, 1, 1, orders[0].signature, ""),
+        AdvancedOrder(
+          orders[0].parameters,
+          1,
+          1,
+          orders[0].signature,
+          abi.encode(stack)
+        ),
         new CriteriaResolver[](0),
         bidderConduits[incomingBidder.bidder].conduitKey,
-        address(0)
+        address(this)
       );
     }
     delete fulfillments;
@@ -1213,11 +1883,14 @@ contract TestHelpers is Deploy, ConsiderationTester {
   event log_order(OrderParameters);
 
   // Redeem VaultTokens for WithdrawTokens redeemable by the end of the next epoch.
-  function _signalWithdraw(address lender, address publicVault) internal {
+  function _signalWithdraw(
+    address lender,
+    address payable publicVault
+  ) internal {
     _signalWithdrawAtFutureEpoch(
       lender,
       publicVault,
-      PublicVault(publicVault).getCurrentEpoch()
+      PublicVault(payable(publicVault)).getCurrentEpoch()
     );
   }
 
@@ -1225,14 +1898,14 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function _signalWithdrawAtFutureEpoch(
     address lender,
-    address publicVault,
+    address payable publicVault,
     uint64 epoch
   ) internal {
     uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(lender);
 
     vm.startPrank(lender);
     ERC20(publicVault).safeApprove(address(ASTARIA_ROUTER), vaultTokenBalance);
-    uint256 currentEpoch = PublicVault(publicVault).getCurrentEpoch();
+    uint256 currentEpoch = PublicVault(payable(publicVault)).getCurrentEpoch();
     if (epoch == currentEpoch) {
       ASTARIA_ROUTER.redeem({
         vault: IERC4626(address(publicVault)),
@@ -1242,16 +1915,16 @@ contract TestHelpers is Deploy, ConsiderationTester {
       });
     } else {
       ASTARIA_ROUTER.redeemFutureEpoch({
-        vault: IPublicVault(publicVault),
+        vault: IPublicVault(payable(publicVault)),
         shares: vaultTokenBalance,
         receiver: lender,
         epoch: epoch
       });
     }
 
-    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
-      epoch
-    );
+    IWithdrawProxy withdrawProxy = PublicVault(payable(publicVault))
+      .getWithdrawProxy(epoch);
+
     assertEq(
       withdrawProxy.balanceOf(lender),
       vaultTokenBalance,

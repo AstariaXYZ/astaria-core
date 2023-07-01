@@ -40,7 +40,6 @@ contract Vault is VaultImplementation {
     ) {
       (
         address borrower,
-        uint256 lienId,
         uint256 amount,
         ,
         ,
@@ -48,7 +47,7 @@ contract Vault is VaultImplementation {
         uint256 feeRake
       ) = abi.decode(
           data,
-          (address, uint256, uint256, uint40, uint256, address, uint256)
+          (address, uint256, uint40, uint256, address, uint256)
         );
       _issuePayout(borrower, amount, feeTo, feeRake);
       ERC721(msg.sender).safeTransferFrom(

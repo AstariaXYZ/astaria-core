@@ -24,9 +24,6 @@ contract Setup is Script {
 
   function run() public {
     vm.startBroadcast();
-    new PublicVault();
-    new WithdrawProxy();
-    new CollateralToken();
     vm.stopBroadcast();
   }
 }

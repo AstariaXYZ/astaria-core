@@ -12,7 +12,6 @@
  */
 
 pragma solidity =0.8.17;
-
 pragma experimental ABIEncoderV2;
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -35,9 +34,8 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
 import {Initializable} from "./utils/Initializable.sol";
-import {ClearingHouse} from "core/ClearingHouse.sol";
 
-import {AmountDeriver} from "seaport/lib/AmountDeriver.sol";
+import {AmountDeriver} from "seaport-core/src/lib/AmountDeriver.sol";
 
 /**
  * @title LienToken
@@ -128,7 +126,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     _;
   }
 
-  function stopLiens(
+  function handleLiquidation(
     uint256 collateralId,
     uint256 auctionWindow,
     Stack calldata stack,
@@ -138,7 +136,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     validateCollateralState(collateralId, keccak256(abi.encode(stack)))
     requiresAuth
   {
-    _stopLiens(
+    _handleLiquidation(
       _loadLienStorageSlot(),
       collateralId,
       auctionWindow,
@@ -147,7 +145,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     );
   }
 
-  function _stopLiens(
+  function _handleLiquidation(
     LienStorage storage s,
     uint256 collateralId,
     uint256 auctionWindow,
@@ -155,50 +153,23 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     address liquidator
   ) internal {
     uint256 owed = _getOwed(stack, block.timestamp);
-    ClearingHouse.AuctionStack memory auctionStack = ClearingHouse
-      .AuctionStack({
-        lienId: stack.point.lienId,
-        end: stack.point.end,
-        amountOwed: owed,
-        principal: stack.point.amount
-      });
-    s.lienMeta[auctionStack.lienId].atLiquidation = true;
-    address owner = ownerOf(auctionStack.lienId);
-    if (_isPublicVault(s, owner)) {
-      // update the public vault state and get the liquidation accountant back if any
-      address withdrawProxyIfNearBoundary = IPublicVault(owner)
-        .updateVaultAfterLiquidation(
-          auctionWindow,
-          IPublicVault.AfterLiquidationParams({
-            lienSlope: calculateSlope(stack),
-            lienEnd: stack.point.end
-          })
-        );
+    uint256 lienId = uint256(keccak256(abi.encode(stack)));
 
-      if (withdrawProxyIfNearBoundary != address(0)) {
-        _safeTransferFromInLiquidation(
-          owner,
-          withdrawProxyIfNearBoundary,
-          stack.point.lienId,
-          owed,
-          auctionWindow
-        );
-      }
-    }
-    s.collateralStateHash[collateralId] = ACTIVE_AUCTION;
-
-    ClearingHouse.AuctionData memory auctionData = ClearingHouse.AuctionData({
-      liquidator: liquidator,
-      token: stack.lien.token,
-      stack: auctionStack,
-      startTime: block.timestamp.safeCastTo48(),
-      endTime: (block.timestamp + auctionWindow).safeCastTo48(),
-      startAmount: stack.lien.details.liquidationInitialAsk,
-      endAmount: uint256(1000 wei)
+    s.collateralLiquidator[collateralId] = AuctionData({
+      amountOwed: owed,
+      liquidator: liquidator
     });
-    s.COLLATERAL_TOKEN.getClearingHouse(collateralId).setAuctionData(
-      auctionData
-    );
+
+    address owner = ownerOf(lienId);
+    if (_isPublicVault(s, owner)) {
+      IPublicVault(owner).stopLien(
+        auctionWindow,
+        calculateSlope(stack),
+        stack.point.end,
+        lienId,
+        owed
+      );
+    }
   }
 
   function tokenURI(
@@ -219,9 +190,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     if (_isPublicVault(s, to)) {
       revert InvalidState(InvalidStates.PUBLIC_VAULT_RECIPIENT);
     }
-    if (s.lienMeta[id].atLiquidation) {
-      revert InvalidState(InvalidStates.COLLATERAL_AUCTION);
-    }
     super.transferFrom(from, to, id);
   }
 
@@ -235,15 +203,13 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     external
     requiresAuth
     validateCollateralState(params.lien.collateralId, bytes32(0))
-    returns (uint256 lienId, Stack memory newStack, uint256 lienSlope)
+    returns (uint256 lienId, Stack memory newStack, uint256 owingAtEnd)
   {
     LienStorage storage s = _loadLienStorageSlot();
     (lienId, newStack) = _createLien(s, params);
 
-    s.collateralStateHash[params.lien.collateralId] = keccak256(
-      abi.encode(newStack)
-    );
-
+    owingAtEnd = _getOwed(newStack, newStack.point.end);
+    s.collateralStateHash[params.lien.collateralId] = bytes32(lienId);
     emit NewLien(params.lien.collateralId, newStack);
   }
 
@@ -251,23 +217,21 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     LienStorage storage s,
     ILienToken.LienActionEncumber calldata params
   ) internal returns (uint256 newLienId, ILienToken.Stack memory newSlot) {
-    newLienId = uint256(keccak256(abi.encode(params.lien)));
     uint40 lienEnd = (block.timestamp + params.lien.details.duration)
       .safeCastTo40();
     Point memory point = Point({
-      lienId: newLienId,
       amount: params.amount,
       last: block.timestamp.safeCastTo40(),
       end: lienEnd
     });
 
     newSlot = Stack({lien: params.lien, point: point});
+    newLienId = uint256(keccak256(abi.encode(newSlot)));
     _safeMint(
       params.receiver,
       newLienId,
       abi.encode(
         params.borrower,
-        newLienId,
         params.amount,
         lienEnd,
         calculateSlope(newSlot),
@@ -277,63 +241,21 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     );
   }
 
-  function payDebtViaClearingHouse(
-    address token,
-    uint256 collateralId,
-    uint256 payment, //how much you actually can spend
-    ClearingHouse.AuctionStack memory auctionStack
-  ) external {
-    LienStorage storage s = _loadLienStorageSlot();
-    require(
-      msg.sender == address(s.COLLATERAL_TOKEN.getClearingHouse(collateralId))
-    );
-
-    payment = payment > auctionStack.amountOwed
-      ? auctionStack.amountOwed
-      : payment;
-    uint256 remaining = auctionStack.amountOwed - payment;
-    uint256 interestPaid = payment > auctionStack.principal
-      ? payment - auctionStack.principal
-      : 0;
-    _payment(
-      s,
-      auctionStack.lienId,
-      auctionStack.end,
-      payment, //amount paid
-      interestPaid,
-      collateralId,
-      token,
-      remaining, // decrease in y intercept
-      uint256(0) // decrease in slope
-    );
-  }
-
-  function getAuctionData(
-    uint256 collateralId
-  ) public view returns (ClearingHouse.AuctionData memory) {
-    return
-      ClearingHouse(
-        _loadLienStorageSlot().COLLATERAL_TOKEN.getClearingHouse(collateralId)
-      ).getAuctionData();
-  }
-
   function getAuctionLiquidator(
     uint256 collateralId
   ) external view returns (address liquidator) {
-    liquidator = getAuctionData(collateralId).liquidator;
+    liquidator = _loadLienStorageSlot()
+      .collateralLiquidator[collateralId]
+      .liquidator;
     if (liquidator == address(0)) {
       revert InvalidState(InvalidStates.COLLATERAL_NOT_LIQUIDATED);
     }
   }
 
-  function getAmountOwingAtLiquidation(
-    ILienToken.Stack calldata stack
-  ) public view returns (uint256) {
-    return getAuctionData(stack.lien.collateralId).stack.amountOwed;
-  }
-
-  function validateLien(Lien memory lien) public view returns (uint256 lienId) {
-    lienId = uint256(keccak256(abi.encode(lien)));
+  function validateLien(
+    Stack memory stack
+  ) public view returns (uint256 lienId) {
+    lienId = uint256(keccak256(abi.encode(stack)));
     if (!_exists(lienId)) {
       revert InvalidState(InvalidStates.INVALID_LIEN_ID);
     }
@@ -355,18 +277,41 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     )
   {
     {
-      uint256 amountOwing = _getOwed(stack, block.timestamp);
+      LienStorage storage s = _loadLienStorageSlot();
+      uint256[] memory payment = new uint256[](4);
 
+      payment[0] = _getOwed(stack, block.timestamp); // amountOwing
+      payment[1] = payment[0] - stack.point.amount; // interestPaid
+      payment[2] = payment[0]; // decrease in y intercept
+      payment[3] = calculateSlope(stack);
+      if (s.collateralLiquidator[stack.lien.collateralId].amountOwed > 0) {
+        if (msg.sender != address(s.COLLATERAL_TOKEN)) {
+          revert InvalidSender();
+        }
+        uint256 CTBalance = ERC20(stack.lien.token).balanceOf(
+          address(s.COLLATERAL_TOKEN)
+        );
+
+        uint256 owing = s
+          .collateralLiquidator[stack.lien.collateralId]
+          .amountOwed;
+        payment[0] = owing > CTBalance ? CTBalance : owing;
+        payment[1] = payment[0] > stack.point.amount
+          ? payment[0] - stack.point.amount
+          : 0;
+        payment[2] = payment[0] > owing ? owing : owing - payment[0];
+        payment[3] = 0;
+      }
       _payment(
-        _loadLienStorageSlot(),
-        stack.point.lienId,
+        s,
+        uint256(keccak256(abi.encode(stack))),
         stack.point.end,
-        amountOwing,
-        amountOwing - stack.point.amount,
+        payment[0],
+        payment[1],
         stack.lien.collateralId,
         stack.lien.token,
-        amountOwing,
-        calculateSlope(stack)
+        payment[2], // decrease in y intercept
+        payment[3]
       );
     }
   }
@@ -376,7 +321,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   }
 
   function getOwed(Stack memory stack) external view returns (uint256) {
-    validateLien(stack.lien);
+    validateLien(stack);
     return _getOwed(stack, block.timestamp);
   }
 
@@ -384,7 +329,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     Stack memory stack,
     uint256 timestamp
   ) external view returns (uint256) {
-    validateLien(stack.lien);
+    validateLien(stack);
     return _getOwed(stack, timestamp);
   }
 
@@ -437,28 +382,10 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         amountOwed
       );
     }
-  }
-
-  function _safeTransferFromInLiquidation(
-    address from,
-    address to,
-    uint256 id,
-    uint256 expected,
-    uint256 auctionEnd
-  ) internal virtual {
-    _transfer(from, to, id);
-
-    require(
-      to.code.length == 0 ||
-        ERC721TokenReceiver(to).onERC721Received(
-          address(this),
-          from,
-          id,
-          abi.encode(expected, auctionEnd)
-        ) ==
-        ERC721TokenReceiver.onERC721Received.selector,
-      "UNSAFE_RECIPIENT"
-    );
+    //only in an auction
+    if (msg.sender != address(s.COLLATERAL_TOKEN)) {
+      s.COLLATERAL_TOKEN.release(collateralId);
+    }
   }
 
   function _removeLien(
@@ -467,7 +394,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     uint256 collateralId
   ) internal {
     _burn(lienId);
-    delete s.lienMeta[lienId]; //full delete of point data for the lien
     delete s.collateralStateHash[collateralId];
   }
 

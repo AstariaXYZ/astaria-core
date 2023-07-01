@@ -23,7 +23,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IPausable} from "core/utils/Pausable.sol";
 import {IBeacon} from "core/interfaces/IBeacon.sol";
 import {IERC4626RouterBase} from "gpl/interfaces/IERC4626RouterBase.sol";
-import {OrderParameters} from "seaport/lib/ConsiderationStructs.sol";
+import {OrderParameters} from "seaport-types/src/lib/ConsiderationStructs.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {
   enum FileType {
@@ -60,6 +60,7 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint32 minEpochLength;
     uint32 protocolFeeNumerator;
     uint32 protocolFeeDenominator;
+    uint32 minLoanDuration;
     //slot 2
     ICollateralToken COLLATERAL_TOKEN; //20
     ILienToken LIEN_TOKEN; //20
@@ -75,14 +76,13 @@ interface IAstariaRouter is IPausable, IBeacon {
     //A strategist can have many deployed vaults
     mapping(address => bool) vaults;
     uint256 maxStrategistFee; //4
-    uint256 minLoanDuration;
+    address WETH;
   }
 
   enum ImplementationType {
     PrivateVault,
     PublicVault,
-    WithdrawProxy,
-    ClearingHouse
+    WithdrawProxy
   }
 
   enum LienRequestType {
@@ -95,7 +95,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   struct StrategyDetailsParam {
     uint8 version;
     uint256 deadline;
-    address vault;
+    address payable vault;
   }
 
   struct MerkleData {
@@ -106,7 +106,8 @@ interface IAstariaRouter is IPausable, IBeacon {
   struct NewLienRequest {
     StrategyDetailsParam strategy;
     bytes nlrDetails;
-    MerkleData merkle;
+    bytes32 root;
+    bytes32[] proof;
     uint256 amount;
     uint8 v;
     bytes32 r;
@@ -130,6 +131,10 @@ interface IAstariaRouter is IPausable, IBeacon {
     IAstariaRouter.Commitment calldata commitment,
     uint256 timeToSecondEpochEnd
   ) external returns (ILienToken.Lien memory lien);
+
+  function getStrategyValidator(
+    Commitment calldata
+  ) external view returns (address);
 
   /**
    * @notice Deploys a new PublicVault.
@@ -166,6 +171,8 @@ interface IAstariaRouter is IPausable, IBeacon {
    * @notice Retrieves the address that collects protocol-level fees.
    */
   function feeTo() external returns (address);
+
+  function WETH() external returns (address);
 
   /**
    * @notice Deposits collateral and requests loans for multiple NFTs at once.
@@ -250,7 +257,11 @@ interface IAstariaRouter is IPausable, IBeacon {
    */
   function getImpl(uint8 implType) external view returns (address impl);
 
-  event Liquidation(uint256 collateralId, address liquidator);
+  event Liquidation(
+    uint256 collateralId,
+    address liquidator,
+    uint256 offererCounterAtLiquidation
+  );
   event NewVault(
     address strategist,
     address delegate,

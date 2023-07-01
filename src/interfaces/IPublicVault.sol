@@ -17,6 +17,7 @@ import {IERC165} from "core/interfaces/IERC165.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
+import {IWithdrawProxy} from "src/interfaces/IWithdrawProxy.sol";
 
 interface IPublicVault is IVaultImplementation {
   struct EpochData {
@@ -69,6 +70,14 @@ interface IPublicVault is IVaultImplementation {
    */
   function updateVault(UpdateVaultParams calldata params) external;
 
+  function getSlope() external view returns (uint256);
+
+  function getWithdrawReserve() external view returns (uint256);
+
+  function getLiquidationWithdrawRatio() external view returns (uint256);
+
+  function getYIntercept() external view returns (uint256);
+
   /** @notice
    * hook to modify the liens open for then given epoch
    * @param epoch epoch to decrease liens of
@@ -80,6 +89,10 @@ interface IPublicVault is IVaultImplementation {
    * @param end time to compute the end for
    */
   function getLienEpoch(uint64 end) external view returns (uint64);
+
+  function getWithdrawProxy(
+    uint64 epoch
+  ) external view returns (IWithdrawProxy);
 
   /**
    * @notice Mints earned fees by the strategist to the strategist address.
@@ -120,16 +133,13 @@ interface IPublicVault is IVaultImplementation {
    */
   function getCurrentEpoch() external view returns (uint64);
 
-  /**
-   * Hook to update the PublicVault owner of a LienToken when it is sent to liquidation.
-   * @param maxAuctionWindow The maximum possible auction duration.
-   * @param params Liquidation data (lienSlope amount to deduct from the PublicVault slope, newAmount, and lienEnd timestamp)
-   * @return withdrawProxyIfNearBoundary The address of the WithdrawProxy to set the payee to if the liquidation is triggered near an epoch boundary.
-   */
-  function updateVaultAfterLiquidation(
-    uint256 maxAuctionWindow,
-    AfterLiquidationParams calldata params
-  ) external returns (address withdrawProxyIfNearBoundary);
+  function stopLien(
+    uint256 auctionWindow,
+    uint256 lienSlope,
+    uint64 lienEnd,
+    uint256 tokenId,
+    uint256 owed
+  ) external;
 
   function getPublicVaultState()
     external

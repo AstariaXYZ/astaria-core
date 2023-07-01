@@ -37,20 +37,6 @@ contract V3Strategy is AstariaStack {
       )
     );
 
-    V3SecurityHook V3_SECURITY_HOOK = new V3SecurityHook(
-      address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88) //nft position manager
-    );
-
-    ct.file(
-      ICollateralToken.File(
-        ICollateralToken.FileType.SecurityHook,
-        abi.encode(
-          address(0xC36442b4a4522E871399CD717aBDD847Ab11FE88), //v3 nft address
-          address(V3_SECURITY_HOOK)
-        )
-      )
-    );
-
     vm.stopBroadcast();
   }
 }

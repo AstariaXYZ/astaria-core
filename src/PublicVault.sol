@@ -34,6 +34,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {VaultImplementation} from "core/VaultImplementation.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
+import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
 
 import {Math} from "core/utils/Math.sol";
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
@@ -192,8 +193,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     WithdrawProxy(s.epochData[epoch].withdrawProxy).mint(shares, receiver);
   }
 
-  function getWithdrawProxy(uint64 epoch) public view returns (WithdrawProxy) {
-    return WithdrawProxy(_loadStorageSlot().epochData[epoch].withdrawProxy);
+  function getWithdrawProxy(uint64 epoch) public view returns (IWithdrawProxy) {
+    return IWithdrawProxy(_loadStorageSlot().epochData[epoch].withdrawProxy);
   }
 
   function getCurrentEpoch() public view returns (uint64) {
@@ -444,11 +445,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       operator == address(ROUTER()) &&
       msg.sender == address(ROUTER().LIEN_TOKEN())
     ) {
-      VaultData storage s = _loadStorageSlot();
-
       (
         address borrower,
-        uint256 lienId,
         uint256 amount,
         uint40 lienEnd,
         uint256 lienSlope,
@@ -456,24 +454,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         uint256 feeRake
       ) = abi.decode(
           data,
-          (address, uint256, uint256, uint40, uint256, address, uint256)
+          (address, uint256, uint40, uint256, address, uint256)
         );
-      if (s.withdrawReserve > uint256(0)) {
-        transferWithdrawReserve();
-      }
-      if (timeToEpochEnd() == uint256(0)) {
-        processEpoch();
-      }
 
       _issuePayout(borrower, amount, feeTo, feeRake);
-      _accrue(s);
-      uint256 newSlope = s.slope + lienSlope;
-      _setSlope(s, newSlope);
-
-      uint64 epoch = getLienEpoch(lienEnd);
-
-      _increaseOpenLiens(s, epoch);
-      emit LienOpen(lienId, epoch);
+      _addLien(tokenId, lienSlope, lienEnd);
     }
 
     return IERC721Receiver.onERC721Received.selector;
@@ -527,9 +512,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     override(IERC20, ERC20Cloned)
     returns (uint256)
   {
-    return
-      _loadERC20Slot()._totalSupply +
-      _loadStorageSlot().strategistUnclaimedShares;
+    return _loadERC20Slot()._totalSupply;
   }
 
   function claim() external {
@@ -591,6 +574,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     unchecked {
       s.epochData[epoch].liensOpenForEpoch++;
     }
+    emit LiensOpenForEpochRemaining(
+      epoch,
+      s.epochData[epoch].liensOpenForEpoch
+    );
   }
 
   /**
@@ -622,38 +609,61 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     VaultData storage s,
     uint256 interestPaid
   ) internal virtual {
-    if (VAULT_FEE() != uint256(0)) {
+    if (VAULT_FEE() != uint256(0) && interestPaid > 0) {
       uint256 fee = interestPaid.mulWadDown(VAULT_FEE());
       uint256 feeInShares = convertToShares(fee);
-      s.strategistUnclaimedShares += feeInShares;
-      emit StrategistFee(feeInShares);
+      _mint(owner(), feeInShares);
     }
   }
 
-  function updateVaultAfterLiquidation(
-    uint256 maxAuctionWindow,
-    AfterLiquidationParams calldata params
-  ) public returns (address withdrawProxyIfNearBoundary) {
+  function stopLien(
+    uint256 auctionWindow,
+    uint256 lienSlope,
+    uint64 lienEnd,
+    uint256 tokenId,
+    uint256 owed
+  ) public {
     _onlyLienToken();
 
     VaultData storage s = _loadStorageSlot();
 
     _accrue(s);
     unchecked {
-      _setSlope(s, s.slope - params.lienSlope);
+      _setSlope(s, s.slope - lienSlope);
     }
 
-    if (s.currentEpoch != 0) {
-      transferWithdrawReserve();
-    }
-    uint64 lienEpoch = getLienEpoch(params.lienEnd);
+    uint64 lienEpoch = getLienEpoch(lienEnd);
     _decreaseEpochLienCount(s, lienEpoch);
 
     uint256 timeToEnd = timeToEpochEnd(lienEpoch);
-    if (timeToEnd < maxAuctionWindow) {
+    if (timeToEnd < auctionWindow) {
       _deployWithdrawProxyIfNotDeployed(s, lienEpoch);
-      withdrawProxyIfNearBoundary = s.epochData[lienEpoch].withdrawProxy;
+      address withdrawProxyIfNearBoundary = s
+        .epochData[lienEpoch]
+        .withdrawProxy;
+      ROUTER().LIEN_TOKEN().safeTransferFrom(
+        address(this),
+        withdrawProxyIfNearBoundary,
+        tokenId,
+        abi.encode(owed, auctionWindow)
+      );
     }
+  }
+
+  function _addLien(
+    uint256 tokenId,
+    uint256 lienSlope,
+    uint40 lienEnd
+  ) internal {
+    VaultData storage s = _loadStorageSlot();
+    _accrue(s);
+    uint256 newSlope = s.slope + lienSlope;
+    _setSlope(s, newSlope);
+
+    uint64 epoch = getLienEpoch(lienEnd);
+
+    _increaseOpenLiens(s, epoch);
+    emit LienOpen(tokenId, epoch);
   }
 
   function increaseYIntercept(uint256 amount) public {

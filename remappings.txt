@@ -2,9 +2,13 @@ clones-with-immutable-args/=lib/clones-with-immutable-args/src/
 create2-clones-with-immutable-args/=lib/create2-clones-with-immutable-args/src/
 create2-helpers/=lib/create2-clones-with-immutable-args/lib/create2-helpers/src/
 forge-std/=lib/forge-std/src/
+forge-std/=lib/forge-std/
 eip4626/=lib/foundry_eip-4626/src/
 gpl/=lib/gpl/src/
 solmate/=lib/solmate/src/
 seaport/=lib/seaport/contracts/
+seaport-core/=lib/seaport-core/
+seaport-types/=lib/seaport-types/
+seaport-sol/=lib/seaport-sol/
 core/=./src/
 

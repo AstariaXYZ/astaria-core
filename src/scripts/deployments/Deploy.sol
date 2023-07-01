@@ -36,11 +36,10 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {WithdrawProxy} from "core/WithdrawProxy.sol";
 import {BeaconProxy} from "core/BeaconProxy.sol";
-import {ClearingHouse} from "core/ClearingHouse.sol";
 import {RepaymentHelper} from "core/RepaymentHelper.sol";
 import {
   ConsiderationInterface
-} from "seaport/interfaces/ConsiderationInterface.sol";
+} from "seaport-types/src/interfaces/ConsiderationInterface.sol";
 import {
   TransparentUpgradeableProxy
 } from "lib/seaport/lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -73,6 +72,7 @@ contract Deploy is Script {
   MultiRolesAuthority MRA;
   ConsiderationInterface SEAPORT;
   ProxyAdmin PROXY_ADMIN;
+  BeaconProxy BEACON_PROXY;
   RepaymentHelper REPAYMENT_HELPER;
 
   bool testModeDisabled = true;
@@ -188,21 +188,6 @@ contract Deploy is Script {
         )
       );
     }
-    ClearingHouse CLEARING_HOUSE_IMPL = new ClearingHouse();
-
-    if (testModeDisabled) {
-      //      vm.setEnv("CLEARING_HOUSE_IMPL_ADDR", address(CLEARING_HOUSE_IMPL));
-      vm.writeLine(
-        string(".env"),
-        string(
-          abi.encodePacked(
-            "CLEARING_HOUSE_IMPL_ADDR=",
-            vm.toString(address(CLEARING_HOUSE_IMPL))
-          )
-        )
-      );
-    }
-
     CollateralToken CT_IMPL = new CollateralToken();
 
     if (testModeDisabled) {
@@ -299,7 +284,7 @@ contract Deploy is Script {
         )
       );
     }
-    BeaconProxy BEACON_PROXY = new BeaconProxy();
+    BEACON_PROXY = new BeaconProxy();
     if (testModeDisabled) {
       vm.writeLine(
         string(".env"),
@@ -339,7 +324,7 @@ contract Deploy is Script {
             address(SOLO_IMPLEMENTATION),
             address(WITHDRAW_PROXY),
             address(BEACON_PROXY),
-            address(CLEARING_HOUSE_IMPL)
+            address(WETH9)
           )
         );
       ASTARIA_ROUTER = AstariaRouter(address(astariaRouterProxy));
@@ -409,15 +394,15 @@ contract Deploy is Script {
     // LIEN TOKEN CAPABILITIES
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.stopLiens.selector,
+      LienToken.handleLiquidation.selector,
       true
     );
 
-    MRA.setRoleCapability(
-      uint8(UserRoles.LIEN_TOKEN),
-      CollateralToken.settleAuction.selector,
-      true
-    );
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.LIEN_TOKEN),
+    //      CollateralToken.settleAuction.selector,
+    //      true
+    //    );
 
     MRA.setRoleCapability(
       uint8(UserRoles.LIEN_TOKEN),

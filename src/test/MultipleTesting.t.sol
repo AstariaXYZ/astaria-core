@@ -48,13 +48,13 @@ contract Placeholder {
 //
 //    address tokenContract = address(nft);
 //    uint256 tokenId = uint256(0);
-//    address publicVault1 = _createPublicVault({
+//    address payable publicVault1 = _createPublicVault({
 //      strategist: strategistOne,
 //      delegate: strategistTwo,
 //      epochLength: 14 days
 //    });
 //
-//    address publicVault2 = _createPublicVault({
+//    address payable publicVault2 = _createPublicVault({
 //      strategist: strategistOne,
 //      delegate: strategistTwo,
 //      epochLength: 10 days
@@ -72,7 +72,7 @@ contract Placeholder {
 //
 //    ILienToken.Stack memory stack;
 //    (, stack) = _commitToLien({
-//      vault: publicVault1,
+//      vault: payable(publicVault)1,
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -85,7 +85,7 @@ contract Placeholder {
 //    ILienToken.Details memory details2 = standardLienDetails;
 //    details2.maxPotentialDebt = 100 ether;
 //    (, stack) = _commitToLien({
-//      vault: publicVault2,
+//      vault: payable(publicVault)2,
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -107,7 +107,7 @@ contract Placeholder {
 //    skip(2 days);
 //
 //    (, stack) = _commitToLien({
-//      vault: publicVault1,
+//      vault: payable(publicVault)1,
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -136,7 +136,7 @@ contract Placeholder {
 //    TestNFT nft = new TestNFT(2);
 //
 //    address tokenContract = address(nft);
-//    address publicVault = _createPublicVault({
+//    address payable publicVault = _createPublicVault({
 //      strategist: strategistOne,
 //      delegate: strategistTwo,
 //      epochLength: 14 days,
@@ -154,7 +154,7 @@ contract Placeholder {
 //    );
 //
 //    (, ILienToken.Stack memory stack1) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -165,7 +165,7 @@ contract Placeholder {
 //    });
 //
 //    (, ILienToken.Stack memory stack2) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -198,7 +198,7 @@ contract Placeholder {
 //
 //    // vm.expectRevert();
 //    vm.startPrank(strategistOne);
-//    PublicVault(publicVault).claim();
+//    PublicVault(payable(publicVault)).claim();
 //    vm.stopPrank();
 //
 //    assertEq(
@@ -218,7 +218,7 @@ contract Placeholder {
 //        data: abi.encode(5e17)
 //      })
 //    );
-//    address publicVault = _createPublicVault({
+//    address payable publicVault = _createPublicVault({
 //      strategist: strategistOne,
 //      delegate: strategistTwo,
 //      epochLength: 14 days,
@@ -236,7 +236,7 @@ contract Placeholder {
 //    );
 //
 //    (, ILienToken.Stack memory stack1) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -247,7 +247,7 @@ contract Placeholder {
 //    });
 //
 //    (, ILienToken.Stack memory stack2) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -279,7 +279,7 @@ contract Placeholder {
 //    });
 //
 //    vm.startPrank(strategistOne);
-//    PublicVault(publicVault).claim();
+//    PublicVault(payable(publicVault)).claim();
 //    vm.stopPrank();
 //
 //    assertEq(
@@ -299,7 +299,7 @@ contract Placeholder {
 //        data: abi.encode(5e17)
 //      })
 //    );
-//    address publicVault = _createPublicVault({
+//    address payable publicVault = _createPublicVault({
 //      strategist: strategistOne,
 //      delegate: strategistTwo,
 //      epochLength: 14 days,
@@ -317,7 +317,7 @@ contract Placeholder {
 //    );
 //
 //    (, ILienToken.Stack memory stack1) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -328,7 +328,7 @@ contract Placeholder {
 //    });
 //
 //    (, ILienToken.Stack memory stack2) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -360,7 +360,7 @@ contract Placeholder {
 //    });
 //
 //    vm.startPrank(strategistOne);
-//    PublicVault(publicVault).claim();
+//    PublicVault(payable(publicVault)).claim();
 //    vm.stopPrank();
 //
 //    assertEq(
@@ -380,7 +380,7 @@ contract Placeholder {
 //        data: abi.encode(5e17)
 //      })
 //    );
-//    address publicVault = _createPublicVault({
+//    address payable publicVault = _createPublicVault({
 //      strategist: strategistOne,
 //      delegate: strategistTwo,
 //      epochLength: 14 days,
@@ -398,7 +398,7 @@ contract Placeholder {
 //    );
 //
 //    (, ILienToken.Stack memory stack1) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -409,7 +409,7 @@ contract Placeholder {
 //    });
 //
 //    (, ILienToken.Stack memory stack2) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -441,7 +441,7 @@ contract Placeholder {
 //    });
 //
 //    vm.startPrank(strategistOne);
-//    PublicVault(publicVault).claim();
+//    PublicVault(payable(publicVault)).claim();
 //    vm.stopPrank();
 //
 //    emit log_named_uint(
@@ -465,7 +465,7 @@ contract Placeholder {
 //        data: abi.encode(5e17)
 //      })
 //    );
-//    address publicVault = _createPublicVault({
+//    address payable publicVault = _createPublicVault({
 //      strategist: strategistOne,
 //      delegate: strategistTwo,
 //      epochLength: 14 days,
@@ -483,7 +483,7 @@ contract Placeholder {
 //    );
 //
 //    (, ILienToken.Stack memory stack1) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -494,7 +494,7 @@ contract Placeholder {
 //    });
 //
 //    (, ILienToken.Stack memory stack2) = _commitToLien({
-//      vault: publicVault,
+//      vault: payable(publicVault),
 //      strategist: strategistOne,
 //      strategistPK: strategistOnePK,
 //      tokenContract: tokenContract,
@@ -526,7 +526,7 @@ contract Placeholder {
 //    });
 //
 //    vm.startPrank(strategistOne);
-//    PublicVault(publicVault).claim();
+//    PublicVault(payable(publicVault)).claim();
 //    vm.stopPrank();
 //
 //    assertEq(

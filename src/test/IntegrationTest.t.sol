@@ -58,7 +58,7 @@ contract IntegrationTest is TestHelpers {
   //   });
 
   //   // deploy a new PublicVault
-  //   address publicVault = _createPublicVault({
+  //   address payable publicVault = _createPublicVault({
   //     strategist: strategistOne,
   //     delegate: strategistTwo,
   //     epochLength: 14 days
@@ -73,7 +73,7 @@ contract IntegrationTest is TestHelpers {
   //   // commit to a new lien of 10 ETH under LienDetails
   //   uint256 amount = 10 ether;
   //   (uint256[] memory liens, ILienToken.Stack memory stack) = _commitToLien({
-  //     vault: publicVault,
+  //     vault: payable(publicVault),
   //     strategist: strategistOne,
   //     strategistPK: strategistOnePK,
   //     tokenContract: tokenContract,
@@ -89,7 +89,7 @@ contract IntegrationTest is TestHelpers {
   //   // assert slope matches the calculation
   //   assertEq(
   //     expectedSlope1,
-  //     PublicVault(publicVault).getSlope(),
+  //     PublicVault(payable(publicVault)).getSlope(),
   //     "Incorrect PublicVault slope calc"
   //   );
 
@@ -102,7 +102,7 @@ contract IntegrationTest is TestHelpers {
   //   // divide the slope by two (because wepaid half the lien so slope shoudl be half the calculation)
   //   uint256 expectedSlope2 = expectedSlope1.mulDivDown(1, 2);
   //   assertEq(
-  //     PublicVault(publicVault).getSlope(),
+  //     PublicVault(payable(publicVault)).getSlope(),
   //     expectedSlope2,
   //     "Incorrect PublicVault slope calc"
   //   );
@@ -118,7 +118,7 @@ contract IntegrationTest is TestHelpers {
 
   //   // assert PublicVault slope is 0 because the Lien was paid off
   //   assertEq(
-  //     PublicVault(publicVault).getSlope(),
+  //     PublicVault(payable(publicVault)).getSlope(),
   //     0,
   //     "Incorrect PublicVault slope calc"
   //   );
