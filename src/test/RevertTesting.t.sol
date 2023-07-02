@@ -62,13 +62,10 @@ contract RevertTesting is TestHelpers {
 
   enum InvalidStates {
     NO_AUTHORITY,
-    NOT_ENOUGH_FUNDS,
     INVALID_LIEN_ID,
     COLLATERAL_AUCTION,
     COLLATERAL_NOT_DEPOSITED,
-    LIEN_NO_DEBT,
-    EXPIRED_LIEN,
-    DEBT_LIMIT
+    EXPIRED_LIEN
   }
 
   function testCannotDeployUnderlyingWithNoCode() public {

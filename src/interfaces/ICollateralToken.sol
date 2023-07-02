@@ -138,12 +138,11 @@ interface ICollateralToken is IERC721 {
   error InvalidPaymentToken();
 
   enum InvalidCollateralStates {
-    NO_AUTHORITY,
-    NO_AUCTION,
     AUCTION_ACTIVE,
     ID_MISMATCH,
     INVALID_AUCTION_PARAMS,
     ACTIVE_LIENS,
-    ESCROW_ACTIVE
+    ESCROW_ACTIVE,
+    NO_AUCTION
   }
 }

@@ -21,16 +21,10 @@ import {IERC165} from "core/interfaces/IERC165.sol";
 interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   enum InvalidRequestReason {
     NO_AUTHORITY,
-    OPERATOR_NO_CODE,
     INVALID_SIGNATURE,
-    INVALID_COMMITMENT,
-    INVALID_AMOUNT,
-    INSUFFICIENT_FUNDS,
     INVALID_RATE,
-    INVALID_POTENTIAL_DEBT,
     SHUTDOWN,
-    PAUSED,
-    EXPIRED
+    PAUSED
   }
 
   error InvalidRequest(InvalidRequestReason reason);

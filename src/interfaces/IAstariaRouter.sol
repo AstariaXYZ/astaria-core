@@ -222,7 +222,6 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   enum CollateralStates {
     AUCTION,
-    NO_AUCTION,
     NO_DEPOSIT,
     NO_LIENS
   }
@@ -231,7 +230,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     INVALID,
     INVALID_RATE,
     INVALID_AMOUNT,
-    COLLATERAL_AUCTION,
     COLLATERAL_NO_DEPOSIT
   }
 
