@@ -16,5 +16,10 @@ remappings = [
     'create2-helpers/=lib/create2-clones-with-immutable-args/lib/create2-helpers/src/',
     'core/=./src/',
     'seaport/=lib/seaport/contracts',
+    'murky/=lib/murky/src/'
 ]
+
+[fuzz]
+runs = 1000
+#max_test_rejects = 500000
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

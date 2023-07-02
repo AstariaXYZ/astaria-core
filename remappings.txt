@@ -10,5 +10,6 @@ seaport/=lib/seaport/contracts/
 seaport-core/=lib/seaport-core/
 seaport-types/=lib/seaport-types/
 seaport-sol/=lib/seaport-sol/
+murky/=lib/murky/src/
 core/=./src/
 
