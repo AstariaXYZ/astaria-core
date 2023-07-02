@@ -216,26 +216,41 @@ contract AstariaRouter is
     }
   }
 
+  /**
+   * @notice Retrieves the address that collects protocol-level fees.
+   */
   function feeTo() public view returns (address) {
     RouterStorage storage s = _loadRouterSlot();
     return s.feeTo;
   }
 
+  /**
+   * @notice Retrieves the Beacon proxy implementation
+   */
   function BEACON_PROXY_IMPLEMENTATION() public view returns (address) {
     RouterStorage storage s = _loadRouterSlot();
     return s.BEACON_PROXY_IMPLEMENTATION;
   }
 
+  /**
+   * @notice Retrieves the ILienToken
+   */
   function LIEN_TOKEN() public view returns (ILienToken) {
     RouterStorage storage s = _loadRouterSlot();
     return s.LIEN_TOKEN;
   }
 
+  /**
+   * @notice Retrieves the ITransferProxy
+   */
   function TRANSFER_PROXY() public view returns (ITransferProxy) {
     RouterStorage storage s = _loadRouterSlot();
     return s.TRANSFER_PROXY;
   }
 
+  /**
+   * @notice Retrieves the ICollateralToken
+   */
   function COLLATERAL_TOKEN() public view returns (ICollateralToken) {
     RouterStorage storage s = _loadRouterSlot();
     return s.COLLATERAL_TOKEN;
@@ -255,6 +270,10 @@ contract AstariaRouter is
     _unpause();
   }
 
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param files The incoming Files.
+   */
   function fileBatch(File[] calldata files) external requiresAuth {
     uint256 i;
     for (; i < files.length; ) {
@@ -265,6 +284,10 @@ contract AstariaRouter is
     }
   }
 
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param incoming The incoming file.
+   */
   function file(File calldata incoming) public requiresAuth {
     _file(incoming);
   }
@@ -322,17 +345,27 @@ contract AstariaRouter is
     emit FileUpdated(what, data);
   }
 
+  /**
+   * @notice Retrieves the address of the WETH used by the protocol.
+   */
   function WETH() external returns (address) {
     RouterStorage storage s = _loadRouterSlot();
     return s.WETH;
   }
 
+  /**
+   * @notice Updates the guardian address.
+   * @param _guardian The new guardian.
+   */
   function setNewGuardian(address _guardian) external {
     RouterStorage storage s = _loadRouterSlot();
     require(msg.sender == s.guardian);
     s.newGuardian = _guardian;
   }
 
+  /**
+   * @notice renounce the guardian role
+   */
   function __renounceGuardian() external {
     RouterStorage storage s = _loadRouterSlot();
     require(msg.sender == s.guardian);
@@ -340,6 +373,9 @@ contract AstariaRouter is
     s.newGuardian = address(0);
   }
 
+  /**
+   * @notice accept the guardian role
+   */
   function __acceptGuardian() external {
     RouterStorage storage s = _loadRouterSlot();
     require(msg.sender == s.newGuardian);
@@ -347,6 +383,10 @@ contract AstariaRouter is
     delete s.newGuardian;
   }
 
+  /**
+   * @notice Specially guarded file().
+   * @param file The incoming data to file.
+   */
   function fileGuardian(File[] calldata file) external {
     RouterStorage storage s = _loadRouterSlot();
     require(msg.sender == address(s.guardian));
@@ -382,7 +422,10 @@ contract AstariaRouter is
   }
 
   //PUBLIC
-
+  /**
+   * @notice Returns the address for the current implementation of a contract from the ImplementationType enum.
+   * @return impl The address of the clone implementation.
+   */
   function getImpl(uint8 implType) external view returns (address impl) {
     impl = _loadRouterSlot().implementations[implType];
     if (impl == address(0)) {
@@ -390,6 +433,9 @@ contract AstariaRouter is
     }
   }
 
+  /**
+   * @notice Returns auction window
+   */
   function getAuctionWindow() public view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
     return s.auctionWindow;
@@ -413,6 +459,11 @@ contract AstariaRouter is
     }
   }
 
+  /**
+   * @notice Validates the incoming loan commitment.
+   * @param commitment The commitment proofs and requested loan data for each loan.
+   * @return lien the new Lien data.
+   */
   function validateCommitment(
     IAstariaRouter.Commitment calldata commitment,
     uint256 timeToSecondEpochEnd
@@ -421,6 +472,10 @@ contract AstariaRouter is
       _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
   }
 
+  /**
+   * @notice return the strategy validator for this commitment
+   * @param commitment The commitment proofs and requested loan data for each loan.
+   */
   function getStrategyValidator(
     IAstariaRouter.Commitment calldata commitment
   ) external view returns (address strategyValidator) {
@@ -476,13 +531,17 @@ contract AstariaRouter is
     lien = ILienToken.Lien({
       collateralType: nlrType,
       details: details,
-      strategyRoot: commitment.lienRequest.root,
+      //      strategyRoot: commitment.lienRequest.root,
       collateralId: commitment.tokenContract.computeId(commitment.tokenId),
       vault: commitment.lienRequest.strategy.vault,
       token: IAstariaVaultBase(commitment.lienRequest.strategy.vault).asset()
     });
   }
 
+  /**
+   * @notice Deposits collateral and requests loans for multiple NFTs at once.
+   * @param commitments The commitment proofs and requested loan data for each loan.
+   */
   function commitToLien(
     IAstariaRouter.Commitment calldata commitments
   )
@@ -533,6 +592,12 @@ contract AstariaRouter is
     }
   }
 
+  /**
+   * @notice Deploys a new PrivateVault.
+   * @param delegate The address of the delegate account.
+   * @param underlying The address of the underlying token.
+   * @return The address of the new PrivateVault.
+   */
   function newVault(
     address delegate,
     address underlying
@@ -556,6 +621,16 @@ contract AstariaRouter is
       );
   }
 
+  /**
+   * @notice Deploys a new PublicVault.
+   * @param epochLength The length of each epoch for the new PublicVault.
+   * @param delegate The address of the delegate account.
+   * @param underlying The underlying deposit asset for the vault
+   * @param vaultFee fee for the vault
+   * @param allowListEnabled flag for the allowlist
+   * @param allowList the starting allowList
+   * @param depositCap the deposit cap for the vault if any
+   */
   function newPublicVault(
     uint256 epochLength,
     address delegate,
@@ -595,12 +670,19 @@ contract AstariaRouter is
       );
   }
 
+  /**
+   * @notice Returns whether a specified lien can be liquidated.
+   */
   function canLiquidate(
     ILienToken.Stack memory stack
   ) public view returns (bool) {
     return (stack.point.end <= block.timestamp);
   }
 
+  /**
+   * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
+   * @param stack the stack being liquidated
+   */
   function liquidate(
     ILienToken.Stack memory stack
   ) public whenNotPaused returns (OrderParameters memory listedOrder) {
@@ -611,12 +693,7 @@ contract AstariaRouter is
     RouterStorage storage s = _loadRouterSlot();
     uint256 auctionWindowMax = s.auctionWindow;
 
-    s.LIEN_TOKEN.handleLiquidation(
-      stack.lien.collateralId,
-      auctionWindowMax,
-      stack,
-      msg.sender
-    );
+    s.LIEN_TOKEN.handleLiquidation(auctionWindowMax, stack, msg.sender);
 
     emit Liquidation(
       stack.lien.collateralId,
@@ -634,6 +711,9 @@ contract AstariaRouter is
     );
   }
 
+  /**
+   * @notice Computes the fee the protocol earns on loan origination from the protocolFee numerator and denominator.
+   */
   function getProtocolFee(uint256 amountIn) public view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -648,6 +728,9 @@ contract AstariaRouter is
       amountIn.mulDivDown(s.protocolFeeNumerator, s.protocolFeeDenominator);
   }
 
+  /**
+   * @notice Computes the fee the users earn on liquidating an expired lien from the liquidationFee numerator and denominator.
+   */
   function getLiquidatorFee(uint256 amountIn) external view returns (uint256) {
     RouterStorage storage s = _loadRouterSlot();
 
@@ -658,6 +741,11 @@ contract AstariaRouter is
       );
   }
 
+  /**
+   * @notice Returns whether a given address is that of a Vault.
+   * @param vault The Vault address.
+   * @return A boolean representing whether the address exists as a Vault.
+   */
   function isValidVault(address vault) public view returns (bool) {
     return _loadRouterSlot().vaults[vault];
   }
@@ -788,12 +876,12 @@ contract AstariaRouter is
       uint256 timeToSecondEndIfPublic,
       bytes32 domainSeparator
     ) = IVaultImplementation(c.lienRequest.strategy.vault).getState();
-    ERC721(c.tokenContract).safeTransferFrom(
+    ERC721(c.tokenContract).transferFrom(
       msg.sender,
       address(s.COLLATERAL_TOKEN),
-      c.tokenId,
-      ""
+      c.tokenId
     );
+    s.COLLATERAL_TOKEN.depositERC721(c.tokenContract, c.tokenId, msg.sender);
     _validateSignature(c.lienRequest, nonce, domainSeparator, owner, delegate);
 
     uint256 owingAtEnd;

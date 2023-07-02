@@ -45,7 +45,6 @@ interface ICollateralToken is IERC721 {
   );
 
   struct Asset {
-    bool deposited;
     address tokenContract;
     uint256 tokenId;
     bytes32 auctionHash;
@@ -81,16 +80,8 @@ interface ICollateralToken is IERC721 {
     bytes data;
   }
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param files Structs to file.
-   */
   function fileBatch(File[] calldata files) external;
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param incoming The incoming File.
-   */
   function file(File calldata incoming) external;
 
   function getConduit() external view returns (address);
@@ -105,40 +96,29 @@ interface ICollateralToken is IERC721 {
     uint256 endingPrice;
   }
 
-  /**
-   * @notice Send a CollateralToken to a Seaport auction on liquidation.
-   * @param params The auction data.
-   */
   function auctionVault(
     AuctionVaultParams calldata params
   ) external returns (OrderParameters memory);
 
   function SEAPORT() external view returns (ConsiderationInterface);
 
+  function depositERC721(
+    address tokenContract,
+    uint256 tokenId,
+    address from
+  ) external;
+
   function CONDUIT_CONTROLLER()
     external
     view
     returns (ConduitControllerInterface);
 
-  /**
-   * @notice Retrieve the address and tokenId of the underlying NFT of a CollateralToken.
-   * @param collateralId The ID of the CollateralToken wrapping the NFT.
-   * @return The address and tokenId of the underlying NFT.
-   */
   function getUnderlying(
     uint256 collateralId
   ) external view returns (address, uint256);
 
-  /**
-   * @notice Unlocks the NFT for a CollateralToken and sends it to the owner on repayment
-   * @param collateralId The ID for the CollateralToken of the NFT to unlock.
-   */
   function release(uint256 collateralId) external;
 
-  /**
-   * @notice Permissionless hook which returns the underlying NFT for a CollateralToken to the liquidator after an auction.
-   * @param params The Seaport data from the liquidation.
-   */
   function liquidatorNFTClaim(
     ILienToken.Stack memory stack,
     OrderParameters memory params,
@@ -153,12 +133,15 @@ interface ICollateralToken is IERC721 {
   error ProtocolPaused();
   error ListPriceTooLow();
   error InvalidConduitKey();
-  error InvalidZone();
+  error InvalidZoneHash();
+  error InvalidTarget();
+  error InvalidPaymentToken();
 
   enum InvalidCollateralStates {
     NO_AUTHORITY,
     NO_AUCTION,
     AUCTION_ACTIVE,
+    ID_MISMATCH,
     INVALID_AUCTION_PARAMS,
     ACTIVE_LIENS,
     ESCROW_ACTIVE

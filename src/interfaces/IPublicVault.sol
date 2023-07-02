@@ -48,14 +48,6 @@ interface IPublicVault is IVaultImplementation {
     uint40 lienEnd;
   }
 
-  /**
-   * @notice Signal a withdrawal of funds (redeeming for underlying asset) in an arbitrary future epoch.
-   * @param shares The number of VaultToken shares to redeem.
-   * @param receiver The receiver of the WithdrawTokens (and eventual underlying asset)
-   * @param owner The owner of the VaultTokens.
-   * @param epoch The epoch to withdraw for.
-   * @return assets The amount of the underlying asset redeemed.
-   */
   function redeemFutureEpoch(
     uint256 shares,
     address receiver,
@@ -63,11 +55,6 @@ interface IPublicVault is IVaultImplementation {
     uint64 epoch
   ) external returns (uint256 assets);
 
-  /**
-   * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
-   * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
-   * @param params The params to adjust things
-   */
   function updateVault(UpdateVaultParams calldata params) external;
 
   function getSlope() external view returns (uint256);
@@ -78,59 +65,24 @@ interface IPublicVault is IVaultImplementation {
 
   function getYIntercept() external view returns (uint256);
 
-  /** @notice
-   * hook to modify the liens open for then given epoch
-   * @param epoch epoch to decrease liens of
-   */
-  function decreaseEpochLienCount(uint64 epoch) external;
-
-  /** @notice
-   * helper to return the LienEpoch for a given end date
-   * @param end time to compute the end for
-   */
   function getLienEpoch(uint64 end) external view returns (uint64);
 
   function getWithdrawProxy(
     uint64 epoch
   ) external view returns (IWithdrawProxy);
 
-  /**
-   * @notice Mints earned fees by the strategist to the strategist address.
-   */
-  function claim() external;
-
-  /**
-   * @return Seconds until the current epoch ends.
-   */
   function timeToEpochEnd() external view returns (uint256);
 
   function epochEndTimestamp(uint epoch) external pure returns (uint256);
 
-  /**
-   * @notice Transfers funds from the PublicVault to the WithdrawProxy.
-   */
   function transferWithdrawReserve() external;
 
-  /**
-   * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
-   */
   function processEpoch() external;
 
-  /**
-   * @notice Increase the PublicVault yIntercept.
-   * @param amount newYIntercept The increase in yIntercept.
-   */
   function increaseYIntercept(uint256 amount) external;
 
-  /**
-   * @notice Decrease the PublicVault yIntercept.
-   * @param amount newYIntercept The decrease in yIntercept.
-   */
   function decreaseYIntercept(uint256 amount) external;
 
-  /** @notice
-   * return the current epoch
-   */
   function getCurrentEpoch() external view returns (uint64);
 
   function stopLien(
@@ -151,6 +103,7 @@ interface IPublicVault is IVaultImplementation {
   // ERRORS
 
   error InvalidState(InvalidStates);
+  error InvalidRedeemSize();
 
   enum InvalidStates {
     EPOCH_TOO_LOW,

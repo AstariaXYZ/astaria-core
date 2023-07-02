@@ -122,11 +122,6 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function STRATEGY_TYPEHASH() external view returns (bytes32);
 
-  /**
-   * @notice Validates the incoming loan commitment.
-   * @param commitment The commitment proofs and requested loan data for each loan.
-   * @return lien the new Lien data.
-   */
   function validateCommitment(
     IAstariaRouter.Commitment calldata commitment,
     uint256 timeToSecondEpochEnd
@@ -136,16 +131,6 @@ interface IAstariaRouter is IPausable, IBeacon {
     Commitment calldata
   ) external view returns (address);
 
-  /**
-   * @notice Deploys a new PublicVault.
-   * @param epochLength The length of each epoch for the new PublicVault.
-   * @param delegate The address of the delegate account.
-   * @param underlying The underlying deposit asset for the vault
-   * @param vaultFee fee for the vault
-   * @param allowListEnabled flag for the allowlist
-   * @param allowList the starting allowList
-   * @param depositCap the deposit cap for the vault if any
-   */
   function newPublicVault(
     uint256 epochLength,
     address delegate,
@@ -156,29 +141,15 @@ interface IAstariaRouter is IPausable, IBeacon {
     uint256 depositCap
   ) external returns (address);
 
-  /**
-   * @notice Deploys a new PrivateVault.
-   * @param delegate The address of the delegate account.
-   * @param underlying The address of the underlying token.
-   * @return The address of the new PrivateVault.
-   */
   function newVault(
     address delegate,
     address underlying
   ) external returns (address);
 
-  /**
-   * @notice Retrieves the address that collects protocol-level fees.
-   */
   function feeTo() external returns (address);
 
   function WETH() external returns (address);
 
-  /**
-   * @notice Deposits collateral and requests loans for multiple NFTs at once.
-   * @param commitments The commitment proofs and requested loan data for each loan.
-   * @return lienIds the lienIds for each loan.
-   */
   function commitToLien(
     Commitment memory commitments
   ) external returns (uint256, ILienToken.Stack memory);
@@ -191,70 +162,28 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function COLLATERAL_TOKEN() external view returns (ICollateralToken);
 
-  /**
-   * @notice Returns the current auction duration.
-   */
   function getAuctionWindow() external view returns (uint256);
 
-  /**
-   * @notice Computes the fee the protocol earns on loan origination from the protocolFee numerator and denominator.
-   */
   function getProtocolFee(uint256) external view returns (uint256);
 
-  /**
-   * @notice Computes the fee the users earn on liquidating an expired lien from the liquidationFee numerator and denominator.
-   */
   function getLiquidatorFee(uint256) external view returns (uint256);
 
-  /**
-   * @notice Liquidate a CollateralToken that has defaulted on one of its liens.
-   * @param stack the stack being liquidated
-   * @return reserve The amount owed on all liens for against the collateral being liquidated, including accrued interest.
-   */
   function liquidate(
     ILienToken.Stack calldata stack
   ) external returns (OrderParameters memory);
 
-  /**
-   * @notice Returns whether a specified lien can be liquidated.
-   */
   function canLiquidate(ILienToken.Stack calldata) external view returns (bool);
 
-  /**
-   * @notice Returns whether a given address is that of a Vault.
-   * @param vault The Vault address.
-   * @return A boolean representing whether the address exists as a Vault.
-   */
   function isValidVault(address vault) external view returns (bool);
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param files Structs to file.
-   */
   function fileBatch(File[] calldata files) external;
 
-  /**
-   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
-   * @param incoming The incoming File.
-   */
   function file(File calldata incoming) external;
 
-  /**
-   * @notice Updates the guardian address.
-   * @param _guardian The new guardian.
-   */
   function setNewGuardian(address _guardian) external;
 
-  /**
-   * @notice Specially guarded file().
-   * @param file The incoming data to file.
-   */
   function fileGuardian(File[] calldata file) external;
 
-  /**
-   * @notice Returns the address for the current implementation of a contract from the ImplementationType enum.
-   * @return impl The address of the clone implementation.
-   */
   function getImpl(uint8 implType) external view returns (address impl);
 
   event Liquidation(

@@ -19,7 +19,6 @@ import {IAstariaRouter} from "core/interfaces/IAstariaRouter.sol";
 import {ICollateralToken} from "core/interfaces/ICollateralToken.sol";
 import {IERC165} from "core/interfaces/IERC165.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
-import {IERC721Receiver} from "core/interfaces/IERC721Receiver.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {Authority} from "solmate/auth/Auth.sol";
@@ -65,7 +64,6 @@ import {AuthInitializable} from "core/AuthInitializable.sol";
 contract CollateralToken is
   AuthInitializable,
   ERC721,
-  IERC721Receiver,
   ZoneInterface,
   ICollateralToken
 {
@@ -149,16 +147,13 @@ contract CollateralToken is
         (ILienToken.Stack)
       );
       ERC20 paymentToken = ERC20(zoneParameters.consideration[0].token);
-      //TODO: switch to an if /revert
-      require(
-        address(paymentToken) == stack.lien.token,
-        "token address mismatch"
-      );
+      if (address(paymentToken) != stack.lien.token) {
+        revert InvalidPaymentToken();
+      }
 
-      require(
-        uint256(zoneParameters.zoneHash) == collateralId,
-        "zone hash ct  mismatch"
-      );
+      if (uint256(zoneParameters.zoneHash) != collateralId) {
+        revert InvalidZoneHash();
+      }
 
       uint256 payment = zoneParameters.consideration[0].amount;
 
@@ -183,9 +178,7 @@ contract CollateralToken is
       if (remainingBalance > 0) {
         paymentToken.safeTransfer(ownerOf(collateralId), remainingBalance);
       }
-      s.idToUnderlying[collateralId].deposited = false;
-      _burn(collateralId);
-      _settleAuction(s, uint256(zoneParameters.zoneHash));
+      _burnAndClearState(s, collateralId);
       return ZoneInterface.validateOrder.selector;
     } else if (zoneParameters.consideration[0].itemType == ItemType.ERC721) {
       // check the owner of the nft we sold make sure its not us
@@ -199,6 +192,14 @@ contract CollateralToken is
       return ZoneInterface.validateOrder.selector;
     }
     revert InvalidOrder();
+  }
+
+  function _burnAndClearState(
+    CollateralStorage storage s,
+    uint256 collateralId
+  ) internal {
+    _burn(collateralId);
+    delete s.idToUnderlying[collateralId].auctionHash;
   }
 
   /**
@@ -223,6 +224,10 @@ contract CollateralToken is
     return _loadCollateralSlot().SEAPORT;
   }
 
+  /**
+   * @notice Returns the ConduitController for this contract.
+   * @return The ConduitController for this contract.
+   */
   function CONDUIT_CONTROLLER()
     public
     view
@@ -231,17 +236,24 @@ contract CollateralToken is
     return _loadCollateralSlot().CONDUIT_CONTROLLER;
   }
 
-  // uint256 counterAtLiquidation
+  /**
+   * @notice Permissionless hook which returns the underlying NFT for a CollateralToken to the liquidator after an auction.
+   * @param params The Seaport data from the liquidation.
+   */
   function liquidatorNFTClaim(
     ILienToken.Stack memory stack,
     OrderParameters memory params,
     uint256 counterAtLiquidation
-  ) external {
+  ) external whenNotPaused {
     CollateralStorage storage s = _loadCollateralSlot();
 
     uint256 collateralId = params.offer[0].token.computeId(
       params.offer[0].identifierOrCriteria
     );
+    if (stack.lien.collateralId != collateralId) {
+      //revert collateral id mismatch
+      revert InvalidCollateralState(InvalidCollateralStates.ID_MISMATCH);
+    }
     if (s.idToUnderlying[collateralId].auctionHash == bytes32(0)) {
       //revert no auction
       revert InvalidCollateralState(InvalidCollateralStates.NO_AUCTION);
@@ -264,8 +276,7 @@ contract CollateralToken is
     }
 
     s.LIEN_TOKEN.makePayment(stack);
-    _releaseToAddress(s, s.idToUnderlying[collateralId], liquidator);
-    _settleAuction(s, collateralId);
+    _releaseToAddress(s, collateralId, liquidator);
   }
 
   function _loadCollateralSlot()
@@ -286,10 +297,13 @@ contract CollateralToken is
     return
       interfaceId == type(ICollateralToken).interfaceId ||
       interfaceId == type(ZoneInterface).interfaceId ||
-      interfaceId == type(IERC721Receiver).interfaceId ||
       super.supportsInterface(interfaceId);
   }
 
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param files Structs to file.
+   */
   function fileBatch(File[] calldata files) external requiresAuth {
     uint256 i;
     for (; i < files.length; ) {
@@ -300,6 +314,10 @@ contract CollateralToken is
     }
   }
 
+  /**
+   * @notice Sets universal protocol parameters or changes the addresses for deployed contracts.
+   * @param incoming The incoming File.
+   */
   function file(File calldata incoming) public requiresAuth {
     _file(incoming);
   }
@@ -315,8 +333,7 @@ contract CollateralToken is
     } else if (what == FileType.CloseChannel) {
       address outgoingChannel = abi.decode(data, (address));
       if (outgoingChannel == address(s.SEAPORT)) {
-        //TODO : make own error
-        revert UnsupportedFile();
+        revert InvalidTarget();
       }
       s.CONDUIT_CONTROLLER.updateChannel(
         address(s.CONDUIT),
@@ -352,21 +369,18 @@ contract CollateralToken is
     emit FileUpdated(what, data);
   }
 
-  modifier onlyOwner(uint256 collateralId) {
-    require(ownerOf(collateralId) == msg.sender);
-    _;
-  }
-
-  function release(uint256 collateralId) public {
+  /**
+   * @notice Unlocks the NFT for a CollateralToken and sends it to the owner on repayment
+   * @param collateralId The ID for the CollateralToken of the NFT to unlock.
+   */
+  function release(uint256 collateralId) public whenNotPaused {
     CollateralStorage storage s = _loadCollateralSlot();
 
     if (msg.sender != address(s.LIEN_TOKEN)) {
       revert InvalidSender();
     }
-    Asset storage underlying = s.idToUnderlying[collateralId];
-    address tokenContract = underlying.tokenContract;
 
-    _releaseToAddress(s, underlying, ownerOf(collateralId));
+    _releaseToAddress(s, collateralId, ownerOf(collateralId));
   }
 
   /**
@@ -375,32 +389,32 @@ contract CollateralToken is
    */
   function _releaseToAddress(
     CollateralStorage storage s,
-    Asset storage underlyingAsset,
+    uint256 collateralId,
     address releaseTo
   ) internal {
-    ERC721(underlyingAsset.tokenContract).safeTransferFrom(
+    Asset storage underlying = s.idToUnderlying[collateralId];
+    _burnAndClearState(s, collateralId);
+    ERC721(underlying.tokenContract).transferFrom(
       address(this),
       releaseTo,
-      underlyingAsset.tokenId
+      underlying.tokenId
     );
-    uint256 collateralId = underlyingAsset.tokenContract.computeId(
-      underlyingAsset.tokenId
-    );
-    _settleAuction(s, collateralId);
-    _burn(collateralId);
-    underlyingAsset.deposited = false;
-    emit ReleaseTo(
-      underlyingAsset.tokenContract,
-      underlyingAsset.tokenId,
-      releaseTo
-    );
+    emit ReleaseTo(underlying.tokenContract, underlying.tokenId, releaseTo);
   }
 
+  /**
+   * @notice gets the conduit key
+   * @return the conduit key
+   */
   function getConduitKey() public view returns (bytes32) {
     CollateralStorage storage s = _loadCollateralSlot();
     return s.CONDUIT_KEY;
   }
 
+  /**
+   * @notice Retrieve the address of the Conduit contract.
+   * @return The address of the Conduit contract.
+   */
   function getConduit() public view returns (address) {
     CollateralStorage storage s = _loadCollateralSlot();
     return s.CONDUIT;
@@ -480,11 +494,18 @@ contract CollateralToken is
     });
   }
 
+  /**
+   * @notice Send a CollateralToken to a Seaport auction on liquidation.
+   * @param params The auction data.
+   */
   function auctionVault(
     AuctionVaultParams calldata params
-  ) external requiresAuth returns (OrderParameters memory orderParameters) {
+  ) external whenNotPaused returns (OrderParameters memory orderParameters) {
     CollateralStorage storage s = _loadCollateralSlot();
 
+    if (msg.sender != address(s.ASTARIA_ROUTER)) {
+      revert InvalidSender();
+    }
     uint256[] memory prices = new uint256[](2);
     prices[0] = params.startingPrice;
     prices[1] = params.endingPrice;
@@ -496,85 +517,52 @@ contract CollateralToken is
       params.maxDuration
     );
 
-    _listUnderlyingOnSeaport(
-      s,
-      params.collateralId,
-      Order(orderParameters, new bytes(0))
-    );
-  }
+    Order[] memory listing = new Order[](1);
+    listing[0] = Order(orderParameters, "");
 
-  function _listUnderlyingOnSeaport(
-    CollateralStorage storage s,
-    uint256 collateralId,
-    Order memory listingOrder
-  ) internal {
-    //get total Debt and ensure its being sold for more than that
-
-    if (listingOrder.parameters.conduitKey != s.CONDUIT_KEY) {
-      revert InvalidConduitKey();
-    }
-
-    Order[] memory listings = new Order[](1);
-    listings[0] = listingOrder;
-
-    ERC721(listingOrder.parameters.offer[0].token).approve(
+    ERC721(orderParameters.offer[0].token).approve(
       s.CONDUIT,
-      listingOrder.parameters.offer[0].identifierOrCriteria
+      orderParameters.offer[0].identifierOrCriteria
     );
-    if (!s.SEAPORT.validate(listings)) {
+    if (!s.SEAPORT.validate(listing)) {
       revert InvalidOrder();
     }
-    s.idToUnderlying[collateralId].auctionHash = s.SEAPORT.getOrderHash(
-      getOrderComponents(
-        listingOrder.parameters,
-        s.SEAPORT.getCounter(address(this))
-      )
+    s.idToUnderlying[params.collateralId].auctionHash = s.SEAPORT.getOrderHash(
+      getOrderComponents(orderParameters, s.SEAPORT.getCounter(address(this)))
     );
-  }
-
-  function _settleAuction(
-    CollateralStorage storage s,
-    uint256 collateralId
-  ) internal {
-    delete s.idToUnderlying[collateralId].auctionHash;
   }
 
   /**
    * @dev Mints a new CollateralToken wrapping an NFT.
-   * @param from_ the owner of the collateral deposited
-   * @param tokenId_ The NFT token ID
-   * @return a static return of the receive signature
+   * @param tokenContract the address of the NFT contract
+   * @param from the owner of the collateral deposited
+   * @param tokenId The NFT token ID
    */
-  function onERC721Received(
-    address operator_,
-    address from_,
-    uint256 tokenId_,
-    bytes calldata // calldata data_
-  ) external override whenNotPaused returns (bytes4) {
+  function depositERC721(
+    address tokenContract,
+    uint256 tokenId,
+    address from
+  ) external whenNotPaused {
     CollateralStorage storage s = _loadCollateralSlot();
-    if (operator_ != address(s.ASTARIA_ROUTER)) {
+    if (msg.sender != address(s.ASTARIA_ROUTER)) {
       revert InvalidSender();
     }
-    uint256 collateralId = msg.sender.computeId(tokenId_);
+    uint256 collateralId = tokenContract.computeId(tokenId);
 
     Asset storage incomingAsset = s.idToUnderlying[collateralId];
-    if (!incomingAsset.deposited) {
-      require(ERC721(msg.sender).ownerOf(tokenId_) == address(this));
-      incomingAsset.tokenContract = msg.sender;
-      incomingAsset.tokenId = tokenId_;
-      if (msg.sender == address(this) || msg.sender == address(s.LIEN_TOKEN)) {
-        revert InvalidCollateral();
-      }
 
-      _mint(from_, collateralId);
-
-      incomingAsset.deposited = true;
-
-      emit Deposit721(msg.sender, tokenId_, collateralId, from_);
-      return IERC721Receiver.onERC721Received.selector;
-    } else {
-      revert InvalidCollateralState(InvalidCollateralStates.ESCROW_ACTIVE);
+    require(ERC721(tokenContract).ownerOf(tokenId) == address(this));
+    incomingAsset.tokenContract = tokenContract;
+    incomingAsset.tokenId = tokenId;
+    if (
+      tokenContract == address(this) || tokenContract == address(s.LIEN_TOKEN)
+    ) {
+      revert InvalidCollateral();
     }
+
+    _mint(from, collateralId);
+
+    emit Deposit721(tokenContract, tokenId, collateralId, from);
   }
 
   modifier whenNotPaused() {

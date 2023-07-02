@@ -376,11 +376,6 @@ contract Deploy is Script {
 
     MRA.setRoleCapability(
       uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.createLien.selector,
-      true
-    );
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
       TRANSFER_PROXY.tokenTransferFrom.selector,
       true
     );

@@ -243,16 +243,25 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     }
   }
 
+  /**
+   * @notice returns the final auctio nend
+   */
   function getFinalAuctionEnd() public view returns (uint256) {
     WPStorage storage s = _loadSlot();
     return s.finalAuctionEnd;
   }
 
+  /**
+   * @notice returns the withdraw ratio
+   */
   function getWithdrawRatio() public view returns (uint256) {
     WPStorage storage s = _loadSlot();
     return s.withdrawRatio;
   }
 
+  /**
+   * @notice returns the expected amount
+   */
   function getExpected() public view returns (uint256) {
     WPStorage storage s = _loadSlot();
     return s.expected;
@@ -263,11 +272,19 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     _;
   }
 
+  /**
+   * @notice Called when PublicVault sends a payment to the WithdrawProxy
+   * to track how much of its WETH balance is from withdrawReserve payments instead of auction repayments
+   * @param amount The amount paid by the PublicVault, deducted from its withdrawReserve.
+   */
   function increaseWithdrawReserveReceived(uint256 amount) external onlyVault {
     WPStorage storage s = _loadSlot();
     s.withdrawReserveReceived += amount;
   }
 
+  /**
+   * @notice Return any excess funds to the PublicVault, according to the withdrawRatio between withdrawing and remaining LPs.
+   */
   function claim() public {
     WPStorage storage s = _loadSlot();
 
@@ -319,6 +336,11 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     );
   }
 
+  /**
+   * @notice Called by PublicVault if previous epoch's withdrawReserve hasn't been met.
+   * @param amount The amount to attempt to drain from the WithdrawProxy.
+   * @param withdrawProxy The address of the withdrawProxy to drain to.
+   */
   function drain(
     uint256 amount,
     address withdrawProxy
@@ -335,9 +357,19 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     return amount;
   }
 
+  /**
+   * @notice Called at epoch boundary, computes the ratio between the funds of withdrawing liquidity providers and the balance of the underlying PublicVault so that claim() proportionally pays optimized-out to all parties.
+   * @param liquidationWithdrawRatio The ratio of withdrawing to remaining LPs for the current epoch boundary.
+   */
   function setWithdrawRatio(uint256 liquidationWithdrawRatio) public onlyVault {
     _loadSlot().withdrawRatio = liquidationWithdrawRatio;
   }
+
+  /**
+   * @notice Called by PublicVault to set the expected amount of the asset to be received from the LienToken.
+   * @param newLienExpectedValue the incoming expected value of the lien
+   * @param finalAuctionDelta The amount of time to extend the final auction by if the LienToken is not redeemed.
+   */
 
   function handleNewLiquidation(
     uint256 newLienExpectedValue,

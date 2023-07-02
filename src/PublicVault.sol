@@ -139,6 +139,14 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _redeemFutureEpoch(s, shares, receiver, owner, s.currentEpoch);
   }
 
+  /**
+   * @notice Signal a withdrawal of funds (redeeming for underlying asset) in an arbitrary future epoch.
+   * @param shares The number of VaultToken shares to redeem.
+   * @param receiver The receiver of the WithdrawTokens (and eventual underlying asset)
+   * @param owner The owner of the VaultTokens.
+   * @param epoch The epoch to withdraw for.
+   * @return assets The amount of the underlying asset redeemed.
+   */
   function redeemFutureEpoch(
     uint256 shares,
     address receiver,
@@ -173,7 +181,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
     require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     // check for rounding error since we round down in previewRedeem.
-
+    if (assets < minDepositAmount()) {
+      revert InvalidRedeemSize();
+    }
     //this will underflow if not enough balance
     es.balanceOf[owner] -= shares;
 
@@ -197,14 +207,26 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return IWithdrawProxy(_loadStorageSlot().epochData[epoch].withdrawProxy);
   }
 
+  /**
+   * @notice
+   * return the current epoch
+   */
   function getCurrentEpoch() public view returns (uint64) {
     return _loadStorageSlot().currentEpoch;
   }
 
+  /**
+   * @notice
+   * return the current slope
+   */
   function getSlope() public view returns (uint256) {
     return uint256(_loadStorageSlot().slope);
   }
 
+  /**
+   * @notice
+   * return the withdraw reserve
+   */
   function getWithdrawReserve() public view returns (uint256) {
     return uint256(_loadStorageSlot().withdrawReserve);
   }
@@ -298,6 +320,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return super.domainSeparator();
   }
 
+  /**
+   * @notice Rotate epoch boundary. This must be called before the next epoch can begin.
+   */
   function processEpoch() public {
     // check to make sure epoch is over
     if (timeToEpochEnd() > 0) {
@@ -378,6 +403,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       interfaceId == type(IERC165).interfaceId;
   }
 
+  /**
+   * @notice Transfers funds from the PublicVault to the WithdrawProxy.
+   */
   function transferWithdrawReserve() public {
     VaultData storage s = _loadStorageSlot();
 
@@ -515,14 +543,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return _loadERC20Slot()._totalSupply;
   }
 
-  function claim() external {
-    require(msg.sender == owner()); //owner is "strategist"
-    VaultData storage s = _loadStorageSlot();
-    uint256 unclaimed = s.strategistUnclaimedShares;
-    s.strategistUnclaimedShares = 0;
-    _mint(msg.sender, unclaimed);
-  }
-
+  /**
+   * @notice Hook to update the slope and yIntercept of the PublicVault on payment.
+   * The rate for the LienToken is subtracted from the total slope of the PublicVault, and recalculated in afterPayment().
+   * @param params The params to adjust things
+   */
   function updateVault(UpdateVaultParams calldata params) external {
     _onlyLienToken();
 
@@ -546,12 +571,6 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     emit SlopeUpdated(newSlope);
   }
 
-  function decreaseEpochLienCount(uint64 epoch) public {
-    _onlyLienToken();
-
-    _decreaseEpochLienCount(_loadStorageSlot(), epoch);
-  }
-
   function _decreaseEpochLienCount(VaultData storage s, uint64 epoch) internal {
     s.epochData[epoch].liensOpenForEpoch--;
     emit LiensOpenForEpochRemaining(
@@ -560,6 +579,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     );
   }
 
+  /** @notice
+   * helper to return the LienEpoch for a given end date
+   * @param end time to compute the end for
+   */
   function getLienEpoch(uint64 end) public pure returns (uint64) {
     return
       uint256(Math.ceilDiv(end - uint64(START()), EPOCH_LENGTH()) - 1)
@@ -666,6 +689,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     emit LienOpen(tokenId, epoch);
   }
 
+  /**
+   * @notice Increase the PublicVault yIntercept.
+   * @param amount newYIntercept The increase in yIntercept.
+   */
   function increaseYIntercept(uint256 amount) public {
     VaultData storage s = _loadStorageSlot();
     uint64 currentEpoch = s.currentEpoch;
@@ -680,6 +707,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     require(msg.sender == address(ROUTER().LIEN_TOKEN()));
   }
 
+  /**
+   * @notice Decrease the PublicVault yIntercept.
+   * @param amount newYIntercept The decrease in yIntercept.
+   */
   function decreaseYIntercept(uint256 amount) public {
     VaultData storage s = _loadStorageSlot();
     uint64 currentEpoch = s.currentEpoch;
@@ -695,6 +726,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     emit YInterceptChanged(s.yIntercept);
   }
 
+  /**
+   * @return Seconds until the current epoch ends.
+   */
   function timeToEpochEnd() public view returns (uint256) {
     return timeToEpochEnd(_loadStorageSlot().currentEpoch);
   }

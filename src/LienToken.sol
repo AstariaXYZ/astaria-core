@@ -50,8 +50,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   uint256 private constant LIEN_SLOT =
     uint256(keccak256("xyz.astaria.LienToken.storage.location")) - 1;
 
-  bytes32 constant ACTIVE_AUCTION = bytes32("ACTIVE_AUCTION");
-
   constructor() {
     _disableInitializers();
   }
@@ -78,6 +76,10 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     }
   }
 
+  /**
+   * @notice Sets addresses for the AuctionHouse, CollateralToken, and AstariaRouter contracts to use.
+   * @param incoming The incoming file to handle.
+   */
   function file(File calldata incoming) external requiresAuth {
     FileType what = incoming.what;
     bytes memory data = incoming.data;
@@ -100,6 +102,10 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       super.supportsInterface(interfaceId);
   }
 
+  /**
+   * @notice Public view function that computes the interest for a LienToken since its last payment.
+   * @param stack the Lien
+   */
   function getInterest(Stack calldata stack) public view returns (uint256) {
     return _getInterest(stack, block.timestamp);
   }
@@ -118,6 +124,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     return (delta_t * stack.lien.details.rate).mulWadDown(stack.point.amount);
   }
 
+  /**
+   * @notice Checks the validity of the loan hash and the current state of the lien.
+   */
   modifier validateCollateralState(uint256 collateralId, bytes32 incomingHash) {
     LienStorage storage s = _loadLienStorageSlot();
     if (incomingHash != s.collateralStateHash[collateralId]) {
@@ -126,28 +135,32 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     _;
   }
 
+  /**
+   * @notice Stops accruing interest for all liens against a single CollateralToken.
+   * @param auctionWindow The ID for the  CollateralToken of the NFT used as collateral for the liens.
+   * @param stack the stack of the loan
+   * @param liquidator the address of the liquidator
+   */
   function handleLiquidation(
-    uint256 collateralId,
     uint256 auctionWindow,
     Stack calldata stack,
     address liquidator
   )
     external
-    validateCollateralState(collateralId, keccak256(abi.encode(stack)))
-    requiresAuth
+    validateCollateralState(
+      stack.lien.collateralId,
+      keccak256(abi.encode(stack))
+    )
   {
-    _handleLiquidation(
-      _loadLienStorageSlot(),
-      collateralId,
-      auctionWindow,
-      stack,
-      liquidator
-    );
+    LienStorage storage s = _loadLienStorageSlot();
+    if (msg.sender != address(s.ASTARIA_ROUTER)) {
+      revert InvalidSender();
+    }
+    _handleLiquidation(s, auctionWindow, stack, liquidator);
   }
 
   function _handleLiquidation(
     LienStorage storage s,
-    uint256 collateralId,
     uint256 auctionWindow,
     Stack calldata stack,
     address liquidator
@@ -155,7 +168,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     uint256 owed = _getOwed(stack, block.timestamp);
     uint256 lienId = uint256(keccak256(abi.encode(stack)));
 
-    s.collateralLiquidator[collateralId] = AuctionData({
+    s.collateralLiquidator[stack.lien.collateralId] = AuctionData({
       amountOwed: owed,
       liquidator: liquidator
     });
@@ -175,9 +188,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   function tokenURI(
     uint256 tokenId
   ) public view override(ERC721, IERC721) returns (string memory) {
-    if (!_exists(tokenId)) {
-      revert InvalidTokenId(tokenId);
-    }
+    ownerOf(tokenId); //enforce exists
     return "";
   }
 
@@ -193,19 +204,22 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     super.transferFrom(from, to, id);
   }
 
-  function _exists(uint256 tokenId) internal view returns (bool) {
-    return _loadERC721Slot()._ownerOf[tokenId] != address(0);
-  }
-
+  /**
+   * @notice Creates a new lien against a CollateralToken.
+   * @param params LienActionEncumber data containing CollateralToken information and lien parameters (rate, duration, and amount, rate, and debt caps).
+   */
   function createLien(
     ILienToken.LienActionEncumber calldata params
   )
     external
-    requiresAuth
     validateCollateralState(params.lien.collateralId, bytes32(0))
     returns (uint256 lienId, Stack memory newStack, uint256 owingAtEnd)
   {
     LienStorage storage s = _loadLienStorageSlot();
+    if (msg.sender != address(s.ASTARIA_ROUTER)) {
+      revert InvalidSender();
+    }
+
     (lienId, newStack) = _createLien(s, params);
 
     owingAtEnd = _getOwed(newStack, newStack.point.end);
@@ -241,6 +255,10 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     );
   }
 
+  /**
+   * @notice Retrieves the liquidator for a CollateralToken.
+   * @param collateralId The ID of the CollateralToken.
+   */
   function getAuctionLiquidator(
     uint256 collateralId
   ) external view returns (address liquidator) {
@@ -252,21 +270,27 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     }
   }
 
-  function validateLien(
-    Stack memory stack
-  ) public view returns (uint256 lienId) {
-    lienId = uint256(keccak256(abi.encode(stack)));
-    if (!_exists(lienId)) {
-      revert InvalidState(InvalidStates.INVALID_LIEN_ID);
-    }
-  }
-
+  /**
+   * @notice Retrieves a lienCount for specific collateral
+   * @param collateralId the Lien to compute a point for
+   */
   function getCollateralState(
     uint256 collateralId
   ) external view returns (bytes32) {
     return _loadLienStorageSlot().collateralStateHash[collateralId];
   }
 
+  struct Payments {
+    uint256 amountOwing;
+    uint256 interestPaid;
+    uint256 decreaseInYIntercept;
+    uint256 decreaseInSlope;
+  }
+
+  /**
+   * @notice Make a payment for the debt against a CollateralToken.
+   * @param stack the stack to pay against
+   */
   function makePayment(
     Stack calldata stack
   )
@@ -278,12 +302,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   {
     {
       LienStorage storage s = _loadLienStorageSlot();
-      uint256[] memory payment = new uint256[](4);
+      Payments memory payment;
 
-      payment[0] = _getOwed(stack, block.timestamp); // amountOwing
-      payment[1] = payment[0] - stack.point.amount; // interestPaid
-      payment[2] = payment[0]; // decrease in y intercept
-      payment[3] = calculateSlope(stack);
+      //auction repayment
       if (s.collateralLiquidator[stack.lien.collateralId].amountOwed > 0) {
         if (msg.sender != address(s.COLLATERAL_TOKEN)) {
           revert InvalidSender();
@@ -295,41 +316,61 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         uint256 owing = s
           .collateralLiquidator[stack.lien.collateralId]
           .amountOwed;
-        payment[0] = owing > CTBalance ? CTBalance : owing;
-        payment[1] = payment[0] > stack.point.amount
-          ? payment[0] - stack.point.amount
+        payment.amountOwing = owing > CTBalance ? CTBalance : owing;
+        payment.interestPaid = payment.amountOwing > stack.point.amount
+          ? payment.amountOwing - stack.point.amount
           : 0;
-        payment[2] = payment[0] > owing ? owing : owing - payment[0];
-        payment[3] = 0;
+        payment.decreaseInYIntercept = owing - payment.amountOwing;
+        payment.decreaseInSlope = 0;
+      } else {
+        // regular payment
+        payment.amountOwing = _getOwed(stack, block.timestamp); // amountOwing
+        payment.interestPaid = payment.amountOwing - stack.point.amount; // interestPaid
+        payment.decreaseInYIntercept = 0; // decrease in y intercept
+        payment.decreaseInSlope = calculateSlope(stack);
       }
       _payment(
         s,
         uint256(keccak256(abi.encode(stack))),
         stack.point.end,
-        payment[0],
-        payment[1],
+        payment.amountOwing,
+        payment.interestPaid,
         stack.lien.collateralId,
         stack.lien.token,
-        payment[2], // decrease in y intercept
-        payment[3]
+        payment.decreaseInYIntercept, // decrease in y intercept
+        payment.decreaseInSlope // decrease in slope
       );
     }
   }
 
+  /**
+   * @notice Computes the rate for a specified lien.
+   * @param stack The Lien to compute the slope for.
+   * @return slope The rate for the specified lien, in WETH per second.
+   */
   function calculateSlope(Stack memory stack) public pure returns (uint256) {
     return stack.lien.details.rate.mulWadDown(stack.point.amount);
   }
 
+  /**
+   * @notice Removes all liens for a given CollateralToken.
+   * @param stack The Lien stack
+   * @return the amount owed in uint192 at the current block.timestamp
+   */
   function getOwed(Stack memory stack) external view returns (uint256) {
-    validateLien(stack);
     return _getOwed(stack, block.timestamp);
   }
 
+  /**
+   * @notice Removes all liens for a given CollateralToken.
+   * @param stack The Lien stack
+   * @param timestamp The timestamp to calculate the amount owed at
+   * @return the amount owed in uint192 at the current block.timestamp
+   */
   function getOwed(
     Stack memory stack,
     uint256 timestamp
   ) external view returns (uint256) {
-    validateLien(stack);
     return _getOwed(stack, timestamp);
   }
 
@@ -382,7 +423,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         amountOwed
       );
     }
-    //only in an auction
+    //only if not in an auction
     if (msg.sender != address(s.COLLATERAL_TOKEN)) {
       s.COLLATERAL_TOKEN.release(collateralId);
     }
@@ -395,6 +436,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   ) internal {
     _burn(lienId);
     delete s.collateralStateHash[collateralId];
+    delete s.collateralLiquidator[collateralId];
   }
 
   function _isPublicVault(
