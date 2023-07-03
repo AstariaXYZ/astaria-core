@@ -177,7 +177,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
 
     if (epoch < s.currentEpoch) {
-      revert InvalidState(InvalidStates.EPOCH_TOO_LOW);
+      revert InvalidVaultState(InvalidVaultStates.EPOCH_TOO_LOW);
     }
     require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
     // check for rounding error since we round down in previewRedeem.
@@ -326,11 +326,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   function processEpoch() public {
     // check to make sure epoch is over
     if (timeToEpochEnd() > 0) {
-      revert InvalidState(InvalidStates.EPOCH_NOT_OVER);
+      revert InvalidVaultState(InvalidVaultStates.EPOCH_NOT_OVER);
     }
     VaultData storage s = _loadStorageSlot();
     if (s.withdrawReserve > 0) {
-      revert InvalidState(InvalidStates.WITHDRAW_RESERVE_NOT_ZERO);
+      revert InvalidVaultState(InvalidVaultStates.WITHDRAW_RESERVE_NOT_ZERO);
     }
 
     WithdrawProxy currentWithdrawProxy = WithdrawProxy(
@@ -351,7 +351,9 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
 
     if (s.epochData[s.currentEpoch].liensOpenForEpoch > 0) {
-      revert InvalidState(InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO);
+      revert InvalidVaultState(
+        InvalidVaultStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
+      );
     }
 
     // reset liquidationWithdrawRatio to prepare for re calcualtion
@@ -619,7 +621,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     }
     VIData storage v = _loadVISlot();
     if (v.depositCap != 0 && totalAssets() >= v.depositCap) {
-      revert InvalidState(InvalidStates.DEPOSIT_CAP_EXCEEDED);
+      revert InvalidVaultState(InvalidVaultStates.DEPOSIT_CAP_EXCEEDED);
     }
     emit YInterceptChanged(s.yIntercept);
   }

@@ -130,7 +130,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   modifier validateCollateralState(uint256 collateralId, bytes32 incomingHash) {
     LienStorage storage s = _loadLienStorageSlot();
     if (incomingHash != s.collateralStateHash[collateralId]) {
-      revert InvalidState(InvalidStates.INVALID_HASH);
+      revert InvalidLienState(InvalidLienStates.INVALID_HASH);
     }
     _;
   }
@@ -199,7 +199,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   ) public override(ERC721, IERC721) {
     LienStorage storage s = _loadLienStorageSlot();
     if (_isPublicVault(s, to)) {
-      revert InvalidState(InvalidStates.PUBLIC_VAULT_RECIPIENT);
+      revert InvalidLienState(InvalidLienStates.PUBLIC_VAULT_RECIPIENT);
     }
     super.transferFrom(from, to, id);
   }
@@ -266,7 +266,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       .collateralLiquidator[collateralId]
       .liquidator;
     if (liquidator == address(0)) {
-      revert InvalidState(InvalidStates.COLLATERAL_NOT_LIQUIDATED);
+      revert InvalidLienState(InvalidLienStates.COLLATERAL_NOT_LIQUIDATED);
     }
   }
 

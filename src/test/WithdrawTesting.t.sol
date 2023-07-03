@@ -269,8 +269,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
       )
     );
     PublicVault(payable(publicVault)).processEpoch();
@@ -462,8 +462,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.WITHDRAW_RESERVE_NOT_ZERO
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.WITHDRAW_RESERVE_NOT_ZERO
       )
     );
     PublicVault(payable(publicVault)).processEpoch();
@@ -1106,8 +1106,8 @@ contract WithdrawTest is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.WITHDRAW_RESERVE_NOT_ZERO
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.WITHDRAW_RESERVE_NOT_ZERO
       )
     );
     PublicVault(payable(publicVault)).processEpoch();

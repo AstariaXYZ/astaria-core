@@ -627,8 +627,8 @@ contract RevertTesting is TestHelpers {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.LIENS_OPEN_FOR_EPOCH_NOT_ZERO
       )
     );
     PublicVault(payable(publicVault)).processEpoch();
@@ -637,8 +637,8 @@ contract RevertTesting is TestHelpers {
   function testCannotExceedMinMaxPublicVaultEpochLength() public {
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.EPOCH_TOO_LOW
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.EPOCH_TOO_LOW
       )
     );
     _createPublicVault({
@@ -648,8 +648,8 @@ contract RevertTesting is TestHelpers {
     });
     vm.expectRevert(
       abi.encodeWithSelector(
-        IPublicVault.InvalidState.selector,
-        IPublicVault.InvalidStates.EPOCH_TOO_HIGH
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.EPOCH_TOO_HIGH
       )
     );
     _createPublicVault({
@@ -768,8 +768,8 @@ contract RevertTesting is TestHelpers {
       lienDetails: standardLien,
       amount: 7.5 ether,
       revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.INVALID_LIQUIDATION_INITIAL_ASK
       )
     });
   }
@@ -807,8 +807,8 @@ contract RevertTesting is TestHelpers {
       lienDetails: zeroInitAsk,
       amount: 10 ether,
       revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.INVALID_LIQUIDATION_INITIAL_ASK
       )
     });
   }
@@ -912,8 +912,8 @@ contract RevertTesting is TestHelpers {
       lienDetails: standardLienDetails,
       amount: 10 ether,
       revertMessage: abi.encodeWithSelector(
-        ILienToken.InvalidState.selector,
-        ILienToken.InvalidStates.MIN_DURATION_NOT_MET
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.MIN_DURATION_NOT_MET
       )
     });
   }
@@ -1075,8 +1075,8 @@ contract RevertTesting is TestHelpers {
   //
   //        vm.expectRevert(
   //          abi.encodeWithSelector(
-  //            ILienToken.InvalidState.selector,
-  //            ILienToken.InvalidStates.AMOUNT_ZERO
+  //            ILienToken.InvalidLienState.selector,
+  //            ILienToken.InvalidLienStates.AMOUNT_ZERO
   //          )
   //        );
   //        //commit to empty commitment

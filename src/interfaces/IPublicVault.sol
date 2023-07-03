@@ -102,10 +102,10 @@ interface IPublicVault is IVaultImplementation {
 
   // ERRORS
 
-  error InvalidState(InvalidStates);
+  error InvalidVaultState(InvalidVaultStates);
   error InvalidRedeemSize();
 
-  enum InvalidStates {
+  enum InvalidVaultStates {
     EPOCH_TOO_LOW,
     EPOCH_TOO_HIGH,
     EPOCH_NOT_OVER,

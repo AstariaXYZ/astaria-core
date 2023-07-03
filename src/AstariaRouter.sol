@@ -571,19 +571,21 @@ contract AstariaRouter is
     uint256 owingAtEnd
   ) internal {
     if (params.lienRequest.amount == 0) {
-      revert ILienToken.InvalidState(ILienToken.InvalidStates.AMOUNT_ZERO);
+      revert ILienToken.InvalidLienState(
+        ILienToken.InvalidLienStates.AMOUNT_ZERO
+      );
     }
     if (newStack.lien.details.duration < s.minLoanDuration) {
-      revert ILienToken.InvalidState(
-        ILienToken.InvalidStates.MIN_DURATION_NOT_MET
+      revert ILienToken.InvalidLienState(
+        ILienToken.InvalidLienStates.MIN_DURATION_NOT_MET
       );
     }
     if (
       newStack.lien.details.liquidationInitialAsk < owingAtEnd ||
       newStack.lien.details.liquidationInitialAsk == 0
     ) {
-      revert ILienToken.InvalidState(
-        ILienToken.InvalidStates.INVALID_LIQUIDATION_INITIAL_ASK
+      revert ILienToken.InvalidLienState(
+        ILienToken.InvalidLienStates.INVALID_LIQUIDATION_INITIAL_ASK
       );
     }
 
@@ -642,13 +644,13 @@ contract AstariaRouter is
   ) public whenNotPaused returns (address) {
     RouterStorage storage s = _loadRouterSlot();
     if (s.minEpochLength > epochLength) {
-      revert IPublicVault.InvalidState(
-        IPublicVault.InvalidStates.EPOCH_TOO_LOW
+      revert IPublicVault.InvalidVaultState(
+        IPublicVault.InvalidVaultStates.EPOCH_TOO_LOW
       );
     }
     if (s.maxEpochLength < epochLength) {
-      revert IPublicVault.InvalidState(
-        IPublicVault.InvalidStates.EPOCH_TOO_HIGH
+      revert IPublicVault.InvalidVaultState(
+        IPublicVault.InvalidVaultStates.EPOCH_TOO_HIGH
       );
     }
 

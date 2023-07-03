@@ -129,7 +129,7 @@ interface ILienToken is IERC721 {
   error InvalidTokenId(uint256 tokenId);
   error InvalidLoanState();
   error InvalidSender();
-  enum InvalidStates {
+  enum InvalidLienStates {
     INVALID_LIEN_ID,
     INVALID_HASH,
     INVALID_LIQUIDATION_INITIAL_ASK,
@@ -139,5 +139,5 @@ interface ILienToken is IERC721 {
     MIN_DURATION_NOT_MET
   }
 
-  error InvalidState(InvalidStates);
+  error InvalidLienState(InvalidLienStates);
 }
