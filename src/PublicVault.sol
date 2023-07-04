@@ -748,12 +748,16 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     return epochEnd - block.timestamp;
   }
 
+  function timeToSecondEpochEnd() public view returns (uint256) {
+    return _timeToSecondEndIfPublic();
+  }
+
   function _timeToSecondEndIfPublic()
     internal
     view
-    override
     returns (uint256 timeToSecondEpochEnd)
   {
-    return timeToEpochEnd() + EPOCH_LENGTH();
+    VaultData storage s = _loadStorageSlot();
+    return timeToEpochEnd(s.currentEpoch + 1);
   }
 }

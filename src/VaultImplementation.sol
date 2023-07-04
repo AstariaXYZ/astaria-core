@@ -62,7 +62,7 @@ abstract contract VaultImplementation is
     external
     view
     virtual
-    returns (uint256, address, address, bool, bool, uint256, uint256, bytes32)
+    returns (uint256, address, address, bool, bool, uint256, bytes32)
   {
     VIData storage s = _loadVISlot();
     return (
@@ -72,7 +72,6 @@ abstract contract VaultImplementation is
       s.allowListEnabled,
       s.isShutdown,
       s.strategistNonce,
-      _timeToSecondEndIfPublic(),
       domainSeparator()
     );
   }
@@ -198,19 +197,6 @@ abstract contract VaultImplementation is
     VIData storage s = _loadVISlot();
     s.delegate = delegate_;
     emit DelegateUpdated(delegate_);
-  }
-
-  function _timeToSecondEndIfPublic()
-    internal
-    view
-    virtual
-    returns (uint256 timeToSecondEpochEnd)
-  {
-    return 0;
-  }
-
-  function timeToSecondEpochEnd() public view returns (uint256) {
-    return _timeToSecondEndIfPublic();
   }
 
   /**

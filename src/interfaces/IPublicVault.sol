@@ -85,6 +85,8 @@ interface IPublicVault is IVaultImplementation {
 
   function getCurrentEpoch() external view returns (uint64);
 
+  function timeToSecondEpochEnd() external view returns (uint256);
+
   function stopLien(
     uint256 auctionWindow,
     uint256 lienSlope,

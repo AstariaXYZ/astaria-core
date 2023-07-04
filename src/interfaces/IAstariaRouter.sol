@@ -123,8 +123,7 @@ interface IAstariaRouter is IPausable, IBeacon {
   function STRATEGY_TYPEHASH() external view returns (bytes32);
 
   function validateCommitment(
-    IAstariaRouter.Commitment calldata commitment,
-    uint256 timeToSecondEpochEnd
+    IAstariaRouter.Commitment calldata commitment
   ) external returns (ILienToken.Lien memory lien);
 
   function getStrategyValidator(

@@ -465,11 +465,9 @@ contract AstariaRouter is
    * @return lien the new Lien data.
    */
   function validateCommitment(
-    IAstariaRouter.Commitment calldata commitment,
-    uint256 timeToSecondEpochEnd
+    IAstariaRouter.Commitment calldata commitment
   ) public view returns (ILienToken.Lien memory lien) {
-    return
-      _validateCommitment(_loadRouterSlot(), commitment, timeToSecondEpochEnd);
+    return _validateCommitment(_loadRouterSlot(), commitment);
   }
 
   /**
@@ -489,8 +487,7 @@ contract AstariaRouter is
 
   function _validateCommitment(
     RouterStorage storage s,
-    IAstariaRouter.Commitment calldata commitment,
-    uint256 timeToSecondEpochEnd
+    IAstariaRouter.Commitment calldata commitment
   ) internal view returns (ILienToken.Lien memory lien) {
     uint8 nlrType = uint8(_sliceUint(commitment.lienRequest.nlrDetails, 0));
     address strategyValidator = s.strategyValidators[nlrType];
@@ -524,10 +521,6 @@ contract AstariaRouter is
       revert InvalidCommitmentState(CommitmentState.INVALID);
     }
 
-    if (timeToSecondEpochEnd > 0 && details.duration > timeToSecondEpochEnd) {
-      details.duration = timeToSecondEpochEnd;
-    }
-
     lien = ILienToken.Lien({
       collateralType: nlrType,
       details: details,
@@ -540,10 +533,10 @@ contract AstariaRouter is
 
   /**
    * @notice Deposits collateral and requests loans for multiple NFTs at once.
-   * @param commitments The commitment proofs and requested loan data for each loan.
+   * @param commitment The commitment proofs and requested loan data for each loan.
    */
   function commitToLien(
-    IAstariaRouter.Commitment calldata commitments
+    IAstariaRouter.Commitment calldata commitment
   )
     public
     whenNotPaused
@@ -551,7 +544,7 @@ contract AstariaRouter is
   {
     RouterStorage storage s = _loadRouterSlot();
 
-    (lienId, stack) = _executeCommitment(s, commitments);
+    (lienId, stack) = _executeCommitment(s, commitment);
   }
 
   /**
@@ -875,7 +868,6 @@ contract AstariaRouter is
       ,
       ,
       uint256 nonce,
-      uint256 timeToSecondEndIfPublic,
       bytes32 domainSeparator
     ) = IVaultImplementation(c.lienRequest.strategy.vault).getState();
     ERC721(c.tokenContract).transferFrom(
@@ -887,13 +879,19 @@ contract AstariaRouter is
     _validateSignature(c.lienRequest, nonce, domainSeparator, owner, delegate);
 
     uint256 owingAtEnd;
+
+    ILienToken.Lien memory lien = _validateCommitment({s: s, commitment: c});
+    IPublicVault publicVault = IPublicVault(c.lienRequest.strategy.vault);
+    if (publicVault.supportsInterface(type(IPublicVault).interfaceId)) {
+      uint256 timeToSecondEpochEnd = publicVault.timeToSecondEpochEnd();
+      require(timeToSecondEpochEnd > 0, "already two epochs ahead");
+      if (timeToSecondEpochEnd < lien.details.duration) {
+        lien.details.duration = timeToSecondEpochEnd;
+      }
+    }
     (lienId, stack, owingAtEnd) = s.LIEN_TOKEN.createLien(
       ILienToken.LienActionEncumber({
-        lien: _validateCommitment({
-          s: s,
-          commitment: c,
-          timeToSecondEpochEnd: timeToSecondEndIfPublic
-        }),
+        lien: lien,
         borrower: msg.sender,
         amount: c.lienRequest.amount,
         receiver: c.lienRequest.strategy.vault,

@@ -60,7 +60,7 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function getState()
     external
     view
-    returns (uint256, address, address, bool, bool, uint256, uint256, bytes32);
+    returns (uint256, address, address, bool, bool, uint256, bytes32);
 
   function getAllowList(address depositor) external view returns (bool);
 
@@ -81,6 +81,4 @@ interface IVaultImplementation is IAstariaVaultBase, IERC165 {
   function modifyDepositCap(uint256 newCap) external;
 
   function getStrategistNonce() external view returns (uint256);
-
-  function timeToSecondEpochEnd() external view returns (uint256);
 }
