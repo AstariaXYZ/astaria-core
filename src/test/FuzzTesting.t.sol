@@ -178,6 +178,8 @@ contract AstariaFuzzTest is TestHelpers, SigUtils, Bound {
 
     vm.stopPrank();
     LoanAssertions memory before;
+    ILienToken.Stack memory stack;
+
     {
       //GET STRATEGY DETAILS
       IAstariaRouter.StrategyDetailsParam
@@ -258,21 +260,13 @@ contract AstariaFuzzTest is TestHelpers, SigUtils, Bound {
       (, , , , , , before.shares) = vault.getPublicVaultState();
 
       vm.prank(params.borrower);
-      vm.recordLogs();
-      ASTARIA_ROUTER.commitToLien(
+      (, stack) = ASTARIA_ROUTER.commitToLien(
         IAstariaRouter.Commitment({
           tokenContract: address(tokenContract),
           tokenId: term.tokenId,
           lienRequest: lienRequest
         })
       );
-    }
-    Vm.Log[] memory logs = vm.getRecordedLogs();
-    ILienToken.Stack memory stack;
-    for (uint256 i = 0; i < logs.length; ++i) {
-      if (logs[i].topics[0] == NEW_LIEN_SIG) {
-        stack = abi.decode(logs[i].data, (ILienToken.Stack));
-      }
     }
 
     assertEq(tokenContract.ownerOf(term.tokenId), address(COLLATERAL_TOKEN));
