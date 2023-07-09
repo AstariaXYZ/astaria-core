@@ -87,4 +87,41 @@ contract BendDaoTest is TestHelpers {
     }(nfts, ids, amounts);
     vm.stopPrank();
   }
+
+  struct Balance {
+    address bnftAddress;
+    uint256 balance;
+  }
+
+  function getUserLoanData(
+    address borrower
+  ) public view returns (Balance[] memory) {
+    BendProtocolDataProvider.NftTokenData[]
+      memory data = BendProtocolDataProvider(PROTOCOL_DATA_PROVIDER)
+        .getAllNftsTokenDatas();
+
+    Balance[] memory balancesArray = new Balance[](data.length);
+
+    for (uint256 i = 0; i < data.length; i++) {
+      address bnftAddress = data[i].bNftAddress;
+
+      uint256 balance = ERC721(bnftAddress).balanceOf(borrower);
+
+      balancesArray[i] = Balance(bnftAddress, balance);
+    }
+
+    return balancesArray;
+  }
+
+  function _isInArray(
+    address[] memory array,
+    address addrToCheck
+  ) internal view returns (bool) {
+    for (uint256 i = 0; i < array.length; i++) {
+      if (array[i] == addrToCheck) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
