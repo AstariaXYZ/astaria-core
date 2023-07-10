@@ -100,14 +100,23 @@ contract BendDaoTest is TestHelpers {
       memory data = BendProtocolDataProvider(PROTOCOL_DATA_PROVIDER)
         .getAllNftsTokenDatas();
 
-    Balance[] memory balancesArray = new Balance[](data.length);
+    Balance[] memory tempBalancesArray = new Balance[](data.length);
+    uint256 count = 0;
 
     for (uint256 i = 0; i < data.length; i++) {
       address bnftAddress = data[i].bNftAddress;
 
       uint256 balance = ERC721(bnftAddress).balanceOf(borrower);
 
-      balancesArray[i] = Balance(bnftAddress, balance);
+      if (balance > 0) {
+        tempBalancesArray[count] = Balance(bnftAddress, balance);
+        count++;
+      }
+    }
+
+    Balance[] memory balancesArray = new Balance[](count);
+    for (uint256 i = 0; i < count; i++) {
+      balancesArray[i] = tempBalancesArray[i];
     }
 
     return balancesArray;
