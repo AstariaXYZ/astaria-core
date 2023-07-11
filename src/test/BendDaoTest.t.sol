@@ -58,9 +58,14 @@ contract BendDaoTest is TestHelpers {
     uint256 outstandingDebt;
   }
 
-  address WETH_GATEWAY = 0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88;
-  address LEND_POOL_PROVIDER = 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
-  address PROTOCOL_DATA_PROVIDER = 0x3811DA50f55CCF75376C5535562F5b4797822480;
+  address constant WETH_GATEWAY = 0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88;
+  address constant LEND_POOL_PROVIDER =
+    0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
+  address constant PROTOCOL_DATA_PROVIDER =
+    0x3811DA50f55CCF75376C5535562F5b4797822480;
+
+  address constant LOAN_HOLDER = 0x221856C687333A29BBF5c8F29E7e0247436CCF7D;
+  uint256 constant REPAY_BLOCK = 17636704;
 
   function setUp() public override {
     mainnetFork = vm.createFork(
@@ -70,18 +75,15 @@ contract BendDaoTest is TestHelpers {
 
   function testRefinance() public {
     vm.selectFork(mainnetFork);
-    vm.roll(17636704);
-    vm.startPrank(0x221856C687333A29BBF5c8F29E7e0247436CCF7D);
+    vm.roll(REPAY_BLOCK);
+    vm.startPrank(LOAN_HOLDER);
     address[] memory nfts = new address[](1);
     nfts[0] = 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D;
     uint256[] memory ids = new uint256[](1);
     ids[0] = 122;
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = 48123908081253539840000;
-    vm.deal(
-      0x221856C687333A29BBF5c8F29E7e0247436CCF7D,
-      50123908081253539840000
-    );
+    vm.deal(LOAN_HOLDER, 48123908081253539840000);
     WETHGateway(payable(WETH_GATEWAY)).batchRepayETH{
       value: 48123908081253539840000
     }(nfts, ids, amounts);
