@@ -57,8 +57,6 @@ contract ParaspaceTest is TestHelpers {
 
   address constant WETH_GATEWAY =
     address(0x92D6C316CdE81f6a179A60Ee4a3ea8A76D40508A); // wethgateway proxy
-  address constant LOAN_HOLDER =
-    address(0x0001BB2a72173F3a1aaAE96BD0Ddb1f8BE4f91B7);
   address constant PARASPACE_VDEBTWETH =
     address(0x87F92191e14d970f919268045A57f7bE84559CEA);
   address constant WETH = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -66,11 +64,11 @@ contract ParaspaceTest is TestHelpers {
     address(0x6cD30e716ADbE47dADf7319f6F2FB83d507c857d);
   address constant POOL_CORE =
     address(0x542ef16d4074a735DC475516F3E2d824F2b0B450);
-  address constant BORROWER_TOKEN_ADDRESS =
-    address(0x98da23b5D096747333B0ED6009229d89812dd24b); // probably
-  uint256 constant BORROWER_TOKEN_ID = 25345;
-  uint256 constant REPAY_BLOCK = 17369662;
-  uint256 constant REPAY_AMOUNT = 2 ether;
+
+  // https://etherscan.io/tx/0xf509456479e7c20880bc9227530d9f2c5b2a085ee54941c756667e8395dc0d84
+  address constant LOAN_HOLDER =
+    address(0x0001BB2a72173F3a1aaAE96BD0Ddb1f8BE4f91B7);
+  uint256 constant REPAY_BLOCK = 17615656;
 
   uint256 mainnetFork;
 
@@ -85,59 +83,12 @@ contract ParaspaceTest is TestHelpers {
     vm.roll(REPAY_BLOCK);
     vm.startPrank(LOAN_HOLDER);
 
-    address payable poolCore = payable(POOL_CORE);
     address payable holder = payable(LOAN_HOLDER);
     address payable gateway = payable(WETH_GATEWAY);
 
-    emit log_named_uint(
-      "balance",
-      ERC20(PARASPACE_VDEBTWETH).balanceOf(LOAN_HOLDER)
-    );
-    vm.deal(LOAN_HOLDER, 3 ether);
-    //        address debtToken = IPool(POOL_CORE).getReserveData(WETH).variableDebtTokenAddress;
-    //        uint256 debt = IERC20(debtToken).balanceOf(LOAN_HOLDER);
-    //        WETHGateway(gateway).repayETH{value: debt}(debt, holder);
-    WETHGateway(gateway).repayETH{value: 1 ether}(1 ether, holder);
+    uint256 debt = IERC20(PARASPACE_VDEBTWETH).balanceOf(LOAN_HOLDER);
+    vm.deal(LOAN_HOLDER, debt);
+    WETHGateway(gateway).repayETH{value: debt}(debt, holder);
     vm.stopPrank();
   }
-
-  function _repayParaspaceCommitToLienAstaria(address borrower) internal {
-    uint256 currentDebt = ERC20(PARASPACE_VDEBTWETH).balanceOf(borrower);
-    address publicVault = _createPublicVault({
-      strategist: strategistOne,
-      delegate: strategistTwo,
-      epochLength: 14 days
-    });
-
-    _lendToVault(
-      Lender({addr: address(1), amountToLend: 50 ether}),
-      payable(publicVault)
-    );
-
-    ILienToken.Details memory details = standardLienDetails;
-    standardLienDetails.maxAmount = currentDebt + 1 ether;
-    //        (, ILienToken.Stack memory stack) = _commitToLien({
-    //            vault: payable(publicVault),
-    //            strategist: strategistOne,
-    //            strategistPK: strategistOnePK,
-    //            tokenContract: BORROWER_TOKEN_ADDRESS,
-    //            tokenId: BORROWER_TOKEN_ID,
-    //            lienDetails: standardLienDetails,
-    //            amount: 1 ether
-    //        });
-  }
-
-  struct LoanData {
-    address tokenAddress;
-    uint256 tokenId;
-    uint256 debt;
-  }
-
-  //    function getUserLoanData(
-  //        address borrower
-  //    ) public view returns (LoanData[] memory) {
-  //
-  //
-  //
-  //    }
 }
