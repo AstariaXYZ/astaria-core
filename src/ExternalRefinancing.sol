@@ -34,7 +34,9 @@ import {IWETH9} from "gpl/interfaces/IWETH9.sol";
 import {
   LendPoolAddressesProvider
 } from "bend-protocol/protocol/LendPoolAddressesProvider.sol";
+import {LendPool} from "bend-protocol/protocol/LendPool.sol";
 import {WETHGateway} from "bend-protocol/protocol/WETHGateway.sol";
+import {PunkGateway} from "bend-protocol/protocol/PunkGateway.sol";
 import {BNFTRegistry} from "bend-protocol/mock/BNFT/BNFTRegistry.sol";
 import {
   BendProtocolDataProvider
@@ -52,40 +54,62 @@ import "./test/TestHelpers.t.sol";
 
 contract ExternalRefinancing is IFlashLoanRecipient {
   AstariaRouter ASTARIA_ROUTER;
+  address public BEND_ADDRESSES_PROVIDER;
+  address public BEND_DATA_PROVIDER;
+  address payable public BEND_PUNK_GATEWAY;
 
-  constructor(address router) {
+  address public BALANCER_VAULT;
+  address public WETH;
+
+  constructor(
+    address router,
+    address bend_addresses_provider,
+    address bend_data_provider,
+    address payable bend_punk_gateway,
+    address balancer_vault,
+    address weth
+  ) {
     ASTARIA_ROUTER = AstariaRouter(router);
+    BEND_ADDRESSES_PROVIDER = bend_addresses_provider;
+    BEND_DATA_PROVIDER = bend_data_provider;
+    BEND_PUNK_GATEWAY = bend_punk_gateway;
   }
 
-  address payable constant BEND_WETH_GATEWAY =
-    payable(0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88); // TODO make changeable?
-
-  address constant BEND_PROTOCOL_DATA_PROVIDER =
-    0x3811DA50f55CCF75376C5535562F5b4797822480;
-
-  address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
-  address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+  //    address constant ADDRESSES_PROVIDER = 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
+  //    address payable constant BEND_WETH_GATEWAY =
+  //    payable(0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88); // TODO make changeable?
+  //    address payable constant BEND_PUNK_GATEWAY = payable(0xeD01f8A737813F0bDA2D4340d191DBF8c2Cbcf30);
+  //
+  //    address constant BEND_PROTOCOL_DATA_PROVIDER =
+  //    0x3811DA50f55CCF75376C5535562F5b4797822480;
+  //
+  //    address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
+  //    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
   function refinanceFromBenddao(
     address borrower,
-    address tokenAddress,
+    address tokenAddress, // use 0 address for punks
     uint256 tokenId,
     uint256 debt,
     IAstariaRouter.Commitment calldata commitment
   ) public {
-    address[] memory nfts = new address[](1);
-    nfts[0] = tokenAddress;
     uint256[] memory ids = new uint256[](1);
     ids[0] = tokenId;
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = debt;
 
     _flashLoan(debt);
-    WETHGateway(payable(BEND_WETH_GATEWAY)).batchRepayETH{value: debt}(
-      nfts,
-      ids,
-      amounts
-    );
+    if (tokenAddress != address(0)) {
+      address[] memory nfts = new address[](1);
+      nfts[0] = tokenAddress;
+
+      address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
+        .getLendPool();
+
+      LendPool(pool).batchRepay(nfts, ids, amounts);
+    } else {
+      PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
+    }
 
     ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
     ASTARIA_ROUTER.commitToLien(commitment);
@@ -93,14 +117,14 @@ contract ExternalRefinancing is IFlashLoanRecipient {
 
   struct BendLoanData {
     address bnftAddress;
-    uint256 tokenId;
+    uint256 tokenId; // or have an array of tokenIds for each unique bNft collection?
   }
 
   function getBendUserLoanData(
     address borrower
   ) public view returns (BendLoanData[] memory) {
     BendProtocolDataProvider.NftTokenData[]
-      memory data = BendProtocolDataProvider(BEND_PROTOCOL_DATA_PROVIDER)
+      memory data = BendProtocolDataProvider(BEND_DATA_PROVIDER)
         .getAllNftsTokenDatas();
 
     uint256 totalOwnedNFTs = 0;
@@ -156,9 +180,6 @@ contract ExternalRefinancing is IFlashLoanRecipient {
       amounts,
       bytes("")
     );
-
-    // unwrap WETH, TODO switch to WETH repayments
-    IWETH9(WETH).withdraw(amount);
   }
 
   receive() external payable {}
