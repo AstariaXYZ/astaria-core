@@ -12,6 +12,5 @@ seaport-types/=lib/seaport-types/
 seaport-sol/=lib/seaport-sol/
 murky/=lib/murky/src/
 core/=./src/
-paraspace/=lib/paraspace-core/contracts/
 bend-protocol/=lib/bend-protocol/contracts/
 @openzeppelin/=lib/bend-protocol/node_modules/@openzeppelin/

@@ -28,23 +28,17 @@ import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
 import {IFlashLoanRecipient} from "core/interfaces/IFlashLoanRecipient.sol";
 import {IERC20} from "core/interfaces/IERC20.sol";
 import {IBalancerVault} from "core/interfaces/IBalancerVault.sol";
+import {IERC721Enumerable} from "core/interfaces/IERC721Enumerable.sol";
 import {IWETH9} from "gpl/interfaces/IWETH9.sol";
 
 import {
   LendPoolAddressesProvider
 } from "bend-protocol/protocol/LendPoolAddressesProvider.sol";
-import {
-  WETHGateway as BendWETHGateway
-} from "bend-protocol/protocol/WETHGateway.sol";
+import {WETHGateway} from "bend-protocol/protocol/WETHGateway.sol";
 import {BNFTRegistry} from "bend-protocol/mock/BNFT/BNFTRegistry.sol";
 import {
   BendProtocolDataProvider
 } from "bend-protocol/misc/BendProtocolDataProvider.sol";
-
-import {WETHGateway as ParaWETHGateway} from "paraspace/ui/WETHGateway.sol";
-import {IWETHGateway} from "paraspace/ui/interfaces/IWETHGateway.sol";
-import {IPool} from "paraspace/interfaces/IPool.sol";
-import {PoolCore} from "paraspace/protocol/pool/PoolCore.sol";
 
 import {IAstariaRouter, AstariaRouter} from "core/AstariaRouter.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
@@ -63,11 +57,6 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     ASTARIA_ROUTER = AstariaRouter(router);
   }
 
-  address payable constant PARASPACE_WETH_GATEWAY =
-    payable(0x92D6C316CdE81f6a179A60Ee4a3ea8A76D40508A); // TODO make changeable?
-  address payable constant PARASPACE_VDEBTWETH =
-    payable(0x87F92191e14d970f919268045A57f7bE84559CEA); // TODO delete?
-
   address payable constant BEND_WETH_GATEWAY =
     payable(0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88); // TODO make changeable?
 
@@ -76,22 +65,6 @@ contract ExternalRefinancing is IFlashLoanRecipient {
 
   address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
   address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-
-  function refinanceFromParaspace(
-    address borrower,
-    address tokenAddress,
-    uint256 tokenId,
-    uint256 debt,
-    IAstariaRouter.Commitment calldata commitment
-  ) public {
-    _flashLoan(debt);
-    ParaWETHGateway(PARASPACE_WETH_GATEWAY).repayETH{value: debt}(
-      debt,
-      borrower
-    );
-    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
-    ASTARIA_ROUTER.commitToLien(commitment);
-  }
 
   function refinanceFromBenddao(
     address borrower,
@@ -108,7 +81,7 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     amounts[0] = debt;
 
     _flashLoan(debt);
-    BendWETHGateway(payable(BEND_WETH_GATEWAY)).batchRepayETH{value: debt}(
+    WETHGateway(payable(BEND_WETH_GATEWAY)).batchRepayETH{value: debt}(
       nfts,
       ids,
       amounts
@@ -120,7 +93,7 @@ contract ExternalRefinancing is IFlashLoanRecipient {
 
   struct BendLoanData {
     address bnftAddress;
-    uint256 numBnfts;
+    uint256 tokenId;
   }
 
   function getBendUserLoanData(
@@ -130,16 +103,27 @@ contract ExternalRefinancing is IFlashLoanRecipient {
       memory data = BendProtocolDataProvider(BEND_PROTOCOL_DATA_PROVIDER)
         .getAllNftsTokenDatas();
 
-    BendLoanData[] memory tempBalancesArray = new BendLoanData[](data.length);
+    uint256 totalOwnedNFTs = 0;
+    for (uint256 i = 0; i < data.length; i++) {
+      address bnftAddress = data[i].bNftAddress;
+      totalOwnedNFTs += ERC721(bnftAddress).balanceOf(borrower);
+    }
+
+    BendLoanData[] memory tempBalancesArray = new BendLoanData[](
+      totalOwnedNFTs
+    );
     uint256 count = 0;
 
     for (uint256 i = 0; i < data.length; i++) {
       address bnftAddress = data[i].bNftAddress;
-
       uint256 numBnfts = ERC721(bnftAddress).balanceOf(borrower);
 
-      if (numBnfts > 0) {
-        tempBalancesArray[count] = BendLoanData(bnftAddress, numBnfts);
+      for (uint256 j = 0; j < numBnfts; j++) {
+        uint256 tokenId = IERC721Enumerable(bnftAddress).tokenOfOwnerByIndex(
+          borrower,
+          j
+        );
+        tempBalancesArray[count] = BendLoanData(bnftAddress, tokenId);
         count++;
       }
     }
