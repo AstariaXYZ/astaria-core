@@ -22,11 +22,6 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 
-import {
-  IERC1155Receiver
-} from "openzeppelin/token/ERC1155/IERC1155Receiver.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
-
 import {ERC721} from "gpl/ERC721.sol";
 
 import {ICollateralToken} from "../interfaces/ICollateralToken.sol";
