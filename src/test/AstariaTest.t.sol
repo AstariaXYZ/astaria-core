@@ -276,10 +276,7 @@ contract AstariaTest is TestHelpers {
     WithdrawProxy(withdrawProxy).approve(address(wk), vaultTokenBalance);
     wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
     vm.stopPrank();
-    assertEq(
-      ERC20(PublicVault(payable(publicVault)).asset()).balanceOf(address(1)),
-      50 ether
-    );
+    assertEq(address(1).balance, 50 ether);
   }
 
   function testReleaseToAddress() public {

@@ -2,6 +2,9 @@ pragma solidity 0.8.17;
 
 import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
+import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
+import {IWETH9} from "gpl/interfaces/IWETH9.sol";
+import {IERC20} from "core/interfaces/IERC20.sol";
 
 contract WithdrawKit {
   error WithdrawReserveNotZero(uint64 epoch, uint256 reserve);
@@ -9,6 +12,9 @@ contract WithdrawKit {
   error ProcessEpochError(uint64 epoch, bytes reason);
   error LiensOpenForEpoch(uint64 epoch, uint256 liensOpenForEpoch);
   error FinalAuctionNotEnded(uint256 finalAuctionEnd);
+
+  address public constant WETH9 =
+    address(0x6e7E520d521326523E8A6f6ddD10928CE6D23776);
 
   function redeem(IWithdrawProxy withdrawProxy, uint256 minAmountOut) external {
     IPublicVault publicVault = IPublicVault(address(withdrawProxy.VAULT()));
@@ -59,10 +65,27 @@ contract WithdrawKit {
     uint256 shareBalance = withdrawProxy.balanceOf(msg.sender);
     uint256 maxRedeem = withdrawProxy.maxRedeem(msg.sender);
     uint256 amountShares = maxRedeem < shareBalance ? maxRedeem : shareBalance;
-    if (
-      withdrawProxy.redeem(amountShares, msg.sender, msg.sender) < minAmountOut
-    ) {
+    if (withdrawProxy.previewRedeem(amountShares) < minAmountOut) {
       revert MinAmountError();
     }
+
+    address vaultAsset = IAstariaVaultBase(withdrawProxy.VAULT()).asset();
+    if (vaultAsset == WETH9) {
+      uint256 redeemedAssets = withdrawProxy.redeem(
+        amountShares,
+        address(this),
+        msg.sender
+      );
+      IWETH9 wethContract = IWETH9(WETH9);
+      wethContract.withdraw(redeemedAssets);
+      (bool success, ) = msg.sender.call{value: redeemedAssets}("");
+      require(success, "Transfer failed");
+    } else {
+      withdrawProxy.redeem(amountShares, msg.sender, msg.sender);
+    }
   }
+
+  receive() external payable {}
+
+  fallback() external payable {}
 }
