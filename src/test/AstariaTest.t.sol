@@ -41,6 +41,7 @@ import {
   Create2ClonesWithImmutableArgs
 } from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 import {DepositHelper} from "core/DepositHelper.sol";
+import {WithdrawKit} from "core/WithdrawKit.sol";
 
 contract MockERC20 is ERC20 {
   mapping(address => bool) public blacklist;
@@ -235,6 +236,102 @@ contract AstariaTest is TestHelpers {
     vm.stopPrank();
   }
 
+  function testWithdrawKitSimple() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
+
+    _signalWithdraw(address(1), publicVault);
+
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      PublicVault(publicVault).getCurrentEpoch()
+    );
+
+    assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
+
+    vm.warp(block.timestamp + 15 days);
+
+    PublicVault(publicVault).processEpoch();
+
+    vm.warp(block.timestamp + 13 days);
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    WithdrawKit wk = new WithdrawKit();
+    vm.startPrank(address(1));
+
+    withdrawProxy.previewRedeem(vaultTokenBalance);
+    WithdrawProxy(withdrawProxy).approve(address(wk), vaultTokenBalance);
+    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
+    vm.stopPrank();
+    assertEq(
+      ERC20(PublicVault(publicVault).asset()).balanceOf(address(1)),
+      50 ether
+    );
+  }
+
+  function testWithdrawKitComplic() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      publicVault
+    );
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    uint256 vaultTokenBalance = IERC20(publicVault).balanceOf(address(1));
+
+    _signalWithdraw(address(1), publicVault);
+
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(
+      PublicVault(publicVault).getCurrentEpoch()
+    );
+
+    assertEq(vaultTokenBalance, IERC20(withdrawProxy).balanceOf(address(1)));
+
+    vm.warp(block.timestamp + 15 days);
+
+    PublicVault(publicVault).processEpoch();
+
+    vm.warp(block.timestamp + 13 days);
+    PublicVault(publicVault).transferWithdrawReserve();
+
+    WithdrawKit wk = new WithdrawKit();
+    vm.startPrank(address(1));
+
+    withdrawProxy.previewRedeem(vaultTokenBalance);
+    WithdrawProxy(withdrawProxy).approve(address(wk), vaultTokenBalance);
+    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
+    vm.stopPrank();
+    assertEq(
+      ERC20(PublicVault(publicVault).asset()).balanceOf(address(1)),
+      50 ether
+    );
+  }
+
   function testWithdrawProxy() public {
     TestNFT nft = new TestNFT(3);
     address tokenContract = address(nft);
@@ -269,13 +366,11 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 13 days);
     PublicVault(payable(publicVault)).transferWithdrawReserve();
 
+    WithdrawKit wk = new WithdrawKit();
     vm.startPrank(address(1));
 
-    IWithdrawProxy(withdrawProxy).redeem(
-      vaultTokenBalance,
-      address(1),
-      address(1)
-    );
+    WithdrawProxy(withdrawProxy).approve(address(wk), vaultTokenBalance);
+    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
     vm.stopPrank();
     assertEq(
       ERC20(PublicVault(payable(publicVault)).asset()).balanceOf(address(1)),
@@ -711,6 +806,56 @@ contract AstariaTest is TestHelpers {
   //    );
   //    vm.stopPrank();
   //  }
+
+  function testCompleteWithdrawAfterOneEpochWithdrawKit() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    address publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 7 days
+    });
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 60 ether}),
+      publicVault
+    );
+
+    (, ILienToken.Stack[] memory stack) = _commitToLien({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      isFirstLien: true
+    });
+
+    vm.warp(block.timestamp + 3 days);
+
+    _signalWithdraw(address(1), publicVault);
+    _warpToEpochEnd(publicVault);
+
+    WithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
+
+    emit log_named_string("withdrawProxy symbol", withdrawProxy.symbol());
+    emit log_named_string("withdrawProxy name", withdrawProxy.name());
+    WithdrawKit wk = new WithdrawKit();
+    vm.startPrank(address(1));
+
+    uint256 withdrawTokenBalance = withdrawProxy.balanceOf(address(1));
+    WithdrawProxy(withdrawProxy).approve(address(wk), withdrawTokenBalance);
+    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(withdrawTokenBalance));
+    vm.stopPrank();
+
+    assertEq(
+      WETH9.balanceOf(address(1)),
+      50 ether,
+      "LP did not receive all WETH not lent out"
+    );
+  }
 
   // From C4 #408
   function testCompleteWithdrawAfterOneEpoch() public {
