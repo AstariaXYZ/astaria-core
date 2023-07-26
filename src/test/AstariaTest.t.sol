@@ -42,6 +42,7 @@ import {
 } from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 import {DepositHelper} from "core/DepositHelper.sol";
 import {WithdrawKit} from "core/WithdrawKit.sol";
+import {IWETH9} from "gpl/interfaces/IWETH9.sol";
 
 contract MockERC20 is ERC20 {
   mapping(address => bool) public blacklist;
@@ -270,10 +271,10 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 13 days);
     PublicVault(payable(publicVault)).transferWithdrawReserve();
 
-    WithdrawKit wk = new WithdrawKit();
+    WithdrawKit wk = new WithdrawKit(IWETH9(address(WETH9)));
     vm.startPrank(address(1));
 
-    WithdrawProxy(withdrawProxy).approve(address(wk), vaultTokenBalance);
+    withdrawProxy.approve(address(wk), vaultTokenBalance);
     wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
     vm.stopPrank();
     assertEq(address(1).balance, 50 ether);
@@ -417,7 +418,7 @@ contract AstariaTest is TestHelpers {
 
     vm.warp(block.timestamp + 9 days);
     _repay(stack1, 100 ether, address(this));
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     //after epoch end
     uint256 balance = ERC20(PublicVault(payable(publicVault)).asset())
       .balanceOf(publicVault);
@@ -426,7 +427,7 @@ contract AstariaTest is TestHelpers {
       Lender({addr: bob, amountToLend: 50 ether}),
       payable(publicVault)
     );
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
 
     _lendToVault(
       Lender({addr: alice, amountToLend: 50 ether}),
@@ -737,7 +738,7 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 3 days);
 
     _signalWithdraw(address(1), payable(publicVault));
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     PublicVault(payable(publicVault)).processEpoch();
     PublicVault(payable(publicVault)).transferWithdrawReserve();
 

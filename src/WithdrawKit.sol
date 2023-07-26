@@ -13,8 +13,11 @@ contract WithdrawKit {
   error LiensOpenForEpoch(uint64 epoch, uint256 liensOpenForEpoch);
   error FinalAuctionNotEnded(uint256 finalAuctionEnd);
 
-  address public constant WETH9 =
-    address(0x6e7E520d521326523E8A6f6ddD10928CE6D23776);
+  IWETH9 public immutable WETH;
+
+  constructor(IWETH9 WETH_) {
+    WETH = WETH_;
+  }
 
   function redeem(IWithdrawProxy withdrawProxy, uint256 minAmountOut) external {
     IPublicVault publicVault = IPublicVault(address(withdrawProxy.VAULT()));
@@ -70,14 +73,13 @@ contract WithdrawKit {
     }
 
     address vaultAsset = IAstariaVaultBase(withdrawProxy.VAULT()).asset();
-    if (vaultAsset == WETH9) {
+    if (vaultAsset == address(WETH)) {
       uint256 redeemedAssets = withdrawProxy.redeem(
         amountShares,
         address(this),
         msg.sender
       );
-      IWETH9 wethContract = IWETH9(WETH9);
-      wethContract.withdraw(redeemedAssets);
+      WETH.withdraw(redeemedAssets);
       (bool success, ) = msg.sender.call{value: redeemedAssets}("");
       require(success, "Transfer failed");
     } else {
