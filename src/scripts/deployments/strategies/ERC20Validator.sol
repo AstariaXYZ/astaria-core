@@ -68,11 +68,10 @@ contract ERC20Validator is IERC20Validator {
         "invalid borrower requesting commitment"
       );
     }
-    require(cd.token == collateralTokenContract, "invalid token contract");
 
     ILocker.Deposit memory deposit = ILocker(collateralTokenContract)
       .getDeposit(collateralTokenId);
-
+    require(cd.token == deposit.token, "invalid token contract");
     require(deposit.amount >= cd.minBalance, "invalid min balance");
     leaf = keccak256(params.nlrDetails);
     ld = cd.lien;
