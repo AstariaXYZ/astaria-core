@@ -168,6 +168,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     uint256 owed = _getOwed(stack, block.timestamp);
     uint256 lienId = uint256(keccak256(abi.encode(stack)));
 
+    if (
+      s.collateralLiquidator[stack.lien.collateralId].liquidator != address(0)
+    ) {
+      revert InvalidLienState(InvalidLienStates.COLLATERAL_LIQUIDATED);
+    }
     s.collateralLiquidator[stack.lien.collateralId] = AuctionData({
       amountOwed: owed,
       liquidator: liquidator

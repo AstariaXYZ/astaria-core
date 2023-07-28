@@ -55,13 +55,13 @@ contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
 
-  enum InvalidStates {
-    NO_AUTHORITY,
-    INVALID_LIEN_ID,
-    COLLATERAL_AUCTION,
-    COLLATERAL_NOT_DEPOSITED,
-    EXPIRED_LIEN
-  }
+  //  enum InvalidStates {
+  //    NO_AUTHORITY,
+  //    INVALID_LIEN_ID,
+  //    COLLATERAL_AUCTION,
+  //    COLLATERAL_NOT_DEPOSITED,
+  //    EXPIRED_LIEN
+  //  }
 
   function testCannotDeployUnderlyingWithNoCode() public {
     vm.expectRevert(
@@ -132,6 +132,44 @@ contract RevertTesting is TestHelpers {
 
     assertEq(WETH9.balanceOf(bob), uint(52260273972572000000));
     vm.stopPrank();
+  }
+
+  function testCannotLiquidateTwice() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address payable publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: bob, amountToLend: 50 ether}),
+      payable(publicVault)
+    );
+    (, ILienToken.Stack memory stack) = _commitToLien({
+      vault: payable(publicVault),
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 50 ether
+    });
+
+    skip(15 days);
+    OrderParameters memory listedOrder = _liquidate(stack);
+
+    listedOrder = _liquidate(
+      stack,
+      abi.encodeWithSelector(
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.COLLATERAL_LIQUIDATED
+      )
+    );
   }
 
   //  function testCannotEndAuctionWithWrongToken() public {

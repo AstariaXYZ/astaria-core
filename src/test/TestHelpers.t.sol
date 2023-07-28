@@ -84,9 +84,7 @@ import {
 } from "seaport-core/src/conduit/ConduitController.sol";
 import {AmountDeriver} from "seaport-core/src/lib/AmountDeriver.sol";
 import {Conduit} from "seaport-core/src/conduit/Conduit.sol";
-import {
-  ReferenceConsideration as Consideration
-} from "lib/seaport/reference/ReferenceConsideration.sol";
+import {Consideration} from "seaport-core/src/lib/Consideration.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
 import {BaseSeaportTest} from "./utils/BaseSeaportTest.sol";
 string constant weth9Artifact = "src/test/WETH9.json";
@@ -220,13 +218,13 @@ contract TestHelpers is Deploy, ConsiderationTester {
       liquidationInitialAsk: 500 ether
     });
   ILienToken.Details public standardLienDetails13Days =
-  ILienToken.Details({
-    maxAmount: 50 ether,
-    rate: (uint256(1e16) * 150) / (365 days),
-    duration: 13 days,
-    maxPotentialDebt: 0 ether,
-    liquidationInitialAsk: 500 ether
-  });
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 13 days,
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
+    });
   ILienToken.Details public standardLienDetails2 =
     ILienToken.Details({
       maxAmount: 50 ether,
