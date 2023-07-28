@@ -135,17 +135,18 @@ contract CollateralToken is
       uint256 collateralId = zoneParameters.offer[0].token.computeId(
         zoneParameters.offer[0].identifier
       );
-
-      if (
-        zoneParameters.orderHashes[0] !=
-        s.idToUnderlying[collateralId].auctionHash
-      ) {
-        revert InvalidOrder();
-      }
       ILienToken.Stack memory stack = abi.decode(
         zoneParameters.extraData,
         (ILienToken.Stack)
       );
+      if (
+        zoneParameters.orderHashes[0] !=
+        s.idToUnderlying[collateralId].auctionHash ||
+        stack.lien.collateralId != collateralId
+      ) {
+        revert InvalidOrder();
+      }
+
       ERC20 paymentToken = ERC20(zoneParameters.consideration[0].token);
       if (address(paymentToken) != stack.lien.token) {
         revert InvalidPaymentToken();

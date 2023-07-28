@@ -220,13 +220,13 @@ contract TestHelpers is Deploy, ConsiderationTester {
       liquidationInitialAsk: 500 ether
     });
   ILienToken.Details public standardLienDetails13Days =
-  ILienToken.Details({
-    maxAmount: 50 ether,
-    rate: (uint256(1e16) * 150) / (365 days),
-    duration: 13 days,
-    maxPotentialDebt: 0 ether,
-    liquidationInitialAsk: 500 ether
-  });
+    ILienToken.Details({
+      maxAmount: 50 ether,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 13 days,
+      maxPotentialDebt: 0 ether,
+      liquidationInitialAsk: 500 ether
+    });
   ILienToken.Details public standardLienDetails2 =
     ILienToken.Details({
       maxAmount: 50 ether,
@@ -1466,51 +1466,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
     uint256 bidAmount,
     ILienToken.Stack memory stack
   ) internal returns (uint256 executionPrice) {
-    vm.deal(incomingBidder.bidder, bidAmount * 3);
+    return _bid(incomingBidder, params, bidAmount, stack, "");
+  }
 
-    if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
-      _deployBidderConduit(incomingBidder.bidder);
-    }
-    vm.startPrank(incomingBidder.bidder);
-
-    WETH9.deposit{value: bidAmount * 2}();
-    WETH9.approve(bidderConduits[incomingBidder.bidder].conduit, bidAmount * 2);
-
-    OrderParameters memory mirror = _createMirrorOrderParameters(
-      params,
-      payable(incomingBidder.bidder),
-      params.zone,
-      bidderConduits[incomingBidder.bidder].conduitKey
-    );
-    emit log_order(mirror);
-
-    AdvancedOrder[] memory orders = new AdvancedOrder[](2);
-    orders[0] = AdvancedOrder(params, 1, 1, new bytes(0), abi.encode(stack));
-
-    OrderComponents memory matchOrderComponents = getOrderComponents(
-      mirror,
-      consideration.getCounter(incomingBidder.bidder)
-    );
-
-    emit log_order(mirror);
-
-    bytes memory mirrorSignature = signOrder(
-      SEAPORT,
-      incomingBidder.bidderPK,
-      consideration.getOrderHash(matchOrderComponents)
-    );
-    orders[1] = AdvancedOrder(mirror, 1, 1, mirrorSignature, new bytes(0));
-
-    //order 0 - 1 offer 3 consideration
-
-    // order 1 - 3 offer 1 consideration
-
-    //offers    fulfillments
-    // 0,0      1,0
-    // 1,0      0,0
-    // 1,1      0,1
-    // 1,2      0,2
-
+  function _setFulfillments() internal {
     // offer 0,0
     delete fulfillmentComponents;
     fulfillmentComponent = FulfillmentComponent(0, 0);
@@ -1567,6 +1526,66 @@ contract TestHelpers is Deploy, ConsiderationTester {
     //    }
 
     delete fulfillmentComponents;
+  }
+
+  function _bid(
+    Bidder memory incomingBidder,
+    OrderParameters memory params,
+    uint256 bidAmount,
+    ILienToken.Stack memory stack,
+    bytes memory revertReason
+  ) internal returns (uint256 executionPrice) {
+    vm.deal(incomingBidder.bidder, bidAmount * 3);
+
+    if (bidderConduits[incomingBidder.bidder].conduitKey == bytes32(0)) {
+      _deployBidderConduit(incomingBidder.bidder);
+    }
+    vm.startPrank(incomingBidder.bidder);
+
+    WETH9.deposit{value: bidAmount * 2}();
+    WETH9.approve(bidderConduits[incomingBidder.bidder].conduit, bidAmount * 2);
+
+    OrderParameters memory mirror = _createMirrorOrderParameters(
+      params,
+      payable(incomingBidder.bidder),
+      params.zone,
+      bidderConduits[incomingBidder.bidder].conduitKey
+    );
+    emit log_order(mirror);
+
+    AdvancedOrder[] memory orders = new AdvancedOrder[](2);
+    orders[0] = AdvancedOrder(params, 1, 1, new bytes(0), abi.encode(stack));
+
+    OrderComponents memory matchOrderComponents = getOrderComponents(
+      mirror,
+      consideration.getCounter(incomingBidder.bidder)
+    );
+
+    emit log_order(mirror);
+
+    orders[1] = AdvancedOrder(
+      mirror,
+      1,
+      1,
+      signOrder(
+        SEAPORT,
+        incomingBidder.bidderPK,
+        consideration.getOrderHash(matchOrderComponents)
+      ),
+      new bytes(0)
+    );
+
+    //order 0 - 1 offer 3 consideration
+
+    // order 1 - 3 offer 1 consideration
+
+    //offers    fulfillments
+    // 0,0      1,0
+    // 1,0      0,0
+    // 1,1      0,1
+    // 1,2      0,2
+
+    _setFulfillments();
 
     uint256 currentPrice = _locateCurrentAmount(
       params.consideration[0].startAmount,
@@ -1576,17 +1595,11 @@ contract TestHelpers is Deploy, ConsiderationTester {
       true
     );
     if (bidAmount < currentPrice) {
-      uint256 warp = _computeWarp(
-        currentPrice,
-        bidAmount,
-        params.startTime,
-        params.endTime
-      );
-
       emit log_named_uint("start", params.consideration[0].startAmount);
       emit log_named_uint("amount", bidAmount);
-      emit log_named_uint("warping", warp);
-      skip(warp);
+      skip(
+        _computeWarp(currentPrice, bidAmount, params.startTime, params.endTime)
+      );
       executionPrice = _locateCurrentAmount(
         orders[0].parameters.consideration[0].startAmount,
         orders[0].parameters.consideration[0].endAmount,
@@ -1612,6 +1625,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
       //        Fulfillment[] calldata,
       //        address recipient
 
+      if (revertReason.length > 0) {
+        vm.expectRevert(revertReason);
+      }
       consideration.matchAdvancedOrders(
         orders,
         new CriteriaResolver[](0),
@@ -1619,6 +1635,9 @@ contract TestHelpers is Deploy, ConsiderationTester {
         address(this)
       );
     } else {
+      if (revertReason.length > 0) {
+        vm.expectRevert(revertReason);
+      }
       consideration.fulfillAdvancedOrder(
         AdvancedOrder(
           orders[0].parameters,

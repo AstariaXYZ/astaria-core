@@ -287,6 +287,46 @@ contract RevertTesting is TestHelpers {
     vm.stopPrank();
   }
 
+  function testCannotSettleAuctionWithInvalidStack() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+    address payable publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 50 ether}),
+      payable(publicVault)
+    );
+
+    (, ILienToken.Stack memory stack) = _commitToLien({
+      vault: payable(publicVault),
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether
+    });
+
+    uint256 collateralId = tokenContract.computeId(tokenId);
+
+    vm.warp(block.timestamp + 14 days);
+
+    OrderParameters memory listedOrder = _liquidate(stack);
+    stack.lien.collateralId = uint256(5);
+    _bid(
+      Bidder(bidder, bidderPK),
+      listedOrder,
+      100 ether,
+      stack,
+      abi.encodeWithSelector(ICollateralToken.InvalidOrder.selector)
+    );
+  }
+
   function testCannotRandomAccountIncrementNonce() public {
     address privateVault = _createPublicVault({
       strategist: strategistOne,
