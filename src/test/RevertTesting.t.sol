@@ -378,6 +378,41 @@ contract RevertTesting is TestHelpers {
     });
   }
 
+  function testCannotBorrowFromShutdownVault() public {
+    TestNFT nft = new TestNFT(3);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(1);
+    address privateVault = _createPrivateVault({
+      strategist: strategistOne,
+      delegate: strategistTwo
+    });
+
+    _lendToPrivateVault(
+      PrivateLender({
+        addr: strategistOne,
+        token: address(WETH9),
+        amountToLend: 50 ether
+      }),
+      payable(privateVault)
+    );
+    vm.startPrank(strategistOne);
+    VaultImplementation(payable(privateVault)).shutdown();
+    vm.stopPrank();
+    (, ILienToken.Stack memory stack) = _commitToLien({
+      vault: payable(privateVault),
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: standardLienDetails,
+      amount: 10 ether,
+      revertMessage: abi.encodeWithSelector(
+        IAstariaRouter.InvalidVaultState.selector,
+        IAstariaRouter.VaultState.SHUTDOWN
+      )
+    });
+  }
+
   function testInvalidVaultFee() public {
     ASTARIA_ROUTER.file(
       IAstariaRouter.File({
