@@ -109,7 +109,7 @@ contract AstariaRouter is
     s.minEpochLength = uint32(7 days);
     s.maxEpochLength = uint32(45 days);
     s.maxInterestRate = ((uint256(1e16) * 200) / (365 days));
-    s.maxStrategistFee = uint256(50e17);
+    s.maxStrategistFee = uint256(5e17);
     //63419583966; // 200% apy / second
     s.guardian = msg.sender;
     s.minLoanDuration = 1 hours;
