@@ -397,7 +397,7 @@ contract LienTokenScenarioTest is TestHelpers {
     skip(3 days);
 
     // uint256 liquidatorFee = ASTARIA_ROUTER.getLiquidatorFee(executionPrice);
-    COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder, 0);
+    COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder);
 
     uint256 decreaseInYintercept = amountOwed;
 
@@ -837,7 +837,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     vm.warp(expectedFinalAuctionEnd);
     // no bid
-    COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder, 0);
+    COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder);
 
     uint256 decreaseInYintercept = amountOwed;
 
