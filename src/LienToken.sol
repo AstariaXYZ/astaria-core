@@ -188,8 +188,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   function tokenURI(
     uint256 tokenId
   ) public view override(ERC721, IERC721) returns (string memory) {
-    ownerOf(tokenId); //enforce exists
-    return "";
+    require(
+      ownerOf(tokenId) != address(0),
+      "ERC721Metadata: URI query for nonexistent token"
+    );
+    return string(abi.encodePacked("https://data.astaria.xyz/lien/", tokenId));
   }
 
   function transferFrom(
