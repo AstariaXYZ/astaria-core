@@ -51,7 +51,6 @@ interface ICollateralToken is IERC721 {
   }
 
   struct CollateralStorage {
-    ITransferProxy TRANSFER_PROXY;
     ILienToken LIEN_TOKEN;
     IAstariaRouter ASTARIA_ROUTER;
     ConsiderationInterface SEAPORT;

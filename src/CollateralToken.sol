@@ -79,14 +79,12 @@ contract CollateralToken is
 
   function initialize(
     Authority AUTHORITY_,
-    ITransferProxy TRANSFER_PROXY_,
     ILienToken LIEN_TOKEN_,
     ConsiderationInterface SEAPORT_
   ) public initializer {
     __initAuth(msg.sender, address(AUTHORITY_));
     __initERC721("Astaria Collateral Token", "ACT");
     CollateralStorage storage s = _loadCollateralSlot();
-    s.TRANSFER_PROXY = TRANSFER_PROXY_;
     s.LIEN_TOKEN = LIEN_TOKEN_;
     s.SEAPORT = SEAPORT_;
     (, , address conduitController) = s.SEAPORT.information();

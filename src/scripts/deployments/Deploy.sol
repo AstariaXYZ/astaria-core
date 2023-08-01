@@ -169,11 +169,7 @@ contract Deploy is Script {
     TransparentUpgradeableProxy lienTokenProxy = new TransparentUpgradeableProxy(
         address(LT_IMPL),
         address(PROXY_ADMIN),
-        abi.encodeWithSelector(
-          LIEN_TOKEN.initialize.selector,
-          MRA,
-          TRANSFER_PROXY
-        )
+        abi.encodeWithSelector(LIEN_TOKEN.initialize.selector, MRA)
       );
     LIEN_TOKEN = LienToken(address(lienTokenProxy));
     if (testModeDisabled) {
@@ -209,7 +205,6 @@ contract Deploy is Script {
           abi.encodeWithSelector(
             COLLATERAL_TOKEN.initialize.selector,
             MRA,
-            TRANSFER_PROXY,
             ILienToken(address(LIEN_TOKEN)),
             ConsiderationInterface(SEAPORT)
           )
