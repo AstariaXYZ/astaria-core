@@ -170,7 +170,10 @@ contract CollateralToken is
       if (paymentToken.allowance(address(this), transferProxy) != 0) {
         paymentToken.safeApprove(transferProxy, 0);
       }
-      paymentToken.approve(address(transferProxy), s.LIEN_TOKEN.getOwed(stack));
+      paymentToken.safeApprove(
+        address(transferProxy),
+        s.LIEN_TOKEN.getOwed(stack)
+      );
 
       s.LIEN_TOKEN.makePayment(stack);
 
