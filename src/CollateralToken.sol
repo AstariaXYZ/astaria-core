@@ -264,8 +264,7 @@ contract CollateralToken is
    */
   function liquidatorNFTClaim(
     ILienToken.Stack memory stack,
-    OrderParameters memory params,
-    uint256 counterAtLiquidation
+    OrderParameters memory params
   ) external whenNotPaused {
     CollateralStorage storage s = _loadCollateralSlot();
 
@@ -284,7 +283,9 @@ contract CollateralToken is
 
     if (
       s.idToUnderlying[collateralId].auctionHash !=
-      s.SEAPORT.getOrderHash(getOrderComponents(params, counterAtLiquidation))
+      s.SEAPORT.getOrderHash(
+        getOrderComponents(params, s.SEAPORT.getCounter(address(this)))
+      )
     ) {
       //revert auction params dont match
       revert InvalidCollateralState(

@@ -511,7 +511,7 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 11 days);
     OrderParameters memory listedOrder = _liquidate(stack);
     skip(4 days);
-    COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder, 0);
+    COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder);
     PublicVault(payable(publicVault)).processEpoch();
 
     assertEq(

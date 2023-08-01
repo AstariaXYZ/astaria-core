@@ -697,11 +697,7 @@ contract AstariaRouter is
 
     s.LIEN_TOKEN.handleLiquidation(auctionWindowMax, stack, msg.sender);
 
-    emit Liquidation(
-      stack.lien.collateralId,
-      msg.sender,
-      s.COLLATERAL_TOKEN.SEAPORT().getCounter(address(s.COLLATERAL_TOKEN))
-    );
+    emit Liquidation(stack.lien.collateralId, msg.sender);
     listedOrder = s.COLLATERAL_TOKEN.auctionVault(
       ICollateralToken.AuctionVaultParams({
         settlementToken: stack.lien.token,

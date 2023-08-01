@@ -121,8 +121,7 @@ interface ICollateralToken is IERC721 {
 
   function liquidatorNFTClaim(
     ILienToken.Stack memory stack,
-    OrderParameters memory params,
-    uint
+    OrderParameters memory params
   ) external;
 
   error UnsupportedFile();
