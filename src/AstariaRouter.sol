@@ -871,23 +871,33 @@ contract AstariaRouter is
     if (!s.vaults[c.lienRequest.strategy.vault]) {
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
-    (
-      ,
-      address delegate,
-      address owner,
-      ,
-      ,
-      uint256 nonce,
-      bytes32 domainSeparator
-    ) = IVaultImplementation(c.lienRequest.strategy.vault).getState();
-    ERC721(c.tokenContract).transferFrom(
-      msg.sender,
-      address(s.COLLATERAL_TOKEN),
-      c.tokenId
-    );
-    s.COLLATERAL_TOKEN.depositERC721(c.tokenContract, c.tokenId, msg.sender);
-    _validateSignature(c.lienRequest, nonce, domainSeparator, owner, delegate);
-
+    {
+      (
+        ,
+        address delegate,
+        address owner,
+        ,
+        bool isShutdown,
+        uint256 nonce,
+        bytes32 domainSeparator
+      ) = IVaultImplementation(c.lienRequest.strategy.vault).getState();
+      if (isShutdown) {
+        revert InvalidVaultState(IAstariaRouter.VaultState.SHUTDOWN);
+      }
+      ERC721(c.tokenContract).transferFrom(
+        msg.sender,
+        address(s.COLLATERAL_TOKEN),
+        c.tokenId
+      );
+      s.COLLATERAL_TOKEN.depositERC721(c.tokenContract, c.tokenId, msg.sender);
+      _validateSignature(
+        c.lienRequest,
+        nonce,
+        domainSeparator,
+        owner,
+        delegate
+      );
+    }
     uint256 owingAtEnd;
 
     ILienToken.Lien memory lien = _validateCommitment({s: s, commitment: c});
@@ -899,18 +909,20 @@ contract AstariaRouter is
         lien.details.duration = timeToSecondEpochEnd;
       }
     }
-    (lienId, stack, owingAtEnd) = s.LIEN_TOKEN.createLien(
-      ILienToken.LienActionEncumber({
-        lien: lien,
-        borrower: msg.sender,
-        amount: c.lienRequest.amount,
-        receiver: c.lienRequest.strategy.vault,
-        feeTo: s.feeTo,
-        fee: s.feeTo == address(0)
-          ? 0
-          : _getProtocolFee(s, c.lienRequest.amount)
-      })
-    );
-    _validateRequest(s, c, stack, owingAtEnd);
+    {
+      (lienId, stack, owingAtEnd) = s.LIEN_TOKEN.createLien(
+        ILienToken.LienActionEncumber({
+          lien: lien,
+          borrower: msg.sender,
+          amount: c.lienRequest.amount,
+          receiver: c.lienRequest.strategy.vault,
+          feeTo: s.feeTo,
+          fee: s.feeTo == address(0)
+            ? 0
+            : _getProtocolFee(s, c.lienRequest.amount)
+        })
+      );
+      _validateRequest(s, c, stack, owingAtEnd);
+    }
   }
 }
