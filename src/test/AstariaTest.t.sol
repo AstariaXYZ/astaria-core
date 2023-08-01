@@ -124,12 +124,13 @@ contract AstariaTest is TestHelpers {
     });
 
     vm.expectEmit(true, true, true, true);
-    emit NonceUpdated(1);
+    uint256 delta = uint256(blockhash(block.number - 1) << 0x80);
+    emit NonceUpdated(delta);
     vm.prank(strategistOne);
     VaultImplementation(payable(privateVault)).incrementNonce();
 
     vm.expectEmit(true, true, true, true);
-    emit NonceUpdated(2);
+    emit NonceUpdated(delta + delta);
     vm.prank(strategistTwo);
     VaultImplementation(payable(privateVault)).incrementNonce();
   }
