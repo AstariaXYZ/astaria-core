@@ -463,8 +463,14 @@ contract CollateralToken is
   function tokenURI(
     uint256 collateralId
   ) public view virtual override(ERC721, IERC721) returns (string memory) {
-    (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
-    return ERC721(underlyingAsset).tokenURI(assetId);
+    require(
+      ownerOf(collateralId) != address(0),
+      "ERC721Metadata: URI query for nonexistent token"
+    );
+    return
+      string(
+        abi.encodePacked("https://data.astaria.xyz/collateral/", collateralId)
+      );
   }
 
   function _generateValidOrderParameters(

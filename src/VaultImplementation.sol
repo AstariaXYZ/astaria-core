@@ -89,7 +89,7 @@ abstract contract VaultImplementation is
     if (msg.sender != owner() && msg.sender != s.delegate) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
-    s.strategistNonce++;
+    s.strategistNonce += uint256(blockhash(block.number - 1) << 0x80);
     emit NonceUpdated(s.strategistNonce);
   }
 

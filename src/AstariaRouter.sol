@@ -319,8 +319,14 @@ contract AstariaRouter is
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinEpochLength) {
       s.minEpochLength = abi.decode(data, (uint256)).safeCastTo32();
+      if (s.maxEpochLength < s.minEpochLength) {
+        revert InvalidFileData();
+      }
     } else if (what == FileType.MaxEpochLength) {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
+      if (s.maxEpochLength < s.minEpochLength) {
+        revert InvalidFileData();
+      }
     } else if (what == FileType.MaxInterestRate) {
       s.maxInterestRate = abi.decode(data, (uint256));
     } else if (what == FileType.MaxStrategistFee) {
