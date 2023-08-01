@@ -84,9 +84,7 @@ import {
 } from "seaport-core/src/conduit/ConduitController.sol";
 import {AmountDeriver} from "seaport-core/src/lib/AmountDeriver.sol";
 import {Conduit} from "seaport-core/src/conduit/Conduit.sol";
-import {
-  ReferenceConsideration as Consideration
-} from "lib/seaport/reference/ReferenceConsideration.sol";
+import {Consideration} from "seaport-core/src/lib/Consideration.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
 import {BaseSeaportTest} from "./utils/BaseSeaportTest.sol";
 string constant weth9Artifact = "src/test/WETH9.json";
