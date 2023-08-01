@@ -226,7 +226,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     (lienId, newStack) = _createLien(s, params);
 
     owingAtEnd = _getOwed(newStack, newStack.point.end);
-    s.collateralStateHash[params.lien.collateralId] = bytes32(lienId);
+
     emit NewLien(params.lien.collateralId, newStack);
   }
 
@@ -244,6 +244,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
 
     newSlot = Stack({lien: params.lien, point: point});
     newLienId = uint256(keccak256(abi.encode(newSlot)));
+    s.collateralStateHash[newSlot.lien.collateralId] = bytes32(newLienId);
     _safeMint(
       params.receiver,
       newLienId,
