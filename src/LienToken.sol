@@ -327,7 +327,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         }
         uint256 allowedSpendForPayment = ERC20(stack.lien.token).allowance(
           address(s.COLLATERAL_TOKEN),
-          address(s.TRANSFER_PROXY)
+          address(s.ASTARIA_ROUTER.TRANSFER_PROXY())
         );
 
         uint256 owing = s
