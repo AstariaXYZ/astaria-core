@@ -119,6 +119,10 @@ interface ILienToken is IERC721 {
     uint256 collateralId
   ) external view returns (address liquidator);
 
+  function getAuctionData(
+    uint256 collateralId
+  ) external view returns (AuctionData memory);
+
   function file(File calldata file) external;
 
   event NewLien(uint256 indexed collateralId, Stack stack);

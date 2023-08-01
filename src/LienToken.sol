@@ -271,6 +271,19 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   }
 
   /**
+   * @notice Retrieves the auctionData for a CollateralToken.
+   * @param collateralId The ID of the CollateralToken.
+   */
+  function getAuctionData(
+    uint256 collateralId
+  ) external view returns (AuctionData memory data) {
+    data = _loadLienStorageSlot().collateralLiquidator[collateralId];
+    if (data.liquidator == address(0)) {
+      revert InvalidLienState(InvalidLienStates.COLLATERAL_NOT_LIQUIDATED);
+    }
+  }
+
+  /**
    * @notice Retrieves a lienCount for specific collateral
    * @param collateralId the Lien to compute a point for
    */
@@ -309,14 +322,17 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         if (msg.sender != address(s.COLLATERAL_TOKEN)) {
           revert InvalidSender();
         }
-        uint256 CTBalance = ERC20(stack.lien.token).balanceOf(
-          address(s.COLLATERAL_TOKEN)
+        uint256 allowedSpendForPayment = ERC20(stack.lien.token).allowance(
+          address(s.COLLATERAL_TOKEN),
+          address(s.TRANSFER_PROXY)
         );
 
         uint256 owing = s
           .collateralLiquidator[stack.lien.collateralId]
           .amountOwed;
-        payment.amountOwing = owing > CTBalance ? CTBalance : owing;
+        payment.amountOwing = owing > allowedSpendForPayment
+          ? allowedSpendForPayment
+          : owing;
         payment.interestPaid = payment.amountOwing > stack.point.amount
           ? payment.amountOwing - stack.point.amount
           : 0;
