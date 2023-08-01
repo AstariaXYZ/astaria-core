@@ -402,6 +402,31 @@ contract RevertTesting is TestHelpers {
     vm.stopPrank();
   }
 
+  function testCannotMismatchMinMaxEpochLength() public {
+    {
+      vm.expectRevert(
+        abi.encodeWithSelector(IAstariaRouter.InvalidFileData.selector)
+      );
+      ASTARIA_ROUTER.file(
+        IAstariaRouter.File({
+          what: IAstariaRouter.FileType.MinEpochLength,
+          data: abi.encode(uint256(46 days))
+        })
+      );
+    }
+    {
+      vm.expectRevert(
+        abi.encodeWithSelector(IAstariaRouter.InvalidFileData.selector)
+      );
+      ASTARIA_ROUTER.file(
+        IAstariaRouter.File({
+          what: IAstariaRouter.FileType.MaxEpochLength,
+          data: abi.encode(uint256(6 days))
+        })
+      );
+    }
+  }
+
   function testInvalidFileData() public {
     vm.expectRevert(
       abi.encodeWithSelector(IAstariaRouter.InvalidFileData.selector)
