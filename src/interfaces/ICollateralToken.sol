@@ -136,6 +136,7 @@ interface ICollateralToken is IERC721 {
   error InvalidZoneHash();
   error InvalidTarget();
   error InvalidPaymentToken();
+  error InvalidPaymentAmount();
 
   enum InvalidCollateralStates {
     AUCTION_ACTIVE,

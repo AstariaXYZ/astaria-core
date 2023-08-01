@@ -20,6 +20,7 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
+import {Math} from "core/utils/Math.sol";
 import {
   Create2ClonesWithImmutableArgs
 } from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
@@ -706,7 +707,10 @@ contract AstariaRouter is
         settlementToken: stack.lien.token,
         collateralId: stack.lien.collateralId,
         maxDuration: auctionWindowMax,
-        startingPrice: stack.lien.details.liquidationInitialAsk,
+        startingPrice: Math.max(
+          stack.lien.details.liquidationInitialAsk,
+          s.LIEN_TOKEN.getOwed(stack)
+        ),
         endingPrice: 1_000 wei
       })
     );

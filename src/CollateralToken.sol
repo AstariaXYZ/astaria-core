@@ -22,13 +22,14 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {Authority} from "solmate/auth/Auth.sol";
+import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {Math} from "core/utils/Math.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
-import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {
   Create2ClonesWithImmutableArgs
 } from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
@@ -60,11 +61,13 @@ import {
 } from "seaport-types/src/interfaces/SeaportInterface.sol";
 import {ZoneInterface} from "seaport-types/src/interfaces/ZoneInterface.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
+import {AmountDeriver} from "seaport-core/src/lib/AmountDeriver.sol";
 
 contract CollateralToken is
   AuthInitializable,
   ERC721,
   ZoneInterface,
+  AmountDeriver,
   ICollateralToken
 {
   using SafeTransferLib for ERC20;
@@ -157,6 +160,24 @@ contract CollateralToken is
 
       uint256 payment = zoneParameters.consideration[0].amount;
 
+      uint256 lia = Math.max(
+        s.LIEN_TOKEN.getAuctionData(collateralId).amountOwed,
+        stack.lien.details.liquidationInitialAsk
+      );
+      if (
+        paymentToken.balanceOf(address(this)) < payment ||
+        payment !=
+        _locateCurrentAmount(
+          lia,
+          1000 wei,
+          zoneParameters.startTime,
+          zoneParameters.endTime,
+          true // round down
+        )
+      ) {
+        revert InvalidPaymentAmount();
+      }
+
       uint256 liquidatorPayment = s.ASTARIA_ROUTER.getLiquidatorFee(payment);
 
       payment -= liquidatorPayment;
@@ -170,10 +191,7 @@ contract CollateralToken is
       if (paymentToken.allowance(address(this), transferProxy) != 0) {
         paymentToken.safeApprove(transferProxy, 0);
       }
-      paymentToken.safeApprove(
-        address(transferProxy),
-        s.LIEN_TOKEN.getOwed(stack)
-      );
+      paymentToken.safeApprove(address(transferProxy), payment);
 
       s.LIEN_TOKEN.makePayment(stack);
 
