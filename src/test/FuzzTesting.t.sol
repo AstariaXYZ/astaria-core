@@ -161,6 +161,7 @@ contract AstariaFuzzTest is TestHelpers, SigUtils, Bound {
     vm.stopPrank();
 
     //LEND
+    params.lender = _toAddress(_boundMin(_toUint(params.lender), 100));
     vm.deal(address(params.lender), term.maxAmount);
 
     vm.startPrank(address(params.lender));
