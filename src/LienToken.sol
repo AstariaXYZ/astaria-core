@@ -54,14 +54,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     _disableInitializers();
   }
 
-  function initialize(
-    Authority _AUTHORITY,
-    ITransferProxy _TRANSFER_PROXY
-  ) public initializer {
+  function initialize(Authority _AUTHORITY) public initializer {
     __initAuth(msg.sender, address(_AUTHORITY));
     __initERC721("Astaria Lien Token", "ALT");
-    LienStorage storage s = _loadLienStorageSlot();
-    s.TRANSFER_PROXY = _TRANSFER_PROXY;
   }
 
   function _loadLienStorageSlot()
@@ -440,7 +435,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     _removeLien(s, lienId, collateralId);
     emit Payment(lienId, amountOwed);
     if (amountOwed > 0) {
-      s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
+      s.ASTARIA_ROUTER.TRANSFER_PROXY().tokenTransferFromWithErrorReceiver(
         token,
         msg.sender,
         owner,

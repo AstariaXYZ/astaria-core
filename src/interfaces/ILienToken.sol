@@ -39,7 +39,6 @@ interface ILienToken is IERC721 {
   event FileUpdated(FileType what, bytes data);
 
   struct LienStorage {
-    ITransferProxy TRANSFER_PROXY;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
     mapping(uint256 => bytes32) collateralStateHash;
