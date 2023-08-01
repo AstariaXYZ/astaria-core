@@ -61,6 +61,8 @@ contract ExternalRefinancing is IFlashLoanRecipient {
   address public BALANCER_VAULT;
   address public WETH;
 
+  event BendRefinance(uint256 lienId);
+
   constructor(
     address router,
     address bendAddressesProvider,
@@ -92,9 +94,8 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     address borrower,
     address tokenAddress, // use 0 address for punks
     uint256 tokenId,
-    uint256 debt
-  ) public //    IAstariaRouter.Commitment calldata commitment
-  {
+    uint256 debt //    IAstariaRouter.Commitment calldata commitment
+  ) public {
     uint256[] memory ids = new uint256[](1);
     ids[0] = tokenId;
     uint256[] memory amounts = new uint256[](1);
@@ -114,7 +115,8 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     }
 
     ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
-    //    ASTARIA_ROUTER.commitToLien(commitment);
+    (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(commitment);
+    emit BendRefinance(lienId);
   }
 
   struct BendLoanData {
