@@ -415,11 +415,16 @@ contract CollateralToken is
   ) internal {
     Asset storage underlying = s.idToUnderlying[collateralId];
     _burnAndClearState(s, collateralId);
-    ERC721(underlying.tokenContract).transferFrom(
-      address(this),
-      releaseTo,
-      underlying.tokenId
-    );
+
+    // malicious collateralized ERC721 token can block liquidation
+    // allow the transferFrom to fail without consequence
+    try
+      ERC721(underlying.tokenContract).transferFrom(
+        address(this),
+        releaseTo,
+        underlying.tokenId
+      )
+    {} catch {}
     emit ReleaseTo(underlying.tokenContract, underlying.tokenId, releaseTo);
   }
 
@@ -547,10 +552,16 @@ contract CollateralToken is
     Order[] memory listing = new Order[](1);
     listing[0] = Order(orderParameters, "");
 
-    ERC721(orderParameters.offer[0].token).approve(
-      s.CONDUIT,
-      orderParameters.offer[0].identifierOrCriteria
-    );
+    // malicious collateralized ERC721 token can block liquidation
+    // allow the approve to fail without consequence
+    // this creates an empty auction
+    try
+      ERC721(orderParameters.offer[0].token).approve(
+        s.CONDUIT,
+        orderParameters.offer[0].identifierOrCriteria
+      )
+    {} catch {}
+
     if (!s.SEAPORT.validate(listing)) {
       revert InvalidOrder();
     }
