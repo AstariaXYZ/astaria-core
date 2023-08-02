@@ -149,6 +149,7 @@ contract AstariaFuzzTest is TestHelpers, SigUtils, Bound {
 
     vm.assume(params.borrower != COLLATERAL_TOKEN.getConduit());
     vm.assume(params.borrower != address(COLLATERAL_TOKEN));
+    vm.assume(params.borrower != address(PROXY_ADMIN));
     vm.assume(params.borrower != address(MRA));
     vm.assume(params.borrower != address(LIEN_TOKEN));
     vm.assume(params.borrower != address(ASTARIA_ROUTER));
@@ -164,6 +165,7 @@ contract AstariaFuzzTest is TestHelpers, SigUtils, Bound {
     vm.assume(params.borrower != address(conduitController));
     vm.assume(params.lender != COLLATERAL_TOKEN.getConduit());
     vm.assume(params.lender != address(COLLATERAL_TOKEN));
+    vm.assume(params.lender != address(PROXY_ADMIN));
     vm.assume(params.lender != address(MRA));
     vm.assume(params.lender != address(LIEN_TOKEN));
     vm.assume(params.lender != address(ASTARIA_ROUTER));
