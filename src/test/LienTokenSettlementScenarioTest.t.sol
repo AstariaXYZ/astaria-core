@@ -157,8 +157,12 @@ contract LienTokenScenarioTest is TestHelpers {
     uint256 amountOwed = LIEN_TOKEN.getOwed(stack);
 
     // calculate strategist reward shares
-    uint256 strategistSharesOwed = PublicVault(payable(publicVault))
-      .convertToShares((amountOwed - 10 ether).mulDivDown(1e17, 1e18));
+    uint256 fee = (amountOwed - 10 ether).mulDivDown(1e17, 1e18);
+    PublicVault pv = PublicVault(payable(publicVault));
+    uint256 strategistSharesOwed = fee.mulDivDown(
+      pv.totalSupply(),
+      pv.totalAssets() - fee
+    );
     _bid(Bidder(bidder, bidderPK), listedOrder, 20 ether, stack);
     skip(3 days);
 
