@@ -575,7 +575,10 @@ contract AstariaRouter is
         ILienToken.InvalidLienStates.AMOUNT_ZERO
       );
     }
-    if (newStack.lien.details.duration < s.minLoanDuration) {
+    if (
+      newStack.lien.details.duration < s.minLoanDuration ||
+      newStack.lien.details.duration == 0
+    ) {
       revert ILienToken.InvalidLienState(
         ILienToken.InvalidLienStates.MIN_DURATION_NOT_MET
       );

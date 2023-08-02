@@ -108,6 +108,7 @@ interface IPublicVault is IVaultImplementation {
   error InvalidRedeemSize();
 
   enum InvalidVaultStates {
+    EPOCH_ENDED,
     EPOCH_TOO_LOW,
     EPOCH_TOO_HIGH,
     EPOCH_NOT_OVER,

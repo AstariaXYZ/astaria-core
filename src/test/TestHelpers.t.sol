@@ -1403,6 +1403,10 @@ contract TestHelpers is Deploy, ConsiderationTester {
     }
     if (revertMessage.length > 0) {
       vm.expectRevert(revertMessage);
+    } else if (
+      keccak256(revertMessage) == keccak256(abi.encodePacked("GENERIC"))
+    ) {
+      vm.expectRevert();
     }
     listedOrder = ASTARIA_ROUTER.liquidate(stack);
 
