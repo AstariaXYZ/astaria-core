@@ -63,23 +63,6 @@ contract BendDaoTest is TestHelpers {
   }
 
   // MAINNET
-  address constant LOAN_HOLDER = 0x221856C687333A29BBF5c8F29E7e0247436CCF7D;
-  uint256 constant REPAY_BLOCK = 17636704;
-
-  address constant BEND_ADDRESSES_PROVIDER =
-    0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
-  address payable constant BEND_WETH_GATEWAY =
-    payable(0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88); // TODO make changeable?
-  address payable constant BEND_PUNK_GATEWAY =
-    payable(0xeD01f8A737813F0bDA2D4340d191DBF8c2Cbcf30);
-
-  address constant BEND_PROTOCOL_DATA_PROVIDER =
-    0x3811DA50f55CCF75376C5535562F5b4797822480;
-
-  address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
-  address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-
-  // goerli
   //  address constant LOAN_HOLDER = 0x221856C687333A29BBF5c8F29E7e0247436CCF7D;
   //  uint256 constant REPAY_BLOCK = 17636704;
   //
@@ -94,7 +77,37 @@ contract BendDaoTest is TestHelpers {
   //    0x3811DA50f55CCF75376C5535562F5b4797822480;
   //
   //  address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
-  //  address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
+  //  address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+  //  address constant NFT_ADDRESS = 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D;
+  //  uint256 constant NFT_ID = 122;
+  //  uint256 constant LOAN_AMOUNT = 48123908081253539840000;
+
+  // goerli
+  address constant LOAN_HOLDER = 0x8b04B42962BeCb429a4dBFb5025b66D3d7D31d27;
+  uint256 constant REPAY_BLOCK = 9454410;
+
+  address constant BEND_ADDRESSES_PROVIDER =
+    0x1cba0A3e18be7f210713c9AC9FE17955359cC99B;
+  address payable constant BEND_WETH_GATEWAY =
+    payable(0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88); // TODO make changeable? (mainnet)
+  address payable constant BEND_PUNK_GATEWAY =
+    payable(0xa7076550Ee79DB0320BE98f89D775797D859140c);
+
+  address constant BEND_PROTOCOL_DATA_PROVIDER =
+    0xeFC513D24D2AC6dA4fF3C6429642DD6C497B0845;
+
+  address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
+  address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
+
+  address constant NFT_ADDRESS = 0x30d190032A34d6151073a7DB8793c01Aa05987ec;
+  uint256 constant NFT_ID = 33;
+  uint256 constant LOAN_AMOUNT = 105300000000000000;
+
+  address constant GOERLI_ASTARIA_ROUTER =
+    0x552b2ec897FAb8D769E9389B0582d948AbfEe0aE;
+  address constant GOERLI_TRANSFER_PROXY =
+    0x412A4AAb59B96Fef6037e59e61767019C008cE27;
 
   function setUp() public override {
     mainnetFork = vm.createFork(
@@ -114,7 +127,7 @@ contract BendDaoTest is TestHelpers {
   }
 
   function testExternalRefinancing() public {
-    vm.selectFork(mainnetFork);
+    vm.selectFork(goerliFork);
     vm.roll(REPAY_BLOCK);
     //    _dealWeth(BALANCER_VAULT, 48123908081253539840000 * 2);
 
@@ -133,7 +146,6 @@ contract BendDaoTest is TestHelpers {
     //      delegate: strategistTwo,
     //      epochLength: 14 days
     //    });
-    //
     //    _lendToVault(
     //      Lender({addr: address(1), amountToLend: 50 ether}),
     //      payable(publicVault)
@@ -157,12 +169,63 @@ contract BendDaoTest is TestHelpers {
     //      amount: 48123908081253539840000
     //    });
 
+    // goerli Astaria
+
+    vm.startPrank(strategistOne);
+    address payable publicVault = payable(
+      AstariaRouter(GOERLI_ASTARIA_ROUTER).newPublicVault(
+        14 days,
+        strategistTwo,
+        address(WETH),
+        0,
+        false,
+        new address[](0),
+        uint256(0)
+      )
+    );
+    vm.stopPrank();
+    _dealWeth(address(1), LOAN_AMOUNT * 2);
+    vm.startPrank(address(1));
+    IWETH9(WETH).approve(GOERLI_TRANSFER_PROXY, LOAN_AMOUNT * 2);
+    AstariaRouter(GOERLI_ASTARIA_ROUTER).depositToVault(
+      IERC4626(publicVault),
+      address(1),
+      LOAN_AMOUNT * 2,
+      0
+    );
+    vm.stopPrank();
+
+    ILienToken.Details memory details = ILienToken.Details({
+      maxAmount: LOAN_AMOUNT * 2,
+      rate: (uint256(1e16) * 150) / (365 days),
+      duration: 10 days,
+      maxPotentialDebt: 0,
+      liquidationInitialAsk: LOAN_AMOUNT * 3
+    });
+
+    IAstariaRouter.Commitment memory commitment = _generateValidTerms({
+      vault: publicVault,
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: NFT_ADDRESS,
+      tokenId: NFT_ID,
+      lienDetails: details,
+      amount: LOAN_AMOUNT
+    });
+
+    _dealWeth(address(refinancing), LOAN_AMOUNT * 2);
+    _dealWeth(
+      address(LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER).getLendPool()),
+      LOAN_AMOUNT * 2
+    );
+
     vm.startPrank(LOAN_HOLDER);
     refinancing.refinance(
       LOAN_HOLDER,
-      0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D,
-      122,
-      48123908081253539840000
+      NFT_ADDRESS,
+      NFT_ID,
+      LOAN_AMOUNT,
+      commitment
     );
 
     vm.stopPrank();

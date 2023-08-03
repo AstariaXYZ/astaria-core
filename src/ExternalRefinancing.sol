@@ -90,42 +90,38 @@ contract ExternalRefinancing is IFlashLoanRecipient {
   //      address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
   //      address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
-  function doTheThing() public {
-    _flashLoan(48123908081253539840000);
-  }
-
-  function refinanceFromBenddao(
-    address borrower,
-    address tokenAddress, // use 0 address for punks
-    uint256 tokenId,
-    uint256 debt //    IAstariaRouter.Commitment calldata commitment
-  ) public {
-    uint256[] memory ids = new uint256[](1);
-    ids[0] = tokenId;
-    uint256[] memory amounts = new uint256[](1);
-    amounts[0] = debt;
-
-    //    _flashLoan(debt);
-    require(
-      IERC20(WETH).balanceOf(address(this)) > 0,
-      "ExternalRefinancing: not enough WETH"
-    );
-    if (tokenAddress != address(0)) {
-      address[] memory nfts = new address[](1);
-      nfts[0] = tokenAddress;
-
-      address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
-        .getLendPool();
-
-      LendPool(pool).batchRepay(nfts, ids, amounts);
-    } else {
-      PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
-    }
-
-    //    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
-    //    (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(commitment);
-    //    emit BendRefinance(lienId);
-  }
+  //    function refinanceFromBenddao(
+  //        address borrower,
+  //        address tokenAddress, // use 0 address for punks
+  //        uint256 tokenId,
+  //        uint256 debt //    IAstariaRouter.Commitment calldata commitment
+  //    ) public {
+  //        uint256[] memory ids = new uint256[](1);
+  //        ids[0] = tokenId;
+  //        uint256[] memory amounts = new uint256[](1);
+  //        amounts[0] = debt;
+  //
+  //        //    _flashLoan(debt);
+  //        require(
+  //            IERC20(WETH).balanceOf(address(this)) > 0,
+  //            "ExternalRefinancing: not enough WETH"
+  //        );
+  //        if (tokenAddress != address(0)) {
+  //            address[] memory nfts = new address[](1);
+  //            nfts[0] = tokenAddress;
+  //
+  //            address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
+  //            .getLendPool();
+  //
+  //            LendPool(pool).batchRepay(nfts, ids, amounts);
+  //        } else {
+  //            PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
+  //        }
+  //
+  //        //    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
+  //        //    (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(commitment);
+  //        //    emit BendRefinance(lienId);
+  //    }
 
   struct BendLoanData {
     address bnftAddress;
@@ -172,13 +168,114 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     return balancesArray;
   }
 
-  function _encodeData(
-    address borrower,
-    address tokenAddress,
-    uint256 tokenId,
-    uint256 debt
-  ) internal pure returns (bytes memory) {
-    return abi.encode(borrower, tokenAddress, tokenId, debt);
+  function _decodeData(
+    bytes memory data
+  )
+    internal
+    pure
+    returns (
+      address borrower,
+      address tokenAddress,
+      uint256 tokenId,
+      uint256 debt,
+      IAstariaRouter.Commitment memory commitment
+    )
+  {
+    (borrower, tokenAddress, tokenId, debt, commitment) = _decodeCommitment(
+      data
+    );
+  }
+
+  function _decodeCommitment(
+    bytes memory data
+  )
+    internal
+    pure
+    returns (
+      address borrower,
+      address tokenAddress,
+      uint256 tokenId,
+      uint256 debt,
+      IAstariaRouter.Commitment memory commitment
+    )
+  {
+    bytes memory encodedCommitment;
+    (borrower, tokenAddress, tokenId, debt, encodedCommitment) = abi.decode(
+      data,
+      (address, address, uint256, uint256, bytes)
+    );
+
+    (
+      address commitmentTokenContract,
+      uint256 commitmentTokenId,
+      bytes memory encodedStrategy,
+      bytes memory nlrDetails,
+      bytes32 root,
+      bytes32[] memory proof,
+      uint256 amount,
+      uint8 v,
+      bytes32 r,
+      bytes32 s
+    ) = abi.decode(
+        encodedCommitment,
+        (
+          address,
+          uint256,
+          bytes,
+          bytes,
+          bytes32,
+          bytes32[],
+          uint256,
+          uint8,
+          bytes32,
+          bytes32
+        )
+      );
+
+    IAstariaRouter.NewLienRequest memory lienRequest = _constructLienRequest(
+      encodedStrategy,
+      nlrDetails,
+      root,
+      proof,
+      amount,
+      v,
+      r,
+      s
+    );
+    commitment = IAstariaRouter.Commitment(
+      commitmentTokenContract,
+      commitmentTokenId,
+      lienRequest
+    );
+  }
+
+  function _constructLienRequest(
+    bytes memory encodedStrategy,
+    bytes memory nlrDetails,
+    bytes32 root,
+    bytes32[] memory proof,
+    uint256 amount,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) internal pure returns (IAstariaRouter.NewLienRequest memory lienRequest) {
+    (uint8 version, uint256 deadline, address payable vault) = abi.decode(
+      encodedStrategy,
+      (uint8, uint256, address)
+    );
+
+    IAstariaRouter.StrategyDetailsParam memory strategy = IAstariaRouter
+      .StrategyDetailsParam(version, deadline, vault);
+    lienRequest = IAstariaRouter.NewLienRequest(
+      strategy,
+      nlrDetails,
+      root,
+      proof,
+      amount,
+      v,
+      r,
+      s
+    );
   }
 
   function receiveFlashLoan(
@@ -191,8 +288,9 @@ contract ExternalRefinancing is IFlashLoanRecipient {
       address borrower,
       address tokenAddress,
       uint256 tokenId,
-      uint256 debt
-    ) = abi.decode(userData, (address, address, uint256, uint256));
+      uint256 debt,
+      IAstariaRouter.Commitment memory commitment
+    ) = _decodeData(userData);
 
     uint256[] memory ids = new uint256[](1);
     ids[0] = tokenId;
@@ -203,43 +301,31 @@ contract ExternalRefinancing is IFlashLoanRecipient {
       IERC20(WETH).balanceOf(address(this)) >= debt,
       "ExternalRefinancing: not enough WETH"
     );
-    //    if (tokenAddress != address(0)) {
-    //      address[] memory nfts = new address[](1);
-    //      nfts[0] = tokenAddress;
-    //
-    //      address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
-    //      .getLendPool();
-    //
-    //      LendPool(pool).batchRepay(nfts, ids, amounts);
-    //    } else {
-    //      PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
-    //    }
+    if (tokenAddress != address(0)) {
+      address[] memory nfts = new address[](1);
+      nfts[0] = tokenAddress;
 
-    //    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
-    //    (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(commitment);
-    //    emit BendRefinance(lienId);
+      address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
+        .getLendPool();
+
+      LendPool(pool).batchRepay(nfts, ids, amounts);
+    } else {
+      PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
+    }
+
+    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
+    (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(commitment);
+    emit BendRefinance(lienId);
 
     IERC20(WETH).transfer(BALANCER_VAULT, debt);
-  }
-
-  function _flashLoan(uint256 amount) internal {
-    IERC20[] memory tokens = new IERC20[](1);
-    tokens[0] = IERC20(WETH);
-    uint256[] memory amounts = new uint256[](1);
-    amounts[0] = amount;
-    IBalancerVault(BALANCER_VAULT).flashLoan(
-      IFlashLoanRecipient(address(this)),
-      tokens,
-      amounts,
-      bytes("")
-    );
   }
 
   function refinance(
     address borrower,
     address tokenAddress, // use 0 address for punks
     uint256 tokenId,
-    uint256 debt
+    uint256 debt,
+    IAstariaRouter.Commitment calldata commitment
   ) external {
     IERC20[] memory tokens = new IERC20[](1);
     tokens[0] = IERC20(WETH);
@@ -249,8 +335,36 @@ contract ExternalRefinancing is IFlashLoanRecipient {
       IFlashLoanRecipient(address(this)),
       tokens,
       amounts,
-      abi.encode(borrower, tokenAddress, tokenId, debt) // TODO encodePacked?
+      abi.encode(
+        borrower,
+        tokenAddress,
+        tokenId,
+        debt,
+        _encodeCommitment(commitment)
+      ) // TODO encodePacked?
     );
+  }
+
+  function _encodeCommitment(
+    IAstariaRouter.Commitment calldata commitment
+  ) internal pure returns (bytes memory) {
+    return
+      abi.encode(
+        commitment.tokenContract,
+        commitment.tokenId,
+        abi.encode(
+          commitment.lienRequest.strategy.version,
+          commitment.lienRequest.strategy.deadline,
+          commitment.lienRequest.strategy.vault
+        ),
+        commitment.lienRequest.nlrDetails,
+        commitment.lienRequest.root,
+        commitment.lienRequest.proof,
+        commitment.lienRequest.amount,
+        commitment.lienRequest.v,
+        commitment.lienRequest.r,
+        commitment.lienRequest.s
+      );
   }
 
   receive() external payable {}
