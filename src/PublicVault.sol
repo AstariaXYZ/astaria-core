@@ -636,7 +636,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   ) internal virtual {
     if (VAULT_FEE() != uint256(0) && interestPaid > 0) {
       uint256 fee = interestPaid.mulWadDown(VAULT_FEE());
-      uint256 feeInShares = convertToShares(fee);
+      uint256 feeInShares = fee.mulDivDown(totalSupply(), totalAssets() - fee);
       _mint(owner(), feeInShares);
     }
   }
