@@ -84,13 +84,17 @@ contract BendDaoTest is TestHelpers {
   //  uint256 constant LOAN_AMOUNT = 48123908081253539840000;
 
   // goerli
-  address constant LOAN_HOLDER = 0x8b04B42962BeCb429a4dBFb5025b66D3d7D31d27;
-  uint256 constant REPAY_BLOCK = 9454410;
+  address constant LOAN_HOLDER = 0xF354cc22B402a659B42be180f9947d8E38B4631f;
+  uint256 constant REPAY_BLOCK = 9420976;
+
+  address constant NFT_ADDRESS = 0x708c48AaA4Ea8B9E46Bd8DEb6470986842b9a16d;
+  uint256 constant NFT_ID = 7712;
+  uint256 constant LOAN_AMOUNT = 1000000000000000;
 
   address constant BEND_ADDRESSES_PROVIDER =
     0x1cba0A3e18be7f210713c9AC9FE17955359cC99B;
   address payable constant BEND_WETH_GATEWAY =
-    payable(0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88); // TODO make changeable? (mainnet)
+    payable(0xB926DD4A16c264F02986B575b546123D5D0bC607);
   address payable constant BEND_PUNK_GATEWAY =
     payable(0xa7076550Ee79DB0320BE98f89D775797D859140c);
 
@@ -99,10 +103,6 @@ contract BendDaoTest is TestHelpers {
 
   address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
   address constant WETH = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
-
-  address constant NFT_ADDRESS = 0x30d190032A34d6151073a7DB8793c01Aa05987ec;
-  uint256 constant NFT_ID = 33;
-  uint256 constant LOAN_AMOUNT = 105300000000000000;
 
   address constant GOERLI_ASTARIA_ROUTER =
     0x552b2ec897FAb8D769E9389B0582d948AbfEe0aE;
@@ -132,13 +132,13 @@ contract BendDaoTest is TestHelpers {
     //    _dealWeth(BALANCER_VAULT, 48123908081253539840000 * 2);
 
     ExternalRefinancing refinancing = new ExternalRefinancing({
-      //      router: address(ASTARIA_ROUTER),
-      router: address(0),
+      router: GOERLI_ASTARIA_ROUTER,
       bendAddressesProvider: BEND_ADDRESSES_PROVIDER,
       bendDataProvider: BEND_PROTOCOL_DATA_PROVIDER,
       bendPunkGateway: BEND_PUNK_GATEWAY,
       balancerVault: BALANCER_VAULT,
-      weth: WETH
+      weth: WETH,
+      bendWethGateway: BEND_WETH_GATEWAY
     });
 
     //    address payable publicVault = _createPublicVault({
@@ -220,6 +220,8 @@ contract BendDaoTest is TestHelpers {
     );
 
     vm.startPrank(LOAN_HOLDER);
+    ERC721(NFT_ADDRESS).setApprovalForAll(GOERLI_ASTARIA_ROUTER, true);
+    vm.roll(REPAY_BLOCK + 1);
     refinancing.refinance(
       LOAN_HOLDER,
       NFT_ADDRESS,

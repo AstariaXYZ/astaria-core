@@ -57,6 +57,7 @@ contract ExternalRefinancing is IFlashLoanRecipient {
   address public BEND_ADDRESSES_PROVIDER;
   address public BEND_DATA_PROVIDER;
   address payable public BEND_PUNK_GATEWAY;
+  address payable public BEND_WETH_GATEWAY;
 
   address public BALANCER_VAULT;
   address public WETH;
@@ -69,7 +70,8 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     address bendDataProvider,
     address payable bendPunkGateway,
     address balancerVault,
-    address weth
+    address weth,
+    address payable bendWethGateway
   ) {
     ASTARIA_ROUTER = AstariaRouter(router);
     BEND_ADDRESSES_PROVIDER = bendAddressesProvider;
@@ -77,6 +79,7 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     BEND_PUNK_GATEWAY = bendPunkGateway;
     BALANCER_VAULT = balancerVault;
     WETH = weth;
+    BEND_WETH_GATEWAY = bendWethGateway;
   }
 
   //      address constant ADDRESSES_PROVIDER = 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
@@ -308,12 +311,19 @@ contract ExternalRefinancing is IFlashLoanRecipient {
       address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
         .getLendPool();
 
-      LendPool(pool).batchRepay(nfts, ids, amounts);
+      //      LendPool(pool).batchRepay(nfts, ids, amounts);
+      IWETH9(WETH).withdraw(debt);
+      WETHGateway(payable(BEND_WETH_GATEWAY)).batchRepayETH{value: debt}(
+        nfts,
+        ids,
+        amounts
+      );
     } else {
       PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
     }
 
-    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
+    //    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
+    ERC721(tokenAddress).setApprovalForAll(address(ASTARIA_ROUTER), true);
     (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(commitment);
     emit BendRefinance(lienId);
 
