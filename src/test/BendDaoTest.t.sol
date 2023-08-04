@@ -89,7 +89,7 @@ contract BendDaoTest is TestHelpers {
 
   address constant NFT_ADDRESS = 0x708c48AaA4Ea8B9E46Bd8DEb6470986842b9a16d;
   uint256 constant NFT_ID = 7712;
-  uint256 constant LOAN_AMOUNT = 1000000000000000;
+  uint256 constant LOAN_AMOUNT = 1000000000000000 * 10;
 
   address constant BEND_ADDRESSES_PROVIDER =
     0x1cba0A3e18be7f210713c9AC9FE17955359cC99B;
@@ -108,6 +108,8 @@ contract BendDaoTest is TestHelpers {
     0x552b2ec897FAb8D769E9389B0582d948AbfEe0aE;
   address constant GOERLI_TRANSFER_PROXY =
     0x412A4AAb59B96Fef6037e59e61767019C008cE27;
+  address constant GOERLI_COLLATERAL_TOKEN =
+    0x4Fe2e8bf0DA8a4325DC37916B0b7f07239a17D14;
 
   function setUp() public override {
     mainnetFork = vm.createFork(
@@ -129,7 +131,6 @@ contract BendDaoTest is TestHelpers {
   function testExternalRefinancing() public {
     vm.selectFork(goerliFork);
     vm.roll(REPAY_BLOCK);
-    //    _dealWeth(BALANCER_VAULT, 48123908081253539840000 * 2);
 
     ExternalRefinancing refinancing = new ExternalRefinancing({
       router: GOERLI_ASTARIA_ROUTER,
@@ -138,7 +139,8 @@ contract BendDaoTest is TestHelpers {
       bendPunkGateway: BEND_PUNK_GATEWAY,
       balancerVault: BALANCER_VAULT,
       weth: WETH,
-      bendWethGateway: BEND_WETH_GATEWAY
+      bendWethGateway: BEND_WETH_GATEWAY,
+      collateralToken: GOERLI_COLLATERAL_TOKEN
     });
 
     //    address payable publicVault = _createPublicVault({
@@ -196,11 +198,11 @@ contract BendDaoTest is TestHelpers {
     vm.stopPrank();
 
     ILienToken.Details memory details = ILienToken.Details({
-      maxAmount: LOAN_AMOUNT * 2,
+      maxAmount: LOAN_AMOUNT,
       rate: (uint256(1e16) * 150) / (365 days),
       duration: 10 days,
       maxPotentialDebt: 0,
-      liquidationInitialAsk: LOAN_AMOUNT * 3
+      liquidationInitialAsk: LOAN_AMOUNT * 10
     });
 
     IAstariaRouter.Commitment memory commitment = _generateValidTerms({
@@ -213,15 +215,10 @@ contract BendDaoTest is TestHelpers {
       amount: LOAN_AMOUNT
     });
 
-    _dealWeth(address(refinancing), LOAN_AMOUNT * 2);
-    _dealWeth(
-      address(LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER).getLendPool()),
-      LOAN_AMOUNT * 2
-    );
-
     vm.startPrank(LOAN_HOLDER);
     ERC721(NFT_ADDRESS).setApprovalForAll(GOERLI_ASTARIA_ROUTER, true);
-    vm.roll(REPAY_BLOCK + 1);
+    ERC721(NFT_ADDRESS).setApprovalForAll(address(refinancing), true);
+    console.log("BOMB", address(refinancing));
     refinancing.refinance(
       LOAN_HOLDER,
       NFT_ADDRESS,
@@ -233,24 +230,24 @@ contract BendDaoTest is TestHelpers {
     vm.stopPrank();
   }
 
-  function testRefinancePOC() public {
-    vm.selectFork(mainnetFork);
-    vm.roll(REPAY_BLOCK);
-    address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
-      .getLendPool();
-
-    vm.startPrank(LOAN_HOLDER);
-    address[] memory nfts = new address[](1);
-    nfts[0] = 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D;
-    uint256[] memory ids = new uint256[](1);
-    ids[0] = 122;
-    uint256[] memory amounts = new uint256[](1);
-    amounts[0] = 48123908081253539840000;
-    vm.deal(LOAN_HOLDER, 48123908081253539840000);
-    //    WETHGateway(payable(WETH_GATEWAY)).batchRepayETH{
-    //      value: 48123908081253539840000
-    //    }(nfts, ids, amounts);
-    LendPool(pool).batchRepay(nfts, ids, amounts);
-    vm.stopPrank();
-  }
+  //  function testRefinancePOC() public {
+  //    vm.selectFork(mainnetFork);
+  //    vm.roll(REPAY_BLOCK);
+  //    address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
+  //      .getLendPool();
+  //
+  //    vm.startPrank(LOAN_HOLDER);
+  //    address[] memory nfts = new address[](1);
+  //    nfts[0] = 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D;
+  //    uint256[] memory ids = new uint256[](1);
+  //    ids[0] = 122;
+  //    uint256[] memory amounts = new uint256[](1);
+  //    amounts[0] = 48123908081253539840000;
+  //    vm.deal(LOAN_HOLDER, 48123908081253539840000);
+  //    //    WETHGateway(payable(WETH_GATEWAY)).batchRepayETH{
+  //    //      value: 48123908081253539840000
+  //    //    }(nfts, ids, amounts);
+  //    LendPool(pool).batchRepay(nfts, ids, amounts);
+  //    vm.stopPrank();
+  //  }
 }

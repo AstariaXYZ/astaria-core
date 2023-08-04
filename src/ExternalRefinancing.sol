@@ -62,6 +62,7 @@ contract ExternalRefinancing is IFlashLoanRecipient {
   address public BALANCER_VAULT;
   address public WETH;
 
+  address public COLLATERAL_TOKEN;
   event BendRefinance(uint256 lienId);
 
   constructor(
@@ -71,7 +72,8 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     address payable bendPunkGateway,
     address balancerVault,
     address weth,
-    address payable bendWethGateway
+    address payable bendWethGateway,
+    address collateralToken
   ) {
     ASTARIA_ROUTER = AstariaRouter(router);
     BEND_ADDRESSES_PROVIDER = bendAddressesProvider;
@@ -80,51 +82,8 @@ contract ExternalRefinancing is IFlashLoanRecipient {
     BALANCER_VAULT = balancerVault;
     WETH = weth;
     BEND_WETH_GATEWAY = bendWethGateway;
+    COLLATERAL_TOKEN = collateralToken;
   }
-
-  //      address constant ADDRESSES_PROVIDER = 0x24451F47CaF13B24f4b5034e1dF6c0E401ec0e46;
-  //      address payable constant BEND_WETH_GATEWAY =
-  //      payable(0x3B968D2D299B895A5Fcf3BBa7A64ad0F566e6F88); // TODO make changeable?
-  //      address payable constant BEND_PUNK_GATEWAY = payable(0xeD01f8A737813F0bDA2D4340d191DBF8c2Cbcf30);
-  //
-  //      address constant BEND_PROTOCOL_DATA_PROVIDER =
-  //      0x3811DA50f55CCF75376C5535562F5b4797822480;
-  //
-  //      address constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8; // TODO verify
-  //      address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-
-  //    function refinanceFromBenddao(
-  //        address borrower,
-  //        address tokenAddress, // use 0 address for punks
-  //        uint256 tokenId,
-  //        uint256 debt //    IAstariaRouter.Commitment calldata commitment
-  //    ) public {
-  //        uint256[] memory ids = new uint256[](1);
-  //        ids[0] = tokenId;
-  //        uint256[] memory amounts = new uint256[](1);
-  //        amounts[0] = debt;
-  //
-  //        //    _flashLoan(debt);
-  //        require(
-  //            IERC20(WETH).balanceOf(address(this)) > 0,
-  //            "ExternalRefinancing: not enough WETH"
-  //        );
-  //        if (tokenAddress != address(0)) {
-  //            address[] memory nfts = new address[](1);
-  //            nfts[0] = tokenAddress;
-  //
-  //            address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
-  //            .getLendPool();
-  //
-  //            LendPool(pool).batchRepay(nfts, ids, amounts);
-  //        } else {
-  //            PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
-  //        }
-  //
-  //        //    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
-  //        //    (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(commitment);
-  //        //    emit BendRefinance(lienId);
-  //    }
 
   struct BendLoanData {
     address bnftAddress;
@@ -311,21 +270,36 @@ contract ExternalRefinancing is IFlashLoanRecipient {
       address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
         .getLendPool();
 
-      //      LendPool(pool).batchRepay(nfts, ids, amounts);
+      //            LendPool(pool).batchRepay(nfts, ids, amounts);
       IWETH9(WETH).withdraw(debt);
       WETHGateway(payable(BEND_WETH_GATEWAY)).batchRepayETH{value: debt}(
         nfts,
         ids,
         amounts
       );
+      require(
+        ERC721(tokenAddress).ownerOf(tokenId) == borrower,
+        "Loan unsuccessfully repaid"
+      );
     } else {
       PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
     }
 
-    //    ERC721(tokenAddress).approve(address(ASTARIA_ROUTER), tokenId);
+    ERC721(tokenAddress).transferFrom(borrower, address(this), tokenId);
     ERC721(tokenAddress).setApprovalForAll(address(ASTARIA_ROUTER), true);
-    (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(commitment);
+    (uint256 lienId, ILienToken.Stack memory stack) = ASTARIA_ROUTER
+      .commitToLien(commitment);
     emit BendRefinance(lienId);
+    ERC721(COLLATERAL_TOKEN).transferFrom(
+      address(this),
+      borrower,
+      stack.lien.collateralId
+    );
+
+    require(
+      ERC721(COLLATERAL_TOKEN).ownerOf(stack.lien.collateralId) == borrower,
+      "CollateralToken not returned to borrower"
+    );
 
     IERC20(WETH).transfer(BALANCER_VAULT, debt);
   }
@@ -351,7 +325,7 @@ contract ExternalRefinancing is IFlashLoanRecipient {
         tokenId,
         debt,
         _encodeCommitment(commitment)
-      ) // TODO encodePacked?
+      )
     );
   }
 
