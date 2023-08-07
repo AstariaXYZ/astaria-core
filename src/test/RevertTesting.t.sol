@@ -984,4 +984,58 @@ contract RevertTesting is TestHelpers {
       )
     );
   }
+
+  // testDonationWithUnderbid: commitToLien -> liquidate w/ WithdrawProxy -> underbid
+  // instead of depositing, there is a donation
+  // we should revert on a newloan that exceeds the yIntercept
+  function testDonationWithUnderbid() public {
+    TestNFT nft = new TestNFT(1);
+    address tokenContract = address(nft);
+    uint256 tokenId = uint256(0);
+
+    uint256 initialBalance = WETH9.balanceOf(address(this));
+
+    // create a PublicVault with a 14-day epoch
+    address publicVault = _createPublicVault(
+      strategistOne,
+      strategistTwo,
+      14 days,
+      1e17
+    );
+
+    // lend 10 ether to the PublicVault as address(1)
+    _lendToVault(
+      Lender({addr: address(1), amountToLend: 10 ether}),
+      payable(publicVault)
+    );
+
+    // Donated a fraction of assets into the vault
+    WETH9.deposit{value: 20 ether}();
+    WETH9.transfer(publicVault, 20 ether);
+
+    PublicVault(payable(publicVault)).totalSupply();
+
+    // borrow 20 eth against the dummy NFT
+    // will revert because the loan amount > yIntercept of the PublicVault
+    // if we do not disallow new loans of the donated amount, and the loan is liquated to a withdrawProxy, the WithdrawProxy.claim() can possibly underflow as well as the difference in the WithdrawProxy.expected will be reduced from the yIntercept
+    (, ILienToken.Stack memory stack) = _commitToLien({
+      vault: payable(publicVault),
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: ILienToken.Details({
+        maxAmount: 50 ether,
+        rate: (uint256(1e16) * 150) / (365 days),
+        duration: 14 days,
+        maxPotentialDebt: 0 ether,
+        liquidationInitialAsk: 100 ether
+      }),
+      amount: 20 ether,
+      revertMessage: abi.encodeWithSelector(
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.LOAN_GREATER_THAN_VIRTUAL_BALANCE
+      )
+    });
+  }
 }

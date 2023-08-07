@@ -25,6 +25,7 @@ import {IERC20Metadata} from "core/interfaces/IERC20Metadata.sol";
 import {IERC4626} from "core/interfaces/IERC4626.sol";
 import {LibString} from "solmate/utils/LibString.sol";
 import {ERC721TokenReceiver} from "gpl/ERC721.sol";
+import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 
 /**
  * @title WithdrawProxy
@@ -299,32 +300,34 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
       revert InvalidState(InvalidStates.FINAL_AUCTION_NOT_OVER);
     }
 
-    uint256 transferAmount = 0;
     uint256 balance = ERC20(asset()).balanceOf(address(this)) -
       s.withdrawReserveReceived; // will never underflow because withdrawReserveReceived is always increased by the transfer amount from the PublicVault
 
+    uint256 decreaseInYIntercept = 0;
     if (balance < s.expected) {
-      VAULT().decreaseYIntercept(
-        (s.expected - balance).mulWadDown(1e18 - s.withdrawRatio)
+      decreaseInYIntercept = (s.expected - balance).mulWadDown(
+        1e18 - s.withdrawRatio
       );
     } else {
-      VAULT().increaseYIntercept(
-        (balance - s.expected).mulWadDown(1e18 - s.withdrawRatio)
-      );
+      balance = s.expected;
     }
 
-    if (s.withdrawRatio == uint256(0)) {
-      ERC20(asset()).safeTransfer(payable(address(VAULT())), balance);
-    } else {
-      transferAmount = uint256(s.withdrawRatio).mulDivDown(balance, 1e18);
+    uint256 transferAmount = uint256(1e18 - s.withdrawRatio).mulDivUp(
+      balance,
+      1e18
+    );
+    VAULT().updateVault(
+      IPublicVault.UpdateVaultParams({
+        decreaseInYIntercept: decreaseInYIntercept,
+        interestPaid: 0,
+        decreaseInSlope: 0,
+        amount: transferAmount,
+        lienEnd: 0
+      })
+    );
 
-      unchecked {
-        balance -= transferAmount;
-      }
-
-      if (balance > 0) {
-        ERC20(asset()).safeTransfer(payable(address(VAULT())), balance);
-      }
+    if (transferAmount > 0) {
+      ERC20(asset()).safeTransfer(payable(address(VAULT())), transferAmount);
     }
     s.finalAuctionEnd = 0;
 
