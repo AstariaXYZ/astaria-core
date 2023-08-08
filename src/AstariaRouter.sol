@@ -302,6 +302,13 @@ contract AstariaRouter is
     if (what == FileType.AuctionWindow) {
       uint256 window = abi.decode(data, (uint256));
       s.auctionWindow = window.safeCastTo32();
+      if (
+        s.auctionWindow == 0 ||
+        s.auctionWindow > s.minEpochLength ||
+        s.auctionWindow < s.maxEpochLength
+      ) {
+        revert InvalidFileData();
+      }
     } else if (what == FileType.LiquidationFee) {
       (uint256 numerator, uint256 denominator) = abi.decode(
         data,
@@ -320,6 +327,9 @@ contract AstariaRouter is
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinEpochLength) {
       s.minEpochLength = abi.decode(data, (uint256)).safeCastTo32();
+      if (s.auctionWindow > s.minEpochLength) {
+        revert InvalidFileData();
+      }
       if (s.maxEpochLength < s.minEpochLength) {
         revert InvalidFileData();
       }
