@@ -300,7 +300,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       s.currentEpoch,
       s.withdrawReserve,
       s.liquidationWithdrawRatio,
-      s.strategistUnclaimedShares
+      s.balance
     );
   }
 
@@ -439,6 +439,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
       if (withdrawBalance > 0) {
         ERC20(asset()).safeTransfer(currentWithdrawProxy, withdrawBalance);
+        s.balance -= withdrawBalance;
         WithdrawProxy(currentWithdrawProxy).increaseWithdrawReserveReceived(
           withdrawBalance
         );
@@ -487,6 +488,13 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
           (address, uint256, uint40, uint256, address, uint256)
         );
 
+      VaultData storage s = _loadStorageSlot();
+      if (amount > s.balance) {
+        revert InvalidVaultState(
+          InvalidVaultStates.LOAN_GREATER_THAN_VIRTUAL_BALANCE
+        );
+      }
+      s.balance -= amount;
       _addLien(tokenId, lienSlope, lienEnd);
       _issuePayout(borrower, amount, feeTo, feeRake);
     }
@@ -551,11 +559,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
    * @param params The params to adjust things
    */
   function updateVault(UpdateVaultParams calldata params) external {
-    _onlyLienToken();
+    _onlyAuth();
 
     VaultData storage s = _loadStorageSlot();
     _accrue(s);
 
+    s.balance += params.amount;
     //we are a payment
     if (params.decreaseInSlope > 0) {
       uint256 newSlope = s.slope - params.decreaseInSlope;
@@ -566,6 +575,14 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       _setYIntercept(s, s.yIntercept - params.decreaseInYIntercept);
     }
     _handleStrategistInterestReward(s, params.interestPaid);
+  }
+
+  function skim() external {
+    VaultData storage s = _loadStorageSlot();
+    uint256 skimAmount = ERC20(asset()).balanceOf(address(this)) - s.balance;
+    if (skimAmount > 0) {
+      _setYIntercept(s, s.yIntercept + skimAmount);
+    }
   }
 
   function _setSlope(VaultData storage s, uint256 newSlope) internal {
@@ -618,6 +635,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
     unchecked {
       s.yIntercept += assets;
+      s.balance += assets;
     }
     VIData storage v = _loadVISlot();
     if (v.depositCap != 0 && totalAssets() >= v.depositCap) {
@@ -695,36 +713,18 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     emit LienOpen(tokenId, epoch);
   }
 
-  /**
-   * @notice Increase the PublicVault yIntercept.
-   * @param amount newYIntercept The increase in yIntercept.
-   */
-  function increaseYIntercept(uint256 amount) public {
-    VaultData storage s = _loadStorageSlot();
-    uint64 currentEpoch = s.currentEpoch;
-    require(
-      currentEpoch != 0 &&
-        msg.sender == s.epochData[currentEpoch - 1].withdrawProxy
-    );
-    _setYIntercept(s, s.yIntercept + amount);
-  }
-
   function _onlyLienToken() internal view {
     require(msg.sender == address(ROUTER().LIEN_TOKEN()));
   }
 
-  /**
-   * @notice Decrease the PublicVault yIntercept.
-   * @param amount newYIntercept The decrease in yIntercept.
-   */
-  function decreaseYIntercept(uint256 amount) public {
+  function _onlyAuth() internal view {
     VaultData storage s = _loadStorageSlot();
     uint64 currentEpoch = s.currentEpoch;
     require(
-      currentEpoch != 0 &&
-        msg.sender == s.epochData[currentEpoch - 1].withdrawProxy
+      (currentEpoch != 0 &&
+        msg.sender == s.epochData[currentEpoch - 1].withdrawProxy) ||
+        msg.sender == address(ROUTER().LIEN_TOKEN())
     );
-    _setYIntercept(s, s.yIntercept - amount);
   }
 
   function _setYIntercept(VaultData storage s, uint256 newYIntercept) internal {

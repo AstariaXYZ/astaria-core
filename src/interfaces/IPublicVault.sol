@@ -32,7 +32,7 @@ interface IPublicVault is IVaultImplementation {
     uint64 currentEpoch;
     uint256 withdrawReserve;
     uint256 liquidationWithdrawRatio;
-    uint256 strategistUnclaimedShares;
+    uint256 balance;
     mapping(uint64 => EpochData) epochData;
   }
 
@@ -40,6 +40,7 @@ interface IPublicVault is IVaultImplementation {
     uint256 decreaseInSlope;
     uint256 interestPaid;
     uint256 decreaseInYIntercept;
+    uint256 amount;
     uint64 lienEnd;
   }
 
@@ -79,10 +80,6 @@ interface IPublicVault is IVaultImplementation {
 
   function processEpoch() external;
 
-  function increaseYIntercept(uint256 amount) external;
-
-  function decreaseYIntercept(uint256 amount) external;
-
   function getCurrentEpoch() external view returns (uint64);
 
   function timeToSecondEpochEnd() external view returns (uint256);
@@ -115,7 +112,8 @@ interface IPublicVault is IVaultImplementation {
     WITHDRAW_RESERVE_NOT_ZERO,
     LIENS_OPEN_FOR_EPOCH_NOT_ZERO,
     LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH,
-    DEPOSIT_CAP_EXCEEDED
+    DEPOSIT_CAP_EXCEEDED,
+    LOAN_GREATER_THAN_VIRTUAL_BALANCE
   }
 
   event StrategistFee(uint256 feeInShares);

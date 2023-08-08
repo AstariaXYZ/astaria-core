@@ -428,6 +428,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
           decreaseInYIntercept: decreaseYIntercept, //if the lien owner is not the payee then we are not decreasing the y intercept
           interestPaid: interestPaid,
           decreaseInSlope: decreaseInSlope,
+          amount: amountOwed,
           lienEnd: end
         })
       );
