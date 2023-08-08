@@ -50,13 +50,23 @@ import {
   Initializable
 } from "lib/seaport/lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
+import {
+  ICollectionValidator,
+  CollectionValidator
+} from "src/strategies/CollectionValidator.sol";
+import {
+  UniqueValidator,
+  IUniqueValidator
+} from "src/strategies/UniqueValidator.sol";
+
 contract Deploy is Script {
   enum UserRoles {
     ADMIN,
     ASTARIA_ROUTER,
     WRAPPER,
     TRANSFER_PROXY,
-    LIEN_TOKEN
+    LIEN_TOKEN,
+    PAUSER
   }
 
   event Deployed(address);
@@ -68,7 +78,6 @@ contract Deploy is Script {
   WithdrawProxy WITHDRAW_PROXY;
   Vault SOLO_IMPLEMENTATION;
   TransferProxy TRANSFER_PROXY;
-  WETH WETH9;
   MultiRolesAuthority MRA;
   ConsiderationInterface SEAPORT;
   ProxyAdmin PROXY_ADMIN;
@@ -76,6 +85,10 @@ contract Deploy is Script {
   RepaymentHelper REPAYMENT_HELPER;
 
   bool testModeDisabled = true;
+  bool setupDefaultStrategies = true;
+
+  WETH WETH9;
+  bool pauseAfterDeploy = false;
 
   function run() public virtual {
     deploy();
@@ -86,11 +99,11 @@ contract Deploy is Script {
       vm.startBroadcast(msg.sender);
     }
 
-    address weth;
-
     try vm.envAddress("WETH9_ADDR") {
-      weth = vm.envAddress("WETH9_ADDR");
-    } catch {}
+      WETH9 = WETH(payable(vm.envAddress("WETH9_ADDR")));
+    } catch {
+      WETH9 = new WETH();
+    }
     if (address(SEAPORT) == address(0)) {
       try vm.envAddress("SEAPORT_ADDR") {
         SEAPORT = ConsiderationInterface(vm.envAddress("SEAPORT_ADDR"));
@@ -99,23 +112,7 @@ contract Deploy is Script {
       }
     }
 
-    if (weth == address(0)) {
-      WETH9 = new WETH();
-      if (testModeDisabled) {
-        vm.writeLine(
-          string(".env"),
-          string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
-        );
-      }
-    } else {
-      WETH9 = WETH(payable(weth)); // mainnet weth
-      if (testModeDisabled) {
-        vm.writeLine(
-          string(".env"),
-          string(abi.encodePacked("WETH9_ADDR=", vm.toString(address(WETH9))))
-        );
-      }
-    }
+    // test harness needs to be able to set roles on the MRA, if deploying for real its msg.sender who its deployed as owner
     address auth = testModeDisabled ? msg.sender : address(this);
     MRA = new MultiRolesAuthority(auth, Authority(address(0)));
     if (testModeDisabled) {
@@ -345,7 +342,6 @@ contract Deploy is Script {
       });
       COLLATERAL_TOKEN.fileBatch(ctfiles);
     }
-    _setupRolesAndCapabilities();
 
     LIEN_TOKEN.file(
       ILienToken.File(
@@ -359,8 +355,17 @@ contract Deploy is Script {
         abi.encode(address(ASTARIA_ROUTER))
       )
     );
+
+    if (setupDefaultStrategies) {
+      _setupDefaultStrategies();
+    }
+
     if (testModeDisabled) {
-      ASTARIA_ROUTER.__emergencyPause();
+      _setupRolesAndCapabilities();
+
+      if (pauseAfterDeploy) {
+        ASTARIA_ROUTER.__emergencyPause();
+      }
       _setOwner();
       vm.stopBroadcast();
     }
@@ -399,8 +404,11 @@ contract Deploy is Script {
       TRANSFER_PROXY.tokenTransferFromWithErrorReceiver.selector,
       true
     );
-
-    // SEAPORT CAPABILITIES
+    MRA.setRoleCapability(
+      uint8(UserRoles.PAUSER),
+      ASTARIA_ROUTER.__emergencyPause.selector,
+      true
+    );
 
     MRA.setUserRole(
       address(ASTARIA_ROUTER),
@@ -409,6 +417,15 @@ contract Deploy is Script {
     );
     MRA.setUserRole(address(COLLATERAL_TOKEN), uint8(UserRoles.WRAPPER), true);
     MRA.setUserRole(address(LIEN_TOKEN), uint8(UserRoles.LIEN_TOKEN), true);
+
+    address pauser;
+
+    try vm.envAddress("PROTOCOL_PASUER_ADDR") {
+      pauser = vm.envAddress("PROTOCOL_PASUER_ADDR");
+    } catch {
+      pauser = testModeDisabled ? msg.sender : address(this);
+    }
+    MRA.setUserRole(address(pauser), uint8(UserRoles.LIEN_TOKEN), true);
   }
 
   function _setOwner() internal {
@@ -418,11 +435,38 @@ contract Deploy is Script {
     } catch {
       revert("No guardian address set in .env file");
     }
+    address manager;
+    try vm.envAddress("PROTOCOL_MGR_ADDR") {
+      manager = vm.envAddress("PROTOCOL_MGR_ADDR");
+    } catch {
+      revert("No manager address set in .env file");
+    }
     ASTARIA_ROUTER.setNewGuardian(guardian);
     PROXY_ADMIN.transferOwnership(guardian);
     MRA.transferOwnership(guardian);
-    ASTARIA_ROUTER.transferOwnership(guardian);
-    LIEN_TOKEN.transferOwnership(guardian);
-    COLLATERAL_TOKEN.transferOwnership(guardian);
+    ASTARIA_ROUTER.transferOwnership(manager);
+    LIEN_TOKEN.transferOwnership(manager);
+    COLLATERAL_TOKEN.transferOwnership(manager);
+  }
+
+  function _setupDefaultStrategies() internal {
+    //strategy unique
+    UniqueValidator UNIQUE_STRATEGY_VALIDATOR = new UniqueValidator();
+    //strategy collection
+    CollectionValidator COLLECTION_STRATEGY_VALIDATOR = new CollectionValidator();
+    //strategy univ3
+
+    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](2);
+
+    files[0] = IAstariaRouter.File(
+      IAstariaRouter.FileType.StrategyValidator,
+      abi.encode(uint8(1), address(UNIQUE_STRATEGY_VALIDATOR))
+    );
+    files[1] = IAstariaRouter.File(
+      IAstariaRouter.FileType.StrategyValidator,
+      abi.encode(uint8(2), address(COLLECTION_STRATEGY_VALIDATOR))
+    );
+
+    ASTARIA_ROUTER.fileBatch(files);
   }
 }

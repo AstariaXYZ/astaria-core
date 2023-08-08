@@ -306,6 +306,7 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
   function setUp() public virtual override {
     testModeDisabled = false;
+    pauseAfterDeploy = false;
     super.setUp();
     SEAPORT = ConsiderationInterface(address(consideration));
     deploy();
@@ -331,20 +332,13 @@ contract TestHelpers is Deploy, ConsiderationTester {
 
     COLLATERAL_TOKEN.fileBatch(ctfiles);
 
-    //strategy unique
-    UniqueValidator UNIQUE_STRATEGY_VALIDATOR = new UniqueValidator();
-    //strategy collection
-    CollectionValidator COLLECTION_STRATEGY_VALIDATOR = new CollectionValidator();
+    //strategy univ3
+    UNI_V3Validator UNIV3_LIQUIDITY_STRATEGY_VALIDATOR = new UNI_V3Validator();
 
-    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](2);
-
+    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](1);
     files[0] = IAstariaRouter.File(
       IAstariaRouter.FileType.StrategyValidator,
-      abi.encode(uint8(1), address(UNIQUE_STRATEGY_VALIDATOR))
-    );
-    files[1] = IAstariaRouter.File(
-      IAstariaRouter.FileType.StrategyValidator,
-      abi.encode(uint8(2), address(COLLECTION_STRATEGY_VALIDATOR))
+      abi.encode(uint8(3), address(UNIV3_LIQUIDITY_STRATEGY_VALIDATOR))
     );
 
     ASTARIA_ROUTER.fileBatch(files);
