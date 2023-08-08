@@ -687,6 +687,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
     uint64 epoch = getLienEpoch(lienEnd);
 
+    if (timeToEpochEnd(epoch) == 0) {
+      revert InvalidVaultState(InvalidVaultStates.EPOCH_ENDED);
+    }
+
     _increaseOpenLiens(s, epoch);
     emit LienOpen(tokenId, epoch);
   }
