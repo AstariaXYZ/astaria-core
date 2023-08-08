@@ -86,8 +86,9 @@ contract Deploy is Script {
 
   bool testModeDisabled = true;
   bool setupDefaultStrategies = true;
-  bool dontPause = true;
+
   WETH WETH9;
+  bool pauseAfterDeploy = false;
 
   function run() public virtual {
     deploy();
@@ -361,7 +362,8 @@ contract Deploy is Script {
 
     if (testModeDisabled) {
       _setupRolesAndCapabilities();
-      if (!dontPause) {
+
+      if (pauseAfterDeploy) {
         ASTARIA_ROUTER.__emergencyPause();
       }
       _setOwner();
