@@ -581,6 +581,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     VaultData storage s = _loadStorageSlot();
     uint256 skimAmount = ERC20(asset()).balanceOf(address(this)) - s.balance;
     if (skimAmount > 0) {
+      s.balance += skimAmount;
       _setYIntercept(s, s.yIntercept + skimAmount);
     }
   }
