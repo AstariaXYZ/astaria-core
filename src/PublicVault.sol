@@ -487,8 +487,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
           (address, uint256, uint40, uint256, address, uint256)
         );
 
-      _issuePayout(borrower, amount, feeTo, feeRake);
       _addLien(tokenId, lienSlope, lienEnd);
+      _issuePayout(borrower, amount, feeTo, feeRake);
     }
 
     return IERC721Receiver.onERC721Received.selector;
