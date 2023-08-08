@@ -32,3 +32,9 @@
 [submodule "lib/murky"]
 	path = lib/murky
 	url = https://github.com/dmfxyz/murky
+[submodule "lib/paraspace-core"]
+	path = lib/paraspace-core
+	url = https://github.com/para-space/paraspace-core
+[submodule "lib/bend-protocol"]
+	path = lib/bend-protocol
+	url = https://github.com/benddao/bend-protocol
