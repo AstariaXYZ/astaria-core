@@ -55,6 +55,77 @@ contract RevertTesting is TestHelpers {
   using FixedPointMathLib for uint256;
   using CollateralLookup for address;
 
+  function testCannotLeaveWithdrawReserveUnderCollateralized() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address payable publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: bob, amountToLend: 50 ether}),
+      payable(publicVault)
+    );
+    _signalWithdraw(bob, payable(publicVault));
+
+    skip(PublicVault(payable(publicVault)).timeToEpochEnd());
+
+    PublicVault(publicVault).processEpoch();
+    (, ILienToken.Stack memory stack) = _commitToLien({
+      vault: payable(publicVault),
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 50 ether,
+      revertMessage: abi.encodeWithSelector(
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.WITHDRAW_RESERVE_UNDER_COLLATERALIZED
+      )
+    });
+  }
+
+  function testCannotBorrowWhenTimeToEpochEndIsZero() public {
+    address alice = address(1);
+    address bob = address(2);
+    TestNFT nft = new TestNFT(6);
+    uint256 tokenId = uint256(5);
+    address tokenContract = address(nft);
+    address payable publicVault = _createPublicVault({
+      strategist: strategistOne,
+      delegate: strategistTwo,
+      epochLength: 14 days
+    });
+
+    _lendToVault(
+      Lender({addr: bob, amountToLend: 50 ether}),
+      payable(publicVault)
+    );
+    _signalWithdraw(bob, payable(publicVault));
+
+    skip(PublicVault(payable(publicVault)).timeToEpochEnd());
+
+    (, ILienToken.Stack memory stack) = _commitToLien({
+      vault: payable(publicVault),
+      strategist: strategistOne,
+      strategistPK: strategistOnePK,
+      tokenContract: tokenContract,
+      tokenId: tokenId,
+      lienDetails: blueChipDetails,
+      amount: 50 ether,
+      revertMessage: abi.encodeWithSelector(
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.WITHDRAW_RESERVE_UNDER_COLLATERALIZED
+      )
+    });
+  }
+
   function testCannotDeployUnderlyingWithNoCode() public {
     vm.expectRevert(
       abi.encodeWithSelector(

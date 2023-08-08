@@ -467,10 +467,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   }
 
   function onERC721Received(
-    address operator, // operator_
-    address from, // from_
-    uint256 tokenId, // tokenId_
-    bytes calldata data // data_
+    address operator,
+    address from,
+    uint256 tokenId,
+    bytes calldata data
   ) external virtual override returns (bytes4) {
     if (
       operator == address(ROUTER()) &&
@@ -489,6 +489,13 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         );
 
       VaultData storage s = _loadStorageSlot();
+
+      if (s.balance - amount < s.withdrawReserve) {
+        revert InvalidVaultState(
+          InvalidVaultStates.WITHDRAW_RESERVE_UNDER_COLLATERALIZED
+        );
+      }
+
       if (amount > s.balance) {
         revert InvalidVaultState(
           InvalidVaultStates.LOAN_GREATER_THAN_VIRTUAL_BALANCE

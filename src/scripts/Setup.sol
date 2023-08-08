@@ -19,9 +19,7 @@ import {AstariaStack} from "core/scripts/deployments/AstariaStack.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 
-contract Setup is Script {
-  function setUp() public {}
-
+contract Setup is AstariaStack {
   function run() public {
     vm.startBroadcast();
     vm.stopBroadcast();
