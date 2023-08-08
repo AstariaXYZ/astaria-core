@@ -85,7 +85,7 @@ contract WithdrawTest is TestHelpers {
 
     vm.warp(block.timestamp + 2 days); // end of auction
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     PublicVault(payable(publicVault)).processEpoch();
     PublicVault(payable(publicVault)).transferWithdrawReserve();
 
@@ -265,7 +265,7 @@ contract WithdrawTest is TestHelpers {
       amount: 10 ether
     });
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -425,7 +425,7 @@ contract WithdrawTest is TestHelpers {
       "incorrect PublicVault slope calc"
     );
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
 
     assertEq(
       PublicVault(payable(publicVault)).getSlope(),
@@ -441,7 +441,7 @@ contract WithdrawTest is TestHelpers {
       "Epoch 0 withdrawReserve calculation incorrect"
     );
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
 
     uint256 collateralId = tokenContract.computeId(tokenId);
     OrderParameters memory listedOrder = _liquidate(stack);
@@ -588,7 +588,7 @@ contract WithdrawTest is TestHelpers {
       amount: 75 ether
     });
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     PublicVault(payable(publicVault)).processEpoch();
 
     _signalWithdrawAtFutureEpoch(address(2), payable(publicVault), 1);
@@ -599,7 +599,7 @@ contract WithdrawTest is TestHelpers {
     );
     vm.label(address(3), "lender 3");
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     uint256 collateralId = tokenContract.computeId(tokenId);
     OrderParameters memory listedOrder = _liquidate(stack);
     _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether, stack);
@@ -608,7 +608,7 @@ contract WithdrawTest is TestHelpers {
 
     PublicVault(payable(publicVault)).processEpoch();
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     address withdrawProxy = address(
       PublicVault(payable(publicVault)).getWithdrawProxy(0)
     );
@@ -686,7 +686,7 @@ contract WithdrawTest is TestHelpers {
       amount: 75 ether
     });
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     uint256 amountOwedAtEpoch0 = LIEN_TOKEN.getOwed(stack);
     PublicVault(payable(publicVault)).processEpoch();
 
@@ -742,7 +742,7 @@ contract WithdrawTest is TestHelpers {
     );
     vm.label(address(3), "lender 3");
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
 
     uint256 expectedFinalAuctionEnd = block.timestamp + 3 days;
     OrderParameters memory listedOrder = _liquidate(stack);
@@ -945,10 +945,10 @@ contract WithdrawTest is TestHelpers {
       amount: 50 ether
     });
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     PublicVault(payable(publicVault)).processEpoch();
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     uint256 collateralId = tokenContract.computeId(tokenId);
     OrderParameters memory listedOrder = _liquidate(stack);
     _bid(Bidder(bidder, bidderPK), listedOrder, 100 ether, stack);
@@ -957,7 +957,7 @@ contract WithdrawTest is TestHelpers {
 
     PublicVault(payable(publicVault)).processEpoch();
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     address withdrawProxy = address(
       PublicVault(payable(publicVault)).getWithdrawProxy(0)
     );
@@ -1011,10 +1011,10 @@ contract WithdrawTest is TestHelpers {
       amount: 50 ether
     });
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     PublicVault(payable(publicVault)).processEpoch();
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     uint256 amountOwed = LIEN_TOKEN.getOwed(stack);
 
     uint256 expectedFinalAuctionEnd = block.timestamp + 3 days;
@@ -1161,7 +1161,7 @@ contract WithdrawTest is TestHelpers {
       amount: 10 ether
     });
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
 
     uint256 collateralId1 = tokenContract.computeId(tokenId1);
     OrderParameters memory listedOrder1 = _liquidate(stacks[0]);
@@ -1263,7 +1263,7 @@ contract WithdrawTest is TestHelpers {
 
     _repay(stacks[0], 10 ether, address(this));
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
 
     PublicVault(payable(publicVault)).processEpoch();
 
@@ -1352,7 +1352,7 @@ contract WithdrawTest is TestHelpers {
       "PublicVault liquidationWithdrawRatio should be 0"
     );
 
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     PublicVault(payable(publicVault)).processEpoch();
 
     assertEq(

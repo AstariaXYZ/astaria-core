@@ -54,14 +54,9 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     _disableInitializers();
   }
 
-  function initialize(
-    Authority _AUTHORITY,
-    ITransferProxy _TRANSFER_PROXY
-  ) public initializer {
+  function initialize(Authority _AUTHORITY) public initializer {
     __initAuth(msg.sender, address(_AUTHORITY));
     __initERC721("Astaria Lien Token", "ALT");
-    LienStorage storage s = _loadLienStorageSlot();
-    s.TRANSFER_PROXY = _TRANSFER_PROXY;
   }
 
   function _loadLienStorageSlot()
@@ -168,6 +163,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     uint256 owed = _getOwed(stack, block.timestamp);
     uint256 lienId = uint256(keccak256(abi.encode(stack)));
 
+    if (
+      s.collateralLiquidator[stack.lien.collateralId].liquidator != address(0)
+    ) {
+      revert InvalidLienState(InvalidLienStates.COLLATERAL_LIQUIDATED);
+    }
     s.collateralLiquidator[stack.lien.collateralId] = AuctionData({
       amountOwed: owed,
       liquidator: liquidator
@@ -188,8 +188,11 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   function tokenURI(
     uint256 tokenId
   ) public view override(ERC721, IERC721) returns (string memory) {
-    ownerOf(tokenId); //enforce exists
-    return "";
+    require(
+      ownerOf(tokenId) != address(0),
+      "ERC721Metadata: URI query for nonexistent token"
+    );
+    return string(abi.encodePacked("https://data.astaria.xyz/lien/", tokenId));
   }
 
   function transferFrom(
@@ -271,6 +274,19 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
   }
 
   /**
+   * @notice Retrieves the auctionData for a CollateralToken.
+   * @param collateralId The ID of the CollateralToken.
+   */
+  function getAuctionData(
+    uint256 collateralId
+  ) external view returns (AuctionData memory data) {
+    data = _loadLienStorageSlot().collateralLiquidator[collateralId];
+    if (data.liquidator == address(0)) {
+      revert InvalidLienState(InvalidLienStates.COLLATERAL_NOT_LIQUIDATED);
+    }
+  }
+
+  /**
    * @notice Retrieves a lienCount for specific collateral
    * @param collateralId the Lien to compute a point for
    */
@@ -309,14 +325,17 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         if (msg.sender != address(s.COLLATERAL_TOKEN)) {
           revert InvalidSender();
         }
-        uint256 CTBalance = ERC20(stack.lien.token).balanceOf(
-          address(s.COLLATERAL_TOKEN)
+        uint256 allowedSpendForPayment = ERC20(stack.lien.token).allowance(
+          address(s.COLLATERAL_TOKEN),
+          address(s.ASTARIA_ROUTER.TRANSFER_PROXY())
         );
 
         uint256 owing = s
           .collateralLiquidator[stack.lien.collateralId]
           .amountOwed;
-        payment.amountOwing = owing > CTBalance ? CTBalance : owing;
+        payment.amountOwing = owing > allowedSpendForPayment
+          ? allowedSpendForPayment
+          : owing;
         payment.interestPaid = payment.amountOwing > stack.point.amount
           ? payment.amountOwing - stack.point.amount
           : 0;
@@ -416,7 +435,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     _removeLien(s, lienId, collateralId);
     emit Payment(lienId, amountOwed);
     if (amountOwed > 0) {
-      s.TRANSFER_PROXY.tokenTransferFromWithErrorReceiver(
+      s.ASTARIA_ROUTER.TRANSFER_PROXY().tokenTransferFromWithErrorReceiver(
         token,
         msg.sender,
         owner,

@@ -41,6 +41,8 @@ import {
   Create2ClonesWithImmutableArgs
 } from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
 import {DepositHelper} from "core/DepositHelper.sol";
+import {WithdrawKit} from "core/WithdrawKit.sol";
+import {IWETH9} from "gpl/interfaces/IWETH9.sol";
 
 contract MockERC20 is ERC20 {
   mapping(address => bool) public blacklist;
@@ -122,12 +124,13 @@ contract AstariaTest is TestHelpers {
     });
 
     vm.expectEmit(true, true, true, true);
-    emit NonceUpdated(1);
+    uint256 delta = uint256(blockhash(block.number - 1) << 0x80);
+    emit NonceUpdated(delta);
     vm.prank(strategistOne);
     VaultImplementation(payable(privateVault)).incrementNonce();
 
     vm.expectEmit(true, true, true, true);
-    emit NonceUpdated(2);
+    emit NonceUpdated(delta + delta);
     vm.prank(strategistTwo);
     VaultImplementation(payable(privateVault)).incrementNonce();
   }
@@ -269,18 +272,13 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 13 days);
     PublicVault(payable(publicVault)).transferWithdrawReserve();
 
+    WithdrawKit wk = new WithdrawKit(IWETH9(address(WETH9)));
     vm.startPrank(address(1));
 
-    IWithdrawProxy(withdrawProxy).redeem(
-      vaultTokenBalance,
-      address(1),
-      address(1)
-    );
+    withdrawProxy.approve(address(wk), vaultTokenBalance);
+    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
     vm.stopPrank();
-    assertEq(
-      ERC20(PublicVault(payable(publicVault)).asset()).balanceOf(address(1)),
-      50 ether
-    );
+    assertEq(address(1).balance, 50 ether);
   }
 
   function testReleaseToAddress() public {
@@ -421,7 +419,7 @@ contract AstariaTest is TestHelpers {
 
     vm.warp(block.timestamp + 9 days);
     _repay(stack1, 100 ether, address(this));
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     //after epoch end
     uint256 balance = ERC20(PublicVault(payable(publicVault)).asset())
       .balanceOf(publicVault);
@@ -430,7 +428,7 @@ contract AstariaTest is TestHelpers {
       Lender({addr: bob, amountToLend: 50 ether}),
       payable(publicVault)
     );
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
 
     _lendToVault(
       Lender({addr: alice, amountToLend: 50 ether}),
@@ -513,7 +511,7 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 11 days);
     OrderParameters memory listedOrder = _liquidate(stack);
     skip(4 days);
-    COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder, 0);
+    COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder);
     PublicVault(payable(publicVault)).processEpoch();
 
     assertEq(
@@ -741,7 +739,7 @@ contract AstariaTest is TestHelpers {
     vm.warp(block.timestamp + 3 days);
 
     _signalWithdraw(address(1), payable(publicVault));
-    _warpToEpochEnd(publicVault);
+    _warpToEpochEnd(payable(publicVault));
     PublicVault(payable(publicVault)).processEpoch();
     PublicVault(payable(publicVault)).transferWithdrawReserve();
 

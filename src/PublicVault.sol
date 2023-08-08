@@ -636,7 +636,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   ) internal virtual {
     if (VAULT_FEE() != uint256(0) && interestPaid > 0) {
       uint256 fee = interestPaid.mulWadDown(VAULT_FEE());
-      uint256 feeInShares = convertToShares(fee);
+      uint256 feeInShares = fee.mulDivDown(totalSupply(), totalAssets() - fee);
       _mint(owner(), feeInShares);
     }
   }
@@ -686,6 +686,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     _setSlope(s, newSlope);
 
     uint64 epoch = getLienEpoch(lienEnd);
+
+    if (timeToEpochEnd(epoch) == 0) {
+      revert InvalidVaultState(InvalidVaultStates.EPOCH_ENDED);
+    }
 
     _increaseOpenLiens(s, epoch);
     emit LienOpen(tokenId, epoch);

@@ -1,8 +1,6 @@
 pragma solidity =0.8.17;
-
-pragma experimental ABIEncoderV2;
 import {ILienToken} from "core/interfaces/ILienToken.sol";
-import "openzeppelin/token/ERC20/IERC20.sol";
+import "core/interfaces/IERC20.sol";
 
 /// @title Interface for WETH9
 interface IWETH9 is IERC20 {

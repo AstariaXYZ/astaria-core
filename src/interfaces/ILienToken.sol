@@ -39,7 +39,6 @@ interface ILienToken is IERC721 {
   event FileUpdated(FileType what, bytes data);
 
   struct LienStorage {
-    ITransferProxy TRANSFER_PROXY;
     IAstariaRouter ASTARIA_ROUTER;
     ICollateralToken COLLATERAL_TOKEN;
     mapping(uint256 => bytes32) collateralStateHash;
@@ -119,6 +118,10 @@ interface ILienToken is IERC721 {
     uint256 collateralId
   ) external view returns (address liquidator);
 
+  function getAuctionData(
+    uint256 collateralId
+  ) external view returns (AuctionData memory);
+
   function file(File calldata file) external;
 
   event NewLien(uint256 indexed collateralId, Stack stack);
@@ -135,6 +138,7 @@ interface ILienToken is IERC721 {
     INVALID_LIQUIDATION_INITIAL_ASK,
     PUBLIC_VAULT_RECIPIENT,
     COLLATERAL_NOT_LIQUIDATED,
+    COLLATERAL_LIQUIDATED,
     AMOUNT_ZERO,
     MIN_DURATION_NOT_MET
   }

@@ -51,7 +51,6 @@ interface ICollateralToken is IERC721 {
   }
 
   struct CollateralStorage {
-    ITransferProxy TRANSFER_PROXY;
     ILienToken LIEN_TOKEN;
     IAstariaRouter ASTARIA_ROUTER;
     ConsiderationInterface SEAPORT;
@@ -121,8 +120,7 @@ interface ICollateralToken is IERC721 {
 
   function liquidatorNFTClaim(
     ILienToken.Stack memory stack,
-    OrderParameters memory params,
-    uint
+    OrderParameters memory params
   ) external;
 
   error UnsupportedFile();
@@ -136,6 +134,7 @@ interface ICollateralToken is IERC721 {
   error InvalidZoneHash();
   error InvalidTarget();
   error InvalidPaymentToken();
+  error InvalidPaymentAmount();
 
   enum InvalidCollateralStates {
     AUCTION_ACTIVE,

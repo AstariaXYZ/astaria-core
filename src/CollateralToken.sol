@@ -22,13 +22,14 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {Authority} from "solmate/auth/Auth.sol";
+import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {CollateralLookup} from "core/libraries/CollateralLookup.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC721} from "gpl/ERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {Math} from "core/utils/Math.sol";
 import {VaultImplementation} from "core/VaultImplementation.sol";
-import {Bytes32AddressLib} from "solmate/utils/Bytes32AddressLib.sol";
 import {
   Create2ClonesWithImmutableArgs
 } from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
@@ -60,11 +61,13 @@ import {
 } from "seaport-types/src/interfaces/SeaportInterface.sol";
 import {ZoneInterface} from "seaport-types/src/interfaces/ZoneInterface.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
+import {AmountDeriver} from "seaport-core/src/lib/AmountDeriver.sol";
 
 contract CollateralToken is
   AuthInitializable,
   ERC721,
   ZoneInterface,
+  AmountDeriver,
   ICollateralToken
 {
   using SafeTransferLib for ERC20;
@@ -79,14 +82,12 @@ contract CollateralToken is
 
   function initialize(
     Authority AUTHORITY_,
-    ITransferProxy TRANSFER_PROXY_,
     ILienToken LIEN_TOKEN_,
     ConsiderationInterface SEAPORT_
   ) public initializer {
     __initAuth(msg.sender, address(AUTHORITY_));
     __initERC721("Astaria Collateral Token", "ACT");
     CollateralStorage storage s = _loadCollateralSlot();
-    s.TRANSFER_PROXY = TRANSFER_PROXY_;
     s.LIEN_TOKEN = LIEN_TOKEN_;
     s.SEAPORT = SEAPORT_;
     (, , address conduitController) = s.SEAPORT.information();
@@ -135,17 +136,18 @@ contract CollateralToken is
       uint256 collateralId = zoneParameters.offer[0].token.computeId(
         zoneParameters.offer[0].identifier
       );
-
-      if (
-        zoneParameters.orderHashes[0] !=
-        s.idToUnderlying[collateralId].auctionHash
-      ) {
-        revert InvalidOrder();
-      }
       ILienToken.Stack memory stack = abi.decode(
         zoneParameters.extraData,
         (ILienToken.Stack)
       );
+      if (
+        zoneParameters.orderHashes[0] !=
+        s.idToUnderlying[collateralId].auctionHash ||
+        stack.lien.collateralId != collateralId
+      ) {
+        revert InvalidOrder();
+      }
+
       ERC20 paymentToken = ERC20(zoneParameters.consideration[0].token);
       if (address(paymentToken) != stack.lien.token) {
         revert InvalidPaymentToken();
@@ -156,6 +158,24 @@ contract CollateralToken is
       }
 
       uint256 payment = zoneParameters.consideration[0].amount;
+
+      uint256 lia = Math.max(
+        s.LIEN_TOKEN.getAuctionData(collateralId).amountOwed,
+        stack.lien.details.liquidationInitialAsk
+      );
+      if (
+        paymentToken.balanceOf(address(this)) < payment ||
+        payment !=
+        _locateCurrentAmount(
+          lia,
+          1000 wei,
+          zoneParameters.startTime,
+          zoneParameters.endTime,
+          true // round down
+        )
+      ) {
+        revert InvalidPaymentAmount();
+      }
 
       uint256 liquidatorPayment = s.ASTARIA_ROUTER.getLiquidatorFee(payment);
 
@@ -170,7 +190,7 @@ contract CollateralToken is
       if (paymentToken.allowance(address(this), transferProxy) != 0) {
         paymentToken.safeApprove(transferProxy, 0);
       }
-      paymentToken.approve(address(transferProxy), s.LIEN_TOKEN.getOwed(stack));
+      paymentToken.safeApprove(address(transferProxy), payment);
 
       s.LIEN_TOKEN.makePayment(stack);
 
@@ -242,8 +262,7 @@ contract CollateralToken is
    */
   function liquidatorNFTClaim(
     ILienToken.Stack memory stack,
-    OrderParameters memory params,
-    uint256 counterAtLiquidation
+    OrderParameters memory params
   ) external whenNotPaused {
     CollateralStorage storage s = _loadCollateralSlot();
 
@@ -262,7 +281,9 @@ contract CollateralToken is
 
     if (
       s.idToUnderlying[collateralId].auctionHash !=
-      s.SEAPORT.getOrderHash(getOrderComponents(params, counterAtLiquidation))
+      s.SEAPORT.getOrderHash(
+        getOrderComponents(params, s.SEAPORT.getCounter(address(this)))
+      )
     ) {
       //revert auction params dont match
       revert InvalidCollateralState(
@@ -394,11 +415,16 @@ contract CollateralToken is
   ) internal {
     Asset storage underlying = s.idToUnderlying[collateralId];
     _burnAndClearState(s, collateralId);
-    ERC721(underlying.tokenContract).transferFrom(
-      address(this),
-      releaseTo,
-      underlying.tokenId
-    );
+
+    // malicious collateralized ERC721 token can block liquidation
+    // allow the transferFrom to fail without consequence
+    try
+      ERC721(underlying.tokenContract).transferFrom(
+        address(this),
+        releaseTo,
+        underlying.tokenId
+      )
+    {} catch {}
     emit ReleaseTo(underlying.tokenContract, underlying.tokenId, releaseTo);
   }
 
@@ -442,8 +468,14 @@ contract CollateralToken is
   function tokenURI(
     uint256 collateralId
   ) public view virtual override(ERC721, IERC721) returns (string memory) {
-    (address underlyingAsset, uint256 assetId) = getUnderlying(collateralId);
-    return ERC721(underlyingAsset).tokenURI(assetId);
+    require(
+      ownerOf(collateralId) != address(0),
+      "ERC721Metadata: URI query for nonexistent token"
+    );
+    return
+      string(
+        abi.encodePacked("https://data.astaria.xyz/collateral/", collateralId)
+      );
   }
 
   function _generateValidOrderParameters(
@@ -520,10 +552,16 @@ contract CollateralToken is
     Order[] memory listing = new Order[](1);
     listing[0] = Order(orderParameters, "");
 
-    ERC721(orderParameters.offer[0].token).approve(
-      s.CONDUIT,
-      orderParameters.offer[0].identifierOrCriteria
-    );
+    // malicious collateralized ERC721 token can block liquidation
+    // allow the approve to fail without consequence
+    // this creates an empty auction
+    try
+      ERC721(orderParameters.offer[0].token).approve(
+        s.CONDUIT,
+        orderParameters.offer[0].identifierOrCriteria
+      )
+    {} catch {}
+
     if (!s.SEAPORT.validate(listing)) {
       revert InvalidOrder();
     }

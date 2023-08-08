@@ -20,6 +20,7 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
+import {Math} from "core/utils/Math.sol";
 import {
   Create2ClonesWithImmutableArgs
 } from "create2-clones-with-immutable-args/Create2ClonesWithImmutableArgs.sol";
@@ -108,7 +109,7 @@ contract AstariaRouter is
     s.minEpochLength = uint32(7 days);
     s.maxEpochLength = uint32(45 days);
     s.maxInterestRate = ((uint256(1e16) * 200) / (365 days));
-    s.maxStrategistFee = uint256(50e17);
+    s.maxStrategistFee = uint256(5e17);
     //63419583966; // 200% apy / second
     s.guardian = msg.sender;
     s.minLoanDuration = 1 hours;
@@ -318,8 +319,14 @@ contract AstariaRouter is
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinEpochLength) {
       s.minEpochLength = abi.decode(data, (uint256)).safeCastTo32();
+      if (s.maxEpochLength < s.minEpochLength) {
+        revert InvalidFileData();
+      }
     } else if (what == FileType.MaxEpochLength) {
       s.maxEpochLength = abi.decode(data, (uint256)).safeCastTo32();
+      if (s.maxEpochLength < s.minEpochLength) {
+        revert InvalidFileData();
+      }
     } else if (what == FileType.MaxInterestRate) {
       s.maxInterestRate = abi.decode(data, (uint256));
     } else if (what == FileType.MaxStrategistFee) {
@@ -568,7 +575,10 @@ contract AstariaRouter is
         ILienToken.InvalidLienStates.AMOUNT_ZERO
       );
     }
-    if (newStack.lien.details.duration < s.minLoanDuration) {
+    if (
+      newStack.lien.details.duration < s.minLoanDuration ||
+      newStack.lien.details.duration == 0
+    ) {
       revert ILienToken.InvalidLienState(
         ILienToken.InvalidLienStates.MIN_DURATION_NOT_MET
       );
@@ -690,17 +700,16 @@ contract AstariaRouter is
 
     s.LIEN_TOKEN.handleLiquidation(auctionWindowMax, stack, msg.sender);
 
-    emit Liquidation(
-      stack.lien.collateralId,
-      msg.sender,
-      s.COLLATERAL_TOKEN.SEAPORT().getCounter(address(s.COLLATERAL_TOKEN))
-    );
+    emit Liquidation(stack.lien.collateralId, msg.sender);
     listedOrder = s.COLLATERAL_TOKEN.auctionVault(
       ICollateralToken.AuctionVaultParams({
         settlementToken: stack.lien.token,
         collateralId: stack.lien.collateralId,
         maxDuration: auctionWindowMax,
-        startingPrice: stack.lien.details.liquidationInitialAsk,
+        startingPrice: Math.max(
+          stack.lien.details.liquidationInitialAsk,
+          s.LIEN_TOKEN.getOwed(stack)
+        ),
         endingPrice: 1_000 wei
       })
     );
@@ -861,23 +870,33 @@ contract AstariaRouter is
     if (!s.vaults[c.lienRequest.strategy.vault]) {
       revert InvalidVault(c.lienRequest.strategy.vault);
     }
-    (
-      ,
-      address delegate,
-      address owner,
-      ,
-      ,
-      uint256 nonce,
-      bytes32 domainSeparator
-    ) = IVaultImplementation(c.lienRequest.strategy.vault).getState();
-    ERC721(c.tokenContract).transferFrom(
-      msg.sender,
-      address(s.COLLATERAL_TOKEN),
-      c.tokenId
-    );
-    s.COLLATERAL_TOKEN.depositERC721(c.tokenContract, c.tokenId, msg.sender);
-    _validateSignature(c.lienRequest, nonce, domainSeparator, owner, delegate);
-
+    {
+      (
+        ,
+        address delegate,
+        address owner,
+        ,
+        bool isShutdown,
+        uint256 nonce,
+        bytes32 domainSeparator
+      ) = IVaultImplementation(c.lienRequest.strategy.vault).getState();
+      if (isShutdown) {
+        revert InvalidVaultState(IAstariaRouter.VaultState.SHUTDOWN);
+      }
+      ERC721(c.tokenContract).transferFrom(
+        msg.sender,
+        address(s.COLLATERAL_TOKEN),
+        c.tokenId
+      );
+      s.COLLATERAL_TOKEN.depositERC721(c.tokenContract, c.tokenId, msg.sender);
+      _validateSignature(
+        c.lienRequest,
+        nonce,
+        domainSeparator,
+        owner,
+        delegate
+      );
+    }
     uint256 owingAtEnd;
 
     ILienToken.Lien memory lien = _validateCommitment({s: s, commitment: c});
@@ -889,18 +908,20 @@ contract AstariaRouter is
         lien.details.duration = timeToSecondEpochEnd;
       }
     }
-    (lienId, stack, owingAtEnd) = s.LIEN_TOKEN.createLien(
-      ILienToken.LienActionEncumber({
-        lien: lien,
-        borrower: msg.sender,
-        amount: c.lienRequest.amount,
-        receiver: c.lienRequest.strategy.vault,
-        feeTo: s.feeTo,
-        fee: s.feeTo == address(0)
-          ? 0
-          : _getProtocolFee(s, c.lienRequest.amount)
-      })
-    );
-    _validateRequest(s, c, stack, owingAtEnd);
+    {
+      (lienId, stack, owingAtEnd) = s.LIEN_TOKEN.createLien(
+        ILienToken.LienActionEncumber({
+          lien: lien,
+          borrower: msg.sender,
+          amount: c.lienRequest.amount,
+          receiver: c.lienRequest.strategy.vault,
+          feeTo: s.feeTo,
+          fee: s.feeTo == address(0)
+            ? 0
+            : _getProtocolFee(s, c.lienRequest.amount)
+        })
+      );
+      _validateRequest(s, c, stack, owingAtEnd);
+    }
   }
 }
