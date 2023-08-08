@@ -487,6 +487,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
           data,
           (address, uint256, uint40, uint256, address, uint256)
         );
+
       VaultData storage s = _loadStorageSlot();
       if (amount > s.balance) {
         revert InvalidVaultState(
@@ -494,8 +495,8 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         );
       }
       s.balance -= amount;
-      _issuePayout(borrower, amount, feeTo, feeRake);
       _addLien(tokenId, lienSlope, lienEnd);
+      _issuePayout(borrower, amount, feeTo, feeRake);
     }
 
     return IERC721Receiver.onERC721Received.selector;

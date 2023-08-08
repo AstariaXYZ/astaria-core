@@ -242,7 +242,7 @@ abstract contract VaultImplementation is
 
       wethContract.withdraw(newAmount);
 
-      payable(borrower).transfer(newAmount);
+      borrower.call{value: newAmount}("");
     } else {
       ERC20(asset()).safeTransfer(borrower, newAmount);
     }
