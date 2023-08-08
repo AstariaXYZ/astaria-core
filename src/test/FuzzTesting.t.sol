@@ -147,38 +147,8 @@ contract AstariaFuzzTest is TestHelpers, SigUtils, Bound {
       params.borrower = _toAddress(_boundMin(_toUint(params.borrower), 100));
     }
 
-    vm.assume(params.borrower != COLLATERAL_TOKEN.getConduit());
-    vm.assume(params.borrower != address(COLLATERAL_TOKEN));
-    vm.assume(params.borrower != address(PROXY_ADMIN));
-    vm.assume(params.borrower != address(MRA));
-    vm.assume(params.borrower != address(LIEN_TOKEN));
-    vm.assume(params.borrower != address(ASTARIA_ROUTER));
-    vm.assume(params.borrower != address(TRANSFER_PROXY));
-    vm.assume(params.borrower != address(vault));
-    vm.assume(params.borrower != address(test721_1));
-    vm.assume(params.borrower != address(test721_2));
-    vm.assume(params.borrower != address(test721_3));
-    vm.assume(params.borrower != address(token1));
-    vm.assume(params.borrower != address(token2));
-    vm.assume(params.borrower != address(token3));
-    vm.assume(params.borrower != address(consideration));
-    vm.assume(params.borrower != address(conduitController));
-    vm.assume(params.lender != COLLATERAL_TOKEN.getConduit());
-    vm.assume(params.lender != address(COLLATERAL_TOKEN));
-    vm.assume(params.lender != address(PROXY_ADMIN));
-    vm.assume(params.lender != address(MRA));
-    vm.assume(params.lender != address(LIEN_TOKEN));
-    vm.assume(params.lender != address(ASTARIA_ROUTER));
-    vm.assume(params.lender != address(TRANSFER_PROXY));
-    vm.assume(params.lender != address(vault));
-    vm.assume(params.lender != address(test721_1));
-    vm.assume(params.lender != address(test721_2));
-    vm.assume(params.lender != address(test721_3));
-    vm.assume(params.lender != address(token1));
-    vm.assume(params.lender != address(token2));
-    vm.assume(params.lender != address(token3));
-    vm.assume(params.lender != address(consideration));
-    vm.assume(params.lender != address(conduitController));
+    vm.assume(params.lender.code.length == 0);
+    vm.assume(params.borrower.code.length == 0);
     vm.assume(!willArithmeticOverflow(params, term));
 
     //BORROWER MINT & APPROVE NFT

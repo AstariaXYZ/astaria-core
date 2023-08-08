@@ -111,6 +111,7 @@ contract AstariaRouter is
     s.maxInterestRate = ((uint256(1e16) * 200) / (365 days));
     s.maxStrategistFee = uint256(5e17);
     //63419583966; // 200% apy / second
+    s.maxStrategistFee = uint256(5e17);
     s.guardian = msg.sender;
     s.minLoanDuration = 1 hours;
     s.WETH = _WETH;
