@@ -282,7 +282,10 @@ contract ExternalRefinancing is IFlashLoanRecipient {
         "Loan unsuccessfully repaid"
       );
     } else {
-      PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepay(ids, amounts);
+      PunkGateway(payable(BEND_PUNK_GATEWAY)).batchRepayETH{value: debt}(
+        ids,
+        amounts
+      );
     }
 
     ERC721(tokenAddress).transferFrom(borrower, address(this), tokenId);
@@ -300,6 +303,7 @@ contract ExternalRefinancing is IFlashLoanRecipient {
       ERC721(COLLATERAL_TOKEN).ownerOf(stack.lien.collateralId) == borrower,
       "CollateralToken not returned to borrower"
     );
+    IWETH9(WETH).deposit{value: debt}();
 
     IERC20(WETH).transfer(BALANCER_VAULT, debt);
   }

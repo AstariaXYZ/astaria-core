@@ -143,36 +143,6 @@ contract BendDaoTest is TestHelpers {
       collateralToken: GOERLI_COLLATERAL_TOKEN
     });
 
-    //    address payable publicVault = _createPublicVault({
-    //      strategist: strategistOne,
-    //      delegate: strategistTwo,
-    //      epochLength: 14 days
-    //    });
-    //    _lendToVault(
-    //      Lender({addr: address(1), amountToLend: 50 ether}),
-    //      payable(publicVault)
-    //    );
-    //
-    //    ILienToken.Details memory details = ILienToken.Details({
-    //      maxAmount: 48123908081253539840000,
-    //      rate: (uint256(1e16) * 150) / (365 days),
-    //      duration: 10 days,
-    //      maxPotentialDebt: 0,
-    //      liquidationInitialAsk: 48123908081253539840000 * 2
-    //    });
-    //
-    //    IAstariaRouter.Commitment memory commitment = _generateValidTerms({
-    //      vault: publicVault,
-    //      strategist: strategistOne,
-    //      strategistPK: strategistOnePK,
-    //      tokenContract: 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D,
-    //      tokenId: 122,
-    //      lienDetails: details,
-    //      amount: 48123908081253539840000
-    //    });
-
-    // goerli Astaria
-
     vm.startPrank(strategistOne);
     address payable publicVault = payable(
       AstariaRouter(GOERLI_ASTARIA_ROUTER).newPublicVault(
@@ -229,25 +199,4 @@ contract BendDaoTest is TestHelpers {
 
     vm.stopPrank();
   }
-
-  //  function testRefinancePOC() public {
-  //    vm.selectFork(mainnetFork);
-  //    vm.roll(REPAY_BLOCK);
-  //    address pool = LendPoolAddressesProvider(BEND_ADDRESSES_PROVIDER)
-  //      .getLendPool();
-  //
-  //    vm.startPrank(LOAN_HOLDER);
-  //    address[] memory nfts = new address[](1);
-  //    nfts[0] = 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D;
-  //    uint256[] memory ids = new uint256[](1);
-  //    ids[0] = 122;
-  //    uint256[] memory amounts = new uint256[](1);
-  //    amounts[0] = 48123908081253539840000;
-  //    vm.deal(LOAN_HOLDER, 48123908081253539840000);
-  //    //    WETHGateway(payable(WETH_GATEWAY)).batchRepayETH{
-  //    //      value: 48123908081253539840000
-  //    //    }(nfts, ids, amounts);
-  //    LendPool(pool).batchRepay(nfts, ids, amounts);
-  //    vm.stopPrank();
-  //  }
 }
