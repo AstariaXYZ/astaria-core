@@ -185,7 +185,7 @@ interface IAstariaRouter is IPausable, IBeacon {
 
   function getImpl(uint8 implType) external view returns (address impl);
 
-  event Liquidation(uint256 collateralId, address liquidator);
+  event Liquidation(uint256 lienId, address liquidator);
   event NewVault(
     address strategist,
     address delegate,

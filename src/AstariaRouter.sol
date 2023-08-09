@@ -302,11 +302,7 @@ contract AstariaRouter is
     if (what == FileType.AuctionWindow) {
       uint256 window = abi.decode(data, (uint256));
       s.auctionWindow = window.safeCastTo32();
-      if (
-        s.auctionWindow == 0 ||
-        s.auctionWindow > s.minEpochLength ||
-        s.auctionWindow < s.maxEpochLength
-      ) {
+      if (s.auctionWindow == 0) {
         revert InvalidFileData();
       }
     } else if (what == FileType.LiquidationFee) {
@@ -711,7 +707,7 @@ contract AstariaRouter is
 
     s.LIEN_TOKEN.handleLiquidation(auctionWindowMax, stack, msg.sender);
 
-    emit Liquidation(stack.lien.collateralId, msg.sender);
+    emit Liquidation(uint256(keccak256(abi.encode(stack))), msg.sender);
     listedOrder = s.COLLATERAL_TOKEN.auctionVault(
       ICollateralToken.AuctionVaultParams({
         settlementToken: stack.lien.token,
