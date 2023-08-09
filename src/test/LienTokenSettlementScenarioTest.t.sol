@@ -77,12 +77,14 @@ contract LienTokenScenarioTest is TestHelpers {
       lienDetails: standardLienDetails,
       amount: 10 ether
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
     vm.warp(block.timestamp + 9 days);
 
     _repay(stack, 50 ether, address(this));
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     // all assetions for this test are made in the TestHelpers
   }
@@ -127,6 +129,7 @@ contract LienTokenScenarioTest is TestHelpers {
       }),
       amount: 10 ether
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
@@ -146,6 +149,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     vm.warp(block.timestamp + 10 days);
     OrderParameters memory listedOrder = _liquidate(stack);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     // validate the slope is reset at liquidation initialization
     assertEq(
@@ -164,6 +168,7 @@ contract LienTokenScenarioTest is TestHelpers {
       pv.totalAssets() - fee
     );
     _bid(Bidder(bidder, bidderPK), listedOrder, 20 ether, stack);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
     skip(3 days);
 
     // validate that strategist fees were minted
@@ -242,6 +247,7 @@ contract LienTokenScenarioTest is TestHelpers {
       }),
       amount: 10 ether
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
@@ -261,6 +267,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     vm.warp(block.timestamp + 10 days);
     OrderParameters memory listedOrder = _liquidate(stack);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     // validate the slope is reset at liquidation initialization
     assertEq(
@@ -281,6 +288,7 @@ contract LienTokenScenarioTest is TestHelpers {
       5 ether,
       stack
     );
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
     skip(3 days);
 
     // uint256 liquidatorFee = ASTARIA_ROUTER.getLiquidatorFee(executionPrice);
@@ -364,6 +372,7 @@ contract LienTokenScenarioTest is TestHelpers {
       }),
       amount: 10 ether
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
@@ -383,6 +392,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     vm.warp(block.timestamp + 10 days);
     OrderParameters memory listedOrder = _liquidate(stack);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     // validate the slope is reset at liquidation initialization
     assertEq(
@@ -402,6 +412,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     // uint256 liquidatorFee = ASTARIA_ROUTER.getLiquidatorFee(executionPrice);
     COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 decreaseInYintercept = amountOwed;
 
@@ -485,6 +496,7 @@ contract LienTokenScenarioTest is TestHelpers {
       }),
       amount: 10 ether
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
@@ -510,6 +522,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     vm.warp(block.timestamp + 14 days);
     OrderParameters memory listedOrder = _liquidate(stack);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     assertTrue(
       address(PublicVault(payable(publicVault)).getWithdrawProxy(0)) !=
@@ -530,6 +543,7 @@ contract LienTokenScenarioTest is TestHelpers {
     // uint256 strategistSharesOwed = PublicVault(payable(publicVault)).convertToShares((amountOwed - 10 ether).mulDivDown(1e17, 1e18));
     uint256 expectedFinalAuctionEnd = block.timestamp + 3 days;
     _bid(Bidder(bidder, bidderPK), listedOrder, 20 ether, stack);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
     vm.warp(expectedFinalAuctionEnd);
 
     IWithdrawProxy withdrawProxy = PublicVault(payable(publicVault))
@@ -587,6 +601,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     PublicVault(payable(publicVault)).processEpoch();
     withdrawProxy.claim();
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     assertEq(
       WETH9.balanceOf(publicVault),
@@ -646,6 +661,7 @@ contract LienTokenScenarioTest is TestHelpers {
       }),
       amount: 10 ether
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
@@ -665,6 +681,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     vm.warp(block.timestamp + 14 days);
     OrderParameters memory listedOrder = _liquidate(stack);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     // validate the slope is reset at liquidation initialization
     assertEq(
@@ -683,6 +700,7 @@ contract LienTokenScenarioTest is TestHelpers {
       5 ether,
       stack
     );
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
     vm.warp(expectedFinalAuctionEnd);
 
     uint256 liquidatorFee = ASTARIA_ROUTER.getLiquidatorFee(executionPrice);
@@ -749,6 +767,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     PublicVault(payable(publicVault)).processEpoch();
     withdrawProxy.claim();
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     assertEq(
       WETH9.balanceOf(publicVault),
@@ -808,6 +827,7 @@ contract LienTokenScenarioTest is TestHelpers {
       }),
       amount: 10 ether
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 collateralId = tokenContract.computeId(tokenId);
 
@@ -827,6 +847,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     vm.warp(block.timestamp + 14 days);
     OrderParameters memory listedOrder = _liquidate(stack);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     // validate the slope is reset at liquidation initialization
     assertEq(
@@ -842,6 +863,7 @@ contract LienTokenScenarioTest is TestHelpers {
     vm.warp(expectedFinalAuctionEnd);
     // no bid
     COLLATERAL_TOKEN.liquidatorNFTClaim(stack, listedOrder);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     uint256 decreaseInYintercept = amountOwed;
 
@@ -914,6 +936,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     PublicVault(payable(publicVault)).processEpoch();
     withdrawProxy.claim();
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     assertEq(
       WETH9.balanceOf(publicVault),
@@ -1004,11 +1027,13 @@ contract LienTokenScenarioTest is TestHelpers {
       }),
       amount: 5 ether
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     // uint256 collateralId = tokenContract.computeId(tokenId);
 
     skip(11 days);
     OrderParameters memory listedOrderOne = _liquidate(stackOne);
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     IWithdrawProxy withdrawProxy = PublicVault(payable(publicVault))
       .getWithdrawProxy(1);
@@ -1029,6 +1054,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
       console2.log("\n--- process epoch ---");
       PublicVault(payable(publicVault)).processEpoch();
+      assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
       // current epoch should be 2
 
       uint256 currentEpoch = PublicVault(payable(publicVault))
@@ -1055,6 +1081,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     {
       PublicVault(payable(publicVault)).transferWithdrawReserve();
+      assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
       uint256 withdrawReserve = PublicVault(payable(publicVault))
         .getWithdrawReserve();
       emit log_named_uint("withdrawReserve", withdrawReserve);
@@ -1093,12 +1120,14 @@ contract LienTokenScenarioTest is TestHelpers {
         IPublicVault.InvalidVaultStates.EPOCH_ENDED
       )
     });
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
 
     {
       skip(14 days);
 
       console2.log("\n--- process epoch ---");
       PublicVault(payable(publicVault)).processEpoch();
+      assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
       // current epoch should be 3
 
       uint256 currentEpoch = PublicVault(payable(publicVault))
@@ -1160,5 +1189,6 @@ contract LienTokenScenarioTest is TestHelpers {
         lender
       );
     }
+    assertEq(PublicVault(payable(publicVault)).getVirtualBalance(), WETH9.balanceOf(publicVault), "Virtual balance does not match real WETH balance");
   }
 }

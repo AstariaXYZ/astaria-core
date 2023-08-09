@@ -99,6 +99,8 @@ interface IPublicVault is IVaultImplementation {
 
   function getEpochData(uint64 epoch) external view returns (uint, address);
 
+  function getVirtualBalance() external view returns (uint256);
+
   // ERRORS
 
   error InvalidVaultState(InvalidVaultStates);
@@ -110,6 +112,7 @@ interface IPublicVault is IVaultImplementation {
     EPOCH_TOO_HIGH,
     EPOCH_NOT_OVER,
     WITHDRAW_RESERVE_NOT_ZERO,
+    WITHDRAW_RESERVE_UNDER_COLLATERALIZED,
     LIENS_OPEN_FOR_EPOCH_NOT_ZERO,
     LIQUIDATION_ACCOUNTANT_ALREADY_DEPLOYED_FOR_EPOCH,
     DEPOSIT_CAP_EXCEEDED,
@@ -123,4 +126,5 @@ interface IPublicVault is IVaultImplementation {
   event WithdrawProxyDeployed(uint256 epoch, address withdrawProxy);
   event LienOpen(uint256 lienId, uint256 epoch);
   event SlopeUpdated(uint256 newSlope);
+  event ProcessEpoch(address sender, uint256 currentEpoch);
 }

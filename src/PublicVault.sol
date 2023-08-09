@@ -312,6 +312,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     );
   }
 
+  function getVirtualBalance() public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+    return s.balance;
+  }
+
   /**
    * @notice Retrieve the domain separator.
    * @return The domain separator.
@@ -387,7 +392,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       // burn the tokens of the LPs withdrawing
       _burn(address(this), proxySupply);
     }
-
+    emit ProcessEpoch(msg.sender, s.currentEpoch);
     // increment epoch
     unchecked {
       s.currentEpoch++;
@@ -467,10 +472,10 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
   }
 
   function onERC721Received(
-    address operator, // operator_
-    address from, // from_
-    uint256 tokenId, // tokenId_
-    bytes calldata data // data_
+    address operator,
+    address from,
+    uint256 tokenId,
+    bytes calldata data
   ) external virtual override returns (bytes4) {
     if (
       operator == address(ROUTER()) &&
@@ -489,9 +494,16 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
         );
 
       VaultData storage s = _loadStorageSlot();
+
       if (amount > s.balance) {
         revert InvalidVaultState(
           InvalidVaultStates.LOAN_GREATER_THAN_VIRTUAL_BALANCE
+        );
+      }
+
+      if (s.balance - amount < s.withdrawReserve) {
+        revert InvalidVaultState(
+          InvalidVaultStates.WITHDRAW_RESERVE_UNDER_COLLATERALIZED
         );
       }
       s.balance -= amount;

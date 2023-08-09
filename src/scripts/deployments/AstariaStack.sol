@@ -39,7 +39,7 @@ contract AstariaStack is Script {
     vm.envAddress("PUBLIC_VAULT_IMPLEMENTATION_ADDR");
   address WITHDRAW_PROXY_ADDR = vm.envAddress("WITHDRAW_PROXY_ADDR");
   address BEACON_PROXY_ADDR = vm.envAddress("BEACON_PROXY_ADDR");
-  address CLEARING_HOUSE_IMPL_ADDR = vm.envAddress("CLEARING_HOUSE_IMPL_ADDR");
   address ASTARIA_ROUTER_IMPL_ADDR = vm.envAddress("ASTARIA_ROUTER_IMPL_ADDR");
   address ASTARIA_ROUTER_ADDR = vm.envAddress("ASTARIA_ROUTER_PROXY_ADDR");
+  address PROXY_ADMIN_ADDR = vm.envAddress("PROXY_ADMIN_ADDR");
 }
