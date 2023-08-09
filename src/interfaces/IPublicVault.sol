@@ -99,6 +99,8 @@ interface IPublicVault is IVaultImplementation {
 
   function getEpochData(uint64 epoch) external view returns (uint, address);
 
+  function getVirtualBalance() external view returns (uint256);
+
   // ERRORS
 
   error InvalidVaultState(InvalidVaultStates);

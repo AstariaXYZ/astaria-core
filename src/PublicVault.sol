@@ -312,6 +312,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     );
   }
 
+  function getVirtualBalance() public view returns (uint256) {
+    VaultData storage s = _loadStorageSlot();
+    return s.balance;
+  }
+
   /**
    * @notice Retrieve the domain separator.
    * @return The domain separator.
