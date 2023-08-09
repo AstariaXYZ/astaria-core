@@ -22,7 +22,7 @@ import {ILienToken} from "core/interfaces/ILienToken.sol";
 
 import {IPausable} from "core/utils/Pausable.sol";
 import {IBeacon} from "core/interfaces/IBeacon.sol";
-import {IERC4626RouterBase} from "gpl/interfaces/IERC4626RouterBase.sol";
+// import {IERC4626RouterBase} from "gpl/interfaces/IERC4626RouterBase.sol";
 import {OrderParameters} from "seaport-types/src/lib/ConsiderationStructs.sol";
 
 interface IAstariaRouter is IPausable, IBeacon {

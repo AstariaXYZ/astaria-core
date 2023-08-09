@@ -17,7 +17,7 @@ import {IERC165} from "core/interfaces/IERC165.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {ILienToken} from "core/interfaces/ILienToken.sol";
 import {IAstariaVaultBase} from "core/interfaces/IAstariaVaultBase.sol";
-import {IWithdrawProxy} from "src/interfaces/IWithdrawProxy.sol";
+import {IWithdrawProxy} from "core/interfaces/IWithdrawProxy.sol";
 
 interface IPublicVault is IVaultImplementation {
   struct EpochData {
