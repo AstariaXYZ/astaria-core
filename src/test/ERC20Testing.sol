@@ -4,7 +4,7 @@ import "./utils/SigUtils.sol";
 import {
   IERC20Validator,
   ERC20Validator
-} from "core/scripts/deployments/strategies/ERC20Validator.sol";
+} from "core/strategies/ERC20Validator.sol";
 import {TheLocker} from "core/TheLocker.sol";
 import "core/ERC20BorrowHelper.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -14,13 +14,10 @@ contract ERC20Testing is TestHelpers, SigUtils {
   function testERC20Borrow() public {
     //create new public vault
 
-    ERC20Validator validator = new ERC20Validator();
-    TheLocker locker = new TheLocker();
-
     ERC20BorrowHelper borrowHelper = new ERC20BorrowHelper(
       address(WETH9),
       ICollateralToken(COLLATERAL_TOKEN),
-      locker,
+      THE_LOCKER,
       IAstariaRouter(ASTARIA_ROUTER)
     );
 
@@ -36,7 +33,7 @@ contract ERC20Testing is TestHelpers, SigUtils {
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), payable(vault));
 
     IERC20Validator.Details memory validatorDetails = IERC20Validator.Details({
-      version: validator.VERSION_TYPE(),
+      version: uint8(4),
       token: address(collateralToken),
       borrower: address(0),
       minAmount: uint256(1 ether),
@@ -51,13 +48,6 @@ contract ERC20Testing is TestHelpers, SigUtils {
         nonce: vault.getStrategistNonce(),
         root: root,
         deadline: block.timestamp + strategyDuration
-      })
-    );
-
-    ASTARIA_ROUTER.file(
-      IAstariaRouter.File({
-        what: IAstariaRouter.FileType.StrategyValidator,
-        data: abi.encode(uint8(4), address(validator))
       })
     );
 
@@ -100,13 +90,10 @@ contract ERC20Testing is TestHelpers, SigUtils {
   function testERC20InvalidMinAmountOfZero() public {
     //create new public vault
 
-    ERC20Validator validator = new ERC20Validator();
-    TheLocker locker = new TheLocker();
-
     ERC20BorrowHelper borrowHelper = new ERC20BorrowHelper(
       address(WETH9),
       ICollateralToken(COLLATERAL_TOKEN),
-      locker,
+      THE_LOCKER,
       IAstariaRouter(ASTARIA_ROUTER)
     );
 
@@ -122,7 +109,7 @@ contract ERC20Testing is TestHelpers, SigUtils {
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), payable(vault));
 
     IERC20Validator.Details memory validatorDetails = IERC20Validator.Details({
-      version: validator.VERSION_TYPE(),
+      version: uint8(4),
       token: address(collateralToken),
       borrower: address(0),
       minAmount: 0,
@@ -137,13 +124,6 @@ contract ERC20Testing is TestHelpers, SigUtils {
         nonce: vault.getStrategistNonce(),
         root: root,
         deadline: block.timestamp + strategyDuration
-      })
-    );
-
-    ASTARIA_ROUTER.file(
-      IAstariaRouter.File({
-        what: IAstariaRouter.FileType.StrategyValidator,
-        data: abi.encode(uint8(4), address(validator))
       })
     );
 
@@ -181,13 +161,10 @@ contract ERC20Testing is TestHelpers, SigUtils {
   function testERC20InvalidMinAmountOfProvided() public {
     //create new public vault
 
-    ERC20Validator validator = new ERC20Validator();
-    TheLocker locker = new TheLocker();
-
     ERC20BorrowHelper borrowHelper = new ERC20BorrowHelper(
       address(WETH9),
       ICollateralToken(COLLATERAL_TOKEN),
-      locker,
+      THE_LOCKER,
       IAstariaRouter(ASTARIA_ROUTER)
     );
 
@@ -203,7 +180,7 @@ contract ERC20Testing is TestHelpers, SigUtils {
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), payable(vault));
 
     IERC20Validator.Details memory validatorDetails = IERC20Validator.Details({
-      version: validator.VERSION_TYPE(),
+      version: uint8(4),
       token: address(collateralToken),
       borrower: address(0),
       minAmount: uint256(5 ether) + 1,
@@ -218,13 +195,6 @@ contract ERC20Testing is TestHelpers, SigUtils {
         nonce: vault.getStrategistNonce(),
         root: root,
         deadline: block.timestamp + strategyDuration
-      })
-    );
-
-    ASTARIA_ROUTER.file(
-      IAstariaRouter.File({
-        what: IAstariaRouter.FileType.StrategyValidator,
-        data: abi.encode(uint8(4), address(validator))
       })
     );
 
@@ -262,13 +232,10 @@ contract ERC20Testing is TestHelpers, SigUtils {
   function testERC20InvalidRatioToUnderlying() public {
     //create new public vault
 
-    ERC20Validator validator = new ERC20Validator();
-    TheLocker locker = new TheLocker();
-
     ERC20BorrowHelper borrowHelper = new ERC20BorrowHelper(
       address(WETH9),
       ICollateralToken(COLLATERAL_TOKEN),
-      locker,
+      THE_LOCKER,
       IAstariaRouter(ASTARIA_ROUTER)
     );
 
@@ -284,7 +251,7 @@ contract ERC20Testing is TestHelpers, SigUtils {
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), payable(vault));
 
     IERC20Validator.Details memory validatorDetails = IERC20Validator.Details({
-      version: validator.VERSION_TYPE(),
+      version: uint8(4),
       token: address(collateralToken),
       borrower: address(0),
       minAmount: uint256(1 ether),
@@ -299,13 +266,6 @@ contract ERC20Testing is TestHelpers, SigUtils {
         nonce: vault.getStrategistNonce(),
         root: root,
         deadline: block.timestamp + strategyDuration
-      })
-    );
-
-    ASTARIA_ROUTER.file(
-      IAstariaRouter.File({
-        what: IAstariaRouter.FileType.StrategyValidator,
-        data: abi.encode(uint8(4), address(validator))
       })
     );
 
@@ -343,13 +303,10 @@ contract ERC20Testing is TestHelpers, SigUtils {
   function testERC20ExceedsMaxAmount() public {
     //create new public vault
 
-    ERC20Validator validator = new ERC20Validator();
-    TheLocker locker = new TheLocker();
-
     ERC20BorrowHelper borrowHelper = new ERC20BorrowHelper(
       address(WETH9),
       ICollateralToken(COLLATERAL_TOKEN),
-      locker,
+      THE_LOCKER,
       IAstariaRouter(ASTARIA_ROUTER)
     );
 
@@ -366,7 +323,7 @@ contract ERC20Testing is TestHelpers, SigUtils {
 
     standardLienDetails.maxAmount = 5 ether - 1;
     IERC20Validator.Details memory validatorDetails = IERC20Validator.Details({
-      version: validator.VERSION_TYPE(),
+      version: uint8(4),
       token: address(collateralToken),
       borrower: address(0),
       minAmount: uint256(1 ether),
@@ -381,13 +338,6 @@ contract ERC20Testing is TestHelpers, SigUtils {
         nonce: vault.getStrategistNonce(),
         root: root,
         deadline: block.timestamp + strategyDuration
-      })
-    );
-
-    ASTARIA_ROUTER.file(
-      IAstariaRouter.File({
-        what: IAstariaRouter.FileType.StrategyValidator,
-        data: abi.encode(uint8(4), address(validator))
       })
     );
 
@@ -425,17 +375,14 @@ contract ERC20Testing is TestHelpers, SigUtils {
   function testERC20InvalidDepositToken() public {
     //create new public vault
 
-    ERC20Validator validator = new ERC20Validator();
-    TheLocker locker = new TheLocker();
-
     ERC20BorrowHelper borrowHelper = new ERC20BorrowHelper(
       address(WETH9),
       ICollateralToken(COLLATERAL_TOKEN),
-      locker,
+      THE_LOCKER,
       IAstariaRouter(ASTARIA_ROUTER)
     );
 
-    ERC20 collateralToken = ERC20(address(erc20s[2]));
+    // ERC20 collateralToken = ERC20(address(erc20s[2]));
     uint256 amount = 5 ether;
 
     PublicVault vault = PublicVault(
@@ -445,8 +392,8 @@ contract ERC20Testing is TestHelpers, SigUtils {
     _lendToVault(Lender({addr: alice, amountToLend: 50 ether}), payable(vault));
 
     IERC20Validator.Details memory validatorDetails = IERC20Validator.Details({
-      version: validator.VERSION_TYPE(),
-      token: address(collateralToken),
+      version: uint8(4),
+      token: address(erc20s[2]),
       borrower: address(0),
       minAmount: uint256(1 ether),
       ratioToUnderlying: uint256(1 ether),
@@ -460,13 +407,6 @@ contract ERC20Testing is TestHelpers, SigUtils {
         nonce: vault.getStrategistNonce(),
         root: root,
         deadline: block.timestamp + 7 days
-      })
-    );
-
-    ASTARIA_ROUTER.file(
-      IAstariaRouter.File({
-        what: IAstariaRouter.FileType.StrategyValidator,
-        data: abi.encode(uint8(4), address(validator))
       })
     );
 
@@ -494,13 +434,13 @@ contract ERC20Testing is TestHelpers, SigUtils {
     );
 
     erc20s[1].mint(address(this), 5 ether);
-    ERC20(address(erc20s[1])).approve(address(locker), 5 ether);
-    uint256 tokenId = locker.deposit(ERC20(address(erc20s[1])), amount);
-    locker.approve(address(ASTARIA_ROUTER), tokenId);
+    ERC20(address(erc20s[1])).approve(address(THE_LOCKER), 5 ether);
+    uint256 tokenId = THE_LOCKER.deposit(ERC20(address(erc20s[1])), amount);
+    THE_LOCKER.approve(address(ASTARIA_ROUTER), tokenId);
     vm.expectRevert("invalid token contract");
     ASTARIA_ROUTER.commitToLien(
       IAstariaRouter.Commitment({
-        tokenContract: address(locker),
+        tokenContract: address(THE_LOCKER),
         tokenId: tokenId,
         lienRequest: lienRequest
       })

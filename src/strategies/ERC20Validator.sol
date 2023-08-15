@@ -28,7 +28,7 @@ interface IERC20Validator is IStrategyValidator {
     address token;
     address borrower;
     uint256 minAmount;
-    // ratio of borrow tokens to collateral tokens express is 1e18
+    // ratio of borrow tokens to collateral tokens expressed is 1e18
     uint256 ratioToUnderlying;
     ILienToken.Details lien;
   }
@@ -36,8 +36,12 @@ interface IERC20Validator is IStrategyValidator {
 
 contract ERC20Validator is IERC20Validator {
   using FixedPointMathLib for uint256;
-
+  address immutable THE_LOCKER;
   uint8 public constant VERSION_TYPE = uint8(4);
+
+  constructor(address _THE_LOCKER) {
+    THE_LOCKER = _THE_LOCKER;
+  }
 
   function getLeafDetails(
     bytes memory nlrDetails
@@ -74,8 +78,9 @@ contract ERC20Validator is IERC20Validator {
       );
     }
 
-    ILocker.Deposit memory deposit = ILocker(collateralTokenContract)
-      .getDeposit(collateralTokenId);
+    ILocker.Deposit memory deposit = ILocker(THE_LOCKER).getDeposit(
+      collateralTokenId
+    );
     require(cd.token == deposit.token, "invalid token contract");
     require(
       deposit.amount >= cd.minAmount && cd.minAmount != 0,

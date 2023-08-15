@@ -59,6 +59,13 @@ import {
   IUniqueValidator
 } from "src/strategies/UniqueValidator.sol";
 
+import {
+  IERC20Validator,
+  ERC20Validator
+} from "src/strategies/ERC20Validator.sol";
+
+import {TheLocker} from "core/TheLocker.sol";
+
 contract Deploy is Script {
   enum UserRoles {
     ADMIN,
@@ -83,6 +90,7 @@ contract Deploy is Script {
   ProxyAdmin PROXY_ADMIN;
   BeaconProxy BEACON_PROXY;
   RepaymentHelper REPAYMENT_HELPER;
+  TheLocker THE_LOCKER;
 
   bool testModeDisabled = true;
   bool setupDefaultStrategies = true;
@@ -289,6 +297,16 @@ contract Deploy is Script {
       );
     }
 
+    THE_LOCKER = new TheLocker();
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked("THE_LOCKER_ADDR=", vm.toString(address(THE_LOCKER)))
+        )
+      );
+    }
+
     {
       AstariaRouter AR_IMPL = new AstariaRouter();
       if (testModeDisabled) {
@@ -455,8 +473,13 @@ contract Deploy is Script {
     //strategy collection
     CollectionValidator COLLECTION_STRATEGY_VALIDATOR = new CollectionValidator();
     //strategy univ3
+    //
+    //strategy erc20
+    ERC20Validator ERC20_STRATEGY_VALIDATOR = new ERC20Validator(
+      address(THE_LOCKER)
+    );
 
-    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](2);
+    IAstariaRouter.File[] memory files = new IAstariaRouter.File[](3);
 
     files[0] = IAstariaRouter.File(
       IAstariaRouter.FileType.StrategyValidator,
@@ -465,6 +488,11 @@ contract Deploy is Script {
     files[1] = IAstariaRouter.File(
       IAstariaRouter.FileType.StrategyValidator,
       abi.encode(uint8(2), address(COLLECTION_STRATEGY_VALIDATOR))
+    );
+
+    files[2] = IAstariaRouter.File(
+      IAstariaRouter.FileType.StrategyValidator,
+      abi.encode(uint8(4), address(ERC20_STRATEGY_VALIDATOR))
     );
 
     ASTARIA_ROUTER.fileBatch(files);
