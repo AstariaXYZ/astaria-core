@@ -238,4 +238,8 @@ abstract contract VaultImplementation is
 
     ERC20(asset()).safeTransfer(address(ROUTER()), newAmount);
   }
+
+  receive() external payable {}
+
+  fallback() external payable {}
 }
