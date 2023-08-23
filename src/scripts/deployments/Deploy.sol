@@ -20,8 +20,8 @@ import {
   MultiRolesAuthority
 } from "solmate/auth/authorities/MultiRolesAuthority.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {WETH} from "solmate/tokens/WETH.sol";
 import {ERC721} from "gpl/ERC721.sol";
+import {WETH9 as WETH} from "gpl/WETH9.sol";
 import {ITransferProxy} from "core/interfaces/ITransferProxy.sol";
 import {IERC20} from "core/interfaces/IERC20.sol";
 
@@ -58,6 +58,7 @@ import {
   UniqueValidator,
   IUniqueValidator
 } from "src/strategies/UniqueValidator.sol";
+import {DepositHelper} from "src/DepositHelper.sol";
 
 contract Deploy is Script {
   enum UserRoles {
@@ -83,6 +84,7 @@ contract Deploy is Script {
   ProxyAdmin PROXY_ADMIN;
   BeaconProxy BEACON_PROXY;
   RepaymentHelper REPAYMENT_HELPER;
+  DepositHelper DEPOSIT_HELPER;
 
   bool testModeDisabled = true;
   bool setupDefaultStrategies = true;
@@ -240,6 +242,20 @@ contract Deploy is Script {
       );
     }
 
+    DEPOSIT_HELPER = new DepositHelper(address(TRANSFER_PROXY), address(WETH9));
+
+    if (testModeDisabled) {
+      vm.writeLine(
+        string(".env"),
+        string(
+          abi.encodePacked(
+            "DEPOSIT_HELPER=",
+            vm.toString(address(DEPOSIT_HELPER))
+          )
+        )
+      );
+    }
+
     SOLO_IMPLEMENTATION = new Vault();
     if (testModeDisabled) {
       vm.writeLine(
@@ -319,7 +335,7 @@ contract Deploy is Script {
             address(WETH9)
           )
         );
-      ASTARIA_ROUTER = AstariaRouter(address(astariaRouterProxy));
+      ASTARIA_ROUTER = AstariaRouter(payable(astariaRouterProxy));
 
       if (testModeDisabled) {
         vm.writeLine(
@@ -380,22 +396,16 @@ contract Deploy is Script {
       true
     );
 
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      CollateralToken.auctionVault.selector,
-      true
-    );
+    //    MRA.setRoleCapability(
+    //      uint8(UserRoles.ASTARIA_ROUTER),
+    //      CollateralToken.auctionVault.selector,
+    //      true
+    //    );
 
     // LIEN TOKEN CAPABILITIES
-    MRA.setRoleCapability(
-      uint8(UserRoles.ASTARIA_ROUTER),
-      LienToken.handleLiquidation.selector,
-      true
-    );
-
     //    MRA.setRoleCapability(
-    //      uint8(UserRoles.LIEN_TOKEN),
-    //      CollateralToken.settleAuction.selector,
+    //      uint8(UserRoles.ASTARIA_ROUTER),
+    //      LienToken.handleLiquidation.selector,
     //      true
     //    );
 

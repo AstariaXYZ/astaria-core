@@ -145,9 +145,9 @@ interface IAstariaRouter is IPausable, IBeacon {
     address underlying
   ) external returns (address);
 
-  function feeTo() external returns (address);
+  function feeTo() external view returns (address);
 
-  function WETH() external returns (address);
+  function WETH() external view returns (address);
 
   function commitToLien(
     Commitment memory commitments

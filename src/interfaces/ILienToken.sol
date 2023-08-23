@@ -77,7 +77,6 @@ interface ILienToken is IERC721 {
   }
 
   struct LienActionEncumber {
-    address borrower;
     uint256 amount;
     address receiver;
     ILienToken.Lien lien;

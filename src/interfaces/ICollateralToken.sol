@@ -30,6 +30,8 @@ import {
 } from "seaport-types/src/lib/ConsiderationStructs.sol";
 
 interface ICollateralToken is IERC721 {
+  event AuctionPurchased(address buyer, uint256 lienId, uint256 price);
+  event LiquidatorNFTClaimed(address liquidator, uint256 lienId);
   event ListedOnSeaport(uint256 collateralId, Order listingOrder);
   event FileUpdated(FileType what, bytes data);
   event Deposit721(

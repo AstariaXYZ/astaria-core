@@ -42,6 +42,7 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {OrderParameters} from "seaport-types/src/lib/ConsiderationStructs.sol";
 import {AuthInitializable} from "core/AuthInitializable.sol";
 import {Initializable} from "./utils/Initializable.sol";
+import {IWETH9} from "gpl/interfaces/IWETH9.sol";
 
 /**
  * @title AstariaRouter
@@ -71,6 +72,10 @@ contract AstariaRouter is
   constructor() {
     _disableInitializers();
   }
+
+  receive() external payable {}
+
+  fallback() external payable {}
 
   /**
    * @dev Setup transfer authority and set up addresses for deployed CollateralToken, LienToken, TransferProxy contracts, as well as PublicVault and SoloVault implementations to clone.
@@ -362,7 +367,7 @@ contract AstariaRouter is
   /**
    * @notice Retrieves the address of the WETH used by the protocol.
    */
-  function WETH() external returns (address) {
+  function WETH() external view returns (address) {
     RouterStorage storage s = _loadRouterSlot();
     return s.WETH;
   }
@@ -801,8 +806,7 @@ contract AstariaRouter is
         params.underlying,
         block.timestamp,
         params.epochLength,
-        params.vaultFee,
-        address(s.WETH)
+        params.vaultFee
       ),
       keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1)))
     );
@@ -919,7 +923,6 @@ contract AstariaRouter is
       (lienId, stack, owingAtEnd) = s.LIEN_TOKEN.createLien(
         ILienToken.LienActionEncumber({
           lien: lien,
-          borrower: msg.sender,
           amount: c.lienRequest.amount,
           receiver: c.lienRequest.strategy.vault,
           feeTo: s.feeTo,
@@ -929,6 +932,15 @@ contract AstariaRouter is
         })
       );
       _validateRequest(s, c, stack, owingAtEnd);
+      address asset = stack.lien.token;
+      uint256 newAmount = stack.point.amount;
+      if (asset == s.WETH) {
+        IWETH9(asset).withdraw(newAmount);
+
+        msg.sender.call{value: newAmount}("");
+      } else {
+        ERC20(asset).safeTransfer(msg.sender, newAmount);
+      }
     }
   }
 }
