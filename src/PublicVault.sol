@@ -482,16 +482,12 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       msg.sender == address(ROUTER().LIEN_TOKEN())
     ) {
       (
-        address borrower,
         uint256 amount,
         uint40 lienEnd,
         uint256 lienSlope,
         address feeTo,
         uint256 feeRake
-      ) = abi.decode(
-          data,
-          (address, uint256, uint40, uint256, address, uint256)
-        );
+      ) = abi.decode(data, (uint256, uint40, uint256, address, uint256));
 
       VaultData storage s = _loadStorageSlot();
 
@@ -508,7 +504,7 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
       }
       s.balance -= amount;
       _addLien(tokenId, lienSlope, lienEnd);
-      _issuePayout(borrower, amount, feeTo, feeRake);
+      _issuePayout(amount, feeTo, feeRake);
     }
 
     return IERC721Receiver.onERC721Received.selector;
