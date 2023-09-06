@@ -60,9 +60,9 @@ contract TheLocker is ERC721, ILocker {
       revert NotOwner();
     }
     Deposit memory deposit = deposits[tokenId];
-    ERC20(deposit.token).safeTransfer(receiver, deposit.amount);
     delete deposits[tokenId];
     _burn(tokenId);
+    ERC20(deposit.token).safeTransfer(receiver, deposit.amount);
     return (deposit.token, deposit.amount);
   }
 
