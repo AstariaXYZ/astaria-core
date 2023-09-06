@@ -455,6 +455,7 @@ contract Deploy is Script {
     PROXY_ADMIN.transferOwnership(guardian);
     MRA.transferOwnership(guardian);
     ASTARIA_ROUTER.transferOwnership(manager);
+    TRANSFER_PROXY.transferOwnership(guardian);
     LIEN_TOKEN.transferOwnership(manager);
     COLLATERAL_TOKEN.transferOwnership(manager);
   }

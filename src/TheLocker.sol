@@ -7,6 +7,7 @@ import {IERC721} from "core/interfaces/IERC721.sol";
 
 interface ILocker is IERC721 {
   error NotOwner();
+  error AmountMustBeGreaterThanZero();
 
   struct Deposit {
     address token;
@@ -41,6 +42,9 @@ contract TheLocker is ERC721, ILocker {
     ERC20 token,
     uint256 amount
   ) external returns (uint256 tokenId) {
+    if (amount == 0) {
+      revert AmountMustBeGreaterThanZero();
+    }
     token.safeTransferFrom(msg.sender, address(this), amount);
     tokenId = _counter;
     deposits[tokenId] = Deposit(address(token), amount);

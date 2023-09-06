@@ -276,7 +276,7 @@ contract AstariaTest is TestHelpers {
     vm.startPrank(address(1));
 
     withdrawProxy.approve(address(wk), vaultTokenBalance);
-    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
     assertEq(address(1).balance, 50 ether);
   }

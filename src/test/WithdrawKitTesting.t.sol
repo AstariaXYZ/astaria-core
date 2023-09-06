@@ -83,7 +83,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     withdrawProxy.previewRedeem(vaultTokenBalance);
     withdrawProxy.approve(address(wk), vaultTokenBalance);
-    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
     assertEq(address(1).balance, 50 ether);
   }
@@ -128,7 +128,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     withdrawProxy.previewRedeem(vaultTokenBalance);
     withdrawProxy.approve(address(wk), vaultTokenBalance);
-    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(vaultTokenBalance));
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
     assertEq(address(1).balance, 50 ether);
   }
@@ -186,7 +186,7 @@ contract WithdrawKitTesting is TestHelpers {
         10287671708519679750
       )
     );
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
   }
 
@@ -233,7 +233,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     uint256 withdrawTokenBalance = withdrawProxy.balanceOf(address(1));
     withdrawProxy.approve(address(wk), withdrawTokenBalance);
-    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(withdrawTokenBalance));
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     assertEq(
@@ -291,7 +291,7 @@ contract WithdrawKitTesting is TestHelpers {
         1834246575335199147
       )
     );
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
   }
 
@@ -334,7 +334,7 @@ contract WithdrawKitTesting is TestHelpers {
     uint256 withdrawTokenBalance = withdrawProxy.balanceOf(address(1));
 
     withdrawProxy.approve(address(wk), withdrawTokenBalance);
-    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(withdrawTokenBalance));
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     assertEq(
@@ -385,7 +385,7 @@ contract WithdrawKitTesting is TestHelpers {
     vm.startPrank(address(1));
     withdrawProxy.approve(address(wk), LP1Balance);
     vm.expectRevert(); // ZERO_ASSETS
-    wk.redeem(withdrawProxy, LP1Balance);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
   }
 
@@ -459,7 +459,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     vm.startPrank(address(1));
     withdrawProxy.approve(address(wk), LP1Balance);
-    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(LP1Balance));
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     _warpToEpochEnd(payable(publicVault));
@@ -472,7 +472,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     vm.startPrank(address(2));
     withdrawProxy.approve(address(wk), LP2Balance);
-    wk.redeem(withdrawProxy, withdrawProxy.previewRedeem(LP2Balance));
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     assertEq(
@@ -581,7 +581,7 @@ contract WithdrawKitTesting is TestHelpers {
     //
     vm.startPrank(address(1));
     withdrawProxy1.approve(address(wk), LP1Balance);
-    wk.redeem(withdrawProxy1, 0);
+    wk.redeem(withdrawProxy1);
     vm.stopPrank();
 
     withdrawProxy1 = PublicVault(publicVault).getWithdrawProxy(1);
@@ -589,7 +589,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     vm.startPrank(address(2));
     withdrawProxy1.approve(address(wk), LP2Balance);
-    wk.redeem(withdrawProxy1, 0);
+    wk.redeem(withdrawProxy1);
     vm.stopPrank();
 
     ///////////////////
@@ -719,12 +719,12 @@ contract WithdrawKitTesting is TestHelpers {
     IWithdrawProxy withdrawProxy = PublicVault(publicVault).getWithdrawProxy(0);
     vm.startPrank(address(1));
     withdrawProxy.approve(address(wk), LP1Balance);
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     vm.startPrank(address(2));
     withdrawProxy.approve(address(wk), LP2Balance);
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     IWithdrawProxy withdrawProxy2 = PublicVault(publicVault).getWithdrawProxy(
@@ -732,7 +732,7 @@ contract WithdrawKitTesting is TestHelpers {
     );
     vm.startPrank(address(3));
     withdrawProxy2.approve(address(wk), LP3Balance);
-    wk.redeem(withdrawProxy2, 0);
+    wk.redeem(withdrawProxy2);
     vm.stopPrank();
 
     assertEq(
@@ -837,7 +837,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     vm.startPrank(address(1));
     withdrawProxy.approve(address(wk), LP1Balance);
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     assertEq(
@@ -851,7 +851,7 @@ contract WithdrawKitTesting is TestHelpers {
     );
     vm.startPrank(address(2));
     withdrawProxy2.approve(address(wk), LP2Balance);
-    wk.redeem(withdrawProxy2, 0);
+    wk.redeem(withdrawProxy2);
     vm.stopPrank();
 
     assertEq(
@@ -929,12 +929,12 @@ contract WithdrawKitTesting is TestHelpers {
 
     vm.startPrank(address(1));
     withdrawProxy.approve(address(wk), LP1Balance);
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     vm.startPrank(address(2));
     withdrawProxy2.approve(address(wk), LP2Balance);
-    wk.redeem(withdrawProxy2, 0);
+    wk.redeem(withdrawProxy2);
     vm.stopPrank();
     assertEq(
       address(1).balance,
@@ -1001,7 +1001,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     vm.startPrank(address(1));
     withdrawProxy.approve(address(wk), LP1Balance);
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     assertEq(
@@ -1067,7 +1067,7 @@ contract WithdrawKitTesting is TestHelpers {
         28250000000060479223
       )
     );
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
   }
 
@@ -1164,7 +1164,7 @@ contract WithdrawKitTesting is TestHelpers {
 
     vm.startPrank(address(1));
     withdrawProxy.approve(address(wk), LP1Balance);
-    wk.redeem(withdrawProxy, 0);
+    wk.redeem(withdrawProxy);
     vm.stopPrank();
 
     assertEq(WETH9.balanceOf(publicVault), 0, "PublicVault balance not 0");
@@ -1240,7 +1240,7 @@ contract WithdrawKitTesting is TestHelpers {
     );
     vm.startPrank(address(1));
     withdrawProxy1.approve(address(wk), LP1Balance);
-    wk.redeem(withdrawProxy1, 0);
+    wk.redeem(withdrawProxy1);
     vm.stopPrank();
     assertEq(address(1).balance, 50 ether, "LP 1 balance incorrect");
 
@@ -1305,7 +1305,7 @@ contract WithdrawKitTesting is TestHelpers {
     );
     vm.startPrank(address(2));
     withdrawProxy2.approve(address(wk), LP2Balance);
-    wk.redeem(withdrawProxy2, 0);
+    wk.redeem(withdrawProxy2);
     vm.stopPrank();
     assertEq(
       address(2).balance,

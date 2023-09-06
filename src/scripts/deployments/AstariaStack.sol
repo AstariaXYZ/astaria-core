@@ -25,6 +25,7 @@ import {Consideration} from "seaport-core/src/lib/Consideration.sol";
 
 //goerli deployments
 contract AstariaStack is Script {
+  address GUARDIAN_ADDR = vm.envAddress("GUARDIAN_ADDR");
   address SEAPORT_ADDR = vm.envAddress("SEAPORT_ADDR");
   address WETH9_ADDR = vm.envAddress("WETH9_ADDR");
   address MRA_ADDR = vm.envAddress("MRA_ADDR");

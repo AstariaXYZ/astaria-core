@@ -8,7 +8,6 @@ import {IERC20} from "core/interfaces/IERC20.sol";
 
 contract WithdrawKit {
   error WithdrawReserveNotZero(uint64 epoch, uint256 reserve);
-  error MinAmountError();
   error ProcessEpochError(uint64 epoch, bytes reason);
   error LiensOpenForEpoch(uint64 epoch, uint256 liensOpenForEpoch);
   error FinalAuctionNotEnded(uint256 finalAuctionEnd);
@@ -19,7 +18,7 @@ contract WithdrawKit {
     WETH = WETH_;
   }
 
-  function redeem(IWithdrawProxy withdrawProxy, uint256 minAmountOut) external {
+  function redeem(IWithdrawProxy withdrawProxy) external {
     IPublicVault publicVault = IPublicVault(address(withdrawProxy.VAULT()));
     uint64 currentEpoch = publicVault.getCurrentEpoch();
     uint64 claimableEpoch = withdrawProxy.CLAIMABLE_EPOCH();
@@ -68,9 +67,6 @@ contract WithdrawKit {
     uint256 shareBalance = withdrawProxy.balanceOf(msg.sender);
     uint256 maxRedeem = withdrawProxy.maxRedeem(msg.sender);
     uint256 amountShares = maxRedeem < shareBalance ? maxRedeem : shareBalance;
-    if (withdrawProxy.previewRedeem(amountShares) < minAmountOut) {
-      revert MinAmountError();
-    }
 
     address vaultAsset = IAstariaVaultBase(withdrawProxy.VAULT()).asset();
     if (vaultAsset == address(WETH)) {
