@@ -59,10 +59,6 @@ abstract contract AstariaVaultBase is Clone, IAstariaVaultBase {
     return _getArgUint256(125); //ends at 157
   }
 
-  function WETH() public pure returns (address) {
-    return _getArgAddress(157); //ends at 177
-  }
-
   function COLLATERAL_TOKEN() public view returns (ICollateralToken) {
     return ROUTER().COLLATERAL_TOKEN();
   }

@@ -249,7 +249,6 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       params.receiver,
       newLienId,
       abi.encode(
-        params.borrower,
         params.amount,
         lienEnd,
         calculateSlope(newSlot),
@@ -435,7 +434,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     }
 
     _removeLien(s, lienId, collateralId);
-    emit Payment(lienId, amountOwed);
+
     if (amountOwed > 0) {
       s.ASTARIA_ROUTER.TRANSFER_PROXY().tokenTransferFromWithErrorReceiver(
         token,
@@ -446,6 +445,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     }
     //only if not in an auction
     if (msg.sender != address(s.COLLATERAL_TOKEN)) {
+      emit Payment(lienId, amountOwed);
       s.COLLATERAL_TOKEN.release(collateralId);
     }
   }

@@ -346,7 +346,7 @@ contract RevertTesting is TestHelpers {
 
     ERC721(tokenContract).setApprovalForAll(address(ASTARIA_ROUTER), true);
 
-    uint256 balanceOfBefore = ERC20(WETH9).balanceOf(address(this));
+    uint256 balanceOfBefore = ERC20(address(WETH9)).balanceOf(address(this));
     (uint256 lienId, ) = ASTARIA_ROUTER.commitToLien(terms);
 
     address underlying = address(WETH9);
@@ -363,8 +363,7 @@ contract RevertTesting is TestHelpers {
         underlying,
         block.timestamp,
         epochLength,
-        vaultFee,
-        address(WETH9)
+        vaultFee
       ),
       keccak256(abi.encodePacked(strategistTwo, blockhash(block.number - 1)))
     );

@@ -176,7 +176,11 @@ contract CollateralToken is
       ) {
         revert InvalidPaymentAmount();
       }
-
+      emit AuctionPurchased(
+        zoneParameters.fulfiller,
+        uint256(keccak256(abi.encode(stack))),
+        payment
+      );
       uint256 liquidatorPayment = s.ASTARIA_ROUTER.getLiquidatorFee(payment);
 
       payment -= liquidatorPayment;
@@ -297,6 +301,10 @@ contract CollateralToken is
     }
 
     s.LIEN_TOKEN.makePayment(stack);
+    emit LiquidatorNFTClaimed(
+      liquidator,
+      uint256(keccak256(abi.encode(stack)))
+    );
     _releaseToAddress(s, collateralId, liquidator);
   }
 

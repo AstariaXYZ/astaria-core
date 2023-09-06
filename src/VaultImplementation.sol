@@ -25,7 +25,6 @@ import {IPublicVault} from "core/interfaces/IPublicVault.sol";
 import {AstariaVaultBase} from "core/AstariaVaultBase.sol";
 import {IVaultImplementation} from "core/interfaces/IVaultImplementation.sol";
 import {SafeCastLib} from "gpl/utils/SafeCastLib.sol";
-import {IWETH9} from "gpl/interfaces/IWETH9.sol";
 
 /**
  * @title VaultImplementation
@@ -89,7 +88,7 @@ abstract contract VaultImplementation is
     if (msg.sender != owner() && msg.sender != s.delegate) {
       revert InvalidRequest(InvalidRequestReason.NO_AUTHORITY);
     }
-    s.strategistNonce += uint256(blockhash(block.number - 1) << 0x80);
+    s.strategistNonce += uint256(blockhash(block.number - 1) >> 0x80);
     emit NonceUpdated(s.strategistNonce);
   }
 
@@ -224,11 +223,11 @@ abstract contract VaultImplementation is
 
   /**
    * @dev Generates a Lien for a valid loan commitment proof and sends the loan amount to the borrower.
-   * @param borrower the address being paid
    * @param amount the amount being paid
+   * @param feeTo the protocol fee address if set
+   * @param feeRake the protocol fee rake
    */
   function _issuePayout(
-    address borrower,
     uint256 amount,
     address feeTo,
     uint256 feeRake
@@ -237,15 +236,7 @@ abstract contract VaultImplementation is
 
     uint256 newAmount = amount - feeRake;
 
-    if (asset() == WETH()) {
-      IWETH9 wethContract = IWETH9(asset());
-
-      wethContract.withdraw(newAmount);
-
-      borrower.call{value: newAmount}("");
-    } else {
-      ERC20(asset()).safeTransfer(borrower, newAmount);
-    }
+    ERC20(asset()).safeTransfer(address(ROUTER()), newAmount);
   }
 
   receive() external payable {}
