@@ -393,15 +393,15 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
     uint256 tokenId,
     bytes calldata _data
   ) external virtual returns (bytes4) {
-    // require(
-    //   msg.sender == address(VAULT().ROUTER().LIEN_TOKEN()),
-    //   "LienToken not msg.sender"
-    // );
-    // require(_from == address(VAULT()), "only vault can call");
-    // require(
-    //   address(this) == VAULT().ROUTER().LIEN_TOKEN().ownerOf(tokenId),
-    //   "token not transferred"
-    // );
+    require(
+      msg.sender == address(VAULT().ROUTER().LIEN_TOKEN()),
+      "LienToken not msg.sender"
+    );
+    require(_from == address(VAULT()), "only vault can call");
+    require(
+      address(this) == VAULT().ROUTER().LIEN_TOKEN().ownerOf(tokenId),
+      "token not transferred"
+    );
 
     uint256 expected;
     uint256 auctionEnd;
