@@ -417,7 +417,7 @@ contract AstariaTest is TestHelpers {
     });
     uint256 collateralId = tokenContract.computeId(tokenId);
 
-    vm.warp(block.timestamp + 9 days);
+    skip(9 days);
     _repay(stack1, 100 ether, address(this));
     _warpToEpochEnd(payable(publicVault));
     //after epoch end
@@ -443,7 +443,11 @@ contract AstariaTest is TestHelpers {
       tokenContract: tokenContract,
       tokenId: uint256(5),
       lienDetails: standardLienDetails,
-      amount: 10 ether
+      amount: 10 ether,
+      revertMessage: abi.encodeWithSelector(
+        IPublicVault.InvalidVaultState.selector,
+        IPublicVault.InvalidVaultStates.EPOCH_ENDED
+      )
     });
   }
 

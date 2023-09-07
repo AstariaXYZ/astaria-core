@@ -712,11 +712,11 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
     uint256 newSlope = s.slope + lienSlope;
     _setSlope(s, newSlope);
 
-    uint64 epoch = getLienEpoch(lienEnd);
-
-    if (timeToEpochEnd(epoch) == 0) {
+    //checks to make sure the current epoch isn't over
+    if (timeToEpochEnd() == 0) {
       revert InvalidVaultState(InvalidVaultStates.EPOCH_ENDED);
     }
+    uint64 epoch = getLienEpoch(lienEnd);
 
     _increaseOpenLiens(s, epoch);
     emit LienOpen(tokenId, epoch);

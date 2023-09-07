@@ -1209,6 +1209,7 @@ contract LienTokenScenarioTest is TestHelpers {
 
     // borrow 5 eth against the dummy NFT
 
+    //update to catch the proper revert now (duration of 0)
     (, ILienToken.Stack memory stackTwo) = _commitToLien({
       vault: payable(publicVault),
       strategist: strategistOne,
@@ -1224,8 +1225,8 @@ contract LienTokenScenarioTest is TestHelpers {
       }),
       amount: 1 wei,
       revertMessage: abi.encodeWithSelector(
-        IPublicVault.InvalidVaultState.selector,
-        IPublicVault.InvalidVaultStates.EPOCH_ENDED
+        ILienToken.InvalidLienState.selector,
+        ILienToken.InvalidLienStates.MIN_DURATION_NOT_MET
       )
     });
     assertEq(

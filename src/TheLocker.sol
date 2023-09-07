@@ -31,6 +31,10 @@ contract TheLocker is ERC721, ILocker {
   using SafeTransferLib for ERC20;
   uint256 internal _counter;
 
+  constructor() {
+    _disableInitializers();
+  }
+
   function initialize() public initializer {
     __initERC721("TheLocker", "LOCK");
     _counter = 1;
