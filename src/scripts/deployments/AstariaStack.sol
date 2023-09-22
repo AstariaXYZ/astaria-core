@@ -43,4 +43,5 @@ contract AstariaStack is Script {
   address ASTARIA_ROUTER_IMPL_ADDR = vm.envAddress("ASTARIA_ROUTER_IMPL_ADDR");
   address ASTARIA_ROUTER_ADDR = vm.envAddress("ASTARIA_ROUTER_PROXY_ADDR");
   address PROXY_ADMIN_ADDR = vm.envAddress("PROXY_ADMIN_ADDR");
+  address THE_LOCKER_PROXY_ADDR = vm.envAddress("THE_LOCKER_PROXY_ADDR");
 }

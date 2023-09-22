@@ -86,11 +86,20 @@ contract ERC20Validator is IERC20Validator {
       deposit.amount >= cd.minAmount && cd.minAmount != 0,
       "invalid min balance"
     );
+    //ratio in underlying token decimals
     require(cd.ratioToUnderlying != 0, "invalid ratioToUnderlying");
     leaf = keccak256(params.nlrDetails);
     ld = cd.lien;
-    uint256 maxAmount = cd.ratioToUnderlying.mulWadDown(deposit.amount);
+    uint256 decimals = ERC20(cd.token).decimals();
+    uint256 maxAmount = cd.ratioToUnderlying.mulDivDown(
+      deposit.amount,
+      decimals
+    );
     require(maxAmount <= cd.lien.maxAmount, "deposit too large");
-    ld.maxAmount = maxAmount;
+    ld.maxAmount = maxAmount; // ratioToUnderlying
+    ld.liquidationInitialAsk = ld.liquidationInitialAsk.mulDivDown(
+      deposit.amount,
+      decimals
+    );
   }
 }
