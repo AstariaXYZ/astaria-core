@@ -321,6 +321,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
       Payments memory payment;
 
       //auction repayment
+      bool isRepayment = false;
       if (s.collateralLiquidator[stack.lien.collateralId].amountOwed > 0) {
         if (msg.sender != address(s.COLLATERAL_TOKEN)) {
           revert InvalidSender();
@@ -347,6 +348,7 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         payment.interestPaid = payment.amountOwing - stack.point.amount; // interestPaid
         payment.decreaseInYIntercept = 0; // decrease in y intercept
         payment.decreaseInSlope = calculateSlope(stack);
+        isRepayment = true;
       }
       _payment(
         s,
@@ -357,7 +359,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
         stack.lien.collateralId,
         stack.lien.token,
         payment.decreaseInYIntercept, // decrease in y intercept
-        payment.decreaseInSlope // decrease in slope
+        payment.decreaseInSlope, // decrease in slope
+        isRepayment
       );
     }
   }
@@ -417,7 +420,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
     uint256 collateralId,
     address token,
     uint256 decreaseYIntercept, //remaining unpaid owed amount
-    uint256 decreaseInSlope
+    uint256 decreaseInSlope,
+    bool isRepayment
   ) internal {
     address owner = ownerOf(lienId);
 
@@ -428,7 +432,8 @@ contract LienToken is ERC721, ILienToken, AuthInitializable, AmountDeriver {
           interestPaid: interestPaid,
           decreaseInSlope: decreaseInSlope,
           amount: amountOwed,
-          lienEnd: end
+          lienEnd: end,
+          isRepayment: isRepayment
         })
       );
     }

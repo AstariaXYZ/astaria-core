@@ -42,6 +42,7 @@ interface IPublicVault is IVaultImplementation {
     uint256 decreaseInYIntercept;
     uint256 amount;
     uint64 lienEnd;
+    bool isRepayment;
   }
 
   struct AfterLiquidationParams {

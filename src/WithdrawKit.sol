@@ -41,11 +41,6 @@ contract WithdrawKit {
           revert ProcessEpochError(currentEpoch + j, reason);
         }
       }
-    } else if (currentEpoch == claimableEpoch) {
-      (uint256 liensOpenForEpoch, ) = publicVault.getEpochData(currentEpoch);
-      if (liensOpenForEpoch != 0) {
-        revert LiensOpenForEpoch(currentEpoch, liensOpenForEpoch);
-      }
     }
 
     publicVault.transferWithdrawReserve();

@@ -93,13 +93,13 @@ contract ERC20Validator is IERC20Validator {
     uint256 decimals = ERC20(cd.token).decimals();
     uint256 maxAmount = cd.ratioToUnderlying.mulDivDown(
       deposit.amount,
-      decimals
+      10 ** decimals
     );
     require(maxAmount <= cd.lien.maxAmount, "deposit too large");
     ld.maxAmount = maxAmount; // ratioToUnderlying
     ld.liquidationInitialAsk = ld.liquidationInitialAsk.mulDivDown(
       deposit.amount,
-      decimals
+      10 ** decimals
     );
   }
 }

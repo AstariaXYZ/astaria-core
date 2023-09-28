@@ -574,11 +574,13 @@ contract PublicVault is VaultImplementation, IPublicVault, ERC4626Cloned {
 
     s.balance += params.amount;
     //we are a payment
-    if (params.decreaseInSlope > 0) {
-      uint256 newSlope = s.slope - params.decreaseInSlope;
-      _setSlope(s, newSlope);
+    if (params.isRepayment) {
+      if (params.decreaseInSlope > 0) {
+        uint256 newSlope = s.slope - params.decreaseInSlope;
+        _setSlope(s, newSlope);
+      }
       _decreaseEpochLienCount(s, getLienEpoch(params.lienEnd));
-    } else if (params.decreaseInYIntercept > 0) {
+    } else if (!params.isRepayment && params.decreaseInYIntercept > 0) {
       // we are a liquidation and not a withdraw proxy
       _setYIntercept(s, s.yIntercept - params.decreaseInYIntercept);
     }

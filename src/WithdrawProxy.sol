@@ -322,7 +322,8 @@ contract WithdrawProxy is ERC4626Cloned, WithdrawVaultBase {
         interestPaid: 0,
         decreaseInSlope: 0,
         amount: transferAmount,
-        lienEnd: 0
+        lienEnd: 0,
+        isRepayment: false
       })
     );
 
