@@ -1,13 +1,15 @@
 pragma solidity =0.8.17;
 
 import "gpl/ERC721.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {ERC20} from "solady/tokens/ERC20.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "solady/utils/LibString.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
 
 interface ILocker is IERC721 {
   error NotOwner();
   error AmountMustBeGreaterThanZero();
+  error NoCodeAtAddress();
 
   struct Deposit {
     address token;
@@ -49,6 +51,9 @@ contract TheLocker is ERC721, ILocker {
     if (amount == 0) {
       revert AmountMustBeGreaterThanZero();
     }
+    if (address(token).code.length == 0) {
+      revert NoCodeAtAddress();
+    }
     token.safeTransferFrom(msg.sender, address(this), amount);
     tokenId = _counter;
     deposits[tokenId] = Deposit(address(token), amount);
@@ -87,12 +92,12 @@ contract TheLocker is ERC721, ILocker {
         abi.encodePacked(
           "data:application/json,",
           "{",
-          "'asset': ",
-          deposit.token,
-          ",",
-          "'amount': ",
-          deposit.amount,
-          "}"
+          "'asset': '",
+          LibString.toHexString(uint256(uint160(address(deposit.token)))),
+          "',",
+          "'amount': '",
+          LibString.toHexString(deposit.amount),
+          "'}"
         )
       );
   }
