@@ -3,7 +3,7 @@ pragma solidity =0.8.17;
 import "gpl/ERC721.sol";
 import {ERC20} from "solady/tokens/ERC20.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
-import {SafeTransferLib} from "solady/utils/LibString.sol";
+import {LibString} from "solady/utils/LibString.sol";
 import {IERC721} from "core/interfaces/IERC721.sol";
 
 interface ILocker is IERC721 {
@@ -93,10 +93,10 @@ contract TheLocker is ERC721, ILocker {
           "data:application/json,",
           "{",
           "'asset': '",
-          LibString.toHexString(uint256(uint160(address(deposit.token)))),
+          LibString.toString(uint256(uint160(address(deposit.token)))),
           "',",
           "'amount': '",
-          LibString.toHexString(deposit.amount),
+          LibString.toString(deposit.amount),
           "'}"
         )
       );
