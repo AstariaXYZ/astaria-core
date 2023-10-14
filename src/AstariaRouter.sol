@@ -306,6 +306,7 @@ contract AstariaRouter is
 
     if (what == FileType.AuctionWindow) {
       uint256 window = abi.decode(data, (uint256));
+      if (window >= s.minEpochLength) revert InvalidFileData();
       s.auctionWindow = window.safeCastTo32();
       if (s.auctionWindow == 0) {
         revert InvalidFileData();
@@ -327,6 +328,8 @@ contract AstariaRouter is
       s.protocolFeeNumerator = numerator.safeCastTo32();
       s.protocolFeeDenominator = denominator.safeCastTo32();
     } else if (what == FileType.MinEpochLength) {
+      uint256 minLength = abi.decode(data, (uint256));
+      if (minLength <= s.auctionWindow) revert InvalidFileData();
       s.minEpochLength = abi.decode(data, (uint256)).safeCastTo32();
       if (s.auctionWindow > s.minEpochLength) {
         revert InvalidFileData();
@@ -668,10 +671,15 @@ contract AstariaRouter is
         IPublicVault.InvalidVaultStates.EPOCH_TOO_HIGH
       );
     }
-
     if (vaultFee > s.maxStrategistFee) {
       revert IAstariaRouter.InvalidVaultFee();
     }
+    if (epochLength <= s.auctionWindow) {
+      revert IPublicVault.InvalidState(
+        IPublicVault.InvalidStates.EPOCH_TOO_LOW
+      );
+    }
+
     return
       _newVault(
         s,
